@@ -411,3 +411,20 @@ def test_run_many_keeps_results_of_every_sheet(tmp_path):
     for r in results:
         cell = wb[r.local_sheet][f"H{r.svodka_start + 12}"].value
         assert cell == pytest.approx(r.totals["s_nds"]), r.local_sheet
+
+
+def test_output_opens_on_the_priced_sheet(tmp_path):
+    """Manba fayl «202611450_БВ» da ochiladigan qilib saqlangan; 410 qismining fayli esa
+    narxlangan «202611410_БВ» da ochilishi kerak (aks holda smetachi bo'sh listni ko'radi)."""
+    from core.pipeline import run_many
+    f = TESTS / "batch/obekt_lokal_7list.xlsx"
+    assert load_workbook(f).active.title == "202611450_БВ"
+    r = run(f, f, Options(mode="smart", local_sheet="202611410_БВ", res_sheet="202611410_БР",
+                          output_path=tmp_path / "p.xlsx"))
+    wb = load_workbook(r.output_path)
+    assert wb.active.title == "202611410_БВ"
+    assert [s.title for s in wb.worksheets if s.sheet_view.tabSelected] == ["202611410_БВ"]
+
+    steps = [(f, Options(mode="smart", local_sheet=f"2026114{n}_БВ", res_sheet=f"2026114{n}_БР")) for n in ("10", "20")]
+    run_many(f, steps, tmp_path / "all.xlsx")
+    assert load_workbook(tmp_path / "all.xlsx").active.title == "202611410_БВ"

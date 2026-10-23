@@ -69,6 +69,7 @@ class Options:
     categories: Optional[Dict[int, str]] = None  # smart: qo'lda kategoriya {qator: "I".."M"}
     prices: Optional[Dict[int, float]] = None    # smart: qo'lda narx / tasdiqlangan taklif {qator: narx}
     log_title: Optional[str] = None              # LOG list nomi (bir faylda bir nechta lokal narxlanganda)
+    active_sheet: Optional[str] = None           # smart: fayl qaysi listda ochilsin (standart: narxlangan lokal)
 
 
 @dataclass
@@ -218,6 +219,13 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     if smart:
         mark_unpriced(ws, start_r, end_r)
     write_log(wb, priced.log_rows, smart=smart, title=opts.log_title or LOG_TITLE)
+    if smart:
+        # Fayl narxlangan listda ochilsin: manba fayl boshqa (narxlanmagan) listda saqlangan bo'lishi mumkin,
+        # shunda smetachi ochganda «hammasi bo'sh» deb o'ylaydi.
+        target = wb[opts.active_sheet] if opts.active_sheet in wb.sheetnames else ws
+        for sheet in wb.worksheets:
+            sheet.sheet_view.tabSelected = sheet is target
+        wb.active = target
 
     # --- svodka summalari (Excel saqlagan qiymatlar + biz yozgan formulalar) ---
     wb_vals = load_workbook(local_xlsx, data_only=True)
@@ -358,7 +366,9 @@ def run_many(local_path, steps: List[Tuple[object, Options]], output_path) -> Li
             last = n == len(steps)
             out = output_path if last else Path(tmp) / f"step{n}{output_path.suffix}"
             opts = Options(**{**opts.__dict__, "output_path": out,
-                              "log_title": opts.log_title or log_title_for(opts.local_sheet or "")})
+                              "log_title": opts.log_title or log_title_for(opts.local_sheet or ""),
+                              # umumiy fayl birinchi narxlangan listda ochilsin
+                              "active_sheet": opts.active_sheet or steps[0][1].local_sheet})
             results.append(run(current, res_path, opts))
             current = out
     # har qadam oldingi listlarning natijalarini openpyxl orqali qayta saqlaganda yo'qotadi — oxirida hammasini yozamiz
