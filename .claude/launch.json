@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "narxlash-web",
+      "runtimeExecutable": "C:\\Users\\user\\Desktop\\exwork\\venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-X", "utf8", "manage.py", "runserver", "127.0.0.1:8010"],
+      "port": 8010,
+      "autoPort": false
+    }
+  ]
+}

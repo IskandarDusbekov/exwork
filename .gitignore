@@ -218,3 +218,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Нархлаш: yuklangan va natija fayllar
+media/

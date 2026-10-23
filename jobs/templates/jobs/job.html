@@ -1,0 +1,162 @@
+{% extends "jobs/base.html" %}
+{% load narx %}
+{% block title %}{{ job.local_name }} · Нархлаш{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+  <div>
+    <h1 class="text-2xl font-semibold">{{ job.local_name }}</h1>
+    <p class="text-slate-500 text-sm mt-1">Ресурс: {{ job.res_name }}</p>
+  </div>
+  {% if job.status == "done" %}
+  <a href="{% url 'job_download' job.id %}" class="rounded-lg bg-emerald-600 px-5 py-3 font-medium text-white shadow-sm hover:bg-emerald-700">
+    Юклаб олиш · {{ job.download_name }}
+  </a>
+  {% endif %}
+</div>
+
+{% if job.status == "failed" %}
+<div class="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">
+  <div class="font-medium">Нархлашда хато</div>
+  <div class="text-sm mt-1 font-mono">{{ job.error }}</div>
+</div>
+{% endif %}
+
+{# ---- созлаш ---- #}
+<form method="post" action="{% url 'job_run' job.id %}" data-busy
+      class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-8 grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+  {% csrf_token %}
+  <label class="block text-sm">
+    <span class="font-medium">Локал лист (БВ)</span>
+    <select name="local_sheet" class="mt-1 w-full rounded-md border border-slate-300 px-2 py-2">
+      {% for s in job.local_sheets %}<option value="{{ s }}" {% if s == job.local_sheet %}selected{% endif %}>{{ s }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="block text-sm">
+    <span class="font-medium">Ресурс лист (БР)</span>
+    <select name="res_sheet" class="mt-1 w-full rounded-md border border-slate-300 px-2 py-2">
+      {% for s in job.res_sheets %}<option value="{{ s }}" {% if s == job.res_sheet %}selected{% endif %}>{{ s }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="block text-sm">
+    <span class="font-medium">Fuzzy: <span id="fuzzy-out" class="num">{{ job.fuzzy }}%</span></span>
+    <input type="range" name="fuzzy" min="80" max="100" step="1" value="{{ job.fuzzy }}" data-out="fuzzy-out" class="mt-3 w-full accent-slate-900">
+  </label>
+  <button type="submit" class="rounded-lg bg-slate-900 px-6 py-2.5 font-medium text-white hover:bg-slate-700 disabled:opacity-60">
+    <span class="when-idle">{% if job.status == "done" %}Қайта нархлаш{% else %}Нархлаш{% endif %}</span>
+    <span class="when-busy">Ҳисобланяпти…</span>
+  </button>
+</form>
+
+{% if job.status == "done" %}
+{% with r=job.result %}
+<p class="text-sm text-slate-500 mb-3">
+  Лист <b>{{ job.local_sheet }}</b> ↔ <b>{{ job.res_sheet }}</b>, fuzzy {{ job.fuzzy }}% ·
+  нархланган қаторлар {{ r.start_row }}–{{ r.end_row }}, сумма қатори {{ r.sum_row }}, сводка {{ r.svodka_start }}-қатордан
+</p>
+{% endwith %}
+
+{# ---- статистика ---- #}
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+  {% for label, count, color in stats %}
+  <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+    <div class="text-xs text-slate-500">{{ label }}</div>
+    <div class="text-2xl font-semibold num {% if count %}text-{{ color }}-600{% else %}text-slate-300{% endif %}">{{ count }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] mb-8">
+  {# ---- сводка ---- #}
+  <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-baseline">
+      <h2 class="font-semibold">Сводка</h2>
+      <span class="text-sm">Всего с НДС: <b class="num {% if s_nds|is_error %}text-rose-600{% endif %}">{{ s_nds|som }}</b></span>
+    </div>
+    <table class="w-full text-sm">
+      {% for s in svodka %}
+      <tr class="border-t border-slate-100 {% if forloop.last %}bg-slate-50 font-semibold{% endif %}">
+        <td class="px-4 py-1.5">{{ s.text }}</td>
+        <td class="px-2 py-1.5 text-right text-slate-500 num">{{ s.pct|pct }}</td>
+        <td class="px-4 py-1.5 text-right num {% if s.value|is_error %}text-rose-600{% endif %}">{{ s.value|som }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% if has_errors %}
+    <div class="m-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
+      Excel'да ҳам <b>#ЗНАЧ!</b> чиқади: G устунида рақам бўлмаган қийматлар бор (масалан «--», «ТОПИЛМАДИ»).
+      Улар пастдаги жадвалда қизил. Бу эски дастур билан бир хил натижа (compat режими).
+    </div>
+    {% endif %}
+  </section>
+
+  {# ---- муаммолар ---- #}
+  <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-100">
+      <h2 class="font-semibold">Муаммоли қаторлар <span class="text-slate-400 font-normal">({{ problems|length }})</span></h2>
+      <p class="text-xs text-slate-500">G устунида рақам эмас — H формуласи хато беради</p>
+    </div>
+    {% if problems %}
+    <div class="max-h-80 overflow-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-slate-500 text-xs sticky top-0"><tr>
+        <th class="px-3 py-2 text-left">№</th><th class="px-3 py-2 text-left">Ном</th><th class="px-3 py-2 text-left">Бирлик</th>
+        <th class="px-3 py-2 text-left">Статус</th><th class="px-3 py-2 text-right">G</th>
+      </tr></thead>
+      {% for p in problems %}
+      <tr class="border-t border-slate-100">
+        <td class="px-3 py-1.5 num text-slate-500">{{ p.row }}</td>
+        <td class="px-3 py-1.5">{{ p.name }}{% if p.picked_name %}<div class="text-xs text-slate-400">→ {{ p.picked_name }}</div>{% endif %}</td>
+        <td class="px-3 py-1.5 text-slate-500">{% if p.unit != "None" %}{{ p.unit }}{% endif %}</td>
+        <td class="px-3 py-1.5 text-xs">{{ p.status }}</td>
+        <td class="px-3 py-1.5 text-right text-rose-600">{{ p.written|som }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    </div>
+    {% else %}
+    <p class="px-4 py-6 text-sm text-emerald-700">Ҳамма қаторларда нарх рақам ✓</p>
+    {% endif %}
+  </section>
+</div>
+
+{# ---- ҳамма қаторлар ---- #}
+<section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+  <div class="px-4 py-3 border-b border-slate-100 flex flex-wrap gap-x-4 items-baseline">
+    <h2 class="font-semibold">Нархланган қаторлар</h2>
+    <span class="text-xs text-slate-500">H = Excel ҳисоблайдиган сумма; I — иш ҳақи, J — машина, K — материал</span>
+  </div>
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-slate-500 text-xs"><tr>
+      <th class="px-3 py-2 text-right">№</th>
+      <th class="px-3 py-2 text-left">Наименование (C)</th>
+      <th class="px-3 py-2 text-left">Ед. (D)</th>
+      <th class="px-3 py-2 text-left">Статус</th>
+      <th class="px-3 py-2 text-right">G нарх</th>
+      <th class="px-3 py-2 text-right">H сумма</th>
+      <th class="px-3 py-2 text-center">Устун</th>
+    </tr></thead>
+    <tbody>
+    {% for row in rows %}
+    <tr class="border-t border-slate-100 {% if not row.name %}text-slate-300{% endif %}">
+      <td class="px-3 py-1 text-right num text-slate-400">{{ row.row }}</td>
+      <td class="px-3 py-1">{{ row.name|default_if_none:"" }}{% if row.status == "FUZZY" or row.status == "AMBIGUOUS" %}<div class="text-xs text-slate-400">→ {{ row.picked_name }} ({{ row.score|score }})</div>{% endif %}</td>
+      <td class="px-3 py-1 text-slate-500">{{ row.unit|default_if_none:"" }}</td>
+      <td class="px-3 py-1 text-xs">
+        {% if row.zero %}<span class="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">нол қоидаси</span>
+        {% elif row.status == "EXACT" %}<span class="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700">EXACT</span>
+        {% elif row.status == "FUZZY" %}<span class="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700">FUZZY</span>
+        {% elif row.status == "AMBIGUOUS" %}<span class="rounded bg-orange-50 px-1.5 py-0.5 text-orange-700">ШАБҲАЛИ</span>
+        {% elif row.status == "NOT_FOUND" %}<span class="rounded bg-rose-50 px-1.5 py-0.5 text-rose-700">ТОПИЛМАДИ</span>{% endif %}
+      </td>
+      <td class="px-3 py-1 text-right num {% if row.g|is_number %}{% elif row.g %}text-rose-600{% endif %}">{{ row.g|som }}</td>
+      <td class="px-3 py-1 text-right num {% if row.h|is_error %}text-rose-600{% endif %}">{{ row.h|som }}</td>
+      <td class="px-3 py-1 text-center text-xs text-slate-500">{% if row.kind == "workers" %}I{% elif row.kind == "machines" %}J{% else %}K{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

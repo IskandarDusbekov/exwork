@@ -1,0 +1,42 @@
+{% extends "jobs/base.html" %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-2xl font-semibold mb-1">Файлларни юклаш</h1>
+  <p class="text-slate-500 mb-6">Локал (БВ, Форма 5) ва ресурс (БР, Форма 6а) файлини танланг. Иккаласи битта файлда бўлса, ресурсни бўш қолдиринг.</p>
+
+  {% if error %}
+  <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" data-busy class="bg-white rounded-xl border border-slate-200 p-6 space-y-5 shadow-sm">
+    {% csrf_token %}
+    <label class="block">
+      <span class="font-medium">Локал файл <span class="text-rose-600">*</span></span>
+      <input type="file" name="local" accept=".xls,.xlsx,.xlsm" required
+             class="mt-2 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-white hover:file:bg-slate-700">
+    </label>
+    <label class="block">
+      <span class="font-medium">Ресурс файл</span>
+      <input type="file" name="res" accept=".xls,.xlsx,.xlsm"
+             class="mt-2 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-200 file:px-4 file:py-2 hover:file:bg-slate-300">
+      <span class="mt-1 block text-xs text-slate-500">Ресурс листида C дан олдин бўш устун қўшилган бўлиши керак (ном D да, нарх G да).</span>
+    </label>
+    <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-3 font-medium text-white hover:bg-slate-700 disabled:opacity-60">
+      <span class="when-idle">Юклаш ва листларни кўриш</span>
+      <span class="when-busy items-center gap-2">Юкланяпти, .xls очиляпти…</span>
+    </button>
+  </form>
+
+  {% if recent %}
+  <h2 class="mt-10 mb-2 font-medium text-slate-600">Охирги ишлар</h2>
+  <ul class="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 text-sm">
+    {% for j in recent %}
+    <li><a href="{% url 'job' j.id %}" class="flex justify-between px-4 py-2 hover:bg-slate-50">
+      <span>{{ j.local_name }}{% if j.local_sheet %} · <span class="text-slate-500">{{ j.local_sheet }}</span>{% endif %}</span>
+      <span class="text-slate-500">{{ j.get_status_display }} · {{ j.created|date:"d.m H:i" }}</span>
+    </a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endblock %}

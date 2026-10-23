@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Нархлаш{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <style>
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .busy .when-idle { display: none; }
+    .when-busy { display: none; }
+    .busy .when-busy { display: inline-flex; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+      <a href="{% url 'index' %}" class="font-semibold text-lg text-slate-900">Нархлаш</a>
+      <span class="text-sm text-slate-500">смета нархлаш · compat режими</span>
+    </div>
+  </header>
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+  </main>
+  <script>
+    // Узоқ ишлайдиган формада тугмани блоклаб, «ишланяпти…» кўрсатамиз
+    document.querySelectorAll("form[data-busy]").forEach(function (f) {
+      f.addEventListener("submit", function () {
+        f.classList.add("busy");
+        f.querySelectorAll("button[type=submit]").forEach(function (b) { b.disabled = true; });
+      });
+    });
+    document.querySelectorAll("input[type=range][data-out]").forEach(function (r) {
+      var out = document.getElementById(r.dataset.out);
+      var sync = function () { out.textContent = r.value + "%"; };
+      r.addEventListener("input", sync); sync();
+    });
+  </script>
+</body>
+</html>

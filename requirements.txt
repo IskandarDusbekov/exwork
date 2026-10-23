@@ -1,0 +1,5 @@
+Django>=5.2
+openpyxl>=3.1
+pytest>=8
+# Windows'da LibreOffice bo'lmasa .xls ni Excel orqali ochish uchun (ixtiyoriy)
+pywin32; sys_platform == "win32"
