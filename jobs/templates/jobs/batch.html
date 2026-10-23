@@ -1,0 +1,258 @@
+{% extends "jobs/base.html" %}
+{% load narx %}
+{% block title %}{{ batch.name }} · Нархлаш{% endblock %}
+{% block header_class %}px-4 lg:px-6{% endblock %}
+{% block main_class %}px-4 lg:px-6 py-5{% endblock %}
+{% block content %}
+<div class="lg:grid lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-6">
+
+{# ================= ён панел ================= #}
+<aside class="mb-6 lg:mb-0">
+  <div class="space-y-4 lg:sticky lg:top-4">
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="text-xs uppercase tracking-wide text-slate-400">Объект</div>
+      <div class="font-semibold break-words">{{ batch.name }}</div>
+      <div class="mt-1"><span class="rounded px-1.5 py-0.5 text-xs {% if batch.status == 'done' %}bg-emerald-100 text-emerald-800{% else %}bg-amber-100 text-amber-800{% endif %}">{{ batch.get_status_display }}</span></div>
+      <ul class="mt-3 space-y-1.5 text-sm">
+        {% for i, f, fsheets in sheets_by_file %}
+        <li class="rounded-md bg-slate-50 px-2 py-1.5">📄 <span class="break-words">{{ f.name }}</span>
+          <div class="text-xs text-slate-500">{{ fsheets|length }} та лист</div></li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    {% if jobs %}
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="text-xs text-slate-500">Ҳамма қисмлар · Всего с НДС</div>
+      <div class="text-2xl font-bold num">{{ grand_total|som }}</div>
+      {% if not_priced_total %}
+      <div class="mt-2 rounded-md bg-rose-50 px-2 py-1.5 text-xs text-rose-800"><b>{{ not_priced_total }} та қатор нархланмади</b> — қисмларни очиб тўғирланг</div>
+      {% else %}
+      <div class="mt-2 rounded-md bg-emerald-50 px-2 py-1.5 text-xs text-emerald-800">Ҳамма қаторлар нархланган ✓</div>
+      {% endif %}
+      <a href="{% url 'batch_download' batch.id %}" class="mt-3 block rounded-lg bg-emerald-600 px-3 py-2.5 text-center text-sm font-medium text-white shadow-sm hover:bg-emerald-700">
+        ⬇ Ҳаммасини битта файлда</a>
+      <p class="mt-1 text-xs text-slate-500">Ҳар бир локал лист нархланади, ҳар бирига ўз «LOG» листи. Қисмлардаги қўлда ўзгаришлар ҳам киради.</p>
+    </div>
+    {% endif %}
+
+    <nav class="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
+      <div class="px-1 pb-2 text-xs uppercase tracking-wide text-slate-400">Бўлимлар</div>
+      {% if jobs %}<a href="#results" class="block rounded-md px-2 py-1.5 hover:bg-slate-100">✅ Натижалар</a>{% endif %}
+      <a href="#structure" class="block rounded-md px-2 py-1.5 hover:bg-slate-100">🌳 Тузилиш ва жуфтликлар</a>
+      <a href="#sheets" class="block rounded-md px-2 py-1.5 hover:bg-slate-100">📑 Листлар тури</a>
+      <a href="{% url 'index' %}" class="block rounded-md px-2 py-1.5 text-slate-500 hover:bg-slate-100">＋ Янги юклаш</a>
+    </nav>
+  </div>
+</aside>
+
+<div class="min-w-0 space-y-6">
+
+{# ---- босқичлар ---- #}
+<ol class="flex flex-wrap items-center gap-2 text-sm">
+  {% with done=jobs %}
+  <li class="flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-emerald-800"><b>1</b> Юклаш ✓</li>
+  <li class="text-slate-300">—</li>
+  <li class="flex items-center gap-2 rounded-full px-3 py-1 {% if not done %}bg-slate-900 text-white{% else %}bg-emerald-100 text-emerald-800{% endif %}"><b>2</b> Тузилишни текшириш{% if done %} ✓{% endif %}</li>
+  <li class="text-slate-300">—</li>
+  <li class="flex items-center gap-2 rounded-full px-3 py-1 {% if done and not_priced_total %}bg-slate-900 text-white{% elif done %}bg-emerald-100 text-emerald-800{% else %}bg-slate-100 text-slate-500{% endif %}"><b>3</b> Қисмларни тўғирлаш{% if done and not not_priced_total %} ✓{% endif %}</li>
+  <li class="text-slate-300">—</li>
+  <li class="flex items-center gap-2 rounded-full px-3 py-1 {% if done and not not_priced_total %}bg-slate-900 text-white{% else %}bg-slate-100 text-slate-500{% endif %}"><b>4</b> Юклаб олиш</li>
+  {% endwith %}
+</ol>
+
+{% if not jobs %}
+<div class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-800">
+  <div class="text-xs font-semibold uppercase tracking-wide text-sky-700">Ҳозир нима қилиш керак</div>
+  Тизим {{ batch.files|length }} та файлдаги листларни ўқиб, ҳар бир <b>локал</b> (иш ҳажмлари) учун мос <b>ресурс</b> (нархлар) листини топди.
+  Ҳар бир жуфтликда <b>мослик</b>ни кўринг — бу локалдаги ресурсларнинг неча фоизи ресурс листида аниқ топилганини билдиради
+  (<span class="rounded bg-emerald-100 px-1 text-emerald-800">70%+</span> яхши,
+  <span class="rounded bg-amber-100 px-1 text-amber-800">40–70%</span> текширинг,
+  <span class="rounded bg-rose-100 px-1 text-rose-800">кам</span> — эҳтимол бошқа ресурс керак).
+  Тўғри бўлса — пастдаги <b>«Тасдиқлаш ва нархлаш»</b>.
+</div>
+{% elif not_priced_total %}
+<div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-slate-800">
+  <div class="text-xs font-semibold uppercase tracking-wide text-rose-700">Ҳозир нима қилиш керак</div>
+  Ҳамма қисмлар нархланди, лекин <b>{{ not_priced_total }} та қатор</b> аниқ топилмади. Қизил рақамли қисмни <b>«Очиш»</b> орқали очинг,
+  таклифни қабул қилинг ёки нархни ёзинг. Кейин бу ерга қайтиб <b>«⬇ Ҳаммасини битта файлда»</b>.
+</div>
+{% else %}
+<div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-slate-800">
+  <div class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Тайёр</div>
+  Ҳамма қисмлар тўлиқ нархланган ✓ Чапдаги <b>«⬇ Ҳаммасини битта файлда»</b> ни босинг ёки ҳар бир қисмни алоҳида юклаб олинг.
+</div>
+{% endif %}
+
+{# ================= натижалар ================= #}
+{% if jobs %}
+<section id="results" class="scroll-mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+  <div class="px-4 py-3 border-b border-slate-100 flex flex-wrap items-baseline gap-x-3">
+    <h2 class="font-semibold">Натижалар</h2>
+    <span class="text-xs text-slate-500">ҳар бир қисмни очиб — қизил қаторлар, устунлар, фоизлар билан ишланг</span>
+  </div>
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-xs text-slate-500"><tr>
+      <th class="px-3 py-2 text-left">Қисм</th><th class="px-3 py-2 text-left">Локал</th><th class="px-3 py-2 text-left">Ресурс</th>
+      <th class="px-3 py-2 text-right">Всего с НДС</th><th class="px-3 py-2 text-left">Ҳолат</th><th class="px-3 py-2"></th>
+    </tr></thead>
+    {% for j in jobs %}
+    <tr class="border-t border-slate-100">
+      <td class="px-3 py-2 font-medium">{{ j.batch_label }}</td>
+      <td class="px-3 py-2 text-slate-600">{{ j.local_sheet }}</td>
+      <td class="px-3 py-2 text-slate-600">{{ j.res_name }}</td>
+      {% if j.status == "done" %}
+      <td class="px-3 py-2 text-right num font-semibold">{{ j.result.totals.s_nds|som }}</td>
+      <td class="px-3 py-2">{% if j.result.stats.NOT_PRICED %}<span class="rounded bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">🔴 {{ j.result.stats.NOT_PRICED }} та қатор нархланмади</span>{% else %}<span class="rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">✓ тайёр</span>{% endif %}</td>
+      {% else %}
+      <td colspan="2" class="px-3 py-2 text-right text-rose-700 text-xs">{{ j.error|truncatechars:80 }}</td>
+      {% endif %}
+      <td class="px-3 py-2 text-right whitespace-nowrap">
+        <a href="{% url 'job' j.id %}" class="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white hover:bg-slate-700">Очиш</a>
+        {% if j.status == "done" %}<a href="{% url 'job_download' j.id %}" class="ml-1 rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100" title="Фақат шу қисм">⬇</a>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+</section>
+{% endif %}
+
+{# ================= тузилиш ================= #}
+<details id="structure" class="scroll-mt-4 group" {% if not jobs %}open{% endif %}>
+<summary class="flex cursor-pointer select-none flex-wrap items-baseline gap-x-3 rounded-xl {% if jobs %}border border-slate-200 bg-white px-4 py-3 shadow-sm{% endif %}">
+  <h2 class="text-lg font-semibold">🌳 Тузилиш ва жуфтликлар</h2>
+  {% if jobs %}<span class="text-sm text-slate-500">{{ batch.pairs|length }} та жуфтлик · ўзгартириш учун очинг ▾</span>
+  {% else %}<span class="text-sm text-slate-500">ҳар бир локалга ресурс мазмуни бўйича топилди — текширинг, керак бўлса ўзгартиринг</span>{% endif %}
+</summary>
+<form method="post" action="{% url 'batch_confirm' batch.id %}" data-busy class="mt-4 space-y-4">
+  {% csrf_token %}
+
+  {% for st in tree %}
+  <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-2.5 text-sm"><span class="text-slate-400">🏗 Стройка:</span> <b>{{ st.stroyka }}</b></div>
+    <div class="space-y-3 p-3">
+      {% for o in st.objects %}
+      <div class="rounded-lg border border-slate-200">
+        <div class="bg-slate-50 px-3 py-2 text-sm rounded-t-lg"><span class="text-slate-400">🏢 Объект:</span> <b>{{ o.obj }}</b></div>
+        <div class="hidden gap-3 border-b border-slate-100 px-3 py-1.5 text-xs font-medium text-slate-400 lg:grid lg:grid-cols-[auto_minmax(0,1.1fr)_auto_minmax(0,1.3fr)_minmax(0,1fr)]">
+          <span title="Белгиланганлар нархланади">Нарх­лаш</span><span>Локал лист — иш ҳажмлари</span><span></span>
+          <span>Ресурс лист — нархлар</span><span>Қисм номи (натижада)</span>
+        </div>
+        <div class="divide-y divide-slate-100">
+          {% for p in o.pairs %}
+          <div class="grid gap-3 px-3 py-3 lg:grid-cols-[auto_minmax(0,1.1fr)_auto_minmax(0,1.3fr)_minmax(0,1fr)] lg:items-start">
+            <label class="flex items-center gap-2 text-sm pt-1">
+              <input type="checkbox" name="include_{{ p.n }}" value="1" {% if p.include %}checked{% endif %} class="h-4 w-4 accent-emerald-600">
+              <span class="lg:hidden">нархлаш</span>
+            </label>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="rounded bg-sky-100 px-1.5 py-0.5 text-xs font-semibold text-sky-800">Локал</span>
+                <b class="break-words">{{ p.loc.sheet }}</b>
+                {% if p.loc.number %}<span class="text-xs text-slate-500">№ {{ p.loc.number }}</span>{% endif %}
+              </div>
+              <div class="text-xs text-slate-500">📄 {{ p.loc.file_name }} · {{ p.loc.rows }} та ресурс қатори{% if p.loc.part %} · {{ p.loc.part }}{% endif %}</div>
+            </div>
+            <div class="hidden lg:block pt-1 text-slate-400">⟶</div>
+            <div class="min-w-0">
+              <select name="res_{{ p.n }}" class="w-full rounded-md border px-2 py-1.5 text-sm {% if not p.res %}border-rose-300 bg-rose-50{% else %}border-slate-300{% endif %}">
+                <option value="">— ресурс листини танланг —</option>
+                {% for r in resources %}
+                <option value="{{ r.key }}" {% if r.key == p.res %}selected{% endif %}>Ресурс · {{ r.sheet }}{% if r.number %} · № {{ r.number }}{% endif %} · {{ r.file_name }} ({{ r.rows }} қатор)</option>
+                {% endfor %}
+              </select>
+              {% if p.res_sheet %}<div class="mt-0.5 text-xs text-slate-500">📄 {{ p.res_sheet.file_name }} · {{ p.res_sheet.rows }} та нарх қатори{% if p.res_sheet.number %} · № {{ p.res_sheet.number }}{% endif %}</div>{% endif %}
+              <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                {% if p.res %}
+                <span title="Локалдаги ресурсларнинг неча фоизи шу ресурс листида аниқ топилди" class="cursor-help rounded px-1.5 py-0.5 font-semibold {% if p.overlap >= 0.7 %}bg-emerald-100 text-emerald-800{% elif p.overlap >= 0.4 %}bg-amber-100 text-amber-800{% else %}bg-rose-100 text-rose-800{% endif %}">мослик {% widthratio p.overlap 1 100 %}%</span>
+                <span class="text-slate-500">{{ p.reasons|join:" · " }}</span>
+                {% else %}
+                <span class="rounded bg-rose-100 px-1.5 py-0.5 font-semibold text-rose-800">жуфт топилмади</span>
+                <span class="text-slate-500">рўйхатдан танланг ёки ресурс файлини ҳам юкланг</span>
+                {% endif %}
+              </div>
+            </div>
+            <label class="block text-xs text-slate-500"><span class="lg:hidden">Қисм номи (натижада)</span>
+              <input type="text" name="label_{{ p.n }}" value="{{ p.label }}" class="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-900">
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% empty %}
+  <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">Локал (ресурслар рўйхати) лист топилмади. Пастда листлар турини текширинг.</div>
+  {% endfor %}
+
+  {% if unused or duplicates or unknown %}
+  <div class="grid gap-3 md:grid-cols-3 text-sm">
+    {% if unused %}<div class="rounded-xl border border-slate-200 bg-white p-3">
+      <div class="mb-1 font-medium">Жуфтсиз ресурс листлари ({{ unused|length }})</div>
+      {% for s in unused %}<div class="text-slate-600">Ресурс · {{ s.sheet }} <span class="text-xs text-slate-400">({{ s.file_name }})</span></div>{% endfor %}
+    </div>{% endif %}
+    {% if duplicates %}<div class="rounded-xl border border-slate-200 bg-white p-3">
+      <div class="mb-1 font-medium">Нусхалар — бир марта олинди ({{ duplicates|length }})</div>
+      {% for s in duplicates %}<div class="text-slate-600">{{ s.sheet }} <span class="text-xs text-slate-400">({{ s.file_name }})</span></div>{% endfor %}
+    </div>{% endif %}
+    {% if unknown %}<div class="rounded-xl border border-slate-200 bg-white p-3">
+      <div class="mb-1 font-medium">Ўтказиб юборилди ({{ unknown|length }})</div>
+      {% for s in unknown %}<div class="text-slate-600" title="{{ s.reason }}">{{ s.sheet }} <span class="text-xs text-slate-400">({{ s.file_name }})</span></div>{% endfor %}
+    </div>{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-white shadow-2xl">
+    <button type="submit" class="rounded-lg bg-emerald-500 px-5 py-2.5 font-semibold text-white hover:bg-emerald-600 disabled:opacity-60">
+      <span class="when-idle">{% if jobs %}Қайта тасдиқлаш ва нархлаш{% else %}Тасдиқлаш ва нархлаш{% endif %}</span>
+      <span class="when-busy">Нархланяпти…</span>
+    </button>
+    <span class="text-sm text-slate-300">белгиланган ва ресурси танланган жуфтликлар нархланади{% if jobs %} · ⚠ олдинги натижалар ва қисмлардаги қўлда ўзгаришлар ўчади{% endif %}</span>
+  </div>
+</form>
+</details>
+
+{# ================= листлар тури ================= #}
+<details id="sheets" class="scroll-mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden" {% if unknown or not batch.pairs %}open{% endif %}>
+<summary class="flex cursor-pointer select-none flex-wrap items-baseline gap-x-3 px-4 py-3">
+  <h2 class="font-semibold">📑 Листлар тури</h2>
+  <span class="text-xs text-slate-500">{{ batch.sheets|length }} та лист · тизим мазмунидан аниқлади — нотўғри бўлса шу ерда тузатинг ▾</span>
+</summary>
+<form method="post" action="{% url 'batch_replan' batch.id %}" data-busy class="border-t border-slate-100">
+  {% csrf_token %}
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-xs text-slate-500"><tr>
+      <th class="px-3 py-2 text-left">Файл · лист</th><th class="px-3 py-2 text-left">Тури</th><th class="px-3 py-2 text-left">Сабаб</th>
+      <th class="px-3 py-2 text-left">№</th><th class="px-3 py-2 text-left">Объект / қисм</th><th class="px-3 py-2 text-right">Қатор</th>
+    </tr></thead>
+    {% for s in batch.sheets %}
+    <tr class="border-t border-slate-100 {% if s.duplicate_of %}text-slate-400{% endif %}">
+      <td class="px-3 py-1.5"><span class="text-xs text-slate-400">{{ s.file_name }} ·</span> <b>{{ s.sheet }}</b>{% if s.duplicate_of %} <span class="text-xs">(нусха)</span>{% endif %}</td>
+      <td class="px-3 py-1.5">
+        <select name="role_{{ forloop.counter0 }}" class="rounded-md border px-1.5 py-1 text-xs {% if s.role == 'local' %}border-sky-300 bg-sky-50{% elif s.role == 'resource' %}border-amber-300 bg-amber-50{% else %}border-slate-300{% endif %}">
+          {% for value, label in role_labels %}<option value="{{ value }}" {% if value == s.role %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </td>
+      <td class="px-3 py-1.5 text-xs text-slate-500">{{ s.reason }}</td>
+      <td class="px-3 py-1.5 text-xs">{{ s.number }}</td>
+      <td class="px-3 py-1.5 text-xs text-slate-600">{{ s.obj }}{% if s.part %} · {{ s.part }}{% endif %}</td>
+      <td class="px-3 py-1.5 text-right num text-xs">{{ s.rows }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+  <div class="px-4 py-3 border-t border-slate-100">
+    <button type="submit" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-60">
+      <span class="when-idle">Қайта жуфтлаш</span><span class="when-busy">Таҳлил қилиняпти…</span></button>
+    <span class="ml-2 text-xs text-slate-500">Масалан, свод листини «Ўтказиш», нотўғри аниқланган листни «Локал» ёки «Ресурс» қилинг.</span>
+  </div>
+</form>
+</details>
+
+</div>
+</div>
+{% endblock %}

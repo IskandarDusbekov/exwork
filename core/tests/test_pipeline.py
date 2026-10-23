@@ -103,10 +103,14 @@ def test_missing_sheet(sample_files, tmp_path):
 def test_cli(sample_files, tmp_path, capsys):
     local, res = sample_files
     out = tmp_path / "cli.xlsx"
-    assert main([str(local), str(res), "-o", str(out), "--fuzzy", "95"]) == 0
+    assert main([str(local), str(res), "-o", str(out), "--fuzzy", "95", "--mode", "compat"]) == 0
     assert out.is_file()
     text = capsys.readouterr().out
     assert "Tayyor" in text and "s_nds" in text and "#VALUE!" in text
+
+    assert main([str(local), str(res), "-o", str(out)]) == 0  # standart: smart
+    text = capsys.readouterr().out
+    assert "rejim: smart" in text and "#VALUE!" not in text
 
 
 @pytest.mark.parametrize("raw, value", [

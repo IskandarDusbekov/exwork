@@ -1,10 +1,15 @@
 """Qator turlarini aniqlash: ishchilar / mashinalar / boshqa (reja §2.5–2.6)."""
 import re
-from typing import List
+from typing import List, Optional, Tuple
 
-WORKERS = "workers"   # I ustun
-MACHINES = "machines"  # J ustun
-OTHER = "other"        # K ustun
+WORKERS = "workers"      # I ustun — ish haqi
+MACHINES = "machines"    # J ustun — mashina va mexanizmlar
+OTHER = "other"          # K ustun — materiallar
+CABLE = "cable"          # L ustun — kabel-o'tkazgich mahsulotlari (faqat smart: RES bo'limi yoki qo'lda)
+EQUIPMENT = "equipment"  # M ustun — uskunalar (faqat smart: RES bo'limi yoki qo'lda)
+
+KIND_COLUMN = {WORKERS: "I", MACHINES: "J", OTHER: "K", CABLE: "L", EQUIPMENT: "M"}
+COLUMN_KIND = {col: kind for kind, col in KIND_COLUMN.items()}
 
 
 def _compact_unit(unit_raw) -> str:
@@ -61,6 +66,43 @@ def is_machinists_labor(name_raw) -> bool:
 def is_workers_row(name_raw, unit_raw) -> bool:
     """Ishchilar mehnati qatori: nol qoidasi (§2.5) va I ustun uchun."""
     return is_chel_ch(unit_raw) and is_workers_labor(name_raw) and not is_machinists_labor(name_raw)
+
+
+def section_kind(text) -> Optional[str]:
+    """Resurs faylidagi bo'lim sarlavhasi («ТРУДОВЫЕ РЕСУРСЫ», «ОБОРУДОВАНИЕ» …) -> kategoriya."""
+    t = str(text or "").lower().replace("ё", "е")
+    if not t.strip() or "итого" in t or "всего" in t:
+        return None
+    if "оборудован" in t:
+        return EQUIPMENT
+    if "кабел" in t:
+        return CABLE
+    if "машин" in t or "механизм" in t:
+        return MACHINES
+    if "труд" in t:
+        return WORKERS
+    if "материал" in t or "инертн" in t or "конструкц" in t:
+        return OTHER
+    return None
+
+
+_CABLE_WORDS = ("кабел", "провод", "шнур")
+_EQUIPMENT_WORDS = ("оборудован", "насос", "трансформатор", "лифт", "кондиционер", "вентилятор",
+                    "электродвигател", "котел", "водонагревател", "счетчик", "щит распределит")
+
+
+def name_hint(name_raw) -> Optional[Tuple[str, str]]:
+    """Nomdan taxmin (faqat TAKLIF uchun): ``(kategoriya, topilgan so'z)`` yoki None.
+    «проволока» kabel emas — «провол» «провод» bilan boshlanmaydi."""
+    tokens = _tokenize_ru(str(name_raw or ""))
+    joined = " ".join(tokens)
+    for word in _EQUIPMENT_WORDS:
+        if (" " in word and word in joined) or any(t.startswith(word) for t in tokens):
+            return EQUIPMENT, word
+    for word in _CABLE_WORDS:
+        if any(t.startswith(word) for t in tokens):
+            return CABLE, word
+    return None
 
 
 def row_kind(name_raw, unit_raw) -> str:

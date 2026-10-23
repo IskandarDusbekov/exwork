@@ -8,10 +8,12 @@ from django.conf import settings
 from openpyxl import load_workbook
 
 from core import convert
+from core.batch import apply_roles, inspect_workbook, mark_duplicates, plan_pairs
 from core.detect import pair_sheets
-from core.pipeline import Options, run
+from core.pipeline import MODES, Options, run
+from core.svodka import DEFAULT_PERCENTS, parse_text_number
 
-from .models import Job
+from .models import Batch, Job
 
 ALLOWED_EXT = (".xls", ".xlsx", ".xlsm")
 
@@ -84,14 +86,48 @@ def _jsonable(v):
     return str(v)
 
 
-def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzzy: int) -> Job:
+def parse_percents(data, previous: Optional[dict] = None) -> dict:
+    """Formadan ``pct_<kalit>`` maydonlari: «17,27» -> 0.1727. Bo'sh — standart;
+    noto'g'ri yozilgan («abc», 150) — avvalgi qiymati qoladi."""
+    previous = previous or {}
+    out = {}
+    for key in DEFAULT_PERCENTS:
+        raw = (data.get(f"pct_{key}") or "").strip()
+        if not raw:
+            continue
+        value = parse_text_number(raw.rstrip("%").strip())
+        if value is not None and 0 <= value <= 100:
+            out[key] = round(value / 100, 8)
+        elif key in previous:
+            out[key] = previous[key]
+    return out
+
+
+def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzzy: int,
+            mode: Optional[str] = None, percents: Optional[dict] = None,
+            categories: Optional[dict] = None, prices: Optional[dict] = None) -> Job:
+    """``percents``/``categories``/``prices``: None — avvalgilari qoladi, {} — tozalanadi.
+    Lokal list almashsa, qo'lda kategoriya va narxlar tozalanadi (qator raqamlari boshqa listga tegishli)."""
+    if local_sheet and local_sheet != job.local_sheet:
+        job.categories = {}
+        job.prices = {}
+    if categories is not None:
+        job.categories = categories
+    if prices is not None:
+        job.prices = prices
     job.local_sheet = local_sheet or job.local_sheet
     job.res_sheet = res_sheet or job.res_sheet
     job.fuzzy = max(80, min(100, int(fuzzy)))
+    job.mode = mode if mode in MODES else job.mode
+    if percents is not None:
+        job.percents = percents
     out = job.abs("out") / job.download_name
     try:
         result = run(job.abs(job.local_path), job.abs(job.res_path), Options(
-            fuzzy_percent=job.fuzzy, local_sheet=job.local_sheet, res_sheet=job.res_sheet, output_path=out,
+            fuzzy_percent=job.fuzzy, mode=job.mode, local_sheet=job.local_sheet, res_sheet=job.res_sheet,
+            output_path=out, percents=job.percents or None,
+            categories={int(r): c for r, c in (job.categories or {}).items()} or None,
+            prices={int(r): float(p) for r, p in (job.prices or {}).items()} or None,
         ))
     except Exception as e:  # foydalanuvchiga ko'rsatamiz, server yiqilmasin
         job.status = Job.Status.FAILED
@@ -111,6 +147,142 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
         "end_row": result.end_row,
         "sum_row": result.sum_row,
         "svodka_start": result.svodka_start,
+        "mode": result.mode,
+        "warnings": result.warnings,
+        "columns": result.columns,
+        "percents": result.percents,
+        "categories": {str(r): c for r, c in result.categories.items()},
+        "prices": {str(r): p for r, p in result.prices.items()},
     }
     job.save()
     return job
+
+
+# ===================== obyekt: bir yoki bir nechta fayl =====================
+MAX_FILES = 10
+
+
+def create_batch(files) -> "Batch":
+    """Fayllarni saqlaydi, .xlsx ga o'giradi, har bir listni tahlil qilib juftliklarni taklif qiladi."""
+    if not files:
+        raise UploadError("Камида битта файл танланг")
+    if len(files) > MAX_FILES:
+        raise UploadError(f"Бир марта кўпи билан {MAX_FILES} та файл юкланг")
+    names = [Path(f.name).name for f in files]
+    batch = Batch(name=names[0] if len(names) == 1 else f"{names[0]} + {len(names) - 1} та файл")
+    try:
+        for i, f in enumerate(files):
+            ext = _check_upload(f, f.name)
+            _save(f, batch.abs(f"upload/{i}{ext}"))
+            xlsx = convert.ensure_xlsx(batch.abs(f"upload/{i}{ext}"), batch.abs(f"conv/{i}"))
+            batch.files.append({"name": names[i], "path": str(xlsx.relative_to(batch.dir)), "sheets": sheet_names(xlsx)})
+        analyze_batch(batch)
+    except convert.ConversionError as e:
+        shutil.rmtree(batch.dir, ignore_errors=True)
+        raise UploadError(str(e)) from e
+    except UploadError:
+        shutil.rmtree(batch.dir, ignore_errors=True)
+        raise
+    except Exception as e:
+        shutil.rmtree(batch.dir, ignore_errors=True)
+        raise UploadError(f"Файлни очиб бўлмади: {e}") from e
+    batch.save()
+    return batch
+
+
+def analyze_batch(batch: "Batch", roles: Optional[dict] = None) -> "Batch":
+    """Listlar turini aniqlaydi (``roles`` — smetachining qo'lda tuzatishlari), nusxalarni
+    ajratadi va juftliklarni taklif qiladi."""
+    infos = []
+    for i, f in enumerate(batch.files):
+        wb = load_workbook(batch.abs(f["path"]))
+        try:
+            infos += inspect_workbook(wb, i, f["name"])
+        finally:
+            wb.close()
+    if roles is not None:
+        batch.roles = roles
+    apply_roles(infos, batch.roles or {})
+    mark_duplicates(infos)
+    pairs, _unused = plan_pairs(infos)
+    batch.sheets = [i.to_dict() for i in infos]
+    batch.pairs = [dict(p.to_dict(), include=p.res is not None) for p in pairs]
+    return batch
+
+
+def confirm_batch(batch: "Batch", decisions: dict) -> list:
+    """``decisions``: ``{juftlik_raqami: {"include": bool, "res": kalit|"", "label": str}}``.
+    Har bir tanlangan juftlik uchun Job yaratib, darhol narxlaydi. Avvalgi natijalar o'chiriladi."""
+    resources = {s["key"] for s in batch.sheets if s["role"] == "resource" and not s.get("duplicate_of")}
+    for job in batch.jobs.all():
+        shutil.rmtree(job.dir, ignore_errors=True)
+        job.delete()
+    for n, p in enumerate(batch.pairs):
+        d = decisions.get(n, {})
+        p["include"] = bool(d.get("include", p.get("include")))
+        if "res" in d:
+            p["res"] = d["res"] if d["res"] in resources else None
+        if d.get("label", "").strip():
+            p["label"] = d["label"].strip()[:200]
+
+    jobs = []
+    for n, p in enumerate(batch.pairs):
+        if not p["include"] or not p["res"]:
+            continue
+        loc, res = batch.sheet(p["local"]), batch.sheet(p["res"])
+        lf, rf = batch.files[loc["file"]], batch.files[res["file"]]
+        job = Job(batch=batch, batch_label=p["label"], batch_file=loc["file"], batch_order=n,
+                  local_name=p["label"], res_name=f'{rf["name"]} · {res["sheet"]}',
+                  local_sheets=lf["sheets"], res_sheets=rf["sheets"],
+                  local_sheet=loc["sheet"], res_sheet=res["sheet"], mode="smart")
+        local_dst = job.abs(f"conv/{loc['file']}.xlsx")
+        res_dst = job.abs(f"conv/{res['file']}.xlsx")
+        local_dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(batch.abs(lf["path"]), local_dst)
+        if res_dst != local_dst:
+            shutil.copy2(batch.abs(rf["path"]), res_dst)
+        job.local_path = str(local_dst.relative_to(job.dir))
+        job.res_path = str(res_dst.relative_to(job.dir))
+        job.save()
+        run_job(job, None, None, job.fuzzy, job.mode)
+        jobs.append(job)
+    batch.status = Batch.Status.DONE
+    batch.save()
+    return jobs
+
+
+def build_combined(batch: "Batch"):
+    """Hamma narxlangan lokallarni o'z fayllarida yig'adi: har bir lokal list narxlanadi va
+    o'z «LOG …» listini oladi. Bitta fayl bo'lsa — .xlsx, bir nechta bo'lsa — .zip.
+    Smetachining qo'lda o'zgarishlari (narx, ustun, foiz) ham qo'llanadi."""
+    import zipfile
+    from collections import defaultdict
+
+    from core.pipeline import run_many
+
+    groups = defaultdict(list)
+    for job in batch.jobs.filter(status=Job.Status.DONE).order_by("batch_order"):
+        groups[job.batch_file].append(job)
+    if not groups:
+        raise UploadError("Нархланган қисм йўқ")
+    out_dir = batch.abs("out")
+    shutil.rmtree(out_dir, ignore_errors=True)
+    out_dir.mkdir(parents=True)
+    outputs = []
+    for f, jobs in groups.items():
+        steps = [(job.abs(job.res_path), Options(
+            mode=job.mode, fuzzy_percent=job.fuzzy, local_sheet=job.local_sheet, res_sheet=job.res_sheet,
+            percents=job.percents or None,
+            categories={int(r): c for r, c in (job.categories or {}).items()} or None,
+            prices={int(r): float(v) for r, v in (job.prices or {}).items()} or None,
+        )) for job in jobs]
+        out = out_dir / f"{Path(batch.files[f]['name']).stem}_narxlandi.xlsx"
+        run_many(batch.abs(batch.files[f]["path"]), steps, out)
+        outputs.append(out)
+    if len(outputs) == 1:
+        return outputs[0]
+    zpath = out_dir / f"{Path(batch.files[0]['name']).stem}_narxlandi.zip"
+    with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
+        for o in outputs:
+            z.write(o, o.name)
+    return zpath

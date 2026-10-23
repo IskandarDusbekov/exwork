@@ -14,12 +14,14 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
   <header class="bg-white border-b border-slate-200">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+    <div class="{% block header_class %}max-w-6xl mx-auto px-4{% endblock %} py-3 flex items-center gap-3">
       <a href="{% url 'index' %}" class="font-semibold text-lg text-slate-900">Нархлаш</a>
-      <span class="text-sm text-slate-500">смета нархлаш · compat режими</span>
+      <span class="text-sm text-slate-500">смета нархлаш</span>
+      {% block header_extra %}{% endblock %}
+      <a href="{% url 'index' %}" class="ml-auto rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50">＋ Янги юклаш</a>
     </div>
   </header>
-  <main class="max-w-6xl mx-auto px-4 py-6">
+  <main class="{% block main_class %}max-w-6xl mx-auto px-4 py-6{% endblock %}">
     {% block content %}{% endblock %}
   </main>
   <script>
@@ -27,7 +29,17 @@
     document.querySelectorAll("form[data-busy]").forEach(function (f) {
       f.addEventListener("submit", function () {
         f.classList.add("busy");
-        f.querySelectorAll("button[type=submit]").forEach(function (b) { b.disabled = true; });
+        // Darhol o'chirilsa, bosilgan tugmaning nomi (masalan reset_percents) formaga qo'shilmay qoladi
+        setTimeout(function () {
+          f.querySelectorAll("button[type=submit]").forEach(function (b) { b.disabled = true; });
+        }, 0);
+      });
+    });
+    // ички ҳавола йиғилган бўлимга (<details>) олиб борса — уни очамиз
+    document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+      a.addEventListener("click", function () {
+        var t = document.querySelector(a.getAttribute("href"));
+        if (t && t.tagName === "DETAILS") t.open = true;
       });
     });
     document.querySelectorAll("input[type=range][data-out]").forEach(function (r) {

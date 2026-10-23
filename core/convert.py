@@ -125,6 +125,33 @@ def _com_retry(fn, seconds: float = 60):
             time.sleep(0.3)
 
 
+def _excel_pid(excel) -> Optional[int]:
+    """Aynan biz ochgan Excel jarayonining raqami (keyin yopilganini tekshirish uchun)."""
+    try:
+        import win32process
+        return win32process.GetWindowThreadProcessId(excel.Hwnd)[1]
+    except Exception:
+        return None
+
+
+def _ensure_exited(pid: Optional[int], wait: float = 5.0):
+    """Quit'dan keyin ham Excel ishlab tursa — o'sha jarayonni to'xtatamiz (ko'rinmas qoldiq bo'lmasin)."""
+    if not pid:
+        return
+    import win32api
+    import win32con
+    import win32event
+    try:
+        handle = win32api.OpenProcess(win32con.SYNCHRONIZE | win32con.PROCESS_TERMINATE, False, pid)
+    except Exception:
+        return  # allaqachon yopilgan
+    try:
+        if win32event.WaitForSingleObject(handle, int(wait * 1000)) == win32event.WAIT_TIMEOUT:
+            win32api.TerminateProcess(handle, 1)
+    finally:
+        win32api.CloseHandle(handle)
+
+
 def _convert_excel(path: Path, out_dir: Path) -> Path:
     if not excel_available():
         raise ConversionError("Excel orqali konvertatsiya faqat Windows'da, pywin32 o'rnatilgan bo'lsa ishlaydi")
@@ -135,9 +162,11 @@ def _convert_excel(path: Path, out_dir: Path) -> Path:
     if out.exists():
         out.unlink()
     pythoncom.CoInitialize()
-    excel = None
+    excel = wb = None
+    pid = None
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
+        pid = _excel_pid(excel)
         _com_retry(lambda: setattr(excel, "Visible", False))
         _com_retry(lambda: setattr(excel, "DisplayAlerts", False))
         wb = _com_retry(lambda: excel.Workbooks.Open(str(path.resolve()), ReadOnly=True))
@@ -148,10 +177,12 @@ def _convert_excel(path: Path, out_dir: Path) -> Path:
     finally:
         if excel is not None:
             try:
-                _com_retry(lambda: excel.Quit())
+                _com_retry(lambda: excel.Quit(), seconds=15)
             except Exception:
                 pass
+        wb = excel = None  # COM havolalari bo'shatilmasa, Excel jarayoni yopilmay qoladi
         pythoncom.CoUninitialize()
+        _ensure_exited(pid)
     if not out.is_file():
         raise ConversionError(".xls -> .xlsx (Excel): natija fayli yaratilmadi")
     return out

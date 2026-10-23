@@ -53,7 +53,7 @@ def test_ambiguous():
         ("КРАСКА МАСЛЯНАЯ МА-15Б", "Т", 2),
     ])
     m = _match(idx, "КРАСКА МАСЛЯНАЯ МА-15", "Т")
-    assert m.status == AMBIGUOUS and m.price is None
+    assert m.status == AMBIGUOUS and {m.price, m.second_price} == {1, 2}
     assert m.second_name is not None and m.score - m.second_score < 0.01
 
 

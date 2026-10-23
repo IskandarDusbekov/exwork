@@ -28,8 +28,39 @@ SVODKA_ROWS: List[Tuple[str, str, Optional[float]]] = [
     ("s_nds", "Всего с НДС      12 %", 0.12),
 ]
 
+# Standart foizlar (eski dasturdagi). Smart rejimda o'zgartirish mumkin; kalit = svodka qatori.
+DEFAULT_PERCENTS: Dict[str, float] = {key: pct for key, _text, pct in SVODKA_ROWS if pct is not None}
+PERCENT_LABELS: Dict[str, str] = {
+    "transport_mat": "Трансп. услуги из мат.",
+    "transport_kabel": "Трансп. услуги кабельн. прод.",
+    "transport_obor": "Трансп. услуги обор.",
+    "prochie": "Прочие затраты подрядчика",
+    "strahovanie": "Затраты на страхов. объекта",
+    "s_nds": "НДС",
+}
 
-def svodka_formulas(s: int, sum_row: int) -> List[str]:
+
+def resolve_percents(percents: Optional[Dict[str, float]]) -> Dict[str, float]:
+    """Standartlar + berilganlari (ulush: 0.19 = 19%). Noto'g'ri kalit yoki qiymat — ValueError."""
+    out = dict(DEFAULT_PERCENTS)
+    for key, value in (percents or {}).items():
+        if key not in out:
+            raise ValueError(f"Noma'lum foiz: {key}. Bor foizlar: {', '.join(out)}")
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1:
+            raise ValueError(f"{key}: foiz 0 dan 100% gacha bo'lishi kerak, berildi {value!r}")
+        out[key] = float(value)
+    return out
+
+
+def percent_text(fraction: float) -> str:
+    """0.12 -> «12», 0.125 -> «12,5» (svodka matni uchun)."""
+    v = round(fraction * 100, 4)
+    return (f"{v:.4f}".rstrip("0").rstrip(".")).replace(".", ",")
+
+
+def svodka_formulas(s: int, sum_row: int, nds_from_cell: bool = False) -> List[str]:
+    """``nds_from_cell`` (smart): НДС D katakdan olinadi — Excel'da foizni o'zgartirsa ham hisob yangilanadi.
+    compat: eski dasturdagidek ``*1.12``."""
     return [
         f"=I{sum_row}",
         f"=J{sum_row}",
@@ -43,21 +74,28 @@ def svodka_formulas(s: int, sum_row: int) -> List[str]:
         f"=(H{s + 8}-H{s + 7}-H{s + 6})*D{s + 9}",
         f"=(H{s + 9}+H{s + 8})*D{s + 10}",
         f"=H{s + 10}+H{s + 9}+H{s + 8}",
-        f"=H{s + 11}*1.12",
+        f"=H{s + 11}*(1+D{s + 12})" if nds_from_cell else f"=H{s + 11}*1.12",
     ]
 
 
-def write_svodka(w: SheetWriter, start_row: int, sum_row: int) -> Dict[str, str]:
-    """Blokni yozadi; ``{kalit: H katak manzili}`` qaytaradi."""
+def write_svodka(w: SheetWriter, start_row: int, sum_row: int,
+                 percents: Optional[Dict[str, float]] = None, smart: bool = False) -> Dict[str, str]:
+    """Blokni yozadi; ``{kalit: H katak manzili}`` qaytaradi.
+
+    compat: foizlar va matnlar eski dasturdagidek. smart: ``percents`` qo'llanadi, НДС formulasi
+    D katakka bog'lanadi va «Всего с НДС … %» matnidagi foiz ham mos yoziladi."""
     end_row = start_row + len(SVODKA_ROWS) - 1
-    formulas = svodka_formulas(start_row, sum_row)
+    formulas = svodka_formulas(start_row, sum_row, nds_from_cell=smart)
+    pcts = resolve_percents(percents) if smart else DEFAULT_PERCENTS
     cells = {}
     for i, (key, text, pct) in enumerate(SVODKA_ROWS):
         r = start_row + i
+        if smart and key == "s_nds":
+            text = f"Всего с НДС      {percent_text(pcts[key])} %"
         w.set(f"C{r}", text)
         w.bold(f"C{r}")
         if pct is not None:
-            w.set(f"D{r}", pct)
+            w.set(f"D{r}", pcts[key])
         w.set(f"H{r}", formulas[i])
         cells[key] = f"H{r}"
     w.number_format("D", start_row, end_row, PERCENT_FMT)
@@ -120,7 +158,7 @@ def to_number(v):
 
 
 class Evaluator:
-    """Faqat biz yozadigan formulalar uchun: + - * /, qavslar, IF(x="",a,b), SUM(diapazon)."""
+    """Faqat biz yozadigan formulalar uchun: + - * /, qavslar, IF(x="",a,b), ISNUMBER(x), SUM(diapazon)."""
 
     def __init__(self, raw: Callable[[str], object]):
         self.raw = raw  # manzil -> formula ("=...") yoki qiymat
@@ -252,6 +290,10 @@ class Evaluator:
                 if as_error(cond):
                     return cond
             return a if cond else b
+        if name == "ISNUMBER":
+            v = self._comparison()
+            self._expect(")")
+            return isinstance(v, (int, float)) and not isinstance(v, bool)
         raise ValueError(f"Qo'llanmaydigan funksiya: {name}")
 
 

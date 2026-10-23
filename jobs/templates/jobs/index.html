@@ -1,8 +1,9 @@
 {% extends "jobs/base.html" %}
 {% block content %}
-<div class="max-w-2xl mx-auto">
+<div class="max-w-3xl mx-auto">
   <h1 class="text-2xl font-semibold mb-1">Файлларни юклаш</h1>
-  <p class="text-slate-500 mb-6">Локал (БВ, Форма 5) ва ресурс (БР, Форма 6а) файлини танланг. Иккаласи битта файлда бўлса, ресурсни бўш қолдиринг.</p>
+  <p class="text-slate-500 mb-6">Битта объект файли ёки бир нечта файлни юкланг — қайси лист локал, қайсиси ресурс эканини тизим ўзи аниқлайди,
+    жуфтлаб, тузилишини кўрсатади. Сиз текширасиз ва тасдиқлайсиз.</p>
 
   {% if error %}
   <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">{{ error }}</div>
@@ -10,25 +11,40 @@
 
   <form method="post" enctype="multipart/form-data" data-busy class="bg-white rounded-xl border border-slate-200 p-6 space-y-5 shadow-sm">
     {% csrf_token %}
-    <label class="block">
-      <span class="font-medium">Локал файл <span class="text-rose-600">*</span></span>
-      <input type="file" name="local" accept=".xls,.xlsx,.xlsm" required
-             class="mt-2 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-white hover:file:bg-slate-700">
+    <label id="drop" class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center transition hover:border-slate-500 hover:bg-white">
+      <span class="text-4xl" aria-hidden="true">📂</span>
+      <span class="font-medium">Файлларни шу ерга ташланг ёки танлаш учун босинг</span>
+      <span class="text-sm text-slate-500">.xls, .xlsx, .xlsm · бирданига ёки кетма-кет танланг — ҳар бири рўйхатга қўшилади</span>
+      <input type="file" name="files" id="files" accept=".xls,.xlsx,.xlsm" multiple required class="sr-only">
     </label>
-    <label class="block">
-      <span class="font-medium">Ресурс файл</span>
-      <input type="file" name="res" accept=".xls,.xlsx,.xlsm"
-             class="mt-2 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-200 file:px-4 file:py-2 hover:file:bg-slate-300">
-      <span class="mt-1 block text-xs text-slate-500">Ресурс листида C дан олдин бўш устун қўшилган бўлиши керак (ном D да, нарх G да).</span>
-    </label>
+    <ul id="file-list" class="hidden space-y-1 text-sm"></ul>
+
+    <div class="grid gap-3 sm:grid-cols-3 text-sm">
+      <div class="rounded-lg bg-slate-50 p-3"><b>1 та катта файл</b><div class="text-slate-500">Масалан «А блок»: ичида бир нечта локал ва ресурс листлари, қисмлар (бассейн…)</div></div>
+      <div class="rounded-lg bg-slate-50 p-3"><b>2 та файл</b><div class="text-slate-500">Локал ва ресурс — қайси бирини биринчи танлаганингиз фарқи йўқ</div></div>
+      <div class="rounded-lg bg-slate-50 p-3"><b>Бир нечта файл</b><div class="text-slate-500">Бир хил листлар бир неча файлда бўлса — бир марта олинади</div></div>
+    </div>
+
     <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-3 font-medium text-white hover:bg-slate-700 disabled:opacity-60">
-      <span class="when-idle">Юклаш ва листларни кўриш</span>
-      <span class="when-busy items-center gap-2">Юкланяпти, .xls очиляпти…</span>
+      <span class="when-idle">Юклаш ва таҳлил қилиш</span>
+      <span class="when-busy items-center gap-2">Юкланяпти, листлар таҳлил қилиняпти…</span>
     </button>
   </form>
 
+  {% if recent_batches %}
+  <h2 class="mt-10 mb-2 font-medium text-slate-600">Охирги объектлар</h2>
+  <ul class="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 text-sm">
+    {% for b in recent_batches %}
+    <li><a href="{% url 'batch' b.id %}" class="flex justify-between gap-3 px-4 py-2 hover:bg-slate-50">
+      <span>📂 {{ b.name }} <span class="text-slate-500">· {{ b.pairs|length }} та жуфтлик</span></span>
+      <span class="text-slate-500 whitespace-nowrap">{{ b.get_status_display }} · {{ b.created|date:"d.m H:i" }}</span>
+    </a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
   {% if recent %}
-  <h2 class="mt-10 mb-2 font-medium text-slate-600">Охирги ишлар</h2>
+  <h2 class="mt-8 mb-2 font-medium text-slate-600">Охирги ишлар</h2>
   <ul class="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 text-sm">
     {% for j in recent %}
     <li><a href="{% url 'job' j.id %}" class="flex justify-between px-4 py-2 hover:bg-slate-50">
@@ -39,4 +55,65 @@
   </ul>
   {% endif %}
 </div>
+<script>
+  // Файллар рўйхати: ҳар бир танлаш/ташлаш рўйхатга ҚЎШИЛАДИ (браузер одатда олдингисини алмаштиради)
+  (function () {
+    var drop = document.getElementById("drop"), input = document.getElementById("files"), list = document.getElementById("file-list");
+    var selected = [];
+    var OK = /\.(xls|xlsx|xlsm)$/i;
+
+    function key(f) { return f.name + "|" + f.size + "|" + f.lastModified; }
+    function sync() {
+      var dt = new DataTransfer();
+      selected.forEach(function (f) { dt.items.add(f); });
+      input.files = dt.files;          // форма юборганда ҳаммаси кетади
+      input.required = selected.length === 0;
+      render();
+    }
+    function add(files) {
+      var have = selected.map(key), skipped = [];
+      Array.prototype.forEach.call(files, function (f) {
+        if (!OK.test(f.name)) { skipped.push(f.name); return; }
+        if (have.indexOf(key(f)) < 0) { selected.push(f); have.push(key(f)); }
+      });
+      sync();
+      if (skipped.length) alert("Фақат .xls, .xlsx, .xlsm: " + skipped.join(", "));
+    }
+    function render() {
+      list.innerHTML = "";
+      selected.forEach(function (f, i) {
+        var li = document.createElement("li");
+        li.className = "flex items-center gap-3 rounded-md bg-slate-100 px-3 py-1.5";
+        li.innerHTML = "<span class='flex-1 break-all'></span><span class='text-slate-500 whitespace-nowrap'></span>" +
+                       "<button type='button' class='rounded px-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900' title='Олиб ташлаш'>×</button>";
+        li.children[0].textContent = "📄 " + f.name;
+        li.children[1].textContent = (f.size / 1024 / 1024).toFixed(1) + " МБ";
+        li.children[2].addEventListener("click", function () { selected.splice(i, 1); sync(); });
+        list.appendChild(li);
+      });
+      if (selected.length) {
+        var more = document.createElement("li");
+        more.className = "text-xs text-slate-500 px-1";
+        more.textContent = selected.length + " та файл танланди · яна қўшиш учун юқорини босинг ёки файлни ташланг";
+        list.appendChild(more);
+      }
+      list.classList.toggle("hidden", selected.length === 0);
+    }
+
+    input.addEventListener("change", function () {
+      var picked = Array.prototype.slice.call(input.files);
+      // браузер input'ни янги танлов билан алмаштирди — рўйхатдагиларга қўшамиз
+      add(picked.filter(function (f) { return selected.map(key).indexOf(key(f)) < 0; }));
+    });
+    ["dragenter", "dragover"].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("border-slate-700", "bg-white"); });
+    });
+    ["dragleave", "drop"].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("border-slate-700", "bg-white"); });
+    });
+    drop.addEventListener("drop", function (e) {
+      if (e.dataTransfer && e.dataTransfer.files.length) add(e.dataTransfer.files);
+    });
+  })();
+</script>
 {% endblock %}

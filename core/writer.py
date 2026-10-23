@@ -9,14 +9,16 @@ import tempfile
 import zipfile
 from copy import copy
 from pathlib import Path
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, List, Optional
 
 from openpyxl.cell.cell import MergedCell
-from openpyxl.styles import Border, PatternFill, Side
+from openpyxl.formatting.rule import FormulaRule
+from openpyxl.styles import Border, Font, PatternFill, Side
 from openpyxl.styles.cell_style import StyleArray
+from openpyxl.worksheet.dimensions import ColumnDimension
 from openpyxl.utils import column_index_from_string, coordinate_to_tuple, get_column_letter
 
-from .classify import MACHINES, WORKERS
+from .classify import KIND_COLUMN
 
 NUM_FMT = "#,##0"
 PERCENT_FMT = "0.00%"
@@ -120,22 +122,31 @@ def amount_formula(r: int) -> str:
     return f'=IF(F{r}="",E{r}*G{r},F{r}*G{r})'
 
 
-def write_priced_rows(w: SheetWriter, start: int, end: int, g_values: Dict[int, object], kinds: Dict[int, str]):
+def safe_amount_formula(r: int) -> str:
+    """Smart (T6): G da son bo'lmasa 0 — bitta qator butun svodkani #ЗНАЧ! qilmaydi."""
+    return f'=IF(ISNUMBER(G{r}),IF(F{r}="",E{r}*G{r},F{r}*G{r}),0)'
+
+
+def write_priced_rows(w: SheetWriter, start: int, end: int, g_values: Dict[int, object], kinds: Dict[int, str],
+                      formula=amount_formula):
     """G..K ustunlarini ``start..end`` oralig'ida to'ldiradi va A–H ramka chizadi."""
     for r in range(start, end + 1):
         w.set(f"G{r}", g_values.get(r))
     w.number_format("G", start, end)
 
     for r in range(start, end + 1):
-        w.set(f"H{r}", amount_formula(r))
+        w.set(f"H{r}", formula(r))
     w.number_format("H", start, end)
 
     for r in range(start, end + 1):
-        kind = kinds[r]
+        col = KIND_COLUMN.get(kinds[r], "K")
         ref = f"=H{r}"
-        w.set(f"I{r}", ref if kind == WORKERS else None)
-        w.set(f"J{r}", ref if kind == MACHINES else None)
-        w.set(f"K{r}", ref if kind not in (WORKERS, MACHINES) else None)
+        for c in "IJK":
+            w.set(f"{c}{r}", ref if col == c else None)
+        if col in "LM":
+            # L/M (kabel, uskuna) — faqat shu qatorga; boshqa qatorlardagi qo'lda kiritilganlarga tegilmaydi
+            w.set(f"{col}{r}", ref)
+            w.cell(f"{col}{r}").number_format = NUM_FMT
     for col in "IJK":
         w.number_format(col, start, end)
 
@@ -146,6 +157,101 @@ def write_sum_row(w: SheetWriter, sum_row: int, start: int, end: int):
     for col in SUM_COLS:
         w.set(f"{col}{sum_row}", f"=SUM({col}{start}:{col}{end})")
         w.cell(f"{col}{sum_row}").number_format = NUM_FMT
+
+
+# ===================== narxsiz qatorlarni qizil qilish (smart) =====================
+UNPRICED_FILL = "FFFFC7CE"
+UNPRICED_FONT = "FF9C0006"
+
+
+def mark_unpriced(ws, start: int, end: int, col: str = "G"):
+    """G da son bo'lmagan (matn) kataklar qizil. Shartli format: smetachi narx yozishi bilan
+    qizil o'zi yo'qoladi; katakning o'z uslubiga tegilmaydi."""
+    rng = f"{col}{start}:{col}{end}"
+    ws.conditional_formatting.add(rng, FormulaRule(
+        formula=[f'AND({col}{start}<>"",NOT(ISNUMBER({col}{start})))'],
+        fill=PatternFill(bgColor=UNPRICED_FILL), font=Font(color=UNPRICED_FONT, b=True), stopIfTrue=True,
+    ))
+
+
+# ===================== ustun kengligi (smart) =====================
+# Excel son katakka sig'masa «######» ko'rsatadi. Smetalarda G dan oxirigacha (G:XFD) bitta
+# umumiy kenglik (~9 belgi) bo'ladi, milliardli summalar esa 13+ belgi. Smart rejim biz
+# yozadigan ustunlarni faqat kerak bo'lsa kengaytiradi (hech qachon toraytirmaydi).
+
+def column_width(ws, col: int) -> float:
+    for key, cd in ws.column_dimensions.items():
+        lo = cd.min or column_index_from_string(key)
+        hi = cd.max or lo
+        if lo <= col <= hi and cd.width:
+            return cd.width
+    return 8.43  # Excel standarti
+
+
+def set_column_width(ws, col: int, width: float):
+    """Bitta ustun kengligini o'rnatadi; ustun guruhga kirsa (masalan G:XFD), guruh bo'linadi."""
+    dims = ws.column_dimensions
+    found = None
+    for key, cd in list(dims.items()):
+        lo = cd.min or column_index_from_string(key)
+        hi = cd.max or lo
+        if lo <= col <= hi:
+            found = (key, cd, lo, hi)
+            break
+    if found is None:
+        letter = get_column_letter(col)
+        dims[letter] = ColumnDimension(ws, index=letter, width=width, min=col, max=col)
+        return
+    key, cd, lo, hi = found
+    if lo == hi:
+        cd.width = width
+        return
+
+    def part(a: int, b: int, w: float) -> ColumnDimension:
+        d = ColumnDimension(ws, index=get_column_letter(a), width=w, bestFit=cd.bestFit, hidden=cd.hidden,
+                            outlineLevel=cd.outlineLevel, collapsed=cd.collapsed, min=a, max=b)
+        d._style = copy(cd._style)
+        return d
+
+    del dims[key]
+    if lo < col:
+        dims[get_column_letter(lo)] = part(lo, col - 1, cd.width)
+    dims[get_column_letter(col)] = part(col, col, width)
+    if col < hi:
+        dims[get_column_letter(col + 1)] = part(col + 1, hi, cd.width)
+
+
+def number_text(v) -> str:
+    """``#,##0`` formatida Excel ko'rsatadigan matn uzunligi uchun."""
+    if isinstance(v, bool) or v is None:
+        return ""
+    if isinstance(v, (int, float)):
+        return f"{round(v):,}"
+    return "#ЗНАЧ!" if str(v).startswith("#") else ""
+
+
+def fit_number_columns(ws, values: Dict[str, object], first_col: str = "G", last_col: str = "Q") -> List[str]:
+    """``values``: manzil -> hisoblangan qiymat. Sig'maydigan ustunlarni kengaytiradi, ro'yxatini qaytaradi."""
+    normal = ws.parent._fonts[0].sz or 11
+    need: Dict[int, float] = {}
+    lo, hi = column_index_from_string(first_col), column_index_from_string(last_col)
+    for addr, v in values.items():
+        text = number_text(v)
+        if not text:
+            continue
+        row, col = coordinate_to_tuple(addr)
+        if not lo <= col <= hi:
+            continue
+        cell = ws._cells.get((row, col))
+        size = (cell.font.sz if cell is not None and cell.font and cell.font.sz else normal)
+        ratio = min(1.5, max(0.8, size / normal))
+        need[col] = max(need.get(col, 0), len(text) * ratio * 1.1 + 2)
+    widened = []
+    for col, width in sorted(need.items()):
+        if width > column_width(ws, col) + 0.01:
+            set_column_width(ws, col, round(width, 2))
+            widened.append(get_column_letter(col))
+    return widened
 
 
 # ===================== birlashgan kataklar uslubini tiklash =====================

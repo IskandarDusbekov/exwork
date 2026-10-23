@@ -2,7 +2,8 @@
 
 Eski dastur bilan farq qilmasligi uchun ikki nozik joy takrorlanadi:
 * LOG oxiriga emas, faol listdan **oldin** qo'shiladi va faol bo'ladi (pywin32'da
-  ``Worksheets.Add(After=...)`` ishlamagani uchun eski dastur shunday qiladi).
+  ``Worksheets.Add(After=...)`` ishlamagani uchun eski dastur shunday qiladi). Smart rejimda
+  esa rejadagidek oxirgi list bo'ladi.
 * Eski dastur qiymatlarni ``str(...)`` qilib yozgan, Excel esa raqamga o'xshash matnni
   songa aylantirgan. Biz ham raqamga o'xshash matnni son qilib yozamiz.
 """
@@ -20,11 +21,17 @@ HEADER = [
     "written",
 ]
 HEADER_FILL = "FFD9E1F2"
+NOTE_HEADER = "note"  # faqat smart rejimda
 STATUS_FILLS = {
     "EXACT": "FFC6EFCE",
     "FUZZY": "FFFFEB9C",
     "AMBIGUOUS": "FFF8CBAD",
     "NOT_FOUND": "FFFFC7CE",
+    # smart rejim
+    "NO_PRICE": "FFFFC7CE",
+    "WORK_HEADER": "FFE7E6E6",
+    "MACHINIST": "FFE7E6E6",
+    "MANUAL": "FFDDEBF7",
 }
 MAX_WIDTH = 60
 # Excel ColumnWidth=N faylga N + 0.7109375 bo'lib yoziladi (Calibri 11 uchun padding)
@@ -48,48 +55,62 @@ def excel_value(v):
     return v
 
 
-def write_log(wb, rows: Sequence[Sequence]) -> "object":
-    if LOG_TITLE in wb.sheetnames:
-        del wb[LOG_TITLE]
+# smart rejimda «aniq emas» = qizil (narx yozilmagan), «0 qoidasi» = kulrang
+SMART_FILLS = dict(STATUS_FILLS, FUZZY="FFFFC7CE", AMBIGUOUS="FFFFC7CE", UNIT_MISMATCH="FFFFC7CE")
 
-    index = wb.index(wb.active) if wb.active is not None else 0
-    ws = wb.create_sheet(LOG_TITLE, index)
 
-    for c, name in enumerate(HEADER, start=1):
+def write_log(wb, rows: Sequence[Sequence], smart: bool = False, title: str = LOG_TITLE) -> "object":
+    """compat: LOG faol listdan oldin va faol bo'ladi (eski dastur kabi).
+    smart: LOG oxirgi list, izoh ustuni bilan; faol list o'zgarmaydi (fayl smetaning o'zida ochiladi)."""
+    if title in wb.sheetnames:
+        del wb[title]
+
+    header = HEADER + [NOTE_HEADER] if smart else HEADER
+    if smart:
+        active = wb.active
+        ws = wb.create_sheet(title)
+    else:
+        index = wb.index(wb.active) if wb.active is not None else 0
+        ws = wb.create_sheet(title, index)
+
+    for c, name in enumerate(header, start=1):
         ws.cell(row=1, column=c, value=name)
     for r, row in enumerate(rows, start=2):
         for c, v in enumerate(row, start=1):
             ws.cell(row=r, column=c, value=excel_value(v))
 
     header_fill = PatternFill(fill_type="solid", fgColor=HEADER_FILL)
-    for c in range(1, len(HEADER) + 1):
+    for c in range(1, len(header) + 1):
         cell = ws.cell(row=1, column=c)
         cell.font = Font(name="Calibri", sz=11, b=True, family=2, scheme="minor")
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
         cell.fill = header_fill
     ws.row_dimensions[1].height = 22
     ws.freeze_panes = "A2"
-    ws.auto_filter.ref = "A1:J1"
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(header))}1"
 
     for r in range(2, len(rows) + 2):
         status = ws.cell(row=r, column=4).value
-        color = STATUS_FILLS.get(str(status).strip().upper()) if status else None
+        color = (SMART_FILLS if smart else STATUS_FILLS).get(str(status).strip().upper()) if status else None
         if color:
             fill = PatternFill(fill_type="solid", fgColor=color)
-            for c in range(1, len(HEADER) + 1):
+            for c in range(1, len(header) + 1):
                 ws.cell(row=r, column=c).fill = fill
 
-    _autofit(ws, len(rows) + 1)
+    _autofit(ws, len(rows) + 1, len(header))
 
+    if smart:
+        wb.active = active
+        return ws
     for other in wb.worksheets:
         other.sheet_view.tabSelected = other is ws
     wb.active = ws
     return ws
 
 
-def _autofit(ws, last_row: int):
+def _autofit(ws, last_row: int, ncols: int = len(HEADER)):
     """Excel AutoFit'ga yaqin: belgilar soni bo'yicha, B–J ≤ 60, A = 10."""
-    for c in range(1, len(HEADER) + 1):
+    for c in range(1, ncols + 1):
         letter = get_column_letter(c)
         width = 0.0
         for r in range(1, last_row + 1):

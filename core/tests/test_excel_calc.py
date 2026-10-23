@@ -1,12 +1,13 @@
 """Python hisobi = Excel hisobi.
 
-``excel_calc/<nom>/`` ichida: ``input_local.xlsx``, ``input_res.xlsx`` va ``excel_recalc.xlsx`` —
-bizning pipeline chiqargan faylni Excel (rus lokali) ochib, to'liq qayta hisoblab saqlagan nusxasi.
-Har bir narxlangan qatorning H qiymati (I/J/K shundan olinadi), sum qatori va svodka Python
-baholovchisi bilan solishtiriladi. Bu, masalan, E/F dagi «50,27» kabi matn-sonlarni tekshiradi.
+``excel_calc/<nom>/`` ichida: ``input_local.xlsx``, ``input_res.xlsx`` va pipeline chiqargan faylni
+Excel (rus lokali) ochib, to'liq qayta hisoblab saqlagan nusxalari:
+``excel_recalc.xlsx`` (compat rejimi) va/yoki ``excel_recalc_smart.xlsx`` (smart rejimi).
+Har bir narxlangan qatorning H qiymati (I/J/K shundan olinadi) va svodka Python baholovchisi
+bilan solishtiriladi. Bu, masalan, E/F dagi «50,27» kabi matn-sonlarni va ISNUMBER'ni tekshiradi.
 
-``bolnitsa7_kr_blok2`` — «7-БОЛНИЦА, КР БЛОК 2» smetasi (LRV + RES). Tekshiruv nuqtasi:
-Зарплата = 238 735 601,25 — resurs fayldagi «ЗАРАБОТНАЯ ПЛАТА» bilan bir xil.
+* ``bolnitsa7_kr_blok2`` — «7-БОЛНИЦА, КР БЛОК 2» smetasi (LRV + RES);
+* ``most_202611450`` — «МОСТ НА ПК 75+34», 202611450_БВ / 202611450_БР.
 """
 from pathlib import Path
 
@@ -19,7 +20,11 @@ from core.svodka import XlError
 from .test_golden import _main
 
 CASES_DIR = Path(__file__).parent / "excel_calc"
-CASES = sorted(p for p in CASES_DIR.iterdir() if (p / "excel_recalc.xlsx").is_file()) if CASES_DIR.is_dir() else []
+FILES = {"compat": "excel_recalc.xlsx", "smart": "excel_recalc_smart.xlsx"}
+CASES = sorted(
+    (d, mode) for d in (CASES_DIR.iterdir() if CASES_DIR.is_dir() else []) if d.is_dir()
+    for mode, f in FILES.items() if (d / f).is_file()
+)
 
 
 def _same(python_value, excel_value) -> bool:
@@ -32,12 +37,12 @@ def _same(python_value, excel_value) -> bool:
     return False
 
 
-@pytest.fixture(scope="module", params=CASES, ids=lambda p: p.name)
+@pytest.fixture(scope="module", params=CASES, ids=lambda c: f"{c[0].name}-{c[1]}")
 def case(request, tmp_path_factory):
-    d = request.param
+    d, mode = request.param
     result = run(d / "input_local.xlsx", d / "input_res.xlsx",
-                 Options(output_path=tmp_path_factory.mktemp(d.name) / "out.xlsx"))
-    excel = _main(load_workbook(d / "excel_recalc.xlsx", data_only=True), result.local_sheet)
+                 Options(mode=mode, output_path=tmp_path_factory.mktemp(d.name) / "out.xlsx"))
+    excel = _main(load_workbook(d / FILES[mode], data_only=True), result.local_sheet)
     return result, excel
 
 
