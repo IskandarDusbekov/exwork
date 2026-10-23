@@ -381,3 +381,33 @@ def test_run_many_prices_every_local_sheet_in_one_file(tmp_path):
     # МОСТ smetasi alohida narxlangandagi bilan bir xil
     alone = _run(TESTS / "golden/202611450/input_local.xlsx", TESTS / "golden/202611450/input_res.xlsx", tmp_path)
     assert results[-1].totals["s_nds"] == pytest.approx(alone.totals["s_nds"])
+
+
+def test_formula_results_are_stored_for_protected_view(tmp_path):
+    """Brauzerdan yuklangan fayl «Защищённый просмотр»da ochiladi va qayta hisoblanmaydi —
+    shuning uchun har bir formulaning natijasi faylda saqlangan bo'lishi kerak."""
+    d = TESTS / "excel_calc/bolnitsa7_kr_blok2"
+    r = _run(d / "input_local.xlsx", d / "input_res.xlsx", tmp_path)
+    ws = load_workbook(r.output_path, data_only=True)["LRV"]
+    for row in r.rows:
+        if row["h"] is not None:
+            assert ws[f"H{row['row']}"].value == pytest.approx(row["h"]), row["row"]
+            col = row["category"]
+            assert ws[f"{col}{row['row']}"].value == pytest.approx(row["h"])
+    s = r.svodka_start
+    for i, (key, value) in enumerate(r.totals.items()):
+        assert ws[f"H{s + i}"].value == pytest.approx(value), key
+    assert ws[f"I{r.sum_row}"].value == pytest.approx(r.totals["zarplata"])
+    # formulalar o'zi ham joyida (Excel tahrirlashda qayta hisoblaydi)
+    assert load_workbook(r.output_path)["LRV"][f"H{s + 12}"].value == f"=H{s + 11}*(1+D{s + 12})"
+
+
+def test_run_many_keeps_results_of_every_sheet(tmp_path):
+    from core.pipeline import run_many
+    f = TESTS / "batch/obekt_lokal_7list.xlsx"
+    steps = [(f, Options(mode="smart", local_sheet=f"2026114{n}_БВ", res_sheet=f"2026114{n}_БР")) for n in ("00", "10", "20")]
+    results = run_many(f, steps, tmp_path / "all.xlsx")
+    wb = load_workbook(tmp_path / "all.xlsx", data_only=True)
+    for r in results:
+        cell = wb[r.local_sheet][f"H{r.svodka_start + 12}"].value
+        assert cell == pytest.approx(r.totals["s_nds"]), r.local_sheet

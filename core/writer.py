@@ -386,3 +386,58 @@ def read_header_footer(path: Path, title: str) -> Optional[str]:
             return None
         m = _HF_RE.search(z.read(part).decode("utf-8"))
         return m.group(0) if m else None
+
+
+# ===================== formulalarga tayyor natija (cached value) =====================
+# openpyxl formulaning faqat matnini yozadi (<f>…</f><v/>). Excel oddiy rejimda qayta
+# hisoblaydi, lekin brauzerdan yuklangan fayl «Защищённый просмотр»da ochiladi va u yerda
+# hisoblanmaydi — H, I/J/K va svodka bo'sh ko'rinadi. Shuning uchun natijani o'zimiz yozamiz
+# (Python baholovchisi Excel bilan qatorma-qator bir xil ekani testlarda tekshirilgan).
+
+_FORMULA_CELL_RE = re.compile(r'<c r="([A-Z]+[0-9]+)"((?:\s[^>]*?)?)>(<f>[^<]*</f>)<v\s*/>(?:</v>)?</c>')
+
+
+def _cached_xml(ref: str, attrs: str, formula: str, value) -> Optional[str]:
+    attrs = re.sub(r'\s+t="[^"]*"', "", attrs)
+    if isinstance(value, bool):
+        return f'<c r="{ref}"{attrs} t="b">{formula}<v>{int(value)}</v></c>'
+    if isinstance(value, (int, float)):
+        return f'<c r="{ref}"{attrs}>{formula}<v>{repr(float(value)) if isinstance(value, float) else value}</v></c>'
+    if isinstance(value, str) and value.startswith("#"):
+        return f'<c r="{ref}"{attrs} t="e">{formula}<v>{value}</v></c>'
+    return None
+
+
+def write_cached_values(path: Path, values_by_sheet: Dict[str, Dict[str, object]]) -> int:
+    """``{list: {manzil: qiymat}}`` — formula kataklariga natijani yozadi. Nechta katak yozilganini qaytaradi."""
+    path = Path(path)
+    count = 0
+    with zipfile.ZipFile(path) as z:
+        parts = _sheet_parts(z)
+        replace: Dict[str, bytes] = {}
+        for title, values in values_by_sheet.items():
+            part = parts.get(title)
+            if not part or not values:
+                continue
+
+            def fix(m):
+                nonlocal count
+                ref = m.group(1)
+                if ref not in values:
+                    return m.group(0)
+                xml = _cached_xml(ref, m.group(2), m.group(3), values[ref])
+                if xml is None:
+                    return m.group(0)
+                count += 1
+                return xml
+
+            replace[part] = _FORMULA_CELL_RE.sub(fix, z.read(part).decode("utf-8")).encode("utf-8")
+        if not replace:
+            return 0
+        fd, tmp = tempfile.mkstemp(suffix=path.suffix, dir=path.parent)
+        with open(fd, "wb") as fh, zipfile.ZipFile(fh, "w", zipfile.ZIP_DEFLATED) as zn:
+            for item in z.infolist():
+                data = replace.get(item.filename)
+                zn.writestr(item, data if data is not None else z.read(item.filename))
+    shutil.move(tmp, path)
+    return count

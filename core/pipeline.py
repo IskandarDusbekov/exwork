@@ -34,7 +34,7 @@ from .svodka import (
     DEFAULT_PERCENTS, XlError, make_evaluator, parse_text_number, resolve_percents, write_svodka,
 )
 from .writer import (
-    SheetWriter, amount_formula, fit_number_columns, mark_unpriced, restore_header_footer, restore_merged_styles, safe_amount_formula,
+    SheetWriter, amount_formula, fit_number_columns, mark_unpriced, restore_header_footer, write_cached_values, restore_merged_styles, safe_amount_formula,
     write_priced_rows, write_sum_row,
 )
 
@@ -90,6 +90,7 @@ class Result:
     percents: Dict[str, float] = field(default_factory=dict)  # svodkada ishlatilgan foizlar
     categories: Dict[int, str] = field(default_factory=dict)  # qo'llangan qo'lda kategoriyalar
     prices: Dict[int, float] = field(default_factory=dict)  # qo'llangan qo'lda narxlar
+    cached_values: Dict[str, Dict[str, object]] = field(default_factory=dict)  # {list: {manzil: natija}}
 
 
 @dataclass
@@ -270,10 +271,14 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         if widened:
             columns["widened"] = ", ".join(widened)
 
+    # formulalar natijasi — fayl «Защищённый просмотр»da ham to'liq ko'rinsin
+    cached = {addr: ev.value(addr) for addr, v in w.written.items() if isinstance(v, str) and v.startswith("=")}
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(out_path)
     wb.close()
     restore_header_footer(local_xlsx, out_path, sheet_titles)
+    write_cached_values(out_path, {ws.title: cached})
 
     # --- statistika va muammolar ---
     stats = Counter({EXACT: 0, FUZZY: 0, AMBIGUOUS: 0, NOT_FOUND: 0})
@@ -308,6 +313,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         local_sheet=ws.title, start_row=start_r, end_row=end_r, sum_row=sum_row,
         svodka_start=svodka_start, log=priced.log_rows, rows=rows, mode=opts.mode,
         warnings=warnings, columns=columns, percents=percents, categories=applied_categories,
+        cached_values={ws.title: cached},
         prices={r: priced.g[r] for r, st in priced.status.items() if st == MANUAL},
     )
 
@@ -355,6 +361,11 @@ def run_many(local_path, steps: List[Tuple[object, Options]], output_path) -> Li
                               "log_title": opts.log_title or log_title_for(opts.local_sheet or "")})
             results.append(run(current, res_path, opts))
             current = out
+    # har qadam oldingi listlarning natijalarini openpyxl orqali qayta saqlaganda yo'qotadi — oxirida hammasini yozamiz
+    merged: Dict[str, Dict[str, object]] = {}
+    for r in results:
+        merged.update(r.cached_values)
+    write_cached_values(output_path, merged)
     return results
 
 
