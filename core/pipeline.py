@@ -11,6 +11,7 @@ Ikki rejim:
   yoziladi va Excel'da qizil bo'ladi (taklif faqat LOG'da) — smetachi narxni o'zi kiritadi.
 """
 import argparse
+from copy import copy
 import re
 import sys
 import tempfile
@@ -20,11 +21,11 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from openpyxl import load_workbook
-from openpyxl.utils import get_column_letter
+from openpyxl.utils import column_index_from_string, get_column_letter
 
 from . import convert
 from .classify import (
-    COLUMN_KIND, KIND_COLUMN, OTHER, is_chel_ch, is_machinists_labor, is_workers_row, name_hint, row_kind,
+    CABLE, COLUMN_KIND, EQUIPMENT, KIND_COLUMN, OTHER, is_chel_ch, is_machinists_labor, is_workers_row, name_hint, row_kind,
 )
 from .detect import cell_value, detect_layout
 from .log_sheet import LOG_TITLE, log_row, write_log
@@ -34,7 +35,7 @@ from .svodka import (
     DEFAULT_PERCENTS, XlError, make_evaluator, parse_text_number, resolve_percents, write_svodka,
 )
 from .writer import (
-    SheetWriter, amount_formula, fit_number_columns, mark_unpriced, restore_header_footer, write_cached_values, restore_merged_styles, safe_amount_formula,
+    SMART_NUM_FMT, SUM_COLS, SheetWriter, amount_formula, target_column, fit_number_columns, mark_unpriced, restore_header_footer, write_cached_values, restore_merged_styles, safe_amount_formula,
     write_priced_rows, write_sum_row,
 )
 
@@ -70,6 +71,7 @@ class Options:
     prices: Optional[Dict[int, float]] = None    # smart: qo'lda narx / tasdiqlangan taklif {qator: narx}
     log_title: Optional[str] = None              # LOG list nomi (bir faylda bir nechta lokal narxlanganda)
     active_sheet: Optional[str] = None           # smart: fayl qaysi listda ochilsin (standart: narxlangan lokal)
+    column_names: Optional[Dict[str, str]] = None  # smart: ustun nomlari {"K": "…", "N": "Монтаж"}; N.. — qo'shilgan
 
 
 @dataclass
@@ -92,6 +94,9 @@ class Result:
     categories: Dict[int, str] = field(default_factory=dict)  # qo'llangan qo'lda kategoriyalar
     prices: Dict[int, float] = field(default_factory=dict)  # qo'llangan qo'lda narxlar
     cached_values: Dict[str, Dict[str, object]] = field(default_factory=dict)  # {list: {manzil: natija}}
+    res_sections: List[dict] = field(default_factory=list)  # smart: RES bo'limlari tartibda (sayt jadvali uchun)
+    extra_columns: List[Tuple[str, str]] = field(default_factory=list)  # smart: smetachi qo'shgan ustunlar
+    tail_removed: int = 0  # smart: «ИТОГО ПО ЛОКАЛЬНОЙ…» qismidan o'chirilgan qatorlar soni
 
 
 @dataclass
@@ -107,6 +112,8 @@ class _Priced:
     suggestions: Dict[int, object] = field(default_factory=dict)  # smart: taklif narxi (yozilmaydi)
     sections: Dict[int, tuple] = field(default_factory=dict)  # smart: aniq topilgan resursning RES bo'limi
     orig_status: Dict[int, str] = field(default_factory=dict)  # smart: qo'lda narxdan oldingi status
+    positions: Dict[int, tuple] = field(default_factory=dict)  # smart: mos resurs RES da qayerda (bo'lim, qator)
+    header_row: Optional[int] = None  # smart: jadval sarlavhasi qatori (ustun nomlari shu yerga)
 
 
 def default_output_path(local_path: Path) -> Path:
@@ -193,31 +200,60 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     start_r, end_r = priced.start, priced.end
 
     default_kinds = {r: row_kind(_peek(ws, r, ln), _peek(ws, r, lu)) for r in range(start_r, end_r + 1)}
+    if smart:
+        # Kategoriya (I/J/K/L/M) resurs faylidagi bo'lim bo'yicha joylanadi: aniq topilgan resurs
+        # «ОБОРУДОВАНИЕ» da bo'lsa — M, «…МАТЕРИАЛЬНЫЕ/МАТЕРИАЛЫ…» — K, «…МАШИНЫ…» — J,
+        # «ТРУДОВЫЕ…» — I, «КАБЕЛ…» — L. Birlik bo'yicha taxmin faqat bo'lim topilmaganda ishlaydi.
+        # Ish sarlavhasi va mashinist mehnati (status WORK_HEADER/MACHINIST) 0 bo'lib qoladi.
+        # L/M (kabel, uskuna) o'zi qo'yilmaydi — faqat taklif: smetachi tasdiqlab o'tkazadi.
+        for r, section in priced.sections.items():
+            if (start_r <= r <= end_r and priced.status.get(r) not in (WORK_HEADER, MACHINIST)
+                    and section[0] not in (CABLE, EQUIPMENT)):
+                default_kinds[r] = section[0]
     kinds = dict(default_kinds)
     applied_categories: Dict[int, str] = {}
     category_hints: Dict[int, tuple] = {}
+    extra_columns = extra_columns_of(opts.column_names) if smart else []
     if smart:
+        extra_letters = {c for c, _n in extra_columns}
         for r, col in (opts.categories or {}).items():
             r = int(r)
-            if col not in COLUMN_KIND:
-                raise ValueError(f"Noma'lum kategoriya: {col!r} (I, J, K, L, M bo'lishi kerak)")
+            if col not in COLUMN_KIND and col not in extra_letters:
+                raise ValueError(f"Noma'lum kategoriya: {col!r} (I, J, K, L, M yoki qo'shilgan ustun bo'lishi kerak)")
             if start_r <= r <= end_r:
-                kinds[r] = COLUMN_KIND[col]
+                kinds[r] = COLUMN_KIND.get(col, col)
                 applied_categories[r] = col
         category_hints = _category_hints(ws, priced, default_kinds, ln)
 
     # --- yozish ---
     w = SheetWriter(ws)
+    if smart:
+        w.num_fmt = SMART_NUM_FMT
     write_priced_rows(w, start_r, end_r, priced.g, kinds, safe_amount_formula if smart else amount_formula)
     sum_row = end_r + 1
-    write_sum_row(w, sum_row, start_r, end_r)
+    write_sum_row(w, sum_row, start_r, end_r, extra=[c for c, _n in extra_columns])
     # compat: svodka darhol sum qatoridan keyin (pastki «СОСТАВИЛ» ustiga tushishi mumkin);
-    # smart (T8): listdagi oxirgi to'ldirilgan qatordan keyin, bitta bo'sh qator qoldirib.
-    svodka_start = (_last_content_row(ws) + 2) if smart else sum_row + 1
+    # smart: «ИТОГО ПО ЛОКАЛЬНОЙ РЕСУРСНОЙ ВЕДОМОСТИ» qismi (resurslar ro'yxati, «СОСТАВИЛ») olib
+    # tashlanadi va svodka sum qatoridan keyin keladi — smetachi qo'lda shunday qiladi.
+    # Bunday qism bo'lmasa — listdagi oxirgi to'ldirilgan qatordan keyin, bitta bo'sh qator qoldirib.
+    tail_removed = 0
+    if smart:
+        tail = _local_total_row(ws, sum_row + 1)
+        if tail:
+            tail_removed = _drop_rows_from(ws, sum_row + 1)
+            svodka_start = sum_row + 1
+        else:
+            svodka_start = _last_content_row(ws) + 2
+    else:
+        svodka_start = sum_row + 1
     percents = resolve_percents(opts.percents) if smart else dict(DEFAULT_PERCENTS)
-    svodka_cells = write_svodka(w, svodka_start, sum_row, percents, smart=smart)
+    svodka_cells = write_svodka(w, svodka_start, sum_row, percents, smart=smart, extra=extra_columns)
     if smart:
         mark_unpriced(ws, start_r, end_r)
+        if priced.header_row:
+            for col, name in sorted((opts.column_names or {}).items()):
+                if name and (col in COLUMN_KIND or col in extra_letters):
+                    _write_header(w, priced.header_row, col, name)
     write_log(wb, priced.log_rows, smart=smart, title=opts.log_title or LOG_TITLE)
     if smart:
         # Fayl narxlangan listda ochilsin: manba fayl boshqa (narxlanmagan) listda saqlangan bo'lishi mumkin,
@@ -247,8 +283,8 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
             "g": w.written.get(f"G{r}"),
             "h": ev.value(f"H{r}") if f"H{r}" in w.written else None,
             "kind": kinds[r],
-            "category": KIND_COLUMN[kinds[r]],
-            "default_category": KIND_COLUMN[default_kinds[r]],
+            "category": target_column(kinds[r]),
+            "default_category": target_column(default_kinds[r]),
             "override": r in applied_categories,
             "suggested_category": None,
             "suggest_reason": "",
@@ -260,6 +296,8 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
             "suggested_price": priced.suggestions.get(r),
             "manual": status == MANUAL,
             "orig_status": priced.orig_status.get(r, status),
+            "res_section": priced.positions[r][0] if r in priced.positions else None,
+            "res_row": priced.positions[r][1] if r in priced.positions else None,
         })
         hint = category_hints.get(r)
         if hint and KIND_COLUMN[hint[0]] != rows[-1]["category"]:
@@ -269,10 +307,10 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     if smart:
         shown = {f"G{r['row']}": r["g"] for r in rows}
         for r in rows:
-            for col in ("H", "I", "J", "K", "L", "M"):
+            for col in ["H", "I", "J", "K", "L", "M"] + [c for c, _n in extra_columns]:
                 if f"{col}{r['row']}" in w.written and w.written[f"{col}{r['row']}"] is not None:
                     shown[f"{col}{r['row']}"] = r["h"]
-        for col in ("H", "I", "J", "K", "L", "M", "N", "O", "P", "Q"):
+        for col in SUM_COLS + [c for c, _n in extra_columns if c not in SUM_COLS]:
             shown[f"{col}{sum_row}"] = ev.value(f"{col}{sum_row}")
         shown.update({addr: totals[key] for key, addr in svodka_cells.items()})
         widened = fit_number_columns(ws, shown)
@@ -322,6 +360,8 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         svodka_start=svodka_start, log=priced.log_rows, rows=rows, mode=opts.mode,
         warnings=warnings, columns=columns, percents=percents, categories=applied_categories,
         cached_values={ws.title: cached},
+        res_sections=[{"kind": k, "column": KIND_COLUMN[k], "title": t} for k, t in index.section_list] if smart else [],
+        extra_columns=extra_columns, tail_removed=tail_removed,
         prices={r: priced.g[r] for r, st in priced.status.items() if st == MANUAL},
     )
 
@@ -377,6 +417,47 @@ def run_many(local_path, steps: List[Tuple[object, Options]], output_path) -> Li
         merged.update(r.cached_values)
     write_cached_values(output_path, merged)
     return results
+
+
+def extra_columns_of(column_names: Optional[Dict[str, str]]) -> List[Tuple[str, str]]:
+    """Smetachi qo'shgan ustunlar (M dan keyingi harflar) tartib bilan: ``[("N", "Монтаж"), ...]``."""
+    out = []
+    for col, name in (column_names or {}).items():
+        col = str(col).strip().upper()
+        if col.isalpha() and column_index_from_string(col) > column_index_from_string("M"):
+            out.append((col, str(name or "").strip()))
+    return sorted(out, key=lambda x: column_index_from_string(x[0]))
+
+
+_LOCAL_TOTAL = re.compile(r"(итого|всего)\s+по\s+локальн", re.I)
+
+
+def _local_total_row(ws, start: int) -> Optional[int]:
+    """«ИТОГО ПО ЛОКАЛЬНОЙ РЕСУРСНОЙ ВЕДОМОСТИ» qatori (``start`` dan pastda, birinchi ustunlarda)."""
+    for (r, c), cell in sorted(ws._cells.items()):
+        if r >= start and c <= 6 and isinstance(cell.value, str) and _LOCAL_TOTAL.search(cell.value):
+            return r
+    return None
+
+
+def _drop_rows_from(ws, start: int) -> int:
+    """``start`` va undan pastdagi hamma qatorlarni o'chiradi (qiymat, uslub, birlashma, balandlik)."""
+    last = max((r for r, _c in ws._cells), default=start - 1)
+    for rng in list(ws.merged_cells.ranges):
+        if rng.max_row >= start:
+            ws.merged_cells.remove(rng)
+    for key in [k for k in ws._cells if k[0] >= start]:
+        del ws._cells[key]
+    for r in [r for r in ws.row_dimensions if r >= start]:
+        del ws.row_dimensions[r]
+    return max(0, last - start + 1)
+
+
+def _write_header(w: SheetWriter, row: int, col: str, name: str):
+    """Jadval sarlavhasiga ustun nomini yozadi (qo'shni sarlavha katagining uslubi bilan)."""
+    src = w.ws._cells.get((row, column_index_from_string("E")))
+    if w.set(f"{col}{row}", name) and src is not None:
+        w.cell(f"{col}{row}")._style = copy(src._style)
 
 
 def _last_content_row(ws) -> int:
@@ -495,6 +576,7 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
     suggestions: Dict[int, object] = {}
     sections: Dict[int, tuple] = {}
     orig_status: Dict[int, str] = {}
+    positions: Dict[int, tuple] = {}
     manual_prices = {int(r): float(v) for r, v in (prices or {}).items()}
     for r, v in manual_prices.items():
         if v < 0:
@@ -553,6 +635,8 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
             notes[r] = note
         if suggestion is not None:
             suggestions[r] = suggestion
+        if m.name and index.position_of(m.unit, m.name):
+            positions[r] = index.position_of(m.unit, m.name)
         log_rows.append(_smart_log_row(r, name_raw, unit_raw, m, st, value, note))
 
     if not named:
@@ -562,6 +646,8 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
     p.suggestions = suggestions
     p.sections = sections
     p.orig_status = orig_status
+    p.positions = positions
+    p.header_row = layout.header_row if layout else None
     return p, ln, lu
 
 

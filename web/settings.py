@@ -37,6 +37,7 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+        "OPTIONS": {"timeout": 30},  # papka fonda narxlanayotganda sahifa so'rovlari kutib turadi
     }
 }
 
@@ -53,3 +54,5 @@ MEDIA_ROOT = Path(os.environ.get("NARXLASH_MEDIA_ROOT", BASE_DIR / "media"))
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
 NARXLASH_MAX_UPLOAD = 30 * 1024 * 1024  # bitta fayl uchun
+DATA_UPLOAD_MAX_NUMBER_FILES = 1000  # butun papka yuklanadi
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 3000

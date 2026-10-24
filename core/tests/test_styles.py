@@ -16,7 +16,7 @@ from openpyxl.utils import column_index_from_string, get_column_letter
 
 from core import convert
 from core.pipeline import Options, run
-from core.writer import NUM_FMT, column_width, read_header_footer, restore_merged_styles
+from core.writer import NUM_FMT, SMART_NUM_FMT, column_width, read_header_footer, restore_merged_styles
 
 from .helpers import effective_cell, golden_cases, soffice_available, style_sig
 
@@ -24,7 +24,7 @@ THIN = ("thin", None)
 NONE = (None, None)
 
 
-def _expected_sig(ws_in, r, c, start, end):
+def _expected_sig(ws_in, r, c, start, end, num_fmt=NUM_FMT):
     sig = style_sig(effective_cell(ws_in, r, c))
     if start <= r <= end:
         sig["border"].update(left=THIN, right=THIN, top=THIN, bottom=THIN)
@@ -33,7 +33,7 @@ def _expected_sig(ws_in, r, c, start, end):
     if r == end + 1:
         sig["border"]["top"] = NONE
     if c == column_index_from_string("G") and start <= r <= end:
-        sig["number_format"] = NUM_FMT
+        sig["number_format"] = num_fmt
     return sig
 
 
@@ -46,7 +46,8 @@ def _load(path: Path, sheet: str):
 
 
 def assert_styles_preserved(local_xlsx: Path, out: Path, sheet: str, start: int, end: int, last_col: str = "G",
-                            last_row: int = None, growable: str = ""):
+                            last_row: int = None, growable: str = "", num_fmt: str = NUM_FMT,
+                            tail_dropped: bool = False):
     """``last_row`` — qaysi qatorgacha tekshirish (standart: ``end``). Smart rejimda svodka
     smeta pastidan keyin yoziladi, shuning uchun pastki «СОСТАВИЛ» qatorlari ham tekshiriladi.
     ``growable`` — kengligi faqat oshishi mumkin bo'lgan ustunlar (smart: G..Q, sonlar sig'ishi uchun)."""
@@ -57,14 +58,16 @@ def assert_styles_preserved(local_xlsx: Path, out: Path, sheet: str, start: int,
     diffs = []
     for r in range(1, last_row + 1):
         for c in range(1, column_index_from_string(last_col) + 1):
-            want = _expected_sig(ws_in, r, c, start, end)
+            want = _expected_sig(ws_in, r, c, start, end, num_fmt)
             got = style_sig(effective_cell(ws_out, r, c))
             for key in want:
                 if want[key] != got[key]:
                     diffs.append(f"{get_column_letter(c)}{r} {key}: {want[key]} != {got[key]}")
     assert not diffs, "Uslub o'zgargan:\n" + "\n".join(diffs[:40])
 
-    assert sorted(map(str, ws_in.merged_cells.ranges)) == sorted(map(str, ws_out.merged_cells.ranges))
+    def merged(ws):
+        return sorted(str(m) for m in ws.merged_cells.ranges if m.max_row <= last_row)
+    assert merged(ws_in) == merged(ws_out)
 
     def widths(ws):
         return {k: (d.min, d.max, d.width, d.hidden) for k, d in ws.column_dimensions.items()}
@@ -78,7 +81,8 @@ def assert_styles_preserved(local_xlsx: Path, out: Path, sheet: str, start: int,
             else:
                 assert after == before, f"{get_column_letter(col)} kengligi o'zgargan: {before} -> {after}"
 
-    for r in range(1, max(ws_in.max_row, end) + 1):
+    # smart: «ИТОГО ПО ЛОКАЛЬНОЙ…» qismi o'chiriladi — undan pastini solishtirmaymiz
+    for r in range(1, (last_row if tail_dropped else max(ws_in.max_row, end)) + 1):
         assert ws_in.row_dimensions[r].height == ws_out.row_dimensions[r].height, f"qator {r} balandligi"
 
     assert read_header_footer(local_xlsx, sheet) == read_header_footer(out, sheet)
@@ -104,13 +108,12 @@ def test_styles_golden(case, tmp_path):
 
 @pytest.mark.parametrize("case", golden_cases(), ids=lambda c: c.name)
 def test_styles_smart_keeps_footer(case, tmp_path):
-    """Smart: ramka faqat ma'lumot qatorlarida, svodka «СОСТАВИЛ»dan keyin — pastki qism o'zgarmaydi."""
+    """Smart: ma'lumot qatorlarining uslubi saqlanadi; «ИТОГО ПО ЛОКАЛЬНОЙ…» qismi o'rniga svodka."""
     if case.needs_soffice() and not soffice_available():
         pytest.skip("LibreOffice yo'q: .xls kirishni konvertatsiya qilib bo'lmaydi")
     out = tmp_path / "out.xlsx"
     result = run(case.local, case.res, Options(output_path=out, mode="smart"))
     local_xlsx = convert.ensure_xlsx(case.local, tmp_path / "conv")
-    last_input_row = load_workbook(local_xlsx)[result.local_sheet].max_row
-    assert result.svodka_start > last_input_row
+    assert result.svodka_start == result.sum_row + 1 and result.tail_removed > 0
     assert_styles_preserved(local_xlsx, out, result.local_sheet, result.start_row, result.end_row,
-                            last_row=last_input_row, growable="GHIJKLMNOPQ")
+                            last_row=result.end_row, growable="GHIJKLMNOPQ", num_fmt=SMART_NUM_FMT, tail_dropped=True)

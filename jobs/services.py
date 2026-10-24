@@ -128,6 +128,7 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
             output_path=out, percents=job.percents or None,
             categories={int(r): c for r, c in (job.categories or {}).items()} or None,
             prices={int(r): float(p) for r, p in (job.prices or {}).items()} or None,
+            column_names=job.column_names or None,
         ))
     except Exception as e:  # foydalanuvchiga ko'rsatamiz, server yiqilmasin
         job.status = Job.Status.FAILED
@@ -153,6 +154,9 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
         "percents": result.percents,
         "categories": {str(r): c for r, c in result.categories.items()},
         "prices": {str(r): p for r, p in result.prices.items()},
+        "res_sections": result.res_sections,
+        "extra_columns": [list(c) for c in result.extra_columns],
+        "tail_removed": result.tail_removed,
     }
     job.save()
     return job
@@ -251,11 +255,10 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
     return jobs
 
 
-def build_combined(batch: "Batch"):
-    """Hamma narxlangan lokallarni o'z fayllarida yig'adi: har bir lokal list narxlanadi va
-    o'z «LOG …» listini oladi. Bitta fayl bo'lsa — .xlsx, bir nechta bo'lsa — .zip.
-    Smetachining qo'lda o'zgarishlari (narx, ustun, foiz) ham qo'llanadi."""
-    import zipfile
+def batch_outputs(batch: "Batch") -> list:
+    """Har bir lokal fayl uchun natija: «<fayl>_narxlandi.xlsx». Faylda bitta narxlangan lokal bo'lsa —
+    o'sha qismning tayyor fayli (qo'lda o'zgarishlari bilan), bir nechta bo'lsa — hammasi bitta faylda:
+    har bir lokal list narxlanadi va o'z «LOG …» listini oladi."""
     from collections import defaultdict
 
     from core.pipeline import run_many
@@ -270,18 +273,30 @@ def build_combined(batch: "Batch"):
     out_dir.mkdir(parents=True)
     outputs = []
     for f, jobs in groups.items():
-        steps = [(job.abs(job.res_path), Options(
-            mode=job.mode, fuzzy_percent=job.fuzzy, local_sheet=job.local_sheet, res_sheet=job.res_sheet,
-            percents=job.percents or None,
-            categories={int(r): c for r, c in (job.categories or {}).items()} or None,
-            prices={int(r): float(v) for r, v in (job.prices or {}).items()} or None,
-        )) for job in jobs]
         out = out_dir / f"{Path(batch.files[f]['name']).stem}_narxlandi.xlsx"
-        run_many(batch.abs(batch.files[f]["path"]), steps, out)
+        if len(jobs) == 1 and jobs[0].output_path and jobs[0].abs(jobs[0].output_path).is_file():
+            shutil.copy2(jobs[0].abs(jobs[0].output_path), out)
+        else:
+            steps = [(job.abs(job.res_path), Options(
+                mode=job.mode, fuzzy_percent=job.fuzzy, local_sheet=job.local_sheet, res_sheet=job.res_sheet,
+                percents=job.percents or None,
+                categories={int(r): c for r, c in (job.categories or {}).items()} or None,
+                prices={int(r): float(v) for r, v in (job.prices or {}).items()} or None,
+                column_names=job.column_names or None,
+            )) for job in jobs]
+            run_many(batch.abs(batch.files[f]["path"]), steps, out)
         outputs.append(out)
+    return outputs
+
+
+def build_combined(batch: "Batch"):
+    """Obyektning hamma natijasi: bitta fayl bo'lsa — .xlsx, bir nechta bo'lsa — .zip."""
+    import zipfile
+
+    outputs = batch_outputs(batch)
     if len(outputs) == 1:
         return outputs[0]
-    zpath = out_dir / f"{Path(batch.files[0]['name']).stem}_narxlandi.zip"
+    zpath = outputs[0].parent / f"{Path(batch.files[0]['name']).stem}_narxlandi.zip"
     with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
         for o in outputs:
             z.write(o, o.name)

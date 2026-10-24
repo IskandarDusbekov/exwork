@@ -1,9 +1,51 @@
 {% extends "jobs/base.html" %}
+{% load narx %}
 {% block content %}
-<div class="max-w-3xl mx-auto">
-  <h1 class="text-2xl font-semibold mb-1">Файлларни юклаш</h1>
-  <p class="text-slate-500 mb-6">Битта объект файли ёки бир нечта файлни юкланг — қайси лист локал, қайсиси ресурс эканини тизим ўзи аниқлайди,
-    жуфтлаб, тузилишини кўрсатади. Сиз текширасиз ва тасдиқлайсиз.</p>
+<div class="max-w-4xl mx-auto">
+  <h1 class="text-2xl font-semibold mb-1">Юклаш</h1>
+  <p class="text-slate-500 mb-6">Бутун папкани ёки алоҳида файлларни юкланг — қайси файл локал, қайсиси ресурс эканини тизим
+    мазмунидан ўзи аниқлайди, жуфтлайди ва нархлайди.</p>
+
+  {% if resume %}
+  <a href="{{ resume.url }}" class="mb-6 flex items-center gap-4 rounded-xl bg-slate-900 px-5 py-4 text-white shadow-sm hover:bg-slate-800">
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white/10">{% if resume.working %}{% icon "loader" "h-5 w-5 animate-spin" "2.5" %}{% else %}{% icon "arrow-right" "h-5 w-5" %}{% endif %}</span>
+    <span class="min-w-0 flex-1">
+      <span class="block text-xs uppercase tracking-wider text-slate-400">{% if resume.working %}Ишланяпти · {{ resume.progress }}{% else %}Охирги иш — давом эттириш{% endif %}</span>
+      <span class="block truncate font-semibold">{{ resume.name }}</span>
+      <span class="block truncate text-xs text-slate-400">{{ resume.meta }} · {{ resume.created|date:"d.m.Y H:i" }}{% if resume.not_priced %} · {{ resume.not_priced }} та қатор нархланмаган{% endif %}</span>
+    </span>
+    {% if resume.total %}<span class="hidden text-right sm:block"><span class="num block text-lg font-semibold">{{ resume.total|som }}</span><span class="block text-[11px] text-slate-400">Всего с НДС</span></span>{% endif %}
+    {% icon "chevron-right" "h-5 w-5 shrink-0 text-slate-400" %}
+  </a>
+  {% endif %}
+
+  {# ================= бутун папка ================= #}
+  <section class="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div class="mb-4 flex items-start gap-3">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-600 ring-1 ring-amber-200">{% icon "folder" "h-5 w-5" %}</span>
+      <div>
+        <h2 class="font-semibold">Бутун папка <span class="ml-1 rounded bg-slate-900 px-1.5 py-0.5 text-[11px] font-medium text-white">тавсия</span></h2>
+        <p class="text-sm text-slate-500">Масалан «Нурафшон МТТ»: ичидаги ҳар бир папка (Блок-А / Подземный часть, ОВ, ВК…) алоҳида смета бўлиб
+          нархланади. Олдинги «_narxlandi» файллари ва вақтинча файллар олинмайди.</p>
+      </div>
+    </div>
+    <label id="fdrop" class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-8 text-center transition hover:border-slate-500 hover:bg-white">
+      <span class="grid h-12 w-12 place-items-center rounded-full bg-white text-amber-600 shadow-sm ring-1 ring-slate-200">{% icon "folder-open" "h-6 w-6" "1.75" %}</span>
+      <span class="font-medium">Папкани шу ерга ташланг ёки танлаш учун босинг</span>
+      <span class="text-sm text-slate-500">ички папкалари билан бирга · фақат Excel файллар юкланади</span>
+      <input type="file" id="folder" webkitdirectory directory multiple class="sr-only">
+    </label>
+    <div id="fsummary" class="mt-4 hidden rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm"></div>
+    <div id="fprogress" class="mt-3 hidden">
+      <div class="flex justify-between text-xs text-slate-500"><span id="fprogress-text">Юкланяпти…</span><span id="fprogress-pct" class="num">0%</span></div>
+      <div class="mt-1 h-2 overflow-hidden rounded-full bg-slate-100"><div id="fprogress-bar" class="h-full w-0 rounded-full bg-sky-500 transition-all"></div></div>
+    </div>
+    <div id="ferror" class="mt-3 hidden rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800"></div>
+    <button type="button" id="fsubmit" disabled class="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-3 font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40">
+      {% icon "upload" %} Папкани юклаш ва нархлаш</button>
+  </section>
+
+  <div class="mb-3 flex items-center gap-3 text-xs uppercase tracking-wider text-slate-400"><span class="h-px flex-1 bg-slate-200"></span>ёки алоҳида файллар<span class="h-px flex-1 bg-slate-200"></span></div>
 
   {% if error %}
   <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">{{ error }}</div>
@@ -12,7 +54,7 @@
   <form method="post" enctype="multipart/form-data" data-busy class="bg-white rounded-xl border border-slate-200 p-6 space-y-5 shadow-sm">
     {% csrf_token %}
     <label id="drop" class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center transition hover:border-slate-500 hover:bg-white">
-      <span class="text-4xl" aria-hidden="true">📂</span>
+      <span class="grid h-14 w-14 place-items-center rounded-full bg-white text-slate-500 shadow-sm ring-1 ring-slate-200">{% icon "upload" "h-7 w-7" "1.75" %}</span>
       <span class="font-medium">Файлларни шу ерга ташланг ёки танлаш учун босинг</span>
       <span class="text-sm text-slate-500">.xls, .xlsx, .xlsm · бирданига ёки кетма-кет танланг — ҳар бири рўйхатга қўшилади</span>
       <input type="file" name="files" id="files" accept=".xls,.xlsx,.xlsm" multiple required class="sr-only">
@@ -31,31 +73,155 @@
     </button>
   </form>
 
-  {% if recent_batches %}
-  <h2 class="mt-10 mb-2 font-medium text-slate-600">Охирги объектлар</h2>
-  <ul class="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 text-sm">
-    {% for b in recent_batches %}
-    <li><a href="{% url 'batch' b.id %}" class="flex justify-between gap-3 px-4 py-2 hover:bg-slate-50">
-      <span>📂 {{ b.name }} <span class="text-slate-500">· {{ b.pairs|length }} та жуфтлик</span></span>
-      <span class="text-slate-500 whitespace-nowrap">{{ b.get_status_display }} · {{ b.created|date:"d.m H:i" }}</span>
-    </a></li>
-    {% endfor %}
-  </ul>
-  {% endif %}
-
   {% if recent %}
-  <h2 class="mt-8 mb-2 font-medium text-slate-600">Охирги ишлар</h2>
-  <ul class="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 text-sm">
-    {% for j in recent %}
-    <li><a href="{% url 'job' j.id %}" class="flex justify-between px-4 py-2 hover:bg-slate-50">
-      <span>{{ j.local_name }}{% if j.local_sheet %} · <span class="text-slate-500">{{ j.local_sheet }}</span>{% endif %}</span>
-      <span class="text-slate-500">{{ j.get_status_display }} · {{ j.created|date:"d.m H:i" }}</span>
-    </a></li>
-    {% endfor %}
-  </ul>
+  <section class="mt-10">
+    <div class="mb-3 flex flex-wrap items-center gap-3">
+      <h2 class="flex items-center gap-2 font-semibold text-slate-800">{% icon "clock" "h-4 w-4 text-slate-500" %} Охирги ишлар</h2>
+      <div id="recent-tabs" class="ml-auto inline-flex overflow-hidden rounded-lg border border-slate-200 bg-white text-xs">
+        <button type="button" data-kind="" class="bg-slate-900 px-3 py-1.5 text-white">Ҳаммаси</button>
+        <button type="button" data-kind="folder" class="border-l border-slate-200 px-3 py-1.5 hover:bg-slate-50">Папкалар</button>
+        <button type="button" data-kind="object" class="border-l border-slate-200 px-3 py-1.5 hover:bg-slate-50">Объектлар</button>
+        <button type="button" data-kind="smeta" class="border-l border-slate-200 px-3 py-1.5 hover:bg-slate-50">Сметалар</button>
+      </div>
+    </div>
+    <ul id="recent-list" class="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      {% for it in recent %}
+      <li data-kind="{{ it.kind }}">
+        <a href="{{ it.url }}" class="group flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
+          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg {% if it.kind == 'folder' %}bg-amber-50 text-amber-600{% elif it.kind == 'object' %}bg-slate-100 text-slate-500{% else %}bg-emerald-50 text-emerald-600{% endif %}">
+            {% if it.kind == "folder" %}{% icon "folder" "h-5 w-5" "1.75" %}{% elif it.kind == "object" %}{% icon "layers" "h-5 w-5" "1.75" %}{% else %}{% icon "sheet" "h-5 w-5" "1.75" %}{% endif %}
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate font-medium text-slate-800">{{ it.name }}</span>
+            <span class="block truncate text-xs text-slate-500">{% if it.kind == "folder" %}Папка{% elif it.kind == "object" %}Объект{% else %}Смета{% endif %}{% if it.meta %} · {{ it.meta }}{% endif %} · {{ it.created|date:"d.m.Y H:i" }}</span>
+          </span>
+          {% if it.working %}
+          <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 ring-1 ring-inset ring-sky-200">{% icon "loader" "h-3.5 w-3.5 animate-spin" "2.5" %} Ишланяпти {{ it.progress }}</span>
+          {% elif it.review %}
+          <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-200">{% icon "alert" "h-3.5 w-3.5" %} Текширинг</span>
+          {% elif it.not_priced %}
+          <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-200">{% icon "alert-circle" "h-3.5 w-3.5" %} {{ it.not_priced }} та нархланмаган</span>
+          {% else %}
+          <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">{% icon "check" "h-3.5 w-3.5" "2.5" %} Тайёр</span>
+          {% endif %}
+          <span class="hidden w-40 shrink-0 text-right sm:block"><span class="num block text-sm font-semibold text-slate-800">{% if it.total %}{{ it.total|som }}{% else %}<span class="text-slate-300">—</span>{% endif %}</span>
+            <span class="block text-[11px] text-slate-400">Всего с НДС</span></span>
+          <span class="text-slate-300 group-hover:text-slate-500">{% icon "chevron-right" "h-4 w-4" %}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
   {% endif %}
 </div>
 <script>
+  // ===== охирги ишлар: тур бўйича фильтр =====
+  (function () {
+    var tabs = document.getElementById("recent-tabs");
+    if (!tabs) return;
+    tabs.addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      tabs.querySelectorAll("button").forEach(function (x) {
+        var on = x === b; x.classList.toggle("bg-slate-900", on); x.classList.toggle("text-white", on);
+      });
+      document.querySelectorAll("#recent-list > li").forEach(function (li) {
+        li.style.display = !b.dataset.kind || li.dataset.kind === b.dataset.kind ? "" : "none";
+      });
+    });
+  })();
+
+  // ===== бутун папка: танлаш ёки ташлаш, сўнг юклаш (жараён кўрсатилади) =====
+  (function () {
+    var drop = document.getElementById("fdrop"), input = document.getElementById("folder");
+    var summary = document.getElementById("fsummary"), submit = document.getElementById("fsubmit");
+    var err = document.getElementById("ferror"), prog = document.getElementById("fprogress");
+    var picked = [];  // [{file, path}]
+    var OK = /\.(xls|xlsx|xlsm)$/i;
+
+    function why(path) {
+      var name = path.split("/").pop();
+      if (name.indexOf("~$") === 0) return "вақтинча файл";
+      if (!OK.test(name)) return "Excel эмас";
+      if (/_narxlandi/i.test(name)) return "олдинги натижа";
+      return "";
+    }
+    function esc(t) { var d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
+    function show() {
+      var take = picked.filter(function (x) { return !why(x.path); });
+      var folders = new Set(take.map(function (x) { return x.path.split("/").slice(0, -1).join("/"); }));
+      var root = picked.length ? picked[0].path.split("/")[0] : "";
+      summary.classList.toggle("hidden", !picked.length);
+      summary.innerHTML = "<div class='font-medium'>" + esc(root) + "</div>" +
+        "<div class='mt-1 text-slate-600'><b>" + take.length + "</b> та Excel файл, <b>" + folders.size + "</b> та папка — юкланади · " +
+        "<span class='text-slate-400'>" + (picked.length - take.length) + " та файл олинмайди (олдинги натижа, вақтинча, Excel эмас)</span></div>";
+      submit.disabled = take.length === 0;
+      err.classList.add("hidden");
+    }
+    function setFiles(list) { picked = list.filter(function (x) { return x.path; }); show(); }
+
+    input.addEventListener("change", function () {
+      setFiles(Array.prototype.map.call(input.files, function (f) { return {file: f, path: f.webkitRelativePath || f.name}; }));
+    });
+    // ташланган папкани ички папкалари билан ўқиш
+    function walk(entry, prefix, out) {
+      return new Promise(function (resolve) {
+        if (entry.isFile) {
+          entry.file(function (f) { out.push({file: f, path: prefix + f.name}); resolve(); }, function () { resolve(); });
+        } else if (entry.isDirectory) {
+          var reader = entry.createReader(), all = [];
+          (function more() {
+            reader.readEntries(function (ents) {
+              if (!ents.length) {
+                Promise.all(all.map(function (e) { return walk(e, prefix + entry.name + "/", out); })).then(resolve);
+              } else { all = all.concat(Array.prototype.slice.call(ents)); more(); }
+            }, function () { resolve(); });
+          })();
+        } else resolve();
+      });
+    }
+    ["dragenter", "dragover"].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("border-slate-700", "bg-white"); });
+    });
+    ["dragleave", "drop"].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("border-slate-700", "bg-white"); });
+    });
+    drop.addEventListener("drop", function (e) {
+      var items = e.dataTransfer && e.dataTransfer.items, out = [];
+      if (!items) return;
+      var entries = Array.prototype.map.call(items, function (it) { return it.webkitGetAsEntry && it.webkitGetAsEntry(); }).filter(Boolean);
+      Promise.all(entries.map(function (en) { return walk(en, "", out); })).then(function () { setFiles(out); });
+    });
+
+    submit.addEventListener("click", function () {
+      var take = picked.filter(function (x) { return !why(x.path); });
+      var fd = new FormData();
+      fd.append("csrfmiddlewaretoken", document.querySelector("[name=csrfmiddlewaretoken]").value);
+      take.forEach(function (x) { fd.append("files", x.file, x.file.name); fd.append("paths", x.path); });
+      picked.forEach(function (x) { if (why(x.path)) fd.append("skipped", x.path); });
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", "{% url 'project_create' %}");
+      submit.disabled = true;
+      prog.classList.remove("hidden");
+      xhr.upload.onprogress = function (e) {
+        if (!e.lengthComputable) return;
+        var pct = Math.round(100 * e.loaded / e.total);
+        document.getElementById("fprogress-bar").style.width = pct + "%";
+        document.getElementById("fprogress-pct").textContent = pct + "%";
+        if (pct >= 100) document.getElementById("fprogress-text").textContent = "Сақланяпти, нархлаш бошланяпти…";
+      };
+      xhr.onload = function () {
+        var data = {};
+        try { data = JSON.parse(xhr.responseText); } catch (e) { data = {error: "сервер хатоси (" + xhr.status + ")"}; }
+        if (data.ok) { location.href = data.url; return; }
+        err.textContent = data.error || "хато"; err.classList.remove("hidden");
+        prog.classList.add("hidden"); submit.disabled = false;
+      };
+      xhr.onerror = function () { err.textContent = "Тармоқ хатоси"; err.classList.remove("hidden"); submit.disabled = false; };
+      xhr.send(fd);
+    });
+  })();
+
+    var FILE_ICON = '{% icon "file" "h-4 w-4 shrink-0 text-slate-400" %}';
   // Файллар рўйхати: ҳар бир танлаш/ташлаш рўйхатга ҚЎШИЛАДИ (браузер одатда олдингисини алмаштиради)
   (function () {
     var drop = document.getElementById("drop"), input = document.getElementById("files"), list = document.getElementById("file-list");
@@ -84,11 +250,11 @@
       selected.forEach(function (f, i) {
         var li = document.createElement("li");
         li.className = "flex items-center gap-3 rounded-md bg-slate-100 px-3 py-1.5";
-        li.innerHTML = "<span class='flex-1 break-all'></span><span class='text-slate-500 whitespace-nowrap'></span>" +
+        li.innerHTML = FILE_ICON + "<span class='flex-1 break-all'></span><span class='text-slate-500 whitespace-nowrap'></span>" +
                        "<button type='button' class='rounded px-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900' title='Олиб ташлаш'>×</button>";
-        li.children[0].textContent = "📄 " + f.name;
-        li.children[1].textContent = (f.size / 1024 / 1024).toFixed(1) + " МБ";
-        li.children[2].addEventListener("click", function () { selected.splice(i, 1); sync(); });
+        li.children[1].textContent = f.name;
+        li.children[2].textContent = (f.size / 1024 / 1024).toFixed(1) + " МБ";
+        li.children[3].addEventListener("click", function () { selected.splice(i, 1); sync(); });
         list.appendChild(li);
       });
       if (selected.length) {

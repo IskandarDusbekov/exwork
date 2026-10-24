@@ -21,9 +21,19 @@ from openpyxl.utils import column_index_from_string, coordinate_to_tuple, get_co
 from .classify import KIND_COLUMN
 
 NUM_FMT = "#,##0"
+SMART_NUM_FMT = "#,##0.00"  # smart: tiyinlar ko'rinsin (457,60 — 458 emas)
 PERCENT_FMT = "0.00%"
 GRAY = "FFD9D9D9"
 SUM_COLS = ["H", "I", "J", "K", "L", "M", "N", "O", "P", "Q"]
+
+
+def target_column(kind: str) -> str:
+    """Tur (workers/…) yoki to'g'ridan-to'g'ri ustun harfi (smetachi qo'shgan N, O, …) -> ustun."""
+    if kind in KIND_COLUMN:
+        return KIND_COLUMN[kind]
+    if isinstance(kind, str) and kind.isalpha() and kind.isupper() and len(kind) <= 2:
+        return kind
+    return "K"
 
 _THIN = Side(style="thin")
 
@@ -34,6 +44,7 @@ class SheetWriter:
     def __init__(self, ws):
         self.ws = ws
         self.written: Dict[str, object] = {}
+        self.num_fmt = NUM_FMT  # smart: SMART_NUM_FMT
 
     def cell(self, addr: str):
         """Katakni qaytaradi. Faylda yo'q katak yaratilsa, Excel kabi qator (yoki ustun)
@@ -65,7 +76,8 @@ class SheetWriter:
         self.written[addr] = value
         return True
 
-    def number_format(self, col: str, start: int, end: int, fmt: str = NUM_FMT):
+    def number_format(self, col: str, start: int, end: int, fmt: str = None):
+        fmt = fmt or self.num_fmt
         for r in range(start, end + 1):
             self.cell(f"{col}{r}").number_format = fmt
 
@@ -130,33 +142,36 @@ def safe_amount_formula(r: int) -> str:
 def write_priced_rows(w: SheetWriter, start: int, end: int, g_values: Dict[int, object], kinds: Dict[int, str],
                       formula=amount_formula):
     """G..K ustunlarini ``start..end`` oralig'ida to'ldiradi va A–H ramka chizadi."""
-    for r in range(start, end + 1):
+    rows = range(start, end + 1)
+    for r in rows:
         w.set(f"G{r}", g_values.get(r))
     w.number_format("G", start, end)
 
-    for r in range(start, end + 1):
+    for r in rows:
         w.set(f"H{r}", formula(r))
     w.number_format("H", start, end)
 
-    for r in range(start, end + 1):
-        col = KIND_COLUMN.get(kinds[r], "K")
+    for r in rows:
+        col = target_column(kinds[r])
         ref = f"=H{r}"
         for c in "IJK":
             w.set(f"{c}{r}", ref if col == c else None)
-        if col in "LM":
-            # L/M (kabel, uskuna) — faqat shu qatorga; boshqa qatorlardagi qo'lda kiritilganlarga tegilmaydi
+        if col not in "IJK":
+            # L/M (kabel, uskuna) va smetachi qo'shgan ustunlar — faqat shu qatorga;
+            # boshqa qatorlardagi qo'lda kiritilganlarga tegilmaydi
             w.set(f"{col}{r}", ref)
-            w.cell(f"{col}{r}").number_format = NUM_FMT
+            w.cell(f"{col}{r}").number_format = w.num_fmt
     for col in "IJK":
         w.number_format(col, start, end)
 
     w.frame(start, end, "A", "H")
 
 
-def write_sum_row(w: SheetWriter, sum_row: int, start: int, end: int):
-    for col in SUM_COLS:
+def write_sum_row(w: SheetWriter, sum_row: int, start: int, end: int, extra=()):
+    cols = SUM_COLS + [c for c in extra if c not in SUM_COLS]
+    for col in cols:
         w.set(f"{col}{sum_row}", f"=SUM({col}{start}:{col}{end})")
-        w.cell(f"{col}{sum_row}").number_format = NUM_FMT
+        w.cell(f"{col}{sum_row}").number_format = w.num_fmt
 
 
 # ===================== narxsiz qatorlarni qizil qilish (smart) =====================

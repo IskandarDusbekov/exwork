@@ -10,7 +10,7 @@ from openpyxl import load_workbook
 
 from core.tests.conftest import build_local, build_res
 
-from .models import Batch, Job
+from .models import Batch, Job, Project
 
 TMP_MEDIA = tempfile.mkdtemp(prefix="narxlash_media_")
 
@@ -51,7 +51,7 @@ class FlowTests(TestCase):
         self.assertRedirects(r, reverse("batch", args=[batch.id]))
         self.assertEqual(len(batch.pairs), 4)
         page = self.client.get(reverse("batch", args=[batch.id]))
-        self.assertContains(page, "🏗 Стройка:")
+        self.assertContains(page, "Стройка:")
         self.assertContains(page, "МОСТ НА ПК 75+34")
         self.assertContains(page, "Нусхалар — бир марта олинди (6)")
         self.assertContains(page, "мослик 93%")
@@ -124,7 +124,7 @@ class FlowTests(TestCase):
 
         page = self.client.get(reverse("job", args=[job.id]))
         self.assertNotContains(page, "#ЗНАЧ!")
-        self.assertContains(page, "29 818")       # ишчилар нархи
+        self.assertContains(page, "29 818,17")       # ишчилар нархи
         self.assertContains(page, "машинист")
 
         # compat: эски дастур каби — «--» туфайли Excel'дагидек #ЗНАЧ!
@@ -242,12 +242,12 @@ class FlowTests(TestCase):
         self.assertEqual(job.result["stats"]["NOT_PRICED"], 1)
         self.assertEqual(job.prices[str(red[10])], 4_500_000)
         page = self.client.get(reverse("job", args=[job.id]))
-        self.assertContains(page, "қўлда ✓")
+        self.assertContains(page, ">қўлда</span>")
         self.assertContains(page, "1 та қатор нархланмади")
 
         post({"rows": [red[11]], "action": "accept"})
         job.refresh_from_db()
-        self.assertContains(self.client.get(reverse("job", args=[job.id])), "Ҳамма қаторлар нархланган ✓")
+        self.assertContains(self.client.get(reverse("job", args=[job.id])), "Ҳамма қаторлар нархланган")
 
         post({"rows": red, "action": "clear"})
         job.refresh_from_db()
@@ -278,3 +278,88 @@ class FlowTests(TestCase):
         self._upload(local=self.local, res=self.res)
         job = Job.objects.get()
         self.assertEqual(self.client.get(reverse("job_download", args=[job.id])).status_code, 404)
+
+
+class ResGroupsTests(TestCase):
+    def test_rows_grouped_in_res_order_with_move_offer(self):
+        from .views import _res_groups
+        res = {
+            "res_sections": [{"kind": "workers", "column": "I", "title": "ТРУДОВЫЕ РЕСУРСЫ"},
+                             {"kind": "equipment", "column": "M", "title": "ОБОРУДОВАНИЕ"}],
+            "rows": [
+                {"row": 5, "name": "НАСОС Б", "category": "K", "res_section": 1, "res_row": 30, "h": 200.0, "status": "EXACT"},
+                {"row": 6, "name": "НАСОС А", "category": "K", "res_section": 1, "res_row": 20, "h": 100.0, "status": "EXACT"},
+                {"row": 7, "name": "ТРУД", "category": "I", "res_section": 0, "res_row": 3, "h": 50.0, "status": "EXACT"},
+                {"row": 9, "name": "ЙЎҚ", "category": "K", "res_section": None, "h": 0, "status": "NOT_FOUND"},
+                {"row": 10, "name": "ИШ", "category": "K", "res_section": None, "h": 0, "status": "WORK_HEADER"},
+            ],
+        }
+        groups = _res_groups(res)
+        self.assertEqual([g["title"] for g in groups],
+                         ["ТРУДОВЫЕ РЕСУРСЫ", "ОБОРУДОВАНИЕ", "Ресурс файлида топилмаганлар", "Иш сарлавҳалари ва машинистлар"])
+        eq = groups[1]
+        self.assertEqual([r["row"] for r in eq["rows"]], [6, 5])  # RES даги тартибда
+        self.assertEqual(eq["to_move"], [6, 5])
+        self.assertEqual(eq["sum"], 300.0)
+        self.assertEqual(groups[0]["to_move"], [])
+
+
+@override_settings(MEDIA_ROOT=TMP_MEDIA)
+class FolderTests(TestCase):
+    """Бутун папка: ҳар бир ички папка алоҳида қисм, ўзи жуфтланади ва нархланади; ZIP да тузилиш сақланади."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        golden = Path(__file__).resolve().parent.parent / "core/tests/golden/202611450"
+        cls.local = (golden / "input_local.xlsx").read_bytes()
+        cls.res = (golden / "input_res.xlsx").read_bytes()
+
+    def _upload(self):
+        from unittest import mock
+
+        from . import folders
+
+        files = {
+            "МТТ/1. Блок-А/Подзем/A_lokal.xlsx": self.local,
+            "МТТ/1. Блок-А/Подзем/A_res.xlsx": self.res,
+            "МТТ/2. ОВ/ov_lokal.xlsx": self.local,
+            "МТТ/2. ОВ/ov_res.xlsx": self.res,
+            "МТТ/2. ОВ/ov_lokal_narxlandi.xlsx": self.local,  # олдинги натижа — олинмайди
+        }
+        data = {"files": [SimpleUploadedFile(p.split("/")[-1], b) for p, b in files.items()],
+                "paths": list(files), "skipped": ["МТТ/Yangi.zip", "МТТ/2. ОВ/~$ov_lokal.xlsx"]}
+        # фондаги иш тестда шу заҳоти бажарилсин
+        with mock.patch.object(folders, "start", lambda project: folders._run(project.id)):
+            r = self.client.post(reverse("project_create"), data)
+        self.assertEqual(r.status_code, 200, r.content)
+        return Project.objects.get(), r.json()
+
+    def test_folder_upload_prices_each_subfolder(self):
+        project, data = self._upload()
+        self.assertEqual(project.name, "МТТ")
+        self.assertEqual(project.status, Project.Status.DONE)
+        parts = {p.folder: p for p in project.parts.all()}
+        self.assertEqual(set(parts), {"1. Блок-А/Подзем", "2. ОВ"})
+        for p in parts.values():
+            self.assertEqual(p.stage, Batch.Stage.DONE, p.message)
+            self.assertEqual(p.jobs.count(), 1)
+        skipped = {f["path"]: f["skip"] for f in project.files if f["skip"]}
+        self.assertEqual(skipped["2. ОВ/ov_lokal_narxlandi.xlsx"], "олдинги натижа")
+        self.assertIn("2. ОВ/~$ov_lokal.xlsx", skipped)
+
+        page = self.client.get(data["url"])
+        self.assertContains(page, "Подзем")
+        self.assertContains(page, "ov_lokal_narxlandi.xlsx")  # натижа файли дарахтда
+        self.assertContains(page, 'data-working="0"')
+        self.assertContains(self.client.get(data["url"] + "?partial=1"), "project-state")
+
+        import io
+        import zipfile
+        z = zipfile.ZipFile(io.BytesIO(b"".join(self.client.get(reverse("project_download", args=[project.id])).streaming_content)))
+        self.assertEqual(sorted(z.namelist()), ["1. Блок-А/Подзем/A_lokal_narxlandi.xlsx", "2. ОВ/ov_lokal_narxlandi.xlsx"])
+
+    def test_folder_without_excel_rejected(self):
+        r = self.client.post(reverse("project_create"), {"skipped": ["x/a.zip"]})
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse(Project.objects.exists())

@@ -51,14 +51,21 @@ def _col(c: Union[str, int]) -> int:
 class ResourceIndex:
     """``by_unit[birlik][nom] = narx``; takrorlangan nomdan birinchisi olinadi."""
 
-    def __init__(self, by_unit: Dict[str, Dict[str, Any]], sections: Optional[Dict[tuple, tuple]] = None):
+    def __init__(self, by_unit: Dict[str, Dict[str, Any]], sections: Optional[Dict[tuple, tuple]] = None,
+                 section_list: Optional[List[tuple]] = None, positions: Optional[Dict[tuple, tuple]] = None):
         self.by_unit = by_unit
         self.units = list(by_unit.keys())
         self._names = {u: list(d.keys()) for u, d in by_unit.items()}
         self.sections = sections or {}  # (birlik, nom) -> (kategoriya, bo'lim sarlavhasi)
+        self.section_list = section_list or []  # RES dagi tartibda: [(kategoriya, sarlavha), ...]
+        self.positions = positions or {}  # (birlik, nom) -> (bo'lim tartib raqami yoki -1, RES qatori)
 
     def section_of(self, unit: str, name: str) -> Optional[tuple]:
         return self.sections.get((unit, name))
+
+    def position_of(self, unit: str, name: str) -> Optional[tuple]:
+        """Resurs RES da qayerda: ``(bo'lim raqami (section_list da) yoki -1, RES qatori)``."""
+        return self.positions.get((unit, name))
 
     @classmethod
     def from_sheet(cls, ws, name_col: Union[str, int] = "D", price_col: Union[str, int] = "G",
@@ -69,6 +76,8 @@ class ResourceIndex:
         rp = _col(price_col)
         by_unit: Dict[str, Dict[str, Any]] = {}
         sections: Dict[tuple, tuple] = {}
+        section_list: List[tuple] = []
+        positions: Dict[tuple, tuple] = {}
         current = None  # oxirgi ko'rilgan bo'lim: (kategoriya, sarlavha)
         for r in range(start_row, ws.max_row + 1):
             unit = norm_unit(ws.cell(row=r, column=ru).value)
@@ -80,6 +89,7 @@ class ResourceIndex:
                     kind = section_kind(text)
                     if kind:
                         current = (kind, str(text).strip())
+                        section_list.append(current)
                         break
                 continue
             if not name:
@@ -87,9 +97,10 @@ class ResourceIndex:
             d = by_unit.setdefault(unit, {})
             if name not in d:
                 d[name] = ws.cell(row=r, column=rp).value
+                positions[(unit, name)] = (len(section_list) - 1, r)
                 if current:
                     sections[(unit, name)] = current
-        return cls(by_unit, sections)
+        return cls(by_unit, sections, section_list, positions)
 
     def match(self, local_name: str, local_unit: str, threshold: float, ambiguity_delta: float = 0.01) -> Match:
         """``local_name``/``local_unit`` allaqachon normallashtirilgan bo'lishi kerak."""

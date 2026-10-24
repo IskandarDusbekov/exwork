@@ -62,8 +62,11 @@ def test_range_stops_before_itogo(tmp_path):
     assert (r.start_row, r.end_row) == (15, 44)
     ws = load_workbook(r.output_path)["202611450_БВ"]
     assert ws["G46"].value is None and ws["G12"].value is None
-    assert ws["B77"].value == "СОСТАВИЛ"            # pastki qism joyida
-    assert ws[f"C{r.svodka_start}"].value == "Зарплата" and r.svodka_start == 79
+    # «ИТОГО ПО ЛОКАЛЬНОЙ…» qismi (46..77, «СОСТАВИЛ» bilan) olib tashlandi — svodka sum qatoridan keyin
+    assert r.sum_row == 45 and r.tail_removed == 32
+    assert ws[f"C{r.svodka_start}"].value == "Зарплата" and r.svodka_start == 46
+    assert all(ws.cell(row, 2).value != "СОСТАВИЛ" for row in range(1, ws.max_row + 1))
+    assert ws.max_row == 46 + 12
 
 
 def test_rules_on_sample(sample_files, tmp_path):
@@ -284,39 +287,93 @@ def _equipment_case(tmp_path):
     return tmp_path / "l.xlsx", tmp_path / "r.xlsx"
 
 
-def test_category_suggestions_from_res_sections_and_names(tmp_path):
+def test_equipment_and_cable_only_suggested_from_res_sections(tmp_path):
+    """I/J/K RES bo'limi bo'yicha o'zi joylashadi, L/M esa faqat TAKLIF: НАСОС (ОБОРУДОВАНИЕ) va
+    КАБЕЛЬ (КАБЕЛЬНАЯ ПРОДУКЦИЯ) K da qoladi, «M/L ga o'tkazamizmi?» deb so'raladi."""
     local, res = _equipment_case(tmp_path)
     r = _run(local, res, tmp_path)
     rows = {x["row"]: x for x in r.rows}
-    assert [rows[n]["category"] for n in range(3, 9)] == ["I", "K", "K", "K", "K", "K"]  # o'zi ko'chirmaydi
-    assert (rows[5]["suggested_category"], rows[5]["suggest_reason"]) == ("M", "RES'да «ОБОРУДОВАНИЕ» бўлимида")
-    assert rows[6]["suggested_category"] == "L" and "КАБЕЛЬНО" in rows[6]["suggest_reason"]
-    assert rows[7]["suggested_category"] == "M" and "лифт" in rows[7]["suggest_reason"]
+    assert [rows[n]["category"] for n in range(3, 9)] == ["I", "K", "K", "K", "K", "K"]
+    assert rows[5]["suggested_category"] == "M" and "ОБОРУДОВАНИЕ" in rows[5]["suggest_reason"]
+    assert rows[6]["suggested_category"] == "L" and "КАБЕЛЬ" in rows[6]["suggest_reason"]
+    # RES da yo'q (лифт) — faqat nomdan taklif
+    assert rows[7]["category"] == "K" and rows[7]["suggested_category"] == "M" and "лифт" in rows[7]["suggest_reason"]
     assert rows[8]["suggested_category"] is None and rows[4]["suggested_category"] is None
-    assert r.totals["oborudovanie"] == 0
+    assert r.totals["oborudovanie"] == pytest.approx(0)
+    assert r.totals["kabel"] == pytest.approx(0)
+    assert r.totals["materialy"] == pytest.approx(2 * 400_000 + 9_000_000 + 100 * 12_000 + 0.5 * 6_000_000)
 
 
-def test_manual_categories_move_rows_to_l_and_m(tmp_path):
+def test_rows_carry_res_section_order(tmp_path):
+    """Sayt jadvali RES tartibida guruhlanishi uchun: har qatorda RES bo'limi va RES qatori."""
     local, res = _equipment_case(tmp_path)
-    r = run(local, res, Options(mode="smart", output_path=tmp_path / "o.xlsx", categories={5: "M", "6": "L", 4: "K"}))
+    r = _run(local, res, tmp_path)
+    assert [(s["title"], s["column"]) for s in r.res_sections] == [
+        ("ТРУДОВЫЕ РЕСУРСЫ", "I"), ("СТРОИТЕЛЬНЫЕ МАТЕРИАЛЫ И КОНСТРУКЦИИ", "K"),
+        ("ОБОРУДОВАНИЕ", "M"), ("КАБЕЛЬНО-ПРОВОДНИКОВАЯ ПРОДУКЦИЯ", "L")]
     rows = {x["row"]: x for x in r.rows}
+    assert [rows[n]["res_section"] for n in range(3, 9)] == [0, 1, 2, 3, None, 1]
+    assert rows[4]["res_row"] == 5 and rows[8]["res_row"] == 6
+
+
+def test_section_titles_marked_not_found(tmp_path):
+    """«ВЕНТИЛЯЦИЯ», «ФАСОННЫЕ ЧАСТИ» (№ va birliksiz) — oldingidek ТОПИЛМАДИ (qizil): smetachi o'zi ko'radi."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "БВ"
+    ws["A1"], ws["C1"], ws["D1"], ws["E1"] = "N п.п.", "Наименование работ и затрат", "Единица измерения", "Кол-во"
+    for i, col in enumerate("ABCDEF", start=1):
+        ws[f"{col}2"] = i
+    ws["C3"] = "ВЕНТИЛЯЦИЯ"
+    ws["A4"], ws["C4"], ws["D4"], ws["F4"] = "1", "БЕТОН В20", "М3", 2
+    ws["C5"] = "ФАСОННЫЕ ЧАСТИ"
+    ws["A6"], ws["C6"], ws["D6"], ws["F6"] = "2", "ПРОВОЛОКА ВЯЗАЛЬНАЯ", "Т", 0.5
+    wb.save(tmp_path / "l.xlsx")
+    wb = Workbook()
+    ws = wb.active
+    ws["D1"], ws["E1"], ws["G1"] = "НАИМЕНОВАНИЕ РЕСУРСА", "ЕД.ИЗМ", "ЦЕНА"
+    ws["D2"], ws["E2"], ws["G2"] = "БЕТОН В20", "М3", 400000
+    ws["D3"], ws["E3"], ws["G3"] = "ПРОВОЛОКА ВЯЗАЛЬНАЯ", "Т", 6000000
+    wb.save(tmp_path / "r.xlsx")
+
+    r = _run(tmp_path / "l.xlsx", tmp_path / "r.xlsx", tmp_path)
+    assert r.start_row == 3 and r.stats["NOT_FOUND"] == 2
+    assert [x[0] for x in r.log] == [3, 4, 5, 6]
+    ws = load_workbook(r.output_path)["БВ"]
+    assert ws["G3"].value == "ТОПИЛМАДИ" and ws["G5"].value == "ТОПИЛМАДИ"
+    assert ws["A5"].fill.fill_type is None  # sariq bo'yalmaydi
+    assert ws["H4"].value and ws["K6"].value == "=H6"
+
+
+def test_manual_categories_override_auto_sections(tmp_path):
+    """Qo'lda belgilangan ustun ustun turadi: smetachi taklifni tasdiqlaydi (НАСОС -> M, КАБЕЛЬ -> L)
+    va o'zi ham belgilaydi (БЕТОН -> M, ПРОВОЛОКА -> L)."""
+    local, res = _equipment_case(tmp_path)
+    r = run(local, res, Options(mode="smart", output_path=tmp_path / "o.xlsx",
+                                categories={4: "M", "8": "L", 5: "M", 6: "L"}))
+    rows = {x["row"]: x for x in r.rows}
+    assert rows[4]["category"] == "M" and rows[4]["override"] and rows[4]["default_category"] == "K"
+    assert rows[8]["category"] == "L" and rows[8]["override"] and rows[8]["default_category"] == "K"
+    # tasdiqlangan takliflar: endi taklif qolmaydi
     assert rows[5]["category"] == "M" and rows[5]["override"] and rows[5]["suggested_category"] is None
-    assert rows[6]["category"] == "L" and rows[6]["default_category"] == "K"
-    assert r.categories == {5: "M", 6: "L", 4: "K"}
+    assert rows[6]["category"] == "L" and rows[6]["override"] and rows[6]["suggested_category"] is None
+    assert r.categories == {4: "M", 8: "L", 5: "M", 6: "L"}
 
     ws = load_workbook(r.output_path)["БВ"]
+    assert (ws["K4"].value, ws["M4"].value) == (None, "=H4")
     assert (ws["K5"].value, ws["M5"].value) == (None, "=H5")
     assert (ws["K6"].value, ws["L6"].value) == (None, "=H6")
-    assert ws["L5"].value is None and ws["M6"].value is None
+    assert (ws["K8"].value, ws["L8"].value) == (None, "=H8")
 
     t = r.totals
-    assert t["oborudovanie"] == pytest.approx(9_000_000)
-    assert t["transport_obor"] == pytest.approx(9_000_000 * 0.02)
-    assert t["kabel"] == pytest.approx(100 * 12_000)
-    assert t["transport_kabel"] == pytest.approx(100 * 12_000 * 0.02)
-    assert t["materialy"] == pytest.approx(2 * 400_000 + 0.5 * 6_000_000)
-    # «прочие» uskuna va uning transportidan hisoblanmaydi
-    assert t["prochie"] == pytest.approx((t["pryamye"] - 9_000_000 - 180_000) * 0.19)
+    # ОБОРУДОВАНИЕ: НАСОС + БЕТОН
+    assert t["oborudovanie"] == pytest.approx(9_000_000 + 2 * 400_000)
+    assert t["transport_obor"] == pytest.approx((9_000_000 + 2 * 400_000) * 0.02)
+    # КАБЕЛЬ: КАБЕЛЬ + ПРОВОЛОКА
+    assert t["kabel"] == pytest.approx(100 * 12_000 + 0.5 * 6_000_000)
+    assert t["transport_kabel"] == pytest.approx((100 * 12_000 + 0.5 * 6_000_000) * 0.02)
+    # K da faqat narxsiz ЛИФТ qoldi (H=0) — material summasi nol
+    assert t["materialy"] == pytest.approx(0)
 
 
 def test_manual_category_validation_and_compat(tmp_path):
@@ -428,3 +485,29 @@ def test_output_opens_on_the_priced_sheet(tmp_path):
     steps = [(f, Options(mode="smart", local_sheet=f"2026114{n}_БВ", res_sheet=f"2026114{n}_БР")) for n in ("10", "20")]
     run_many(f, steps, tmp_path / "all.xlsx")
     assert load_workbook(tmp_path / "all.xlsx").active.title == "202611410_БВ"
+
+
+def test_custom_columns_named_and_in_svodka(tmp_path):
+    """Smetachi N ustunini qo'shib nomlaydi, qatorlarni unga o'tkazadi: H shu ustunga tushadi,
+    sum qatori va svodkada alohida qator (Всего прямых затрат ga qo'shiladi)."""
+    local, res = _equipment_case(tmp_path)
+    names = {"N": "Монтаж ишлари", "K": "Материаллар"}
+    r = run(local, res, Options(mode="smart", output_path=tmp_path / "o.xlsx", column_names=names,
+                                categories={4: "N", 8: "N"}))
+    assert r.extra_columns == [("N", "Монтаж ишлари")]
+    rows = {x["row"]: x for x in r.rows}
+    assert rows[4]["category"] == "N" and rows[8]["category"] == "N"
+    ws = load_workbook(r.output_path)["БВ"]
+    assert (ws["K4"].value, ws["N4"].value) == (None, "=H4")
+    assert ws[f"N{r.sum_row}"].value == f"=SUM(N{r.start_row}:N{r.end_row})"
+    assert ws["N1"].value == "Монтаж ишлари" and ws["K1"].value == "Материаллар"  # jadval sarlavhasi
+    n = 2 * 400_000 + 0.5 * 6_000_000
+    assert r.totals["extra_N"] == pytest.approx(n)
+    labels = [ws.cell(row, 3).value for row in range(r.svodka_start, r.svodka_start + 14)]
+    assert labels.index("Монтаж ишлари") == labels.index("Всего прямых  затрат") - 1
+    without = run(local, res, Options(mode="smart", output_path=tmp_path / "p.xlsx"))
+    assert r.totals["pryamye"] == pytest.approx(without.totals["pryamye"]
+                                                 - n * 0.03)  # N da qoladi, faqat material transporti (3%) tushadi
+    assert ws[f"G4"].number_format == "#,##0.00"
+    with pytest.raises(ValueError, match="kategoriya"):
+        run(local, res, Options(mode="smart", output_path=tmp_path / "x.xlsx", categories={4: "O"}))

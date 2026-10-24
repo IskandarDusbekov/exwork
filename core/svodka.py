@@ -9,7 +9,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from openpyxl.utils import column_index_from_string, get_column_letter
 
-from .writer import NUM_FMT, PERCENT_FMT, SheetWriter
+from .writer import PERCENT_FMT, SheetWriter
 
 # (kalit, C ustundagi matn, D foiz yoki None)
 SVODKA_ROWS: List[Tuple[str, str, Optional[float]]] = [
@@ -58,9 +58,29 @@ def percent_text(fraction: float) -> str:
     return (f"{v:.4f}".rstrip("0").rstrip(".")).replace(".", ",")
 
 
-def svodka_formulas(s: int, sum_row: int, nds_from_cell: bool = False) -> List[str]:
+def svodka_layout(extra: Optional[List[Tuple[str, str]]] = None) -> List[Tuple[str, str, Optional[float]]]:
+    """Svodka qatorlari. ``extra`` — smetachi qo'shgan ustunlar ``[(harf, nom)]``: ular
+    «Всего прямых затрат» dan oldin alohida qator bo'lib tushadi (kalit ``extra_N``)."""
+    rows = list(SVODKA_ROWS)
+    i = next(k for k, (key, _t, _p) in enumerate(rows) if key == "pryamye")
+    return rows[:i] + [(f"extra_{col}", name or f"Устун {col}", None) for col, name in (extra or [])] + rows[i:]
+
+
+def svodka_formulas(s: int, sum_row: int, nds_from_cell: bool = False,
+                    extra: Optional[List[Tuple[str, str]]] = None) -> List[str]:
     """``nds_from_cell`` (smart): НДС D katakdan olinadi — Excel'da foizni o'zgartirsa ham hisob yangilanadi.
-    compat: eski dasturdagidek ``*1.12``."""
+    compat: eski dasturdagidek ``*1.12``. ``extra`` ustunlar «Всего прямых затрат» ga qo'shiladi."""
+    if extra:
+        n = len(extra)
+        base = svodka_formulas(s, sum_row, nds_from_cell)
+        p = s + 8 + n  # «Всего прямых затрат»
+        return base[:8] + [f"={col}{sum_row}" for col, _name in extra] + [
+            f"=SUM(H{s}:H{p - 1})",
+            f"=(H{p}-H{s + 7}-H{s + 6})*D{p + 1}",
+            f"=(H{p + 1}+H{p})*D{p + 2}",
+            f"=H{p + 2}+H{p + 1}+H{p}",
+            f"=H{p + 3}*(1+D{p + 4})" if nds_from_cell else f"=H{p + 3}*1.12",
+        ]
     return [
         f"=I{sum_row}",
         f"=J{sum_row}",
@@ -79,16 +99,18 @@ def svodka_formulas(s: int, sum_row: int, nds_from_cell: bool = False) -> List[s
 
 
 def write_svodka(w: SheetWriter, start_row: int, sum_row: int,
-                 percents: Optional[Dict[str, float]] = None, smart: bool = False) -> Dict[str, str]:
+                 percents: Optional[Dict[str, float]] = None, smart: bool = False,
+                 extra: Optional[List[Tuple[str, str]]] = None) -> Dict[str, str]:
     """Blokni yozadi; ``{kalit: H katak manzili}`` qaytaradi.
 
     compat: foizlar va matnlar eski dasturdagidek. smart: ``percents`` qo'llanadi, НДС formulasi
     D katakka bog'lanadi va «Всего с НДС … %» matnidagi foiz ham mos yoziladi."""
-    end_row = start_row + len(SVODKA_ROWS) - 1
-    formulas = svodka_formulas(start_row, sum_row, nds_from_cell=smart)
+    layout = svodka_layout(extra if smart else None)
+    end_row = start_row + len(layout) - 1
+    formulas = svodka_formulas(start_row, sum_row, nds_from_cell=smart, extra=extra if smart else None)
     pcts = resolve_percents(percents) if smart else DEFAULT_PERCENTS
     cells = {}
-    for i, (key, text, pct) in enumerate(SVODKA_ROWS):
+    for i, (key, text, pct) in enumerate(layout):
         r = start_row + i
         if smart and key == "s_nds":
             text = f"Всего с НДС      {percent_text(pcts[key])} %"
@@ -96,10 +118,12 @@ def write_svodka(w: SheetWriter, start_row: int, sum_row: int,
         w.bold(f"C{r}")
         if pct is not None:
             w.set(f"D{r}", pcts[key])
+            w.bold(f"D{r}")
         w.set(f"H{r}", formulas[i])
+        w.bold(f"H{r}")  # НДС va boshqa yakuniy/oraliq qatorlar — summalari ham qalin
         cells[key] = f"H{r}"
     w.number_format("D", start_row, end_row, PERCENT_FMT)
-    w.number_format("H", start_row, end_row, NUM_FMT)
+    w.number_format("H", start_row, end_row)
     w.fill(start_row, end_row, "A", "H")
     w.frame(start_row, end_row, "A", "H")
     return cells

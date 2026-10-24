@@ -1,4 +1,4 @@
-<!doctype html>
+{% load narx %}<!doctype html>
 <html lang="uz">
 <head>
   <meta charset="utf-8">
@@ -15,10 +15,12 @@
 <body class="bg-slate-50 text-slate-800 min-h-screen">
   <header class="bg-white border-b border-slate-200">
     <div class="{% block header_class %}max-w-6xl mx-auto px-4{% endblock %} py-3 flex items-center gap-3">
-      <a href="{% url 'index' %}" class="font-semibold text-lg text-slate-900">Нархлаш</a>
-      <span class="text-sm text-slate-500">смета нархлаш</span>
+      <a href="{% url 'index' %}" class="flex items-center gap-2 text-slate-900">
+        <span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-900 text-white">{% icon "logo" "h-5 w-5" %}</span>
+        <span class="text-lg font-semibold tracking-tight">Нархлаш</span></a>
+      {% if crumbs %}{% include "jobs/_crumbs.html" %}{% else %}<span class="hidden text-sm text-slate-400 sm:inline">смета нархлаш</span>{% endif %}
       {% block header_extra %}{% endblock %}
-      <a href="{% url 'index' %}" class="ml-auto rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50">＋ Янги юклаш</a>
+      <a href="{% url 'index' %}" class="ml-auto rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"><span class="inline-flex items-center gap-1.5">{% icon "upload" %} Янги юклаш</span></a>
     </div>
   </header>
   <main class="{% block main_class %}max-w-6xl mx-auto px-4 py-6{% endblock %}">

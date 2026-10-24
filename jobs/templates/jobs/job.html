@@ -8,85 +8,128 @@
 
 {# ================= ён панел ================= #}
 <aside id="sidebar" class="mb-6 lg:mb-0">
-  <div class="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pb-4">
-    {% if job.batch_id %}
-    <a href="{% url 'batch' job.batch_id %}" class="block rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm hover:bg-slate-50">
-      <span class="text-slate-400">← Объект</span><div class="font-semibold break-words">{{ job.batch.name }}</div></a>
+  <div class="space-y-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pb-4">
+    {% if job.batch.project_id %}
+    <a href="{% url 'project' job.batch.project_id %}" class="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm hover:border-slate-300 hover:bg-slate-50">
+      {% icon "arrow-left" "h-4 w-4 shrink-0 text-slate-500" %}
+      <span class="min-w-0"><span class="block truncate font-semibold text-slate-800">{{ job.batch.project.name }}</span>
+        <span class="block truncate text-xs text-slate-500">папкага қайтиш · {{ job.batch.folder }}</span></span></a>
+    {% elif job.batch_id %}
+    <a href="{% url 'batch' job.batch_id %}" class="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm hover:border-slate-300 hover:bg-slate-50">
+      {% icon "arrow-left" "h-4 w-4 shrink-0 text-slate-500" %}
+      <span class="min-w-0"><span class="block truncate font-semibold text-slate-800">{{ job.batch.name }}</span>
+        <span class="block text-xs text-slate-500">объектга қайтиш</span></span></a>
     {% endif %}
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="text-xs uppercase tracking-wide text-slate-400">Локал</div>
-      <div class="font-semibold break-words">{{ job.local_name }}</div>
-      {% if job.local_sheet %}<div class="text-xs text-slate-500">лист: {{ job.local_sheet }}</div>{% endif %}
-      <div class="mt-2 text-xs uppercase tracking-wide text-slate-400">Ресурс</div>
-      <div class="text-sm break-words">{{ job.res_name }}</div>
-      {% if job.res_sheet %}<div class="text-xs text-slate-500">лист: {{ job.res_sheet }}</div>{% endif %}
-      {% if job.status == "done" %}
-      <div class="mt-2"><span class="rounded bg-slate-900 px-1.5 py-0.5 text-xs text-white">{{ result_mode }}</span>
-        <span class="text-xs text-slate-500">fuzzy {{ job.fuzzy }}%</span></div>
-      {% endif %}
-    </div>
 
     {% if job.status == "done" %}
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="text-xs text-slate-500">Всего с НДС</div>
-      <div class="text-2xl font-bold num {% if s_nds|is_error %}text-rose-600{% else %}text-slate-900{% endif %}">{{ s_nds|som }}</div>
-      <div class="mt-1 text-xs text-slate-500">без НДС: <span class="num">{{ bez_nds|som }}</span></div>
-      {% if not_priced %}
-      <div class="mt-2 rounded-md bg-rose-50 px-2 py-1.5 text-xs text-rose-800"><b>{{ not_priced }} та қатор нархланмади</b> — сумма тўлиқ эмас</div>
-      {% elif result_mode == "smart" %}
-      <div class="mt-2 rounded-md bg-emerald-50 px-2 py-1.5 text-xs text-emerald-800">Ҳамма қаторлар нархланган ✓</div>
-      {% endif %}
-      <a href="{% url 'job_download' job.id %}" class="mt-3 block rounded-lg bg-emerald-600 px-3 py-2.5 text-center text-sm font-medium text-white shadow-sm hover:bg-emerald-700">
-        ⬇ Юклаб олиш (.xlsx)</a>
-      <p class="mt-1.5 text-xs text-slate-500">Нархланган лист: <b class="text-slate-700">{{ job.local_sheet }}</b> — файл шу листда очилади{% if job.local_sheets|length > 1 %}.
-        Файлдаги бошқа {{ job.local_sheets|length|add:"-1" }} та лист ўзгармаган{% if job.batch_id %} (ҳаммасини нархлаш учун — объект саҳифасидаги «Ҳаммасини битта файлда»){% endif %}{% endif %}.</p>
-    </div>
-
-    <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div class="px-1 pb-2 text-xs uppercase tracking-wide text-slate-400">Тезкор фильтр</div>
-      <div class="grid gap-1 text-sm">
-        {% if result_mode == "smart" %}
-        <button type="button" data-filter="NOT_PRICED" data-label="Нархланмади" {% if not not_priced %}disabled{% endif %}
-                class="cat-chip flex items-center justify-between rounded-md px-2 py-1.5 text-left enabled:hover:bg-rose-50 disabled:opacity-40">
-          <span>🔴 Нархланмади</span><span class="num font-semibold text-rose-600">{{ not_priced }}</span></button>
-        <button type="button" data-filter="HAS_SUGG" data-label="Нарх таклифи бор" {% if not sugg_price_count %}disabled{% endif %}
-                class="cat-chip flex items-center justify-between rounded-md px-2 py-1.5 text-left enabled:hover:bg-amber-50 disabled:opacity-40">
-          <span>💡 Нарх таклифи бор</span><span class="num font-semibold text-amber-600">{{ sugg_price_count }}</span></button>
-        <button type="button" data-filter="MANUAL" data-label="Қўлда нархланган" {% if not manual_count %}disabled{% endif %}
-                class="cat-chip flex items-center justify-between rounded-md px-2 py-1.5 text-left enabled:hover:bg-sky-50 disabled:opacity-40">
-          <span>✍ Қўлда нархланган</span><span class="num font-semibold text-sky-600">{{ manual_count }}</span></button>
-        <button type="button" data-filter="SUGG_ANY" data-label="Устун таклифи" {% if not sugg_cat_count %}disabled{% endif %}
-                class="cat-chip flex items-center justify-between rounded-md px-2 py-1.5 text-left enabled:hover:bg-fuchsia-50 disabled:opacity-40">
-          <span>↪ Устун таклифи</span><span class="num font-semibold text-fuchsia-600">{{ sugg_cat_count }}</span></button>
-        <button type="button" data-filter="OVERRIDE" data-label="Қўлда ўзгартирилган устун" {% if not override_count %}disabled{% endif %}
-                class="cat-chip flex items-center justify-between rounded-md px-2 py-1.5 text-left enabled:hover:bg-slate-100 disabled:opacity-40">
-          <span>✎ Қўлда устун</span><span class="num font-semibold text-slate-600">{{ override_count }}</span></button>
-        {% endif %}
-        <button type="button" id="side-filter-reset" class="rounded-md px-2 py-1.5 text-left text-slate-500 hover:bg-slate-100">✕ фильтрни олиб ташлаш</button>
+    {# ---- натижа ва юклаб олиш ---- #}
+    <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div class="bg-slate-900 px-4 py-4 text-white">
+        <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Всего с НДС</div>
+        <div class="mt-0.5 text-2xl font-semibold leading-tight num {% if s_nds|is_error %}text-rose-300{% endif %}">{{ s_nds|som }}</div>
+        <div class="mt-1 text-xs text-slate-400">без НДС <span class="num text-slate-200">{{ bez_nds|som }}</span></div>
       </div>
-    </div>
+      <div class="space-y-3 p-3">
+        {% if not_priced %}
+        <div class="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+          {% icon "alert-circle" "mt-px h-4 w-4 shrink-0 text-rose-600" %}
+          <span><b>{{ not_priced }} та қатор нархланмади</b> — сумма тўлиқ эмас. Excel'да G устунида қизил бўлади.</span>
+        </div>
+        {% elif result_mode == "smart" %}
+        <div class="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
+          {% icon "check-circle" "h-4 w-4 shrink-0 text-emerald-600" %} Ҳамма қаторлар нархланган
+        </div>
+        {% endif %}
+        <a href="{% url 'job_download' job.id %}" class="group flex items-center gap-3 rounded-lg bg-emerald-600 px-3 py-2.5 text-white shadow-sm ring-1 ring-inset ring-emerald-700/30 transition hover:bg-emerald-700">
+          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white/15">{% icon "download" "h-5 w-5" %}</span>
+          <span class="min-w-0">
+            <span class="block text-sm font-semibold">Юклаб олиш · Excel</span>
+            <span class="block truncate text-xs text-emerald-100" title="{{ job.download_name }}">{{ job.download_name }}</span>
+          </span>
+        </a>
+        <p class="flex gap-2 px-1 text-xs leading-relaxed text-slate-500">{% icon "file" "mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" %}
+          <span>Лист <b class="text-slate-700">{{ job.local_sheet }}</b> да очилади{% if job.local_sheets|length > 1 %}; бошқа {{ job.local_sheets|length|add:"-1" }} та лист ўзгармаган{% if job.batch_id %} — ҳаммаси учун объект саҳифасидаги «Битта файлда»{% endif %}{% endif %}.</span></p>
+      </div>
+    </section>
     {% endif %}
 
-    <nav class="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
-      <div class="px-1 pb-2 text-xs uppercase tracking-wide text-slate-400">Бўлимлар</div>
-      <a href="#settings" class="block rounded-md px-2 py-1.5 hover:bg-slate-100">⚙ Созламалар</a>
+    {# ---- файллар ---- #}
+    <section class="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
+      <div class="flex items-start gap-2.5 px-1">
+        <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-slate-100 text-slate-500">{% icon "file" "h-4 w-4" %}</span>
+        <div class="min-w-0">
+          <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Локал</div>
+          <div class="break-words font-medium leading-snug">{{ job.local_name }}</div>
+          {% if job.local_sheet %}<div class="text-xs text-slate-500">лист {{ job.local_sheet }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="mt-2.5 flex items-start gap-2.5 border-t border-slate-100 px-1 pt-2.5">
+        <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-slate-100 text-slate-500">{% icon "tag" "h-4 w-4" %}</span>
+        <div class="min-w-0">
+          <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Ресурс (нархлар)</div>
+          <div class="break-words leading-snug">{{ job.res_name }}</div>
+          {% if job.res_sheet %}<div class="text-xs text-slate-500">лист {{ job.res_sheet }}</div>{% endif %}
+        </div>
+      </div>
       {% if job.status == "done" %}
-      <a href="#stats" class="block rounded-md px-2 py-1.5 hover:bg-slate-100">📊 Статистика</a>
-      <a href="#svodka" class="block rounded-md px-2 py-1.5 hover:bg-slate-100">🧮 Сводка ва фоизлар</a>
-      <a href="#problems" class="block rounded-md px-2 py-1.5 hover:bg-slate-100">⚠ Муаммоли қаторлар</a>
-      {% if category_suggestions %}<a href="#cat-suggest" class="block rounded-md px-2 py-1.5 hover:bg-slate-100">↪ Устун таклифлари</a>{% endif %}
-      <a href="#rows-section" class="block rounded-md px-2 py-1.5 hover:bg-slate-100">▦ Жадвал</a>
+      <div class="mt-2.5 flex items-center gap-2 border-t border-slate-100 px-1 pt-2.5 text-xs text-slate-500">
+        <span class="rounded bg-slate-900 px-1.5 py-0.5 font-medium text-white">{{ result_mode }}</span> ўхшашлик {{ job.fuzzy }}%
+      </div>
       {% endif %}
+    </section>
+
+    {% if job.status == "done" and result_mode == "smart" %}
+    {# ---- тезкор фильтр ---- #}
+    <section class="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+      <div class="flex items-center gap-1.5 px-2 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wider text-slate-400">{% icon "filter" "h-3.5 w-3.5" %} Тезкор фильтр</div>
+      <div class="grid gap-0.5 text-sm">
+        <button type="button" data-filter="NOT_PRICED" data-label="Нархланмади" {% if not not_priced %}disabled{% endif %}
+                class="cat-chip flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left enabled:hover:bg-rose-50 disabled:opacity-40">
+          {% icon "alert-circle" "h-4 w-4 shrink-0 text-rose-600" %}<span class="flex-1">Нархланмади</span>
+          <span class="num rounded bg-rose-100 px-1.5 text-xs font-semibold text-rose-700">{{ not_priced }}</span></button>
+        <button type="button" data-filter="HAS_SUGG" data-label="Нарх таклифи бор" {% if not sugg_price_count %}disabled{% endif %}
+                class="cat-chip flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left enabled:hover:bg-amber-50 disabled:opacity-40">
+          {% icon "tag" "h-4 w-4 shrink-0 text-amber-600" %}<span class="flex-1">Нарх таклифи бор</span>
+          <span class="num rounded bg-amber-100 px-1.5 text-xs font-semibold text-amber-800">{{ sugg_price_count }}</span></button>
+        <button type="button" data-filter="MANUAL" data-label="Қўлда нархланган" {% if not manual_count %}disabled{% endif %}
+                class="cat-chip flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left enabled:hover:bg-sky-50 disabled:opacity-40">
+          {% icon "pencil" "h-4 w-4 shrink-0 text-sky-600" %}<span class="flex-1">Қўлда нархланган</span>
+          <span class="num rounded bg-sky-100 px-1.5 text-xs font-semibold text-sky-700">{{ manual_count }}</span></button>
+        <button type="button" data-filter="SUGG_ANY" data-label="Устун таклифи" {% if not sugg_cat_count %}disabled{% endif %}
+                class="cat-chip flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left enabled:hover:bg-fuchsia-50 disabled:opacity-40">
+          {% icon "columns" "h-4 w-4 shrink-0 text-fuchsia-600" %}<span class="flex-1">Устун таклифи</span>
+          <span class="num rounded bg-fuchsia-100 px-1.5 text-xs font-semibold text-fuchsia-700">{{ sugg_cat_count }}</span></button>
+        <button type="button" data-filter="OVERRIDE" data-label="Қўлда ўзгартирилган устун" {% if not override_count %}disabled{% endif %}
+                class="cat-chip flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left enabled:hover:bg-slate-100 disabled:opacity-40">
+          {% icon "swap" "h-4 w-4 shrink-0 text-slate-500" %}<span class="flex-1">Қўлда ўтказилган устун</span>
+          <span class="num rounded bg-slate-100 px-1.5 text-xs font-semibold text-slate-700">{{ override_count }}</span></button>
+        <button type="button" id="side-filter-reset" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-xs text-slate-500 hover:bg-slate-100">
+          {% icon "x" "h-3.5 w-3.5 shrink-0" %} Фильтрни олиб ташлаш</button>
+      </div>
+    </section>
+    {% endif %}
+
+    {# ---- бўлимлар ---- #}
+    <nav class="rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-sm">
+      <div class="px-2 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wider text-slate-400">Саҳифа</div>
+      {% if job.status == "done" %}
+      <a href="#stats" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "chart" "h-4 w-4 shrink-0 text-slate-400" %}Статистика</a>
+      <a href="#svodka" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "calculator" "h-4 w-4 shrink-0 text-slate-400" %}Сводка ва фоизлар</a>
+      <a href="#problems" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "alert" "h-4 w-4 shrink-0 text-slate-400" %}Муаммоли қаторлар</a>
+      {% if category_suggestions %}<a href="#cat-suggest" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "columns" "h-4 w-4 shrink-0 text-slate-400" %}Устун таклифлари</a>{% endif %}
+      <a href="#rows-section" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "table" "h-4 w-4 shrink-0 text-slate-400" %}Жадвал</a>
+      {% endif %}
+      <a href="#settings" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "sliders" "h-4 w-4 shrink-0 text-slate-400" %}Созламалар</a>
     </nav>
 
     {% if siblings|length > 1 %}
-    <nav class="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
-      <div class="px-1 pb-2 text-xs uppercase tracking-wide text-slate-400">Объект қисмлари</div>
+    <nav class="rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-sm">
+      <div class="flex items-center gap-1.5 px-2 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wider text-slate-400">{% icon "layers" "h-3.5 w-3.5" %} Объект қисмлари</div>
       {% for s in siblings %}
-      <a href="{% url 'job' s.id %}" class="flex items-start justify-between gap-2 rounded-md px-2 py-1.5 {% if s.id == job.id %}bg-slate-900 text-white{% else %}hover:bg-slate-100{% endif %}">
-        <span class="break-words">{{ s.batch_label }}</span>
+      <a href="{% url 'job' s.id %}" class="flex items-start justify-between gap-2 rounded-md px-2 py-1.5 {% if s.id == job.id %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-slate-100{% endif %}">
+        <span class="break-words leading-snug">{{ s.batch_label }}</span>
         {% if s.result.stats.NOT_PRICED %}<span class="num shrink-0 rounded bg-rose-100 px-1.5 text-xs font-semibold text-rose-700">{{ s.result.stats.NOT_PRICED }}</span>
-        {% else %}<span class="shrink-0 text-xs {% if s.id == job.id %}text-emerald-300{% else %}text-emerald-600{% endif %}">✓</span>{% endif %}
+        {% else %}<span class="shrink-0 {% if s.id == job.id %}text-emerald-300{% else %}text-emerald-600{% endif %}">{% icon "check" "h-4 w-4" %}</span>{% endif %}
       </a>
       {% endfor %}
     </nav>
@@ -109,15 +152,15 @@
   <div class="text-xs font-semibold uppercase tracking-wide {% if not_priced %}text-rose-700{% elif sugg_cat_count %}text-fuchsia-700{% else %}text-emerald-700{% endif %}">Кейинги қадам</div>
   {% if not_priced %}
   <ol class="mt-1 grid gap-1 text-sm text-slate-800 md:grid-cols-3 md:gap-4">
-    <li><b>1.</b> Чапдаги <button type="button" data-filter="NOT_PRICED" data-label="Нархланмади" class="cat-chip rounded bg-white px-1.5 font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-100">🔴 Нархланмади ({{ not_priced }})</button> ни босинг — жадвалда фақат қизиллар қолади.</li>
-    <li><b>2.</b> Таклиф тўғри бўлса <b class="rounded bg-amber-300 px-1">✓</b> ни босинг, бўлмаса G катакка нархни ёзиб <b>Enter</b>. Кўпини бирдан: белгилаб, пастки панелда «таклифларни қабул қилиш».</li>
-    <li><b>3.</b> Ҳаммаси тайёр бўлгач — чапдаги <b>⬇ Юклаб олиш</b>.</li>
+    <li><b>1.</b> Чапдаги <button type="button" data-filter="NOT_PRICED" data-label="Нархланмади" class="cat-chip inline-flex items-center gap-1 rounded bg-white px-1.5 font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-100">{% icon "alert-circle" "h-3.5 w-3.5" %} Нархланмади ({{ not_priced }})</button> ни босинг — жадвалда фақат қизиллар қолади.</li>
+    <li><b>2.</b> Таклиф тўғри бўлса <b class="inline-flex rounded bg-amber-300 px-1 align-middle">{% icon "check" "h-3.5 w-3.5" "3" %}</b> ни босинг, бўлмаса G катакка нархни ёзиб <b>Enter</b>. Кўпини бирдан: белгилаб, пастки панелда «таклифларни қабул қилиш».</li>
+    <li><b>3.</b> Ҳаммаси тайёр бўлгач — чапдаги <b>«Юклаб олиш»</b>.</li>
   </ol>
   {% elif sugg_cat_count %}
   <p class="mt-1 text-sm text-slate-800">Нархлар тайёр. {{ sugg_cat_count }} та қатор бошқа устунга (кабель/ускуна) тегишли бўлиши мумкин —
     <a href="#cat-suggest" class="font-medium text-fuchsia-700 underline">«Устун таклифлари»</a>ни кўриб чиқинг, кейин юклаб олинг.</p>
   {% else %}
-  <p class="mt-1 text-sm text-slate-800">Ҳамма қаторлар нархланган ✓ Фоизларни текширинг (Сводка) ва чапдаги <b>⬇ Юклаб олиш</b> ни босинг.</p>
+  <p class="mt-1 text-sm text-slate-800">Ҳамма қаторлар нархланган. Фоизларни текширинг (Сводка) ва чапдаги <b>«Юклаб олиш»</b> ни босинг.</p>
   {% endif %}
 </div>
 {% endif %}
@@ -125,11 +168,11 @@
 {# ---- созлаш (камдан-кам керак — йиғилган) ---- #}
 <details id="settings" class="scroll-mt-4 mb-6 rounded-xl border border-slate-200 bg-white shadow-sm" {% if job.status != "done" %}open{% endif %}>
   <summary class="flex cursor-pointer select-none flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-sm">
-    <span class="font-semibold">⚙ Созламалар</span>
+    <span class="inline-flex items-center gap-2 font-semibold">{% icon "sliders" "h-4 w-4 text-slate-500" %} Созламалар</span>
     {% if job.status == "done" %}
-    <span class="text-slate-500">лист <b class="text-slate-700">{{ job.local_sheet }}</b> ↔ <b class="text-slate-700">{{ job.res_sheet }}</b> ·
+    <span class="text-slate-500">лист <b class="text-slate-700">{{ job.local_sheet }}</b> / <b class="text-slate-700">{{ job.res_sheet }}</b> ·
       {{ result_mode }} · fuzzy {{ job.fuzzy }}%{% if columns %} · ресурс устунлари: ном {{ columns.res_name }}, бирлик {{ columns.res_unit }}, нарх {{ columns.res_price }}{% endif %}</span>
-    <span class="ml-auto text-xs text-slate-400">ўзгартириш учун очинг ▾</span>
+    <span class="ml-auto inline-flex items-center gap-1 text-xs text-slate-400">ўзгартириш учун очинг {% icon "chevron-down" "h-3.5 w-3.5" %}</span>
     {% endif %}
   </summary>
   <form method="post" action="{% url 'job_run' job.id %}" data-busy
@@ -171,7 +214,7 @@
 {% if job.status == "done" %}
 {% if warnings %}
 <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-  {% for w in warnings %}<div>⚠ {{ w }}</div>{% endfor %}
+  {% for w in warnings %}<div class="flex items-start gap-2">{% icon "alert" "mt-0.5 h-4 w-4 shrink-0 text-amber-600" %}<span>{{ w }}</span></div>{% endfor %}
 </div>
 {% endif %}
 
@@ -259,7 +302,7 @@
       {% for p in problems %}
       <tr class="border-t border-slate-100">
         <td class="px-3 py-1.5 num text-slate-500">{{ p.row }}</td>
-        <td class="px-3 py-1.5">{{ p.name }}{% if p.picked_name %}<div class="text-xs text-slate-400">→ {{ p.picked_name }}</div>{% endif %}{% if p.note %}<div class="text-xs text-amber-700">{{ p.note }}</div>{% endif %}</td>
+        <td class="px-3 py-1.5">{{ p.name }}{% if p.picked_name %}<div class="text-xs text-slate-400">ресурсда: {{ p.picked_name }}</div>{% endif %}{% if p.note %}<div class="text-xs text-amber-700">{{ p.note }}</div>{% endif %}</td>
         <td class="px-3 py-1.5 text-slate-500">{% if p.unit != "None" %}{{ p.unit }}{% endif %}</td>
         <td class="px-3 py-1.5 text-xs">{{ p.status }}</td>
         <td class="px-3 py-1.5 text-right text-rose-600">{{ p.written|som }}</td>
@@ -269,7 +312,7 @@
     </table>
     </div>
     {% else %}
-    <p class="px-4 py-6 text-sm text-emerald-700">Ҳамма қаторларда нарх рақам ✓</p>
+    <p class="flex items-center gap-2 px-4 py-6 text-sm text-emerald-700">{% icon "check-circle" %} Ҳамма қаторларда нарх рақам</p>
     {% endif %}
   </section>
 </div>
@@ -286,7 +329,7 @@
     {% for s in category_suggestions %}
     <div class="flex flex-wrap items-center gap-3 rounded-lg bg-white/80 px-3 py-2">
       <span class="rounded-md px-2 py-0.5 text-sm font-semibold {{ s.cat|cat_class }}">{{ s.cat }}</span>
-      <span><b>{{ s.count }} та қатор</b> → {{ s.label }} бўлиши мумкин</span>
+      <span class="inline-flex items-center gap-1.5"><b>{{ s.count }} та қатор</b> {% icon "arrow-right" "h-3.5 w-3.5 text-slate-400" %} {{ s.label }} бўлиши мумкин</span>
       <span class="text-xs text-slate-500">{{ s.reasons|join:" · " }}</span>
       <button type="button" data-review="{{ s.cat }}" data-label="Таклиф: {{ s.cat }} · {{ s.label }}"
               class="ml-auto rounded-lg bg-fuchsia-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-fuchsia-800">Кўриб чиқиш</button>
@@ -301,6 +344,12 @@
   <div class="px-4 py-3 border-b border-slate-200 space-y-2">
     <div class="flex flex-wrap gap-x-4 items-baseline">
       <h2 class="font-semibold">Нархланган қаторлар</h2>
+      {% if res_groups %}
+      <span class="inline-flex overflow-hidden rounded-md border border-slate-300 text-xs">
+        <a href="?view=res#rows-section" class="px-2 py-1 {% if view == 'res' %}bg-slate-900 text-white{% else %}hover:bg-slate-100{% endif %}">Ресурс бўлимлари бўйича</a>
+        <a href="?view=local#rows-section" class="border-l border-slate-300 px-2 py-1 {% if view == 'local' %}bg-slate-900 text-white{% else %}hover:bg-slate-100{% endif %}">Локал тартибида (Excel)</a>
+      </span>
+      {% endif %}
       <span id="row-filter" class="hidden text-xs">фильтр: <b id="row-filter-name"></b>
         <button type="button" id="row-filter-reset" class="ml-1 rounded border border-slate-300 px-1.5 hover:bg-slate-100">барчаси</button></span>
       <span class="text-xs text-slate-500">Сумма (H) ўз устунига тушади: I иш ҳақи · J машина · K материал · L кабель · M ускуна</span>
@@ -314,7 +363,7 @@
       {% endfor %}
       {% if result_mode == "smart" %}
       <button type="button" data-filter="OVERRIDE" data-label="Қўлда ўзгартирилган" {% if not override_count %}disabled{% endif %}
-              class="cat-chip rounded-md border border-slate-300 px-2 py-1 enabled:hover:bg-slate-100 disabled:opacity-40">✎ қўлда <span class="num opacity-70">{{ override_count }}</span></button>
+              class="cat-chip rounded-md border border-slate-300 px-2 py-1 enabled:hover:bg-slate-100 disabled:opacity-40"><span class="inline-flex items-center gap-1">{% icon "swap" "h-3.5 w-3.5" %} қўлда</span> <span class="num opacity-70">{{ override_count }}</span></button>
       <details class="ml-auto relative">
         <summary class="cursor-pointer select-none rounded-md border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50">Қандай танлайман?</summary>
         <div class="absolute right-0 z-30 mt-1 w-80 rounded-lg border border-slate-200 bg-white p-3 text-slate-700 shadow-lg">
@@ -322,7 +371,7 @@
             <li><b>Босиш</b> — қаторни белгилайди, яна босиш — олиб ташлайди. Узоқ жойлардагиларни ҳам бир-бир қўшиш мумкин.</li>
             <li><b>Босиб туриб судраш</b> — оралиқни бирдан белгилайди (белгиланган қатордан бошласангиз — олиб ташлайди).</li>
             <li><b>Shift + босиш</b> — охирги босилгандан шу қаторгача.</li>
-            <li><b>Ctrl + A</b> ёки сарлавҳадаги ☐ — кўриниб турганларнинг ҳаммаси (аввал фильтр қўйсангиз, фақат ўшалар).</li>
+            <li><b>Ctrl + A</b> ёки сарлавҳадаги белги катаги — кўриниб турганларнинг ҳаммаси (аввал фильтр қўйсангиз, фақат ўшалар).</li>
             <li><b>Esc</b> — белгиларни тозалаш. Белгилар фильтр алмашса ҳам сақланади.</li>
           </ul>
         </div>
@@ -341,8 +390,11 @@
           {% if result_mode == "smart" %}<input type="checkbox" id="sel-all" class="h-3.5 w-3.5 accent-blue-600" title="Кўринганларнинг ҳаммасини белгилаш (Ctrl+A)">{% endif %}
         </th>
         <th>C</th><th>D</th><th>F</th><th>G</th><th>H</th>
-        <th class="xl-cat-head">I</th><th class="xl-cat-head">J</th><th class="xl-cat-head">K</th><th class="xl-cat-head">L</th><th class="xl-cat-head">M</th>
-        <th class="xl-extra"></th>
+        {% for c, label in grid_columns %}<th class="xl-cat-head">{{ c }}</th>{% endfor %}
+        <th class="xl-extra text-left">
+          {% if can_add_column %}<button type="button" id="col-add" class="rounded border border-slate-300 bg-white px-1.5 font-semibold text-slate-700 hover:bg-slate-100"
+                  title="Янги устун қўшиш (кейинги ҳарф) — номини ўзингиз берасиз, қаторларни унга ўтказасиз"><span class="inline-flex items-center gap-1">{% icon "plus" "h-3.5 w-3.5" "2.5" %}устун</span></button>{% endif %}
+        </th>
       </tr>
       <tr class="xl-names">
         <th class="xl-gutter">№</th>
@@ -351,58 +403,40 @@
         <th>Кол-во</th>
         <th>Нарх (G)</th>
         <th>Сумма (H)</th>
-        <th>Иш ҳақи</th><th>Машина</th><th>Материал</th><th>Кабель</th><th>Ускуна</th>
+        {% for c, label in grid_columns %}
+        <th class="whitespace-normal">
+          {% if result_mode == "smart" %}<button type="button" class="col-rename hover:underline" data-col="{{ c }}" data-name="{{ label }}"
+                  title="Номини ўзгартириш{% if c in renamed %} (бўш қолдирсангиз — асл номи){% endif %}">{{ label }}</button>
+          {% if c in extra_letters %}<button type="button" class="col-remove ml-0.5 text-slate-400 hover:text-rose-600" data-col="{{ c }}" data-name="{{ label }}" title="Устунни ўчириш (қаторлар асл устунига қайтади)">×</button>{% endif %}
+          {% else %}{{ label }}{% endif %}
+        </th>
+        {% endfor %}
         <th class="xl-extra text-left">Ҳолат</th>
       </tr>
     </thead>
     <tbody id="rows-body">
-    {% for row in rows %}
-    <tr data-row="{{ row.row }}" data-status="{{ row.status }}" {% if result_mode == "smart" and row.name %}data-selectable="1"{% endif %}
-        data-flags="CAT_{{ row.category }}{% if row.override %} OVERRIDE{% endif %}{% if row.suggested_category %} SUGG_{{ row.suggested_category }}{% endif %}{% if row.zero %} ZERO_RULE{% endif %}{% if 'UNIT_MISMATCH' in row.note %} UNIT_MISMATCH{% endif %}{% if row.g and not row.g|is_number %} NON_NUMERIC NOT_PRICED{% endif %}{% if row.manual %} MANUAL{% elif row.suggested_price is not None %} HAS_SUGG{% endif %}{% if row.suggested_category %} SUGG_ANY{% endif %}"
-        class="{% if row.name and not row.g|is_number %}xl-red{% elif row.zero %}xl-zero{% elif row.status == 'FUZZY' or row.status == 'AMBIGUOUS' %}xl-yellow{% endif %} {% if not row.name %}xl-blank{% endif %}">
-      <td class="xl-gutter">{{ row.row }}</td>
-      <td class="xl-name">
-        {{ row.name|default_if_none:"" }}
-        {% if row.status == "FUZZY" or row.status == "AMBIGUOUS" %}<div class="xl-sub">→ {{ row.picked_name }} ({{ row.score|score }})</div>{% endif %}
-        {% if row.note %}<div class="xl-sub text-amber-700">{{ row.note }}</div>{% endif %}
-      </td>
-      <td class="text-center">{{ row.unit|default_if_none:"" }}</td>
-      <td class="num text-right">{{ row.qty|qty }}</td>
-      <td class="num text-right xl-g {% if row.g and not row.g|is_number %}xl-red-text{% endif %} {% if row.manual %}xl-manual{% endif %}">
-        {% if result_mode == "smart" and row.name and not row.g|is_number %}
-        <div class="flex items-center justify-end gap-1">
-          <input type="text" inputmode="decimal" class="g-input" data-row="{{ row.row }}" autocomplete="off"
-                 placeholder="{% if row.suggested_price is not None %}{{ row.suggested_price|som }}{% else %}нарх{% endif %}"
-                 title="Нарх ёзинг ва Enter · Ctrl+Enter — белгиланган ҳамма қаторларга">
-          {% if row.suggested_price is not None %}<button type="button" class="g-accept" data-row="{{ row.row }}" title="Таклифни қабул қилиш: {{ row.suggested_price|som }}">✓</button>{% endif %}
+    {% if view == "res" %}
+    {% for group in res_groups %}
+    <tr class="xl-group" data-group-head="{{ group.id }}">
+      <td class="xl-gutter"></td>
+      <td colspan="{{ grid_span }}">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span class="font-semibold uppercase tracking-wide">{{ group.title }}</span>
+          {% if group.column %}<span class="rounded px-1.5 text-xs font-semibold {{ group.column|cat_class }}" title="Бу бўлим ресурслари шу устунга тегишли">{{ group.column }} · {{ group.label }}</span>{% endif %}
+          <span class="text-xs text-slate-500">{{ group.count }} та қатор{% if group.hint %} · {{ group.hint }}{% endif %}</span>
+          {% if group.to_move %}<button type="button" class="grp-move rounded bg-fuchsia-700 px-2 py-0.5 text-xs font-medium text-white hover:bg-fuchsia-800"
+                  data-rows="{{ group.to_move|join:',' }}" data-move-to="{{ group.column }}"
+                  title="Бу қаторлар RES'да «{{ group.title }}» бўлимида, ҳозир бошқа устунда">{{ group.to_move|length }} таси {{ group.column }} да эмас — {{ group.column }} га ўтказамизми?</button>{% endif %}
+          {% if group.count %}<button type="button" class="grp-select rounded border border-slate-300 bg-white px-2 py-0.5 text-xs hover:bg-slate-100" data-group="{{ group.id }}" title="Бўлимдаги ҳамма қаторларни белгилаш — кейин пастки панелдан устун танланг">белгилаш</button>{% endif %}
+          <span class="ml-auto num text-sm font-semibold" title="Бўлим бўйича сумма (H)">{{ group.sum|som }}</span>
         </div>
-        <div class="xl-sub xl-red-text">{{ row.g }}{% if row.suggested_price is not None %} · таклиф {{ row.suggested_price|som }}{% endif %}</div>
-        {% elif row.manual %}
-        <span>{{ row.g|som }}</span><button type="button" class="g-clear" data-row="{{ row.row }}" title="Қўлда нархни бекор қилиш">×</button>
-        <div class="xl-sub text-sky-700">қўлда{% if row.suggested_price is not None %} · таклиф {{ row.suggested_price|som }}{% endif %}</div>
-        {% else %}{{ row.g|som }}{% if row.suggested_price is not None %}<div class="xl-sub">таклиф {{ row.suggested_price|som }}</div>{% endif %}{% endif %}
-      </td>
-      <td class="num text-right font-medium {% if row.h|is_error %}xl-red-text{% endif %}">{{ row.h|som }}</td>
-      {% for c in "IJKLM" %}
-      <td class="num text-right xl-cat {% if row.name and row.category == c %}xl-cat-on {{ c|cat_class }}{% endif %}">
-        {% if row.name and row.category == c %}{{ row.h|som }}{% if row.override %}<span class="xl-mark" title="Қўлда ўзгартирилган (асли {{ row.default_category }})">✎</span>{% endif %}{% endif %}
-        {% if row.suggested_category == c %}<span class="xl-sugg" title="Таклиф: {{ row.suggest_reason }}">→{{ c }}?</span>{% endif %}
-      </td>
-      {% endfor %}
-      <td class="xl-extra">
-        {% if row.status == "MANUAL" %}<span class="xl-tag bg-sky-600 text-white" title="асли: {{ row.orig_status|status_label }}">қўлда ✓</span>
-        {% elif row.status == "WORK_HEADER" %}<span class="xl-tag bg-slate-200 text-slate-700">иш сарлавҳаси</span>
-        {% elif row.status == "MACHINIST" %}<span class="xl-tag bg-slate-200 text-slate-700">машинист</span>
-        {% elif row.status == "NO_PRICE" %}<span class="xl-tag bg-rose-200 text-rose-800">нархсиз</span>
-        {% elif row.zero %}<span class="xl-tag bg-slate-100 text-slate-600">нол қоидаси</span>
-        {% elif row.name and not row.g|is_number %}<span class="xl-tag bg-rose-600 text-white">{{ row.status|status_label }} · қўлда</span>
-        {% elif row.status == "EXACT" %}<span class="xl-tag bg-emerald-100 text-emerald-800">аниқ</span>
-        {% elif row.status == "FUZZY" %}<span class="xl-tag bg-amber-300 text-amber-900">FUZZY</span>
-        {% elif row.status == "AMBIGUOUS" %}<span class="xl-tag bg-orange-300 text-orange-900">ШАБҲАЛИ</span>
-        {% elif row.status == "NOT_FOUND" %}<span class="xl-tag bg-rose-300 text-rose-900">ТОПИЛМАДИ</span>{% endif %}
       </td>
     </tr>
+    {% for row in group.rows %}{% include "jobs/_row.html" %}{% endfor %}
     {% endfor %}
+    {% else %}
+    {% for row in rows %}{% include "jobs/_row.html" with group=None %}{% endfor %}
+    {% endif %}
     </tbody>
   </table>
   </div>
@@ -420,11 +454,11 @@
     {% for c, label in category_choices %}
     <button type="button" data-move="{{ c }}" class="move-btn rounded-md px-2.5 py-1 font-semibold {{ c|cat_class }} hover:brightness-95 disabled:opacity-50">{{ c }} · {{ label }}</button>
     {% endfor %}
-    <button type="button" data-move="" class="move-btn rounded-md border border-white/30 px-2.5 py-1 hover:bg-white/10 disabled:opacity-50" title="Дастур аниқлаган устунга қайтариш">↺ асл ҳолига</button>
+    <button type="button" data-move="" class="move-btn rounded-md border border-white/30 px-2.5 py-1 hover:bg-white/10 disabled:opacity-50" title="Дастур аниқлаган устунга қайтариш"><span class="inline-flex items-center gap-1">{% icon "undo" "h-3.5 w-3.5" %} асл ҳолига</span></button>
     <span class="basis-full h-0 md:basis-auto md:h-5 md:w-px md:bg-white/20"></span>
     <span class="text-slate-300">нарх:</span>
     <button type="button" id="price-accept" class="price-btn rounded-md bg-amber-300 px-2.5 py-1 font-semibold text-amber-950 hover:brightness-95 disabled:opacity-40"
-            title="Белгиланганлар ичидаги таклифи бор қаторларга таклиф нархини қўйиш">✓ таклифларни қабул қилиш <span id="acc-n" class="num"></span></button>
+            title="Белгиланганлар ичидаги таклифи бор қаторларга таклиф нархини қўйиш"><span class="inline-flex items-center gap-1">{% icon "check" "h-3.5 w-3.5" "2.5" %} таклифларни қабул қилиш <span id="acc-n" class="num"></span></span></button>
     <input type="text" id="price-input" inputmode="decimal" placeholder="масалан 4 600 000" autocomplete="off"
            class="w-36 rounded-md border-0 px-2 py-1 text-slate-900 num" title="Битта нарх — белгиланган ҳамма қаторларга">
     <button type="button" id="price-set" class="price-btn rounded-md bg-sky-500 px-2.5 py-1 font-semibold text-white hover:brightness-95 disabled:opacity-40">нарх бериш</button>
@@ -458,6 +492,7 @@
   .xl-grid tbody tr.xl-yellow > td:not(.xl-gutter) { background-color: #fef3c7; }
   .xl-grid tbody tr.xl-zero > td:not(.xl-gutter) { color: #6b7280; }
   .xl-grid tbody tr.xl-blank > td { color: #cbd5e1; }
+  .xl-grid tbody tr.xl-group > td { background: #e2e8f0; border-top: 2px solid #94a3b8; padding: 6px 8px; }
   .xl-grid .xl-red-text { color: #b91c1c; font-weight: 600; }
   .xl-grid td.xl-cat-on { font-weight: 600; }
   .xl-grid td.xl-manual { background-color: #e0f2fe !important; }
@@ -530,6 +565,10 @@
         if (filterKey === "SELECTED") hit = sel.has(tr.dataset.row);
         else if (filterKey) hit = tr.dataset.status === filterKey || flags(tr).indexOf(" " + filterKey + " ") >= 0;
         tr.style.display = hit ? "" : "none";
+      });
+      body.querySelectorAll("tr[data-group-head]").forEach(function (h) {
+        var id = h.dataset.groupHead;
+        h.style.display = !filterKey || rows.some(function (t) { return t.dataset.group === id && t.style.display !== "none"; }) ? "" : "none";
       });
       box.classList.toggle("hidden", !filterKey);
       boxName.textContent = label || "";
@@ -638,6 +677,40 @@
 
       var csrf = document.querySelector("[name=csrfmiddlewaretoken]").value;
       var PRICE_URL = "{% url 'job_prices' job.id %}";
+      var COL_URL = "{% url 'job_columns' job.id %}";
+
+      // устунлар: қўшиш (N, O, …), номини ўзгартириш, ўчириш
+      function columnAction(payload) {
+        status.textContent = "сақланяпти, қайта ҳисобланяпти…";
+        fetch(COL_URL, {
+          method: "POST",
+          headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
+          body: JSON.stringify(payload),
+        }).then(function (r) {
+          return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; });
+        }).then(function (data) {
+          if (!data.ok) throw new Error(data.error || "хато");
+          store(KEY + "-scroll", String(window.scrollY) + "|" + String(wrap.scrollTop));
+          location.reload();
+        }).catch(function (err) { alert("Хато: " + err.message); });
+      }
+      var addBtn = document.getElementById("col-add");
+      if (addBtn) addBtn.addEventListener("click", function () {
+        var name = prompt("Янги устун номи (масалан «Монтаж ишлари»).\nКейин қаторларни белгилаб, пастки панелдан шу устунга ўтказасиз.", "");
+        if (name !== null) columnAction({action: "add", name: name});
+      });
+      document.querySelectorAll(".col-rename").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var name = prompt("«" + b.dataset.col + "» устун номи:", b.dataset.name);
+          if (name !== null && name.trim() !== b.dataset.name) columnAction({action: "rename", col: b.dataset.col, name: name});
+        });
+      });
+      document.querySelectorAll(".col-remove").forEach(function (b) {
+        b.addEventListener("click", function () {
+          if (confirm("«" + b.dataset.name + "» (" + b.dataset.col + ") устуни ўчирилсинми? Ундаги қаторлар асл устунига қайтади."))
+            columnAction({action: "remove", col: b.dataset.col});
+        });
+      });
 
       // умумий: сақлаш -> саҳифани қайта юклаш (скролл, фильтр сақланади, ўзгарганлар ёришади)
       function send(url, payload, rowsChanged) {
@@ -703,30 +776,46 @@
         if (a) send(PRICE_URL, {action: "accept", rows: [Number(a.dataset.row)]}, [a.dataset.row]);
         if (c) send(PRICE_URL, {action: "clear", rows: [Number(c.dataset.row)]}, [c.dataset.row]);
       });
+      function moveRows(moving, category) {
+        document.querySelectorAll(".move-btn, .grp-move").forEach(function (m) { m.disabled = true; });
+        status.textContent = "сақланяпти, қайта ҳисобланяпти…";
+        fetch(MOVE_URL, {
+          method: "POST",
+          headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
+          body: JSON.stringify({rows: moving.map(Number), category: category}),
+        }).then(function (r) {
+          return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; });
+        }).then(function (data) {
+          if (!data.ok) throw new Error(data.error || "хато");
+          sel.clear();
+          render();
+          store(KEY + "-flash", JSON.stringify(moving.map(String)));
+          store(KEY + "-scroll", String(window.scrollY) + "|" + String(wrap.scrollTop));
+          location.reload();
+        }).catch(function (err) {
+          status.textContent = "Хато: " + err.message;
+          alert("Хато: " + err.message);
+          document.querySelectorAll(".move-btn, .grp-move").forEach(function (m) { m.disabled = false; });
+        });
+      }
       document.querySelectorAll(".move-btn").forEach(function (btn) {
         btn.addEventListener("click", function () {
-          if (!sel.size) return;
-          var moving = Array.from(sel);
-          document.querySelectorAll(".move-btn").forEach(function (m) { m.disabled = true; });
-          status.textContent = "сақланяпти, қайта ҳисобланяпти…";
-          fetch(MOVE_URL, {
-            method: "POST",
-            headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
-            body: JSON.stringify({rows: moving.map(Number), category: btn.dataset.move}),
-          }).then(function (r) {
-            return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; });
-          }).then(function (data) {
-            if (!data.ok) throw new Error(data.error || "хато");
-            sel.clear();
-            render();
-            store(KEY + "-flash", JSON.stringify(moving));
-            store(KEY + "-scroll", String(window.scrollY) + "|" + String(wrap.scrollTop));
-            location.reload();
-          }).catch(function (err) {
-            status.textContent = "Хато: " + err.message;
-            document.querySelectorAll(".move-btn").forEach(function (m) { m.disabled = false; });
-          });
+          if (sel.size) moveRows(Array.from(sel), btn.dataset.move);
         });
+      });
+      // бўлим сарлавҳаси: «белгилаш» — бўлимдаги қаторларни танлайди; «M га ўтказамизми?» — бир босишда
+      body.addEventListener("click", function (e) {
+        var g = e.target.closest(".grp-select"), m = e.target.closest(".grp-move");
+        if (g) {
+          rows.forEach(function (t) {
+            if (t.dataset.group === g.dataset.group && t.dataset.selectable && t.style.display !== "none") sel.add(t.dataset.row);
+          });
+          render();
+        }
+        if (m && confirm(m.dataset.rows.split(",").length + " та қатор " + m.dataset.moveTo +
+                         " устунига ўтказилади, сумма ва сводка қайта ҳисобланади. Давом этамизми?")) {
+          moveRows(m.dataset.rows.split(","), m.dataset.moveTo);
+        }
       });
     }
 
