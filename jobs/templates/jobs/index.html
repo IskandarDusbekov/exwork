@@ -25,10 +25,38 @@
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-600 ring-1 ring-amber-200">{% icon "folder" "h-5 w-5" %}</span>
       <div>
         <h2 class="font-semibold">Бутун папка <span class="ml-1 rounded bg-slate-900 px-1.5 py-0.5 text-[11px] font-medium text-white">тавсия</span></h2>
-        <p class="text-sm text-slate-500">Масалан «Нурафшон МТТ»: ичидаги ҳар бир папка (Блок-А / Подземный часть, ОВ, ВК…) алоҳида смета бўлиб
-          нархланади. Олдинги «_narxlandi» файллари ва вақтинча файллар олинмайди.</p>
+        <p class="text-sm text-slate-500">Объектнинг бутун папкасини ташланг — ичидаги ҳар бир папка алоҳида смета бўлиб, ўзи нархланади.
+          Натижа битта ZIP да, папкалар тузилиши сақланган ҳолда.</p>
       </div>
     </div>
+    <details class="mb-4 rounded-lg border border-slate-200 bg-slate-50 text-sm">
+      <summary class="flex cursor-pointer select-none items-center gap-2 px-3 py-2 font-medium text-slate-700">
+        {% icon "alert-circle" "h-4 w-4 text-slate-400" %} Папка қандай бўлиши керак? <span class="ml-auto text-xs font-normal text-slate-400">очиш</span></summary>
+      <div class="grid gap-4 border-t border-slate-200 px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <pre class="overflow-x-auto rounded-md bg-white p-3 font-mono text-xs leading-relaxed text-slate-700 ring-1 ring-slate-200">Мактаб 2-блок/
+├─ 1. Архитектура/
+│   ├─ ар_локал.xls          <span class="text-emerald-700">← локал (иш ҳажмлари)</span>
+│   └─ ар_ресурс.xls         <span class="text-sky-700">← ресурс (нархлар)</span>
+├─ 2. Электр/
+│   ├─ Ички тармоқ/
+│   │   ├─ лок.xls
+│   │   └─ рес.xls
+│   └─ Ташқи тармоқ/
+│       ├─ смета.xls         <span class="text-slate-400">← 2 лист: локал + ресурс</span>
+│       └─ смета_narxlandi.xlsx  <span class="text-slate-400">← олинмайди</span>
+└─ Умумий ҳисоб.xlsx        <span class="text-violet-600">← смета эмас, ўтказилади</span></pre>
+        <ul class="space-y-2 text-slate-600">
+          <li><b class="text-slate-800">Ҳар бир смета — ўз папкасида:</b> битта локал (Форма 5, иш ҳажмлари) ва битта ресурс (Форма 6а, нархлар).
+            Иккаласи битта файлнинг икки листида бўлса ҳам бўлади.</li>
+          <li><b class="text-slate-800">Файл номи аҳамиятсиз.</b> «локал», «рес», «lokal» деб ёзиш шарт эмас — тизим файл ичидаги жадвалга қараб
+            ажратади: сарлавҳада нарх устуни («Цена», «Сметная стоимость») бор лист — ресурс, йўғи — локал.</li>
+          <li><b class="text-slate-800">Папкалар чуқурлиги ихтиёрий:</b> «Блок / Қисм / Бўлим» каби ичма-ич бўлиши мумкин.</li>
+          <li><b class="text-slate-800">Олинмайди:</b> олдинги натижалар («…_narxlandi»), Excel очиқлигида пайдо бўладиган «~$…» файллар,
+            Excel бўлмаган файллар (zip, pdf, rasm). Умумий ҳисоб файллари смета эмас деб белгиланади.</li>
+          <li><b class="text-slate-800">Натижа:</b> ҳар бир локал ёнида «<i>локал номи</i>_narxlandi.xlsx» — қўлда шундай сақлагандек.</li>
+        </ul>
+      </div>
+    </details>
     <label id="fdrop" class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-8 text-center transition hover:border-slate-500 hover:bg-white">
       <span class="grid h-12 w-12 place-items-center rounded-full bg-white text-amber-600 shadow-sm ring-1 ring-slate-200">{% icon "folder-open" "h-6 w-6" "1.75" %}</span>
       <span class="font-medium">Папкани шу ерга ташланг ёки танлаш учун босинг</span>
