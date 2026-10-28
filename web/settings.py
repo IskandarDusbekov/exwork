@@ -144,8 +144,14 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o]
-# Nginx kabi proksi ortida: X-Forwarded-For / X-Forwarded-Proto ga faqat shunda ishoniladi
-NARXLASH_TRUST_PROXY = os.environ.get("NARXLASH_TRUST_PROXY", "0") == "1"
+# Nginx kabi proksi ortida: X-Forwarded-For / X-Forwarded-Proto ga faqat shunda ishoniladi.
+# Qiymat — sayt oldidagi proksilar soni: faqat nginx — 1; Cloudflare + nginx — 2; to'g'ridan-to'g'ri — 0.
+# Proksi ortida 0 qolsa, hamma foydalanuvchi bitta IP (proksi manzili) bo'lib ko'rinadi: kirish cheklovi va
+# IP bloklash hammaga birdan ta'sir qiladi.
+try:
+    NARXLASH_TRUST_PROXY = max(0, int(os.environ.get("NARXLASH_TRUST_PROXY", "0") or 0))
+except ValueError:
+    raise ImproperlyConfigured("NARXLASH_TRUST_PROXY: proksilar soni (0, 1, 2 …)")
 if NARXLASH_TRUST_PROXY:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 if not DEBUG:

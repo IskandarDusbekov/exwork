@@ -3,14 +3,14 @@ import tempfile
 from pathlib import Path
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from core.tests.conftest import build_local, build_res
 from jobs.models import Job
 
 from .models import AuthAttempt, User
-from .throttle import LOGIN_PER_EMAIL
+from .throttle import LOGIN_PER_EMAIL, client_ip
 
 PASSWORD = "Kuchli-parol-2026"
 
@@ -139,3 +139,30 @@ class IsolationTests(TestCase):
         self.assertEqual(self.client.post(reverse("work_delete", args=["smeta", job.id])).status_code, 404)
         self.assertNotContains(self.client.get(reverse("dashboard")), job.local_name)
         self.assertTrue(Job.objects.filter(id=job.id).exists())
+
+
+class ClientIPTests(SimpleTestCase):
+    def _ip(self, xff=None, remote="10.0.0.1"):
+        meta = {"REMOTE_ADDR": remote}
+        if xff is not None:
+            meta["HTTP_X_FORWARDED_FOR"] = xff
+        return client_ip(RequestFactory().get("/", **meta))
+
+    @override_settings(NARXLASH_TRUST_PROXY=0)
+    def test_header_ignored_without_proxy(self):
+        self.assertEqual(self._ip("1.2.3.4"), "10.0.0.1")
+
+    @override_settings(NARXLASH_TRUST_PROXY=1)
+    def test_one_proxy_takes_last(self):
+        self.assertEqual(self._ip("6.6.6.6, 1.2.3.4"), "1.2.3.4")  # бошидагини мижоз ўзи ёзган
+        self.assertEqual(self._ip(), "10.0.0.1")
+
+    @override_settings(NARXLASH_TRUST_PROXY=2)
+    def test_two_proxies(self):
+        self.assertEqual(self._ip("6.6.6.6, 1.2.3.4, 104.16.0.1"), "1.2.3.4")  # Cloudflare + nginx
+        self.assertEqual(self._ip("1.2.3.4"), "10.0.0.1")  # прокси айланиб ўтилган
+
+    @override_settings(NARXLASH_TRUST_PROXY=1)
+    def test_garbage_falls_back(self):
+        self.assertEqual(self._ip("not-an-ip"), "10.0.0.1")
+        self.assertEqual(self._ip("2001:db8::1"), "2001:db8::1")

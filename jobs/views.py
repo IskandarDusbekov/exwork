@@ -1125,15 +1125,16 @@ def job_table_checked(request, job_id):
 
 
 def _stages(job, nf, lm):
-    """Смета­чи йўли: 1 — топилмаганлар, 2 — L/M ва жадвал, 3 — сводка ва фоизлар (кейин юклаб олиш)."""
+    """Смета­чи йўли: 1 — топилмаганлар, 2 — жадвал (кабель/ускунани ажратиш), 3 — сводка ва фоизлар (кейин юклаб олиш)."""
     s1 = not nf["pending"]
     s2 = s1 and job.table_checked
     return [
         {"n": 1, "anchor": "stage-nf", "title": "Топилмаганлар", "state": "done" if s1 else "current",
          "note": "тайёр" if s1 else f"{nf['pending']} та нархланмаган"},
-        {"n": 2, "anchor": "stage-table", "title": "L/M ва жадвал",
+        {"n": 2, "anchor": "stage-table", "title": "Жадвал",
          "state": "done" if s2 else ("current" if s1 else "locked"),
-         "note": "текширилди" if s2 else (f"{lm['pending']} та таклиф" if lm["pending"] else "жадвални кўриш")},
+         "note": "текширилди" if s2 else (f"{lm['pending']} та кабель/ускуна таклифи" if lm["pending"]
+                                          else "жадвални кўриш")},
         {"n": 3, "anchor": "svodka", "title": "Сводка ва фоизлар", "state": "current" if s2 else "locked",
          "note": "фоизлар, юклаб олиш"},
     ]

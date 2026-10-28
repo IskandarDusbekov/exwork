@@ -113,6 +113,61 @@ class WorkerQueueTests(TransactionTestCase):
         job = project.parts.first().jobs.first()
         self.assertTrue(job.rows and job.duration is not None)  # тезлик: қатор сони ва вақт
 
+    def test_lost_lease_stops_without_overwriting(self):
+        """Worker узоқ жавоб бермай иш бошқасига ўтган бўлса — эскиси қолган қисмларни олмайди,
+        ҳолатни ва янги эгасининг lease'ини ўзгартирмайди."""
+        p = self._project(worker="new:1#0", heartbeat=timezone.now())
+        part = Batch.objects.create(owner=self.user, project=p, folder="A", name="A", stage=Batch.Stage.QUEUED)
+        with mock.patch.object(folders, "analyze_part") as analyze:
+            folders._run(p.id, worker="old:1#0")
+        analyze.assert_not_called()
+        p.refresh_from_db()
+        part.refresh_from_db()
+        self.assertEqual((p.status, p.worker), (Project.Status.PROCESSING, "new:1#0"))
+        self.assertEqual(part.stage, Batch.Stage.QUEUED)
+
+    def test_lease_lost_mid_run(self):
+        p = self._project()
+        self.assertEqual(folders.claim_next("old:1#0"), p.id)
+        a = Batch.objects.create(owner=self.user, project=p, folder="A", name="A", stage=Batch.Stage.QUEUED)
+        b = Batch.objects.create(owner=self.user, project=p, folder="B", name="B", stage=Batch.Stage.QUEUED)
+
+        def taken_over(part):  # биринчи қисм ишланаётганда lease бошқа worker'га ўтди
+            Batch.objects.filter(id=part.id).update(stage=Batch.Stage.READY)
+            Project.objects.filter(id=p.id).update(worker="new:1#0", heartbeat=timezone.now())
+
+        with mock.patch.object(folders, "analyze_part", side_effect=taken_over) as analyze:
+            folders._run(p.id, worker="old:1#0")
+        self.assertEqual(analyze.call_count, 1)
+        a.refresh_from_db()
+        b.refresh_from_db()
+        p.refresh_from_db()
+        self.assertEqual((a.stage, b.stage), (Batch.Stage.READY, Batch.Stage.QUEUED))  # B — янги эгасида
+        self.assertEqual((p.status, p.worker), (Project.Status.PROCESSING, "new:1#0"))
+
+    def test_settle_keeps_part_queued_meanwhile(self):
+        """settle() ҳолатни ҳисоблаётганда смета­чи «Ҳисоблашни бошлаш»ни босди — лойиҳа навбатдан чиқмайди."""
+        p = self._project()
+        part = Batch.objects.create(owner=self.user, project=p, folder="A", name="A", stage=Batch.Stage.READY)
+
+        def clicked(*a, **kw):  # текширувдан кейин, ёзувдан олдин
+            Batch.objects.filter(id=part.id).update(stage=Batch.Stage.PRICING)
+            return False
+
+        with mock.patch.object(folders, "Job") as job:
+            job.objects.filter.return_value.exists.side_effect = clicked
+            folders.settle(p)
+        p.refresh_from_db()
+        self.assertEqual(p.status, Project.Status.PROCESSING)
+        self.assertEqual(folders.claim_next("w1"), p.id)  # worker уни олади
+
+    def test_settle_without_queue(self):
+        p = self._project()
+        Batch.objects.create(owner=self.user, project=p, folder="A", name="A", stage=Batch.Stage.READY)
+        folders.settle(p)
+        p.refresh_from_db()
+        self.assertEqual(p.status, Project.Status.READY)
+
 
 @override_settings(MEDIA_ROOT=TMP_MEDIA, NARXLASH_TASKS="thread")
 class ThreadModeLeaseTests(TransactionTestCase):

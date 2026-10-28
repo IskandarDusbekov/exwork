@@ -36,6 +36,14 @@
   .tree-btn { border-radius: 4px; padding: 2px; color: #6b7280; }
   .tree-btn:hover { background: #e5e5e5; color: #111827; }
   .part-row.is-active { background: #eff6ff; }
+  .part-chip { display: inline-flex; align-items: center; gap: .3rem; height: 1.75rem; padding: 0 .625rem; border: 1px solid #cbd5e1;
+               border-radius: 9999px; background: #fff; font-weight: 500; color: #334155; }
+  .part-chip:hover { border-color: #64748b; }
+  .part-chip.is-on { background: #0f172a; border-color: #0f172a; color: #fff; }
+  .part-chip.is-on svg { color: inherit; }
+  .stat-filter { cursor: pointer; }
+  .stat-filter[aria-disabled="true"] { cursor: default; }
+  .stat-filter.is-on { box-shadow: 0 0 0 2px #0f172a; }
 </style>
 <script>
   (function () {
@@ -74,7 +82,35 @@
         d.addEventListener("mouseleave", function () { tr.classList.remove("is-active"); });
       });
     }
+    // ҳолат бўйича филтр (карталар, «нима қилиш керак» ва жадвал тугмалари) — янгиланганда ҳам сақланади
+    var partFilter = "";
+    function applyPartFilter(scroll) {
+      var shown = 0;
+      body.querySelectorAll(".part-row").forEach(function (tr) {
+        var on = !partFilter || tr.dataset.state === partFilter;
+        tr.style.display = on ? "" : "none";
+        if (on) shown++;
+      });
+      body.querySelectorAll(".part-chip").forEach(function (c) { c.classList.toggle("is-on", c.dataset.partFilter === partFilter); });
+      body.querySelectorAll(".stat-filter").forEach(function (c) { c.classList.toggle("is-on", !!partFilter && c.dataset.partFilter === partFilter); });
+      var empty = document.getElementById("part-empty");
+      if (empty) empty.classList.toggle("hidden", shown > 0);
+      if (scroll) { var t = body.querySelector('[data-guide="parts"]'); if (t) t.scrollIntoView({behavior: "smooth", block: "start"}); }
+    }
+    function pickFilter(e) {
+      var f = e.target.closest("[data-part-filter]");
+      if (!f || f.disabled || f.getAttribute("aria-disabled") === "true" || e.target.closest(".help-q")) return;
+      var v = f.dataset.partFilter;
+      partFilter = (v && v === partFilter && !f.classList.contains("part-chip")) ? "" : v;  // карта қайта босилса — ҳаммаси
+      applyPartFilter(!f.classList.contains("part-chip"));
+    }
+    body.addEventListener("click", pickFilter);
+    body.addEventListener("keydown", function (e) {
+      if ((e.key === "Enter" || e.key === " ") && e.target.matches('[role="button"][data-part-filter]')) { e.preventDefault(); pickFilter(e); }
+    });
+
     wire();
+    applyPartFilter(false);
 
     // локал / ресурс номини босиш — Excel кўриниши (файлнинг ҳамма листлари); фоиз — ёнма-ён
     body.addEventListener("click", function (e) {
@@ -116,6 +152,7 @@
           var tree = body.querySelector(".tree"), top = tree ? tree.scrollTop : 0;
           body.innerHTML = html;
           wire();
+          applyPartFilter(false);
           var t2 = body.querySelector(".tree");
           if (t2) t2.scrollTop = top;
           poll();
@@ -129,8 +166,10 @@
 {% block guide %}{page: "folder", steps: [
   {sel: '[data-guide="awaiting"]', title: "Файллар очилди — энди текширинг",
    text: "Тизим ҳар бир папкадаги файлларни очиб, <b>локал</b> (иш ҳажмлари) ва <b>ресурс</b> (нархлар)ни топди ва жуфтлади. <b>Ҳисоблаш ҳали бошланмаган</b> — аввал пастдаги жадвални кўриб чиқинг."},
+  {sel: '[data-guide="next"]', title: "Нима қилиш керак",
+   text: "Ҳисоблангандан кейин уч қадам: <b>1</b> — ресурс аниқ топилмаган қисмларда уни танлаш, <b>2</b> — нархланмаган қаторларни тўғирлаш, <b>3</b> — юклаб олиш. Тугмани боссангиз — жадвалда фақат ўша қисмлар қолади."},
   {sel: '[data-guide="progress"]', title: "Жараён ва натижалар",
-   text: "Нечта қисм тайёр, жами сумма (Всего с НДС), нечтасида нархланмаган қатор бор ва нечтаси текширишни кутяпти. Фонда ишлаётганда саҳифа ўзи янгиланади — бошқа саҳифага ўтсангиз ҳам иш тўхтамайди."},
+   text: "Нечта қисм тайёр, жами сумма (Всего с НДС), нечтасида нархланмаган қатор бор ва нечтаси текширишни кутяпти. Картани боссангиз — жадвалда фақат шулар қолади. Фонда ишлаётганда саҳифа ўзи янгиланади — бошқа саҳифага ўтсангиз ҳам иш тўхтамайди."},
   {sel: '[data-guide="tree"]', title: "Папка тузилиши",
    text: "Юкланган папка худди компьютердагидек. <b class='text-emerald-700'>Л</b> — локал, <b class='text-sky-700'>Р</b> — ресурс, <b class='text-emerald-700'>Н</b> — тайёр натижа. Кулранг — олинмаган файллар (олдинги натижа, сводка)."},
   {sel: '[data-guide="parts"]', title: "Қисмлар — ҳар бир ички папка алоҳида смета",

@@ -1,4 +1,5 @@
 """Уринишлар чеклови: битта email ёки IP'дан кўп хато кириш бўлса — вақтинча блок."""
+import ipaddress
 from datetime import timedelta
 
 from django.conf import settings
@@ -12,14 +13,24 @@ LOGIN_PER_IP = 20       # битта IP'дан турли ҳисобларга
 REGISTER_PER_IP = 5     # битта IP'дан 15 дақиқада нечта рўйхат
 
 
+def _valid_ip(value):
+    try:
+        return str(ipaddress.ip_address(value.strip()))
+    except ValueError:
+        return None
+
+
 def client_ip(request):
-    """Прокси ортида бўлса (NARXLASH_TRUST_PROXY=1) X-Forwarded-For'нинг охирги манзили, акс ҳолда REMOTE_ADDR.
-    Ишончсиз сарлавҳага ишониб бўлмайди — у билан чекловни айланиб ўтиш мумкин."""
-    if getattr(settings, "NARXLASH_TRUST_PROXY", False):
-        fwd = request.META.get("HTTP_X_FORWARDED_FOR", "")
-        if fwd:
-            return fwd.split(",")[-1].strip() or None
-    return request.META.get("REMOTE_ADDR") or None
+    """Прокси ортида бўлса (NARXLASH_TRUST_PROXY=N — проксилар сони) X-Forwarded-For'нинг охиридан N-манзил,
+    акс ҳолда REMOTE_ADDR. Мижоз ўзи ёзган манзиллар рўйхат бошида бўлади — улар ҳисобга олинмайди.
+    Масалан, фақат nginx — 1; Cloudflare + nginx — 2. Нотўғри қиймат бўлса — REMOTE_ADDR."""
+    remote = request.META.get("REMOTE_ADDR") or None
+    hops = getattr(settings, "NARXLASH_TRUST_PROXY", 0)
+    if hops:
+        parts = [p for p in request.META.get("HTTP_X_FORWARDED_FOR", "").split(",") if p.strip()]
+        if len(parts) >= hops:
+            return _valid_ip(parts[-hops]) or remote
+    return remote
 
 
 def _recent(kind):
