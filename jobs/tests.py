@@ -786,3 +786,28 @@ class XlViewFormatTests(TestCase):
         ]
         for v, fmt, want in cases:
             self.assertEqual(display(v, fmt), want, (v, fmt))
+
+
+class JobPageExplainTests(TestCase):
+    """Смета саҳифаси: текширув муаммолари ва 0 нархлар оддий тилда тушунтирилади."""
+
+    def test_check_groups(self):
+        from .views import check_groups
+        rows = [{"row": 10, "name": "ЦЕМЕНТ", "unit": "Т", "g": 26800, "qty": None},
+                {"row": 11, "name": "ВОДА", "unit": "М3", "g": 5000, "qty": 2}]
+        checks = [{"row": 10, "kind": "no_qty", "problem": "…"},
+                  {"row": 11, "problem": "H = 1, кутилгани 10 000,00 (миқдор 2 × нарх 5000)"},  # эски натижа: тури йўқ
+                  {"row": None, "kind": "zero_total", "problem": "жами 0"}]
+        groups = check_groups(checks, rows)
+        self.assertEqual([g["kind"] for g in groups], ["no_qty", "amount", "zero_total"])
+        self.assertEqual(groups[0]["rows"][0]["name"], "ЦЕМЕНТ")
+        self.assertIn("Миқдори йўқ", groups[0]["title"])
+        self.assertEqual(groups[2]["general"], ["жами 0"])
+
+    def test_zero_reason(self):
+        from .templatetags.narx import zero_reason
+        self.assertEqual(zero_reason({"status": "EXACT", "g": 0, "name": "ЗАТРАТЫ ТРУДА МАШИНИСТОВ"})["tag"], "машинист · 0")
+        self.assertEqual(zero_reason({"status": "MACHINIST", "g": 0, "name": "x"})["tag"], "машинист · 0")
+        self.assertEqual(zero_reason({"status": "EXACT", "g": 0, "name": "ГВОЗДИ"})["tag"], "RES'да 0")
+        self.assertEqual(zero_reason({"status": "WORK_HEADER", "g": 0, "name": "x"})["tag"], "иш сарлавҳаси")
+        self.assertEqual(zero_reason({"status": "EXACT", "g": 100, "name": "ГВОЗДИ"}), {})

@@ -621,3 +621,63 @@ def test_hidden_local_sheet_is_priced_and_shown(tmp_path):
     out = load_workbook(r.output_path)
     assert out["202611410_БВ"].sheet_state == "visible"
     assert out.active.title == "202611410_БВ"
+
+
+def _coded_local(path: Path, rows):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "БВ"
+    ws["A1"], ws["B1"], ws["C1"], ws["D1"], ws["E1"] = "N п.п.", "Шифр", "Наименование работ и затрат", "Единица измерения", "Кол-во"
+    for i, col in enumerate("ABCDEF", start=1):
+        ws[f"{col}2"] = i
+    for r, (code, name, unit, f) in enumerate(rows, start=3):
+        ws[f"A{r}"], ws[f"B{r}"], ws[f"C{r}"], ws[f"D{r}"], ws[f"F{r}"] = str(r - 2), code, name, unit, f
+    wb.save(path)
+    return path
+
+
+BASE = {"258": {"price": 275_000.0, "n": 3, "unit_key": "машч", "unit": "МАШ.-Ч", "category": "J"},
+        "43113": {"price": 150_000.0, "n": 1, "unit_key": "м3", "unit": "М3", "category": "K"},
+        "9219": {"price": 5_000.0, "n": 2, "unit_key": "т", "unit": "Т", "category": "K"}}
+
+
+def test_base_prices_rows_res_could_not(tmp_path):
+    from core.pipeline import BASE as BASE_ST
+    local = _coded_local(tmp_path / "l.xlsx", [
+        ("000258", "БУЛЬДОЗЕРЫ 79 КВТ", "МАШ.-Ч", 2),   # RES'да йўқ — базадан
+        ("43113", "ЩЕБЕНЬ ФРАКЦИИ 20-40", "М3", 3),     # RES нархламади (ном аниқ эмас) — базадан
+        ("1", "ЗАТРАТЫ ТРУДА РАБОЧИХ", "ЧЕЛ.-Ч", 10),    # RES'да аниқ — RES нархи
+        ("9219", "ВОДА", "М3", 4),                      # базада бор, лекин бирлик бошқа — нархланмайди
+        ("С1", "АРМАТУРА", "Т", 1),                     # кодсиз
+    ])
+    wb = Workbook()
+    ws = wb.active
+    ws["D1"], ws["E1"], ws["G1"] = "НАИМЕНОВАНИЕ РЕСУРСА", "ЕД.ИЗМ", "ЦЕНА"
+    ws["D2"], ws["E2"], ws["G2"] = "ЗАТРАТЫ ТРУДА РАБОЧИХ", "ЧЕЛ.-Ч", 36_000
+    ws["D3"], ws["E3"], ws["G3"] = "ЩЕБЕНЬ ФРАКЦИИ 20-40 ММ", "М3", 140_000
+    wb.save(tmp_path / "r.xlsx")
+    r = _run(local, tmp_path / "r.xlsx", tmp_path, base_prices=BASE, base_label="Тошкент ш. · 2026-4")
+    st = {row["row"]: row for row in r.rows}
+    assert st[3]["status"] == BASE_ST and st[3]["g"] == 275_000 and st[3]["h"] == 550_000 and st[3]["category"] == "J"
+    assert st[3]["orig_status"] == "NOT_FOUND" and "Тошкент ш. · 2026-4, 3 та смета" in st[3]["note"]
+    assert st[4]["status"] == BASE_ST and st[4]["g"] == 150_000 and st[4]["orig_status"] != "EXACT"
+    assert st[5]["status"] == "EXACT" and st[5]["g"] == 36_000
+    assert st[6]["status"] == "NOT_FOUND" and "бирлик бошқа" in st[6]["note"]
+    assert st[7]["status"] == "NOT_FOUND"
+    assert r.stats[BASE_ST] == 2 and r.stats["NOT_PRICED"] == 2
+    # қўлда нарх базадан устун
+    r = _run(local, tmp_path / "r.xlsx", tmp_path, base_prices=BASE, prices={3: 1})
+    assert {row["row"]: row for row in r.rows}[3]["status"] == "MANUAL"
+
+
+def test_without_res_only_base(tmp_path):
+    from core.pipeline import BASE as BASE_ST
+    local = _coded_local(tmp_path / "l.xlsx", [("258", "БУЛЬДОЗЕРЫ", "МАШ.-Ч", 2), ("777", "НОМАЪЛУМ", "Т", 1)])
+    r = _run(local, None, tmp_path, base_prices=BASE)
+    st = {row["row"]: row for row in r.rows}
+    assert st[3]["status"] == BASE_ST and st[3]["h"] == 550_000
+    assert st[4]["status"] == "NOT_FOUND"
+    wb = load_workbook(tmp_path / "out.xlsx")
+    assert wb.sheetnames == ["БВ", LOG_TITLE]  # RES листи қўшилмайди
+    with pytest.raises(ValueError):
+        run(local, None, Options(output_path=tmp_path / "o2.xlsx", mode="compat"))

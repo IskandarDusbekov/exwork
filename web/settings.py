@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "accounts",
     "jobs",
     "panel",
+    "resbase",
 ]
 
 MIDDLEWARE = [

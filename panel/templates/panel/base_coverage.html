@@ -1,0 +1,84 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Қамров — Ресурс базаси — Панел{% endblock %}
+{% block panel %}
+{% include "panel/_base_tabs.html" with base_tab="coverage" %}
+
+<section class="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <h2 class="font-semibold">База бу сметани қанчалик нархлай олади?</h2>
+  <p class="mb-3 text-xs text-slate-500">Нархланган сметани ва вилоят ҳамда даврни танланг — ҳар бир ресурс қаторига базада нарх бор-йўқлиги кўрсатилади. Сметанинг ўзига тегилмайди.</p>
+  <form method="get" class="flex flex-wrap items-center gap-1.5">
+    <select name="job" class="min-w-0 max-w-full flex-1 rounded-lg border border-slate-300 px-2 py-1 text-sm" aria-label="Смета" required>
+      <option value="">— сметани танланг —</option>
+      {% for j in jobs %}<option value="{{ j.pk }}" {% if job and job.pk == j.pk %}selected{% endif %}>{{ j.local_name }}{% if j.batch %} · {{ j.batch.name }}{% endif %}</option>{% endfor %}
+    </select>
+    {% include "panel/_base_period.html" %}
+    <label class="inline-flex items-center gap-1 text-sm text-slate-600" title="Смета базага қўшилган бўлса, ўз нархлари ўзини «қоплаб» қўяди — одатда улар ҳисобга олинмайди">
+      <input type="checkbox" name="own" value="1" {% if own %}checked{% endif %}> ўз нархлари билан</label>
+    <button class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">Текшириш</button>
+  </form>
+</section>
+
+{% if report %}
+<section class="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <div class="mb-3 flex flex-wrap items-baseline gap-x-3">
+    <h2 class="font-semibold">{{ job.local_name }}</h2>
+    <span class="text-sm text-slate-500">{{ region_labels|get_item:r|default:"вилоят номаълум" }} · {% if y and q %}{{ y }} · {{ q }}-чорак{% else %}давр номаълум{% endif %} · ресурс қаторлари: <b class="num text-slate-900">{{ report.total }}</b></span>
+  </div>
+  {% if not r or not y or not q %}<p class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Вилоят ва давр тўлиқ танланмаган — «шу давр нархи» ҳисобланмайди.</p>{% endif %}
+  <div class="grid gap-2 md:grid-cols-4">
+    {% for kind, n, p in report.counts %}
+    <div class="rounded-lg border p-3 {% if kind == 'exact' %}border-emerald-200 bg-emerald-50{% elif kind == 'other' %}border-amber-200 bg-amber-50{% elif kind == 'none' %}border-slate-200 bg-white{% else %}border-slate-200 bg-slate-50{% endif %}">
+      <div class="text-xs {% if kind == 'exact' %}text-emerald-800{% elif kind == 'other' %}text-amber-800{% else %}text-slate-500{% endif %}">
+        {% if kind == 'exact' %}✅ шу вилоят/давр нархи билан{% elif kind == 'other' %}🟡 фақат бошқа давр ёки вилоятда{% elif kind == 'none' %}⚪ коди бор, нархи йўқ{% else %}⚫ кодсиз (маҳаллий материал){% endif %}</div>
+      <div class="num text-2xl font-semibold">{{ n }} <span class="text-sm font-normal text-slate-500">({{ p }}%)</span></div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="mt-2 flex h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+    {% for kind, n, p in report.counts %}<span class="{% if kind == 'exact' %}bg-emerald-500{% elif kind == 'other' %}bg-amber-400{% elif kind == 'none' %}bg-slate-300{% else %}bg-slate-500{% endif %}" style="width: {{ p }}%"></span>{% endfor %}
+  </div>
+  <p class="mt-2 text-xs text-slate-500">🟡 қаторлар ҳозир нархлашда ишлатилмайди — манбаларнинг даври ёки вилоятини белгиласангиз, ✅ га ўтиши мумкин.</p>
+</section>
+
+{% if report.missing %}
+<section class="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Нархи йўқ кодлар · {{ report.missing|length }}</h2>
+    <p class="text-xs text-slate-500">Базада ҳеч қаерда нархи йўқ — шу кодлар учрайдиган сметаларни қўшиш фойдали.</p></div>
+  <div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-4 py-2 font-medium">Код</th><th class="px-3 py-2 font-medium">Номи</th><th class="px-3 py-2 font-medium">Бирлик</th><th class="px-3 py-2 text-right font-medium">Қатор</th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for m in report.missing %}<tr><td class="num px-4 py-1.5 font-medium">{{ m.code }}</td><td class="px-3 py-1.5">{{ m.name }}</td><td class="whitespace-nowrap px-3 py-1.5 text-slate-500">{{ m.unit }}</td><td class="num px-3 py-1.5 text-right">{{ m.rows }}</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endif %}
+
+{% if report.other %}
+<section class="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Фақат бошқа давр ёки вилоятда · {{ report.other|length }}</h2>
+    <p class="text-xs text-slate-500">Нархи бор, лекин танланган вилоят ва даврда эмас.</p></div>
+  <div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-4 py-2 font-medium">Код</th><th class="px-3 py-2 font-medium">Номи</th><th class="px-3 py-2 font-medium">Қаерда бор</th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for m in report.other %}<tr><td class="num px-4 py-1.5 font-medium"><a href="{% url 'panel:base_resource' m.code %}" class="text-sky-700 hover:underline">{{ m.code }}</a></td><td class="px-3 py-1.5">{{ m.name }} <span class="text-slate-400">{{ m.unit }}</span></td>
+        <td class="px-3 py-1.5 text-xs text-slate-600">{% for c in m.where %}<span class="mr-1 inline-block whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5">{{ region_labels|get_item:c.0|default:"вилоят ?" }} · {% if c.1 and c.2 %}{{ c.1 }}-{{ c.2 }}{% else %}давр ?{% endif %}</span>{% endfor %}</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endif %}
+
+<details class="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <summary class="cursor-pointer px-4 py-3 font-semibold">Ҳамма қаторлар · {{ report.total }}</summary>
+  <div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-4 py-2 font-medium">Қатор</th><th class="px-3 py-2 font-medium">Код</th><th class="px-3 py-2 font-medium">Номи</th><th class="px-3 py-2 text-right font-medium">Сметада</th><th class="px-3 py-2 text-right font-medium">База (медиана)</th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for it in report.items %}<tr class="{% if it.kind == 'exact' %}bg-emerald-50/50{% elif it.kind == 'other' %}bg-amber-50/50{% endif %}">
+        <td class="num px-4 py-1.5 text-slate-500">{{ it.row }}</td><td class="num px-3 py-1.5">{{ it.code }}</td>
+        <td class="px-3 py-1.5">{{ it.name }} <span class="text-slate-400">{{ it.unit }}</span></td>
+        <td class="num whitespace-nowrap px-3 py-1.5 text-right">{% if it.price %}{{ it.price|som }}{% endif %}</td>
+        <td class="num whitespace-nowrap px-3 py-1.5 text-right">{% if it.median %}{{ it.median|som }} <span class="text-xs text-slate-400">({{ it.n }})</span>{% endif %}</td></tr>{% endfor %}
+    </tbody></table></div>
+</details>
+{% elif not jobs %}
+<div class="rounded-xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">Нархланган смета йўқ.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,15 @@
+{% load narx %}{# «Ресурс базаси» бўлими: сарлавҳа, ички таблар ва хабарлар #}
+<div class="mb-4 flex flex-wrap items-end gap-3">
+  <div class="min-w-0 flex-1">
+    <h1 class="text-xl font-semibold text-slate-900">Ресурс базаси <span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-amber-800">синов</span></h1>
+    <p class="text-sm text-slate-500">Нархланган сметалардан йиғилган кодлар ва нархлар — вилоят ва давр бўйича.</p>
+  </div>
+  <nav class="inline-flex overflow-hidden rounded-lg border border-slate-300 bg-white text-sm" aria-label="Ресурс базаси бўлимлари">
+    <a href="{% url 'panel:base' %}" class="px-3 py-1.5 {% if base_tab == 'overview' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}">Умумий</a>
+    <a href="{% url 'panel:base_search' %}" class="border-l border-slate-300 px-3 py-1.5 {% if base_tab == 'search' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}">Қидирув</a>
+    <a href="{% url 'panel:base_sources' %}" class="border-l border-slate-300 px-3 py-1.5 {% if base_tab == 'sources' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}">Манбалар</a>
+    <a href="{% url 'panel:base_coverage' %}" class="border-l border-slate-300 px-3 py-1.5 {% if base_tab == 'coverage' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}">Қамров</a>
+    <a href="{% url 'panel:base_review' %}" class="border-l border-slate-300 px-3 py-1.5 {% if base_tab == 'review' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}">Текширув{% if n_review %} <span class="num ml-0.5 rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold text-white">{{ n_review }}</span>{% endif %}</a>
+  </nav>
+</div>
+{% for m in messages %}<div class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">{{ m }}</div>{% endfor %}

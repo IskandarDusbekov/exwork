@@ -5,7 +5,7 @@
   <td class="xl-name">
     {{ row.name|default_if_none:"" }}
     {% if row.status == "FUZZY" or row.status == "AMBIGUOUS" %}<div class="xl-sub">ресурсда: {{ row.picked_name }} ({{ row.score|score }})</div>{% endif %}
-    {% if row.note %}<div class="xl-sub text-amber-700">{{ row.note }}</div>{% endif %}
+    {% if row.note %}<div class="xl-sub text-amber-700">{{ row.note }}</div>{% else %}{% with zr=row|zero_reason %}{% if zr.tag == "RES'да 0" %}<div class="xl-sub text-slate-500">{{ zr.why }}</div>{% endif %}{% endwith %}{% endif %}
   </td>
   <td class="text-center">{{ row.unit|default_if_none:"" }}</td>
   <td class="num text-right">{{ row.qty|qty }}</td>
@@ -32,9 +32,10 @@
   {% endfor %}
   <td class="xl-extra">
     {% if row.status == "MANUAL" %}<span class="xl-tag bg-sky-600 text-white" title="асли: {{ row.orig_status|status_label }}">қўлда</span>
-    {% elif row.status == "WORK_HEADER" %}<span class="xl-tag bg-slate-200 text-slate-700">иш сарлавҳаси</span>
+    {% elif row.status == "BASE" %}<span class="xl-tag bg-violet-100 text-violet-800" title="{{ row.note }}">БАЗА</span>
+    {% elif row.status == "WORK_HEADER" %}<span class="xl-tag bg-slate-200 text-slate-700" title="{{ row|zero_reason|get_item:'why' }}">иш сарлавҳаси</span>
     {% elif row.status == "CLEARED" %}<span class="xl-tag bg-slate-100 text-slate-600">тозаланди</span>
-    {% elif row.status == "MACHINIST" %}<span class="xl-tag bg-slate-200 text-slate-700">машинист</span>
+    {% elif row|zero_reason %}{% with zr=row|zero_reason %}<span class="xl-tag bg-slate-200 text-slate-700" title="{{ zr.why }}">{{ zr.tag }}</span>{% endwith %}
     {% elif row.status == "NO_PRICE" %}<span class="xl-tag bg-rose-200 text-rose-800">нархсиз</span>
     {% elif row.zero %}<span class="xl-tag bg-slate-100 text-slate-600">нол қоидаси</span>
     {% elif row.name and not row.g|is_number %}<span class="xl-tag bg-rose-600 text-white">{{ row.status|status_label }} · қўлда</span>
