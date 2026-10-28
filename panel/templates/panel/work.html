@@ -1,0 +1,107 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}{% if kind == 'smeta' %}{{ w.local_name }}{% else %}{{ w.name }}{% endif %} — Панел{% endblock %}
+{% block panel %}
+<a href="{% url 'panel:user' w.owner_id %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" %} {{ w.owner.get_full_name|default:w.owner.email }}</a>
+
+<section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+  <div class="flex flex-wrap items-start gap-3">
+    <span class="grid h-11 w-11 shrink-0 place-items-center rounded-lg {% if kind == 'folder' %}bg-amber-50 text-amber-600{% elif kind == 'object' %}bg-slate-100 text-slate-500{% else %}bg-emerald-50 text-emerald-600{% endif %}">
+      {% if kind == "folder" %}{% icon "folder" "h-5 w-5" %}{% elif kind == "object" %}{% icon "layers" "h-5 w-5" %}{% else %}{% icon "sheet" "h-5 w-5" %}{% endif %}</span>
+    <div class="min-w-0 flex-1">
+      <div class="text-xs uppercase tracking-wider text-slate-400">{{ kind_label }} · {{ w.created|date:"d.m.Y H:i" }}</div>
+      <h2 class="break-words text-lg font-semibold">{% if kind == 'smeta' %}{{ w.local_name }}{% else %}{{ w.name }}{% endif %}</h2>
+      <div class="mt-1 text-sm text-slate-500">Эгаси: <a href="{% url 'panel:user' w.owner_id %}" class="text-slate-700 hover:underline">{{ w.owner.email }}</a> · Ҳолати: <b class="font-medium text-slate-700">{{ w.get_status_display }}</b></div>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {% if kind == 'folder' and working and can_act %}
+      <form method="post" action="{% url 'panel:work_stop' w.id %}" onsubmit="return confirm('Фондаги иш тўхтатилсинми? Очилганлари сақланади, смета­чи кейин давом эттириши мумкин.')">{% csrf_token %}
+        <button class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100">{% icon "stop" %} Тўхтатиш</button></form>
+      {% endif %}
+      {% if has_result and can_act %}
+      <a href="{% url 'panel:work_result' kind w.id %}" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700" title="Журналга ёзилади">{% icon "download" %} Натижани юклаб олиш</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div class="rounded-lg bg-slate-50 px-3 py-2"><div class="text-[11px] uppercase tracking-wider text-slate-400">Всего с НДС</div><div class="num font-semibold">{% if total %}{{ total|som }}{% else %}—{% endif %}</div></div>
+    <div class="rounded-lg bg-slate-50 px-3 py-2"><div class="text-[11px] uppercase tracking-wider text-slate-400">Нархланмаган қатор</div><div class="num font-semibold {% if not_priced %}text-rose-600{% endif %}">{{ not_priced|default:0 }}</div></div>
+    <div class="rounded-lg bg-slate-50 px-3 py-2"><div class="text-[11px] uppercase tracking-wider text-slate-400">Файллар</div><div class="num font-semibold">{{ files|length }}{% if skipped %} <span class="text-xs font-normal text-slate-400">({{ skipped }} олинмади)</span>{% endif %}</div></div>
+    <div class="rounded-lg bg-slate-50 px-3 py-2"><div class="text-[11px] uppercase tracking-wider text-slate-400">{% if kind == 'folder' %}Қисмлар{% elif kind == 'object' %}Сметалар{% else %}Режим{% endif %}</div>
+      <div class="num font-semibold">{% if kind == 'folder' %}{{ parts|length }}{% elif kind == 'object' %}{{ jobs|length }}{% else %}{{ w.mode }} · {{ w.fuzzy }}%{% endif %}</div></div>
+  </div>
+  {% if kind == 'smeta' and w.error %}<div class="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ w.error }}</div>{% endif %}
+  {% if kind == 'folder' and w.stop_requested %}<div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Тўхтатиш сўралган</div>{% endif %}
+</section>
+
+{% if kind == 'folder' %}
+<section class="mt-3 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Қисмлар (ички папкалар)</h2></div>
+  <ul class="divide-y divide-slate-100">
+    {% for x in parts %}
+    <li class="flex items-center gap-3 px-4 py-2.5 text-sm">
+      <span class="text-amber-500">{% icon "folder-open" "h-4 w-4" %}</span>
+      <span class="min-w-0 flex-1"><span class="block truncate font-medium">{{ x.p.folder|default:x.p.name }}</span>
+        <span class="block truncate text-xs text-slate-500">{{ x.p.files|length }} файл · {{ x.jobs|length }} смета{% if x.p.message %} · {{ x.p.message }}{% endif %}</span></span>
+      <span class="shrink-0 rounded-full bg-{{ x.state.1 }}-50 px-2 py-0.5 text-xs font-medium text-{{ x.state.1 }}-700 ring-1 ring-inset ring-{{ x.state.1 }}-200">{{ x.state.0 }}</span>
+      <span class="num hidden w-36 shrink-0 text-right font-semibold text-slate-700 sm:block">{% if x.total %}{{ x.total|som }}{% else %}<span class="text-slate-300">—</span>{% endif %}</span>
+    </li>
+    {% empty %}<li class="px-4 py-8 text-center text-sm text-slate-400">Қисм йўқ</li>{% endfor %}
+  </ul>
+</section>
+{% elif kind == 'object' %}
+<section class="mt-3 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Сметалар</h2></div>
+  <ul class="divide-y divide-slate-100">
+    {% for j in jobs %}
+    <li class="flex items-center gap-3 px-4 py-2.5 text-sm">
+      <span class="text-emerald-600">{% icon "sheet" "h-4 w-4" %}</span>
+      <span class="min-w-0 flex-1"><span class="block truncate font-medium">{{ j.batch_label|default:j.local_name }}</span>
+        <span class="block truncate text-xs {% if j.error %}text-rose-600{% else %}text-slate-500{% endif %}">{% if j.error %}{{ j.error }}{% else %}RES: {{ j.res_name }}{% endif %}</span></span>
+      <span class="shrink-0 rounded-full {% if j.status == 'done' %}bg-emerald-50 text-emerald-700{% elif j.status == 'failed' %}bg-rose-50 text-rose-700{% else %}bg-slate-100 text-slate-600{% endif %} px-2 py-0.5 text-xs font-medium">{{ j.get_status_display }}</span>
+    </li>
+    {% empty %}<li class="px-4 py-8 text-center text-sm text-slate-400">Ҳали тасдиқланмаган — {{ w.pairs|length }} та жуфтлик таклиф қилинган</li>{% endfor %}
+  </ul>
+</section>
+{% else %}
+<section class="mt-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+  <h2 class="font-semibold">Смета</h2>
+  <dl class="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+    <div class="flex justify-between gap-3"><dt class="text-slate-500">Локал</dt><dd class="truncate text-right">{{ w.local_name }} · {{ w.local_sheet|default:"—" }}</dd></div>
+    <div class="flex justify-between gap-3"><dt class="text-slate-500">Ресурс</dt><dd class="truncate text-right">{{ w.res_name }} · {{ w.res_sheet|default:"—" }}</dd></div>
+  </dl>
+  {% if stats %}
+  <div class="mt-4 flex flex-wrap gap-1.5 text-xs">
+    {% for k, v in stats.items %}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">{{ k|status_label }}: <b class="num">{{ v }}</b></span>{% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="mt-3 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Асл файллар</h2>
+    {% if not can_act %}<span class="text-xs text-slate-400">юклаб олиш — фақат суперфойдаланувчи</span>{% endif %}</div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <tbody class="divide-y divide-slate-100">
+        {% for f in files %}
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-2"><span class="flex items-center gap-2"><span class="{% if f.skip %}text-slate-300{% else %}text-emerald-600{% endif %}">{% icon "sheet" "h-4 w-4" %}</span>
+            <span class="min-w-0"><span class="block break-all {% if f.skip %}text-slate-400{% endif %}">{{ f.path }}</span>{% if f.skip %}<span class="block text-xs text-slate-400">олинмади: {{ f.skip }}</span>{% endif %}</span></span></td>
+          <td class="num w-28 px-3 py-2 text-right text-slate-600">{{ f.size|hsize }}</td>
+          <td class="w-12 px-3 py-2 text-right">{% if can_act and f.abs %}<a href="{% url 'panel:work_file' kind w.id forloop.counter0 %}" class="inline-grid h-7 w-7 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900" title="Юклаб олиш (журналга ёзилади)" aria-label="Юклаб олиш: {{ f.name }}">{% icon "download" "h-4 w-4" %}</a>{% endif %}</td>
+        </tr>
+        {% empty %}<tr><td class="px-4 py-8 text-center text-slate-400">Файл йўқ</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="mt-3 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Шу иш бўйича ҳаракатлар</h2></div>
+  <ul class="divide-y divide-slate-100">
+    {% for ev in events %}{% include "panel/_event.html" %}{% empty %}<li class="px-4 py-8 text-center text-sm text-slate-400">Ҳаракат ёзилмаган</li>{% endfor %}
+  </ul>
+</section>
+{% if working %}<script>setInterval(function () { if (!document.hidden) location.reload(); }, 10000);</script>{% endif %}
+{% endblock %}

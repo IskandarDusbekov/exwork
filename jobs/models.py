@@ -6,21 +6,38 @@ from django.conf import settings
 from django.db import models
 
 
+class Setting(models.Model):
+    """Смета­чининг охирги танловлари (масалан сводка фоизлари) — кейинги сметалар шу билан бошланади."""
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="narx_settings")
+    key = models.CharField(max_length=64)
+    value = models.JSONField(default=dict, blank=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["owner", "key"], name="setting_owner_key")]
+
+    def __str__(self):
+        return self.key
+
+
 class Project(models.Model):
     """Смета­чи папкаси (ички папкалари билан). Ҳар бир ички папка — алоҳида ``Batch``
     (одатда битта локал ва битта ресурс файл), фонда навбат билан нархланади."""
 
     class Status(models.TextChoices):
         PROCESSING = "processing", "Ишланяпти"
+        READY = "ready", "Текширинг — ҳисоблашга тайёр"  # файллар очилди ва жуфтланди, смета­чи бошлашини кутади
         DONE = "done", "Тайёр"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PROCESSING)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")  # kimning ishi (o'chirish o'rniga faolsizlantiring)
     name = models.CharField(max_length=255)
     # [{"path": "2. Блок-А/1. Подземный часть/Рес подзем.xls", "size": 123, "skip": ""}] — skip: нега олинмагани
     files = models.JSONField(default=list)
     heartbeat = models.DateTimeField(null=True, blank=True)  # fondagi ishning oxirgi belgisi
+    stop_requested = models.BooleanField(default=False)  # smetachi «Тўхтатиш»ni bosdi — fondagi ish keyingi faylda to'xtaydi
 
     class Meta:
         ordering = ["-created"]
@@ -47,17 +64,21 @@ class Batch(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.REVIEW)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")  # kimning ishi (o'chirish o'rniga faolsizlantiring)
     name = models.CharField(max_length=255)
     files = models.JSONField(default=list)   # [{"name": asl nom, "path": "conv/0.xlsx", "sheets": [...]}]
     sheets = models.JSONField(default=list)  # core.batch.SheetInfo.to_dict() ro'yxati
     pairs = models.JSONField(default=list)   # core.batch.Pair.to_dict() + {"include": bool}
     roles = models.JSONField(default=dict, blank=True)  # qo'lda list turi {"0:LRV": "local"}
+    columns = models.JSONField(default=dict, blank=True)  # qo'lda ustunlar {"0:LRV": {"name": 3, "unit": 4, "start": 22, …}}
 
     # Papka yuklanganda: qaysi loyiha va qaysi ichki papka; fondagi ish bosqichi
     class Stage(models.TextChoices):
         QUEUED = "queued", "Навбатда"
         CONVERTING = "converting", "Файллар очиляпти"
+        READY = "ready", "Ҳисоблашга тайёр"  # жуфтликлар топилди — смета­чи «Ҳисоблашни бошлаш»ни босади
         PRICING = "pricing", "Нархланяпти"
+        STOPPED = "stopped", "Тўхтатилди"  # смета­чи тўхтатди — «Давом эттириш» билан қайта бошланади
         DONE = "done", "Тайёр"
         REVIEW = "review", "Текширинг"
         EMPTY = "empty", "Нархланадиган лист йўқ"
@@ -94,6 +115,7 @@ class Job(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.UPLOADED)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")  # kimning ishi (o'chirish o'rniga faolsizlantiring)
 
     # Obyekt (bir nechta juftlik) ichidagi qism bo'lsa
     batch = models.ForeignKey(Batch, null=True, blank=True, on_delete=models.CASCADE, related_name="jobs")
@@ -117,6 +139,10 @@ class Job(models.Model):
     categories = models.JSONField(default=dict, blank=True)  # qo'lda kategoriya {"qator": "I".."M"}
     prices = models.JSONField(default=dict, blank=True)      # qo'lda narx / tasdiqlangan taklif {"qator": narx}
     column_names = models.JSONField(default=dict, blank=True)  # ustun nomlari {"K": "…", "N": "Монтаж"}; N.. — qo'shilgan
+    local_columns = models.JSONField(default=dict, blank=True)  # smetachi ko'rsatgan ustunlar (Batch.columns dan)
+    res_columns = models.JSONField(default=dict, blank=True)
+    cleared = models.JSONField(default=list, blank=True)  # «ТОПИЛМАДИ» so'zi olib tashlangan qatorlar [183, 281]
+    table_checked = models.BooleanField(default=False)  # 2-bosqich: L/M ko'chirildi, jadval ko'rib chiqildi
 
     output_path = models.CharField(max_length=500, blank=True)
     result = models.JSONField(default=dict, blank=True)

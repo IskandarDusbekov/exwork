@@ -15,6 +15,7 @@ EXACT = "EXACT"
 FUZZY = "FUZZY"
 AMBIGUOUS = "AMBIGUOUS"
 NOT_FOUND = "NOT_FOUND"
+NEAR_MIN_SCORE = 0.5  # bundan past o'xshashlik — taklif ham qilinmaydi (tasodifiy nom)
 
 
 @dataclass
@@ -27,6 +28,11 @@ class Match:
     second_name: Optional[str] = None
     second_score: Optional[float] = None
     second_price: Any = None
+    # NOT_FOUND: o'xshashlik chegarasidan past bo'lsa ham eng yaqin resurs (faqat taklif uchun)
+    near_name: Optional[str] = None
+    near_unit: Optional[str] = None
+    near_price: Any = None
+    near_score: Optional[float] = None
 
 
 def best_two_matches(key: str, candidates: List[str]):
@@ -59,6 +65,10 @@ class ResourceIndex:
         self.sections = sections or {}  # (birlik, nom) -> (kategoriya, bo'lim sarlavhasi)
         self.section_list = section_list or []  # RES dagi tartibda: [(kategoriya, sarlavha), ...]
         self.positions = positions or {}  # (birlik, nom) -> (bo'lim tartib raqami yoki -1, RES qatori)
+        self.raw = {}  # (birlik, nom) -> (RES dagi asl nom, asl birlik) — smetachiga ko'rsatish uchun
+
+    def raw_of(self, unit: str, name: str) -> tuple:
+        return self.raw.get((unit, name), (name, unit))
 
     def section_of(self, unit: str, name: str) -> Optional[tuple]:
         return self.sections.get((unit, name))
@@ -69,7 +79,8 @@ class ResourceIndex:
 
     @classmethod
     def from_sheet(cls, ws, name_col: Union[str, int] = "D", price_col: Union[str, int] = "G",
-                   unit_col: Union[str, int, None] = None, start_row: int = 1) -> "ResourceIndex":
+                   unit_col: Union[str, int, None] = None, start_row: int = 1,
+                   stop_row: Optional[int] = None) -> "ResourceIndex":
         """Ustunlar harf yoki raqam; ``unit_col`` berilmasa — nomdan keyingi ustun (eski dastur kabi)."""
         rn = _col(name_col)
         ru = _col(unit_col) if unit_col is not None else rn + 1
@@ -78,8 +89,9 @@ class ResourceIndex:
         sections: Dict[tuple, tuple] = {}
         section_list: List[tuple] = []
         positions: Dict[tuple, tuple] = {}
+        raw: Dict[tuple, tuple] = {}
         current = None  # oxirgi ko'rilgan bo'lim: (kategoriya, sarlavha)
-        for r in range(start_row, ws.max_row + 1):
+        for r in range(start_row, min(stop_row or ws.max_row + 1, ws.max_row + 1)):
             unit = norm_unit(ws.cell(row=r, column=ru).value)
             name = norm_name(ws.cell(row=r, column=rn).value)
             if not unit:
@@ -98,14 +110,18 @@ class ResourceIndex:
             if name not in d:
                 d[name] = ws.cell(row=r, column=rp).value
                 positions[(unit, name)] = (len(section_list) - 1, r)
+                raw[(unit, name)] = (str(ws.cell(row=r, column=rn).value).strip(), str(ws.cell(row=r, column=ru).value).strip())
                 if current:
                     sections[(unit, name)] = current
-        return cls(by_unit, sections, section_list, positions)
+        index = cls(by_unit, sections, section_list, positions)
+        index.raw = raw
+        return index
 
     def match(self, local_name: str, local_unit: str, threshold: float, ambiguity_delta: float = 0.01) -> Match:
         """``local_name``/``local_unit`` allaqachon normallashtirilgan bo'lishi kerak."""
         best_fuzzy = None
         best_ambig = None
+        near_same = near_any = None  # (o'xshashlik, birlik, nom): birligi bir xili ustun
 
         search_units = []
         if local_unit and local_unit in self.by_unit:
@@ -122,6 +138,10 @@ class ResourceIndex:
             b, bs, s, ss = best_two_matches(local_name, self._names[u])
             if not b:
                 continue
+            if local_unit and u == local_unit:
+                near_same = (bs, u, b)
+            if near_any is None or bs > near_any[0]:
+                near_any = (bs, u, b)
             if bs >= threshold:
                 if s and (bs - ss) < ambiguity_delta:
                     if best_ambig is None or bs > best_ambig.score:
@@ -134,4 +154,9 @@ class ResourceIndex:
             return best_fuzzy
         if best_ambig is not None:
             return best_ambig
-        return Match(NOT_FOUND)
+        m = Match(NOT_FOUND)
+        near = near_same if near_same and near_same[0] >= NEAR_MIN_SCORE else near_any
+        if near and near[0] >= NEAR_MIN_SCORE:
+            m.near_score, m.near_unit, m.near_name = near[0], near[1], near[2]
+            m.near_price = self.by_unit[near[1]][near[2]]
+        return m

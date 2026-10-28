@@ -81,7 +81,9 @@
 {% if not jobs %}
 <div class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-800">
   <div class="text-xs font-semibold uppercase tracking-wide text-sky-700">Ҳозир нима қилиш керак</div>
-  Тизим {{ batch.files|length }} та файлдаги листларни ўқиб, ҳар бир <b>локал</b> (иш ҳажмлари) учун мос <b>ресурс</b> (нархлар) листини топди.
+  Тизим {{ batch.files|length }} та файлдаги листларни ўқиб, ҳар бир <b>локал</b> (иш ҳажмлари) учун мос <b>ресурс</b> (нархлар) листини топди
+  — <span class="tag tag-loc">Л1</span> → <span class="tag tag-res">Р1</span> каби. Лист номини босинг — ичини Excel'дагидек кўрасиз;
+  ўртадаги <b>фоизни</b> босинг — локал ва ресурс ёнма-ён очилади. Нотўғри бўлса — <b>«алмаштириш»</b> (★ — энг мос).
   Ҳар бир жуфтликда <b>мослик</b>ни кўринг — бу локалдаги ресурсларнинг неча фоизи ресурс листида аниқ топилганини билдиради
   (<span class="rounded bg-emerald-100 px-1 text-emerald-800">70%+</span> яхши,
   <span class="rounded bg-amber-100 px-1 text-amber-800">40–70%</span> текширинг,
@@ -116,7 +118,7 @@
     </tr></thead>
     {% for j in jobs %}
     <tr class="border-t border-slate-100">
-      <td class="px-3 py-2 font-medium">{{ j.batch_label }}</td>
+      <td class="px-3 py-2 font-medium">{{ j.batch_label|readable }}</td>
       <td class="px-3 py-2 text-slate-600">{{ j.local_sheet }}</td>
       <td class="px-3 py-2 text-slate-600">{{ j.res_name }}</td>
       {% if j.status == "done" %}
@@ -146,80 +148,118 @@
 <form method="post" action="{% url 'batch_confirm' batch.id %}" data-busy class="mt-4 space-y-4">
   {% csrf_token %}
 
-  {% for st in tree %}
-  <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
-    <div class="border-b border-slate-100 px-4 py-2.5 text-sm"><span class="inline-flex items-center gap-1 text-slate-400">{% icon "layers" "h-4 w-4" %} Стройка:</span> <b>{{ st.stroyka }}</b></div>
-    <div class="space-y-3 p-3">
-      {% for o in st.objects %}
-      <div class="rounded-lg border border-slate-200">
-        <div class="bg-slate-50 px-3 py-2 text-sm rounded-t-lg"><span class="inline-flex items-center gap-1 text-slate-400">{% icon "building" "h-4 w-4" %} Объект:</span> <b>{{ o.obj }}</b></div>
-        <div class="hidden gap-3 border-b border-slate-100 px-3 py-1.5 text-xs font-medium text-slate-400 lg:grid lg:grid-cols-[auto_minmax(0,1.1fr)_auto_minmax(0,1.3fr)_minmax(0,1fr)]">
-          <span title="Белгиланганлар нархланади">Нарх­лаш</span><span>Локал лист — иш ҳажмлари</span><span></span>
-          <span>Ресурс лист — нархлар</span><span>Қисм номи (натижада)</span>
-        </div>
-        <div class="divide-y divide-slate-100">
-          {% for p in o.pairs %}
-          <div class="grid gap-3 px-3 py-3 lg:grid-cols-[auto_minmax(0,1.1fr)_auto_minmax(0,1.3fr)_minmax(0,1fr)] lg:items-start">
-            <label class="flex items-center gap-2 text-sm pt-1">
-              <input type="checkbox" name="include_{{ p.n }}" value="1" {% if p.include %}checked{% endif %} class="h-4 w-4 accent-emerald-600">
-              <span class="lg:hidden">нархлаш</span>
-            </label>
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-1.5">
-                <span class="rounded bg-sky-100 px-1.5 py-0.5 text-xs font-semibold text-sky-800">Локал</span>
-                <b class="break-words">{{ p.loc.sheet }}</b>
-                {% if p.loc.number %}<span class="text-xs text-slate-500">№ {{ p.loc.number }}</span>{% endif %}
-              </div>
-              <div class="flex items-center gap-1 text-xs text-slate-500">{% icon "file" "h-3.5 w-3.5 shrink-0" %} {{ p.loc.file_name }} · {{ p.loc.rows }} та ресурс қатори{% if p.loc.part %} · {{ p.loc.part }}{% endif %}</div>
-            </div>
-            <div class="hidden lg:block pt-1 text-slate-400">{% icon "arrow-right" "h-5 w-5" %}</div>
-            <div class="min-w-0">
-              <select name="res_{{ p.n }}" class="w-full rounded-md border px-2 py-1.5 text-sm {% if not p.res %}border-rose-300 bg-rose-50{% else %}border-slate-300{% endif %}">
-                <option value="">— ресурс листини танланг —</option>
-                {% for r in resources %}
-                <option value="{{ r.key }}" {% if r.key == p.res %}selected{% endif %}>Ресурс · {{ r.sheet }}{% if r.number %} · № {{ r.number }}{% endif %} · {{ r.file_name }} ({{ r.rows }} қатор)</option>
-                {% endfor %}
-              </select>
-              {% if p.res_sheet %}<div class="mt-0.5 flex items-center gap-1 text-xs text-slate-500">{% icon "file" "h-3.5 w-3.5 shrink-0" %} {{ p.res_sheet.file_name }} · {{ p.res_sheet.rows }} та нарх қатори{% if p.res_sheet.number %} · № {{ p.res_sheet.number }}{% endif %}</div>{% endif %}
-              <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-                {% if p.res %}
-                <span title="Локалдаги ресурсларнинг неча фоизи шу ресурс листида аниқ топилди" class="cursor-help rounded px-1.5 py-0.5 font-semibold {% if p.overlap >= 0.7 %}bg-emerald-100 text-emerald-800{% elif p.overlap >= 0.4 %}bg-amber-100 text-amber-800{% else %}bg-rose-100 text-rose-800{% endif %}">мослик {% widthratio p.overlap 1 100 %}%</span>
-                <span class="text-slate-500">{{ p.reasons|join:" · " }}</span>
-                {% else %}
-                <span class="rounded bg-rose-100 px-1.5 py-0.5 font-semibold text-rose-800">жуфт топилмади</span>
-                <span class="text-slate-500">рўйхатдан танланг ёки ресурс файлини ҳам юкланг</span>
-                {% endif %}
-              </div>
-            </div>
-            <label class="block text-xs text-slate-500"><span class="lg:hidden">Қисм номи (натижада)</span>
-              <input type="text" name="label_{{ p.n }}" value="{{ p.label }}" class="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm text-slate-900">
-            </label>
+  <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-100 bg-slate-50 px-4 py-2.5 text-xs text-slate-600">
+      <span class="flex items-center gap-1.5"><span class="side-dot bg-emerald-500"></span><b class="text-slate-800">Локал</b> — иш ҳажмлари</span>
+      <span class="text-slate-300">→</span>
+      <span class="flex items-center gap-1.5"><span class="side-dot bg-sky-500"></span><b class="text-slate-800">Ресурс</b> — нархлар</span>
+      <span class="ml-auto flex flex-wrap items-center gap-x-3 text-slate-500">
+        <span>{% icon "table" "inline h-3.5 w-3.5" %} лист номини босинг — Excel кўриниши</span>
+        <span><span class="rounded bg-emerald-100 px-1 font-semibold text-emerald-800">86%</span> ни босинг — иккаласи ёнма-ён</span>
+      </span>
+    </div>
+
+    {% for st in tree %}{% for o in st.objects %}
+    {% if st.stroyka != "—" or o.obj != "—" %}
+    <div class="flex flex-wrap items-center gap-x-3 border-t border-slate-100 px-4 pb-1 pt-3 text-xs text-slate-400">
+      {% if st.stroyka != "—" %}<span class="inline-flex items-center gap-1">{% icon "layers" "h-3.5 w-3.5" %} Стройка: <b class="font-medium text-slate-600">{{ st.stroyka }}</b></span>{% endif %}
+      {% if o.obj != "—" %}<span class="inline-flex items-center gap-1">{% icon "building" "h-3.5 w-3.5" %} Объект: <b class="font-medium text-slate-600">{{ o.obj }}</b></span>{% endif %}
+    </div>
+    {% endif %}
+    {% for p in o.pairs %}
+    <div class="pair-row scroll-mt-24 border-t border-slate-100 px-4 py-3 transition-colors" data-n="{{ p.n }}" data-local="{{ p.local }}" data-tag="{{ p.tag }}" data-title="{{ p.title }}">
+      <div class="grid items-center gap-3 md:grid-cols-[auto_minmax(0,1fr)_104px_minmax(0,1fr)]">
+        <label class="flex items-center gap-2 text-sm" title="Белгиланганлар нархланади">
+          <input type="checkbox" name="include_{{ p.n }}" value="1" {% if p.include %}checked{% endif %} class="pair-include h-5 w-5 accent-emerald-600">
+          <span class="md:hidden">нархлаш</span>
+        </label>
+
+        {# ---- локал ---- #}
+        <div class="side side-loc min-w-0">
+          <div class="flex min-w-0 items-center gap-2">
+            <span class="tag tag-loc">{{ p.tag }}</span>
+            <button type="button" class="sheet-open min-w-0 truncate text-left font-semibold text-slate-900 hover:text-emerald-700 hover:underline"
+                    data-k="{{ p.local }}" title="{{ p.title }} — Excel кўринишида очиш">{{ p.title }}</button>
+            <button type="button" class="sheet-open eye" data-k="{{ p.local }}" title="Excel кўринишида очиш">{% icon "table" "h-4 w-4" %}</button>
           </div>
-          {% endfor %}
+          <div class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-slate-500">
+            <span class="shrink-0 rounded bg-slate-100 px-1 font-mono text-[11px] text-slate-600" title="Лист номи">{{ p.loc.sheet }}</span>
+            {% icon "file" "h-3.5 w-3.5 shrink-0" %}<span class="truncate" title="{{ p.loc.file_name }}">{{ p.loc.file_name }}</span>
+            <span class="shrink-0">· {{ p.loc.rows }} ресурс</span>{% if p.loc.hidden %}<span class="shrink-0 rounded bg-slate-100 px-1">яширин</span>{% endif %}
+          </div>
+        </div>
+
+        {# ---- мослик: босилса — ёнма-ён ---- #}
+        <button type="button" class="pair-compare group flex flex-col items-center justify-center rounded-lg py-1 hover:bg-slate-50" title="Локал ва ресурсни ёнма-ён кўриш">
+          <span class="pair-ov rounded-full px-2.5 py-0.5 text-sm font-bold"></span>
+          <span class="pair-line mt-1 flex w-full items-center text-slate-300 group-hover:text-slate-500">
+            <span class="h-px flex-1 bg-current"></span>{% icon "arrow-right" "h-4 w-4 -ml-1" "2.5" %}</span>
+          <span class="mt-0.5 text-[10px] text-slate-400 group-hover:text-slate-600">ёнма-ён</span>
+        </button>
+
+        {# ---- ресурс ---- #}
+        <div class="side side-res min-w-0">
+          <div class="flex min-w-0 items-center gap-2">
+            <span class="pair-res-tag tag tag-res"></span>
+            <button type="button" class="pair-res-name sheet-open min-w-0 truncate text-left font-semibold text-slate-900 hover:text-sky-700 hover:underline" title="Excel кўринишида очиш"></button>
+            <button type="button" class="pair-res-eye sheet-open eye" title="Excel кўринишида очиш">{% icon "table" "h-4 w-4" %}</button>
+            <button type="button" class="pair-change ml-auto shrink-0 rounded-md border border-slate-300 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100">алмаштириш</button>
+          </div>
+          <div class="pair-res-meta mt-0.5 flex min-w-0 items-center gap-1 text-xs text-slate-500"></div>
+          <select name="res_{{ p.n }}" class="pair-res mt-2 hidden w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" aria-label="{{ p.tag }} учун ресурс листи">
+            <option value="" data-tag="">— ресурс листини танланг —</option>
+            {% for c in p.choices %}
+            <option value="{{ c.key }}" data-tag="{{ c.tag }}" data-ov="{% if c.overlap is not None %}{{ c.overlap|stringformat:'.4f' }}{% endif %}" data-same="{{ c.same_file|yesno:'1,' }}"
+                    data-file="{{ c.file_name }}" data-title="{{ c.title }}" data-sheet="{{ c.sheet }}" data-rows="{{ c.rows }}" {% if c.key == p.res %}selected{% endif %}>{% if c.best %}★ {% endif %}{{ c.tag }} · {{ c.sheet }}{% if c.overlap is not None %} — {% widthratio c.overlap 1 100 %}% мос{% endif %} · {% if c.same_file %}шу файлда{% else %}{{ c.title }}{% endif %}{% if c.hidden %} · яширин{% endif %}</option>
+            {% endfor %}
+          </select>
         </div>
       </div>
-      {% endfor %}
+      <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 pl-8 text-xs text-slate-500 md:pl-9">
+        <label class="flex min-w-0 items-center gap-1.5">{% icon "pencil" "h-3.5 w-3.5 shrink-0 text-slate-400" %} натижа номи:
+          <input type="text" name="label_{{ p.n }}" value="{{ p.label }}" class="w-64 max-w-full rounded border border-transparent px-1 py-0.5 text-slate-800 hover:border-slate-300 focus:border-slate-400 focus:outline-none"></label>
+        <span class="pair-why text-slate-400" title="Нега тизим шуни таклиф қилди">{% if p.res %}{{ p.reasons|join:" · " }}{% endif %}</span>
+      </div>
+    </div>
+    {% endfor %}
+    {% endfor %}{% empty %}
+    <div class="px-4 py-6 text-rose-800">Локал (ресурслар рўйхати) лист топилмади. Пастда «Листлар тури»ни текширинг.</div>
+    {% endfor %}
+  </section>
+
+  {# ---- қолган листлар: ишлатилмаган ресурслар ва ўтказилганлар (ҳар бирини очиб кўриш мумкин) ---- #}
+  {% if unused or unknown or duplicates %}
+  <section class="rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-sm">
+    <div class="grid gap-4 md:grid-cols-3">
+      {% if unused %}<div id="unused" class="scroll-mt-4 md:col-span-3">
+        <div class="mb-1.5 flex flex-wrap items-baseline gap-x-2"><span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Ишлатилмаган ресурслар ({{ unused|length }})</span>
+          <span class="text-xs text-slate-400">ҳеч бир локалга бириктирилмаган — ичини кўринг ва керак бўлса локалга бириктиринг</span></div>
+        <div class="grid gap-1.5 md:grid-cols-2">
+        {% for s in unused %}<div class="unused-res flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5" data-k="{{ s.key }}">
+          <button type="button" class="sheet-open flex min-w-0 flex-1 items-center gap-2 text-left hover:text-sky-700" data-k="{{ s.key }}" title="{{ s.file_name }} — Excel кўринишида очиш">
+            <span class="side-dot bg-sky-500"></span>
+            <span class="min-w-0"><b class="block truncate text-sm">{{ s.sheet }}</b><span class="block truncate text-xs text-slate-400">{{ s.title }} · {{ s.rows }} нарх</span></span></button>
+          <span class="unused-done hidden shrink-0 text-xs font-semibold text-emerald-700"></span>
+          <select class="unused-attach w-40 shrink-0 rounded-md border border-slate-300 px-1.5 py-1 text-xs" aria-label="{{ s.sheet }} — қайси локалга">
+            <option value="">Локалга бириктириш…</option>
+            {% if s.same_files %}<optgroup label="Шу файлдаги локал">{% for l in s.same_files %}<option value="{{ l.n }}">{{ l.tag }} · {{ l.title|truncatechars:40 }}{% if not l.has_res %} — ресурси йўқ{% endif %}</option>{% endfor %}</optgroup>{% endif %}
+            <optgroup label="Ҳамма локаллар">{% for l in locals %}<option value="{{ l.n }}">{{ l.tag }} · {{ l.title|truncatechars:40 }}{% if not l.has_res %} — ресурси йўқ{% endif %}</option>{% endfor %}</optgroup>
+          </select>
+        </div>{% endfor %}
+        </div>
+      </div>{% endif %}
+      {% if unknown %}<div>
+        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Ўтказилди — смета эмас ({{ unknown|length }})</div>
+        {% for s in unknown %}<button type="button" class="sheet-open mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-slate-50" data-k="{{ s.key }}" title="{{ s.reason }}">
+          <span class="side-dot bg-slate-300"></span><span class="min-w-0 flex-1 truncate text-slate-600">{{ s.sheet }} <span class="text-xs text-slate-400">· {% if s.kind %}{{ kind_labels|get_item:s.kind }}{% else %}{{ s.file_name }}{% endif %}</span></span>{% icon "table" "h-4 w-4 shrink-0 text-slate-400" %}</button>{% endfor %}
+      </div>{% endif %}
+      {% if duplicates %}<div>
+        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Нусхалар — бир марта олинди ({{ duplicates|length }})</div>
+        {% for s in duplicates %}<button type="button" class="sheet-open mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-slate-50" data-k="{{ s.key }}">
+          <span class="side-dot bg-slate-300"></span><span class="min-w-0 flex-1 truncate text-slate-600">{{ s.sheet }} <span class="text-xs text-slate-400">· {{ s.file_name }}</span></span>{% icon "table" "h-4 w-4 shrink-0 text-slate-400" %}</button>{% endfor %}
+      </div>{% endif %}
     </div>
   </section>
-  {% empty %}
-  <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">Локал (ресурслар рўйхати) лист топилмади. Пастда листлар турини текширинг.</div>
-  {% endfor %}
-
-  {% if unused or duplicates or unknown %}
-  <div class="grid gap-3 md:grid-cols-3 text-sm">
-    {% if unused %}<div class="rounded-xl border border-slate-200 bg-white p-3">
-      <div class="mb-1 font-medium">Жуфтсиз ресурс листлари ({{ unused|length }})</div>
-      {% for s in unused %}<div class="text-slate-600">Ресурс · {{ s.sheet }} <span class="text-xs text-slate-400">({{ s.file_name }})</span></div>{% endfor %}
-    </div>{% endif %}
-    {% if duplicates %}<div class="rounded-xl border border-slate-200 bg-white p-3">
-      <div class="mb-1 font-medium">Нусхалар — бир марта олинди ({{ duplicates|length }})</div>
-      {% for s in duplicates %}<div class="text-slate-600">{{ s.sheet }} <span class="text-xs text-slate-400">({{ s.file_name }})</span></div>{% endfor %}
-    </div>{% endif %}
-    {% if unknown %}<div class="rounded-xl border border-slate-200 bg-white p-3">
-      <div class="mb-1 font-medium">Ўтказиб юборилди ({{ unknown|length }})</div>
-      {% for s in unknown %}<div class="text-slate-600" title="{{ s.reason }}">{{ s.sheet }} <span class="text-xs text-slate-400">({{ s.file_name }})</span></div>{% endfor %}
-    </div>{% endif %}
-  </div>
   {% endif %}
 
   <div class="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-white shadow-2xl">
@@ -227,49 +267,405 @@
       <span class="when-idle">{% if jobs %}Қайта тасдиқлаш ва нархлаш{% else %}Тасдиқлаш ва нархлаш{% endif %}</span>
       <span class="when-busy">Нархланяпти…</span>
     </button>
-    <span class="text-sm text-slate-300">белгиланган ва ресурси танланган жуфтликлар нархланади{% if jobs %} · олдинги натижалар ва қисмлардаги қўлда ўзгаришлар ўчади{% endif %}</span>
+    <span class="text-sm text-slate-300"><b id="pair-count" class="text-white"></b> нархланади{% if jobs %} · олдинги натижалар ва қисмлардаги қўлда ўзгаришлар ўчади{% endif %}</span>
   </div>
 </form>
 </details>
 
 {# ================= листлар тури ================= #}
 <details id="sheets" class="scroll-mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden" {% if unknown or not batch.pairs %}open{% endif %}>
-<summary class="flex cursor-pointer select-none flex-wrap items-baseline gap-x-3 px-4 py-3">
+<summary class="flex cursor-pointer select-none flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
   <h2 class="flex items-center gap-2 font-semibold">{% icon "layers" "h-4 w-4 text-slate-500" %} Листлар тури</h2>
-  <span class="text-xs text-slate-500">{{ batch.sheets|length }} та лист · тизим мазмунидан аниқлади — нотўғри бўлса шу ерда тузатинг</span>
+  <span class="flex flex-wrap items-center gap-1.5 text-xs">
+    <span class="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800">{{ role_counts.local }} локал</span>
+    <span class="rounded-full bg-sky-100 px-2 py-0.5 font-semibold text-sky-800">{{ role_counts.resource }} ресурс</span>
+    <span class="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">{{ role_counts.unknown }} ўтказилди</span>
+  </span>
+  <button type="button" class="tour-start ml-auto inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-violet-700">{% icon "help" "h-4 w-4" %} Қандай тўғирлайман?</button>
 </summary>
 <form method="post" action="{% url 'batch_replan' batch.id %}" data-busy class="border-t border-slate-100">
   {% csrf_token %}
+  <p class="flex flex-wrap items-center gap-x-4 gap-y-1 bg-slate-50 px-4 py-2 text-xs text-slate-600">
+    <span><b class="text-emerald-700">Локал</b> — нархланадиган смета</span>
+    <span><b class="text-sky-700">Ресурс</b> — нархлар олинадиган рўйхат</span>
+    <span><b class="text-slate-500">Ўтказиш</b> — эътиборга олинмайди</span>
+    <span class="text-slate-400">Нотўғри бўлса: турини ёки устунини ўзгартириб, «Қайта жуфтлаш»ни босинг.</span>
+  </p>
   <div class="overflow-x-auto">
   <table class="w-full text-sm">
-    <thead class="bg-slate-50 text-xs text-slate-500"><tr>
-      <th class="px-3 py-2 text-left">Файл · лист</th><th class="px-3 py-2 text-left">Тури</th><th class="px-3 py-2 text-left">Сабаб</th>
-      <th class="px-3 py-2 text-left">№</th><th class="px-3 py-2 text-left">Объект / қисм</th><th class="px-3 py-2 text-right">Қатор</th>
+    <thead class="text-[11px] uppercase tracking-wide text-slate-400"><tr>
+      <th class="px-4 py-2 text-left font-medium">Лист</th><th class="px-3 py-2 text-left font-medium">Тури</th>
+      <th class="px-3 py-2 text-left font-medium">Ҳолати</th><th class="px-3 py-2 text-left font-medium">Устунлар</th>
     </tr></thead>
-    {% for s in batch.sheets %}
-    <tr class="border-t border-slate-100 {% if s.duplicate_of %}text-slate-400{% endif %}">
-      <td class="px-3 py-1.5"><span class="text-xs text-slate-400">{{ s.file_name }} ·</span> <b>{{ s.sheet }}</b>{% if s.duplicate_of %} <span class="text-xs">(нусха)</span>{% endif %}</td>
-      <td class="px-3 py-1.5">
-        <select name="role_{{ forloop.counter0 }}" class="rounded-md border px-1.5 py-1 text-xs {% if s.role == 'local' %}border-sky-300 bg-sky-50{% elif s.role == 'resource' %}border-amber-300 bg-amber-50{% else %}border-slate-300{% endif %}">
+    {% for g in sheet_groups %}
+    <tbody>
+    <tr class="border-t border-slate-200 bg-slate-50/70"><td colspan="4" class="px-4 py-1.5 text-xs font-semibold text-slate-600">
+      <span class="inline-flex items-center gap-1.5">{% icon "file" "h-3.5 w-3.5 text-slate-400" %}{{ g.name }}</span>
+      <span class="font-normal text-slate-400">· {{ g.rows|length }} та лист</span></td></tr>
+    {% for i, s, cv, v in g.rows %}
+    <tr data-k="{{ s.key }}" class="sheet-row border-t border-slate-100 {% if v.tone == 'off' %}text-slate-400{% endif %}" data-i="{{ i }}">
+      <td class="py-2 pl-4 pr-3 align-top">
+        <span class="flex items-start gap-2">
+          <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full {% if v.tone == 'ok' %}bg-emerald-500{% elif v.tone == 'res' %}bg-sky-500{% elif v.tone == 'warn' %}bg-amber-500{% else %}bg-slate-300{% endif %}"></span>
+          <span class="min-w-0">
+            <button type="button" class="sheet-open font-semibold {% if v.tone == 'off' %}text-slate-500{% else %}text-slate-900{% endif %} hover:underline" data-k="{{ s.key }}" title="Excel кўринишида очиш">{{ s.sheet }}</button>
+            {% if s.hidden %}<span class="ml-1 rounded bg-slate-100 px-1 text-[11px] text-slate-500">яширин</span>{% endif %}
+            {% if s.obj or s.part or s.number %}<span class="block max-w-xs truncate text-[11px] text-slate-400" title="{{ s.obj }}{% if s.part %} · {{ s.part }}{% endif %}">{% if s.number %}№ {{ s.number }} · {% endif %}{{ s.obj }}{% if s.part %} · {{ s.part }}{% endif %}</span>{% endif %}
+          </span>
+        </span>
+      </td>
+      <td class="px-3 py-2 align-top">
+        <select name="role_{{ i }}" class="role-select rounded-md border px-2 py-1 text-xs font-semibold {% if s.role == 'local' %}border-emerald-300 bg-emerald-50 text-emerald-800{% elif s.role == 'resource' %}border-sky-300 bg-sky-50 text-sky-800{% else %}border-slate-300 bg-white text-slate-500{% endif %}">
           {% for value, label in role_labels %}<option value="{{ value }}" {% if value == s.role %}selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
       </td>
-      <td class="px-3 py-1.5 text-xs text-slate-500">{{ s.reason }}</td>
-      <td class="px-3 py-1.5 text-xs">{{ s.number }}</td>
-      <td class="px-3 py-1.5 text-xs text-slate-600">{{ s.obj }}{% if s.part %} · {{ s.part }}{% endif %}</td>
-      <td class="px-3 py-1.5 text-right num text-xs">{{ s.rows }}</td>
+      <td class="px-3 py-2 align-top" title="{{ s.reason }}">
+        <span class="text-xs font-semibold {% if v.tone == 'ok' %}text-emerald-700{% elif v.tone == 'res' %}text-sky-700{% elif v.tone == 'warn' %}text-amber-700{% else %}text-slate-500{% endif %}">{{ v.text }}</span>
+        {% if v.hint %}<span class="block text-[11px] {% if v.tone == 'warn' %}text-amber-700{% else %}text-slate-400{% endif %}">{{ v.hint }}</span>{% endif %}
+        {% if v.tone == 'warn' %}<button type="button" class="tour-start mt-0.5 text-[11px] font-semibold text-violet-700 underline hover:text-violet-900" data-i="{{ i }}">Қандай тўғирлайман? →</button>{% endif %}
+      </td>
+      <td class="px-3 py-2 align-top text-xs">
+        <span class="cols-sum inline-flex flex-wrap items-center gap-1 {% if s.role == 'unknown' %}hidden{% endif %}">
+          {% for p in cv.parts %}<span class="inline-flex cursor-help items-center gap-1 rounded border px-1.5 py-0.5 {% if p.value %}border-slate-200 bg-white text-slate-600{% else %}border-rose-300 bg-rose-50 text-rose-700{% endif %}" title="{{ p.label }}{% if p.value %} — {{ p.value }} устунида{% else %} — топилмади{% endif %}. {{ p.hint }}">
+            <span class="h-2 w-2 rounded-sm {% if not p.value %}bg-rose-400{% elif p.key == 'name' %}bg-sky-600{% elif p.key == 'unit' %}bg-amber-600{% elif p.key == 'price' %}bg-violet-600{% elif p.key == 'qty_unit' %}bg-teal-600{% else %}bg-emerald-600{% endif %}"></span>{{ p.label }} <b class="font-mono text-slate-900">{{ p.value|default:"?" }}</b></span>{% endfor %}
+          {% if cv.start %}<span class="text-slate-400" title="Маълумот қаторлари">{{ cv.start }}–{{ cv.end }} қатор</span>{% endif %}
+          {% if s.manual %}<span class="rounded bg-violet-100 px-1.5 py-0.5 font-semibold text-violet-700" title="Смета­чи қўлда кўрсатган">қўлда</span>{% endif %}
+          <button type="button" class="cols-edit inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] text-slate-600 hover:bg-slate-100" aria-expanded="false">{% icon "pencil" "h-3 w-3" %} тузатиш</button>
+        </span>
+      </td>
     </tr>
+    {# ---- устунларни қўлда кўрсатиш ---- #}
+    <tr class="cols-row {% if not s.manual %}hidden{% endif %} bg-violet-50/40" data-i="{{ i }}">
+      <td colspan="4" class="px-4 py-3">
+        <input type="hidden" name="cols_{{ i }}_on" value="{% if s.manual %}1{% endif %}" class="cols-on">
+        <div class="flex flex-wrap items-end gap-3 text-xs">
+          {% for f in cv.fields %}
+          <label class="cols-field flex w-52 flex-col gap-1 self-start" data-roles="{{ f.roles }}" data-key="{{ f.key }}" data-label="{{ f.label }}" data-hint="{{ f.hint }}"><span class="font-medium text-slate-700">{{ f.label }}</span>
+            <select name="cols_{{ i }}_{{ f.key }}" class="cols-input w-52 rounded-md border border-slate-300 bg-white px-1.5 py-1">
+              <option value="">{% if f.key == "qty_unit" %}— йўқ —{% else %}— танланг —{% endif %}</option>
+              {% for letter, text in cv.options %}<option value="{{ letter }}" {% if letter == f.value %}selected{% endif %}>{{ letter }} · {{ text|truncatechars:50 }}</option>{% endfor %}
+            </select><span class="text-[10px] leading-snug text-slate-500">{{ f.hint }}</span></label>
+          {% endfor %}
+          <div class="cols-rows flex items-end gap-3 rounded-md border border-dashed border-slate-300 bg-white/70 px-2 py-1.5">
+          <label class="flex flex-col gap-1"><span class="font-medium text-slate-700" title="{{ cv.row_hints.start }}">Биринчи қатор <span class="font-normal text-slate-400">· биринчи ресурс</span></span>
+            <input type="number" min="1" name="cols_{{ i }}_start" value="{{ cv.manual_start|default:'' }}" placeholder="{% if cv.start %}{{ cv.start }} (автомат){% endif %}" class="cols-input w-32 rounded-md border border-slate-300 bg-white px-1.5 py-1"></label>
+          <label class="flex flex-col gap-1"><span class="font-medium text-slate-700" title="{{ cv.row_hints.end }}">Охирги қатор <span class="font-normal text-slate-400">· охирги ресурс</span></span>
+            <input type="number" min="1" name="cols_{{ i }}_end" value="{{ cv.manual_end|default:'' }}" placeholder="{% if cv.end %}{{ cv.end }} (автомат){% endif %}" class="cols-input w-32 rounded-md border border-slate-300 bg-white px-1.5 py-1"></label>
+          </div>
+          <button type="button" class="cols-pick sheet-open inline-flex items-center gap-1 rounded-md border border-violet-300 bg-white px-2 py-1 font-semibold text-violet-700 hover:bg-violet-50" data-k="{{ s.key }}">{% icon "table" "h-3.5 w-3.5" %} Excel'да кўриб танлаш</button>
+          {% if s.manual %}<button type="button" class="cols-auto rounded-md border border-slate-300 bg-white px-2 py-1 text-slate-600 hover:bg-slate-100" title="Қўлда кўрсатилганини бекор қилиш">Автоматга қайтариш</button>{% endif %}
+        </div>
+        <div class="mt-2 grid gap-1 text-[11px] leading-relaxed text-slate-600 md:grid-cols-2">
+          <p><b>Устунлар:</b> рўйхатда устун ҳарфи, сарлавҳаси ва биринчи қиймати турибди. Билмасангиз — «Excel'да кўриб танлаш»ни очиб, устунни жадвалнинг ўзидан босинг. Танламаганингиз тизим топганича қолади.</p>
+          <p><b>Қаторлар:</b> тизим фақат шу оралиқни ресурс деб ўқийди. <b>Биринчи</b> — сарлавҳа ва «1 2 3 4…» рақамларидан кейинги, биринчи иш/ресурс ёзилган қатор. <b>Охирги</b> — охирги ресурс; пасти («Итого», имзолар) нархланмайди. Тизим тўғри топган бўлса (кулранг рақам) — <b>бўш қолдиринг</b>.</p>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
     {% endfor %}
   </table>
   </div>
   <div class="px-4 py-3 border-t border-slate-100">
-    <button type="submit" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-60">
+    <button type="submit" class="replan-btn rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-60">
       <span class="when-idle">Қайта жуфтлаш</span><span class="when-busy">Таҳлил қилиняпти…</span></button>
-    <span class="ml-2 text-xs text-slate-500">Масалан, свод листини «Ўтказиш», нотўғри аниқланган листни «Локал» ёки «Ресурс» қилинг.</span>
+    <span class="ml-2 text-xs text-slate-500">Тур ёки устун ўзгартирилгач — шу тугма билан қайта таҳлил қилинади.</span>
   </div>
 </form>
+<script>
+  // ===== устунларни қўлда кўрсатиш: очиш, лист турига қараб майдонлар, ўзгарса — «қўлда» =====
+  (function () {
+    var form = document.querySelector('form[action="{% url 'batch_replan' batch.id %}"]');
+    if (!form) return;
+    function editor(i) { return form.querySelector('.cols-row[data-i="' + i + '"]'); }
+    function fit(i) {
+      var row = form.querySelector('.sheet-row[data-i="' + i + '"]'), role = row.querySelector(".role-select").value;
+      editor(i).querySelectorAll(".cols-field").forEach(function (f) {
+        f.classList.toggle("hidden", role !== "unknown" && f.dataset.roles.split(" ").indexOf(role) < 0);
+      });
+    }
+    form.querySelectorAll(".sheet-row").forEach(function (row) {
+      var i = row.dataset.i, btn = row.querySelector(".cols-edit");
+      fit(i);
+      btn.addEventListener("click", function () {
+        var ed = editor(i), open = ed.classList.toggle("hidden") === false;
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+      row.querySelector(".role-select").addEventListener("change", function () {
+        var sel = this, r = sel.value;
+        sel.className = "role-select rounded-md border px-2 py-1 text-xs font-semibold " + (r === "local" ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+          : r === "resource" ? "border-sky-300 bg-sky-50 text-sky-800" : "border-slate-300 bg-white text-slate-500");
+        row.querySelector(".cols-sum").classList.toggle("hidden", r === "unknown");
+        if (r === "unknown") editor(i).classList.add("hidden");
+        fit(i);
+      });
+    });
+    form.querySelectorAll(".cols-row").forEach(function (ed) {
+      var on = ed.querySelector(".cols-on");
+      ed.querySelectorAll(".cols-input").forEach(function (inp) {
+        inp.addEventListener("change", function () { on.value = "1"; });
+      });
+      var auto = ed.querySelector(".cols-auto");
+      if (auto) auto.addEventListener("click", function () {
+        on.value = "";
+        auto.textContent = "Автомат — «Қайта жуфтлаш»ни босинг";
+        auto.disabled = true;
+      });
+    });
+  })();
+
+  // ===== «Қандай тўғирлайман?» — қадамма-қадам қўлланма: керакли жойни ёритиб, нима қилишни айтади =====
+  (function () {
+    var form = document.querySelector('form[action="{% url 'batch_replan' batch.id %}"]');
+    if (!form) return;
+    function q(sel, root) { return (root || document).querySelector(sel); }
+    function pickRow(i) {
+      return (i != null && q('.sheet-row[data-i="' + i + '"]', form)) ||
+        Array.prototype.filter.call(form.querySelectorAll(".sheet-row"), function (r) { return r.querySelector(".text-amber-700"); })[0] ||
+        Array.prototype.filter.call(form.querySelectorAll(".sheet-row"), function (r) { return r.querySelector(".role-select").value !== "unknown"; })[0] ||
+        q(".sheet-row", form);
+    }
+    function build(row) {
+      var i = row.dataset.i, ed = q('.cols-row[data-i="' + i + '"]', form), sel = row.querySelector(".role-select");
+      var openEd = function () { row.querySelector(".cols-sum").classList.remove("hidden"); ed.classList.remove("hidden"); };
+      var confirm = q('form[action$="/confirm/"] button[type="submit"]');
+      return [
+        {el: row, title: "Бу — файлдаги битта лист",
+         text: "Ҳар бир лист алоҳида қатор. Чапдаги нуқта — ҳолати:<br><span class='tour-dot bg-emerald-500'></span> нархланади · <span class='tour-dot bg-sky-500'></span> нарх манбаи (RES) · " +
+               "<span class='tour-dot bg-amber-500'></span> тузатиш керак · <span class='tour-dot bg-slate-300'></span> ўтказилди.<br>Лист номини боссангиз — Excel кўринишида очилади."},
+        {el: sel, title: "1-қадам. Листнинг турини танланг",
+         text: "<b>Локал</b> — нархланадиган смета (ресурслар рўйхати, нархи йўқ).<br><b>Ресурс</b> — нархлар олинадиган рўйхат (RES).<br><b>Ўтказиш</b> — свод, акт ва бошқалар, эътиборга олинмайди.<br>Тизим нотўғри аниқлаган бўлса — шу ердан ўзгартиринг."},
+        {el: row.children[2], title: "Ҳолатни ўқинг",
+         text: "Бу ерда тизим нима деганини кўрасиз. <b>«Устун топилмади»</b> — тизим қайси устунда ном, бирлик ёки нарх турганини тополмади. Сичқончани устига олиб борсангиз — тўлиқ сабаб."},
+        {el: row.querySelector(".cols-sum"), before: function () { row.querySelector(".cols-sum").classList.remove("hidden"); }, title: "Тизим топган устунлар",
+         text: "Ҳар бир чип — устун вазифаси ва ҳарфи: <b>Ном G</b> — номлар G устунида. Қизил <b>?</b> — топилмади. <b>қўлда</b> — сиз кўрсатгансиз.<br>Нотўғри бўлса — <b>«тузатиш»</b>ни босинг."},
+        {el: ed.querySelector(".cols-field:not(.hidden)") ? ed.querySelector(".flex") : ed, before: openEd, title: "2-қадам. Устунларни кўрсатинг",
+         text: "Ҳар бир майдонда — шу маълумот турган устун. Рўйхатда: ҳарф · сарлавҳа · биринчи қиймат, масалан <i>«G · Ресурс тури ва номи · Затраты труда…»</i>.<br>" +
+               "Локал учун: <b>Ном, Бирлик, Миқдор</b> (бирликка ва жами). Ресурс учун: <b>Ном, Бирлик, Нарх</b>."},
+        {el: ed.querySelector(".cols-pick"), before: openEd, title: "Билмасангиз — жадвалдан кўриб танланг",
+         text: "Шу тугма листни Excel кўринишида очади. Тепадаги <b>«Ном»</b> тугмасини босинг, кейин жадвалда номлар турган устуннинг <b>исталган катагини</b> босинг — танланади ва рангга бўялади. Бирлик, нарх — худди шундай."},
+        {el: ed.querySelector(".cols-rows"), before: openEd, title: "Биринчи ва охирги қатор — нима учун?",
+         text: "Тизим фақат шу оралиқдаги қаторларни ресурс деб ўқийди.<br>• <b>Биринчи</b> — сарлавҳа ва «1 2 3 4…» рақамлаш қаторидан кейинги, биринчи иш ёки ресурс ёзилган қатор.<br>" +
+               "• <b>Охирги</b> — охирги ресурс. Ундан пасти («Итого», имзолар) нархланмайди.<br>Нотўғри бўлса: сарлавҳа ёки «Итого» ҳам ресурс деб олиниб «топилмади» чиқади, ёки ресурслар тушиб қолади.<br>" +
+               "Кулранг рақам — тизим ўзи топгани. <b>Тўғри бўлса — бўш қолдиринг</b>, фақат нотўғри бўлса ёзинг. Қатор рақамини Excel кўринишида чапда кўрасиз."},
+        {el: q(".replan-btn", form), title: "3-қадам. «Қайта жуфтлаш»ни босинг",
+         text: "Тизим листни сиз кўрсатганингиз бўйича қайта ўқийди. Кейин текширинг: нуқта <span class='tour-dot bg-emerald-500'></span> яшил (локал) ёки <span class='tour-dot bg-sky-500'></span> кўк (ресурс) бўлиши, «N та қатор / нарх» 0 бўлмаслиги керак."},
+        confirm && {el: confirm, before: function () { var d = confirm.closest("details"); if (d) d.open = true; }, title: "4-қадам. Нархлаш",
+         text: "Ҳаммаси тўғри бўлса — юқоридаги жуфтликларда локал ва RES бир-бирига уланганини кўрасиз. <b>«Тасдиқлаш ва нархлаш»</b>ни босинг."},
+      ].filter(function (st) { return st && st.el; });
+    }
+    document.querySelectorAll(".tour-start").forEach(function (b) {
+      b.addEventListener("click", function (e) {
+        e.preventDefault(); e.stopPropagation();
+        document.getElementById("sheets").open = true;
+        window.narxTour(build(pickRow(b.dataset.i)));
+      });
+    });
+  })();
+</script>
 </details>
 
 </div>
 </div>
+{# ---- лист кўриниши (Excel каби): битта ёки локал + ресурс ёнма-ён ---- #}
+{{ sheets_js|json_script:"sheets-data" }}
+{% include "jobs/_sheet_viewer.html" %}
+<style>
+  .side { border-left: 3px solid; border-radius: 8px; background: #fff; padding: 6px 10px; box-shadow: inset 0 0 0 1px #e2e8f0; }
+  .side-loc { border-left-color: #22c55e; }
+  .side-res { border-left-color: #0ea5e9; }
+  .side-res.is-empty { border-left-color: #f43f5e; background: #fff1f2; }
+  .side-dot { display: inline-block; width: 8px; height: 8px; border-radius: 9999px; flex-shrink: 0; }
+  .eye { flex-shrink: 0; border-radius: 6px; padding: 2px; color: #94a3b8; }
+  .eye:hover { background: #f1f5f9; color: #0f172a; }
+  .pair-row.is-off { opacity: .5; }
+</style>
+<script>
+(function () {
+  var rows = Array.prototype.slice.call(document.querySelectorAll(".pair-row"));
+  var SHEET_URL = "{% url 'batch_sheet' batch.id %}";
+  function esc(t) { var d = document.createElement("div"); d.textContent = t == null ? "" : t; return d.innerHTML; }
+  function tone(v) { return v >= 0.7 ? "bg-emerald-100 text-emerald-800" : v >= 0.4 ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"; }
+  function ovOf(opt) { return !opt || !opt.dataset.ov ? null : parseFloat(opt.dataset.ov.replace(",", ".")); }
+
+  // ---- жуфтлик кўриниши: танланган ресурс картада, мослик ўртада ----
+  function refresh() {
+    var n = 0;
+    rows.forEach(function (row) {
+      var sel = row.querySelector(".pair-res"), opt = sel.options[sel.selectedIndex];
+      var inc = row.querySelector(".pair-include"), ov = row.querySelector(".pair-ov");
+      var side = row.querySelector(".side-res"), name = row.querySelector(".pair-res-name"), meta = row.querySelector(".pair-res-meta");
+      var tag = row.querySelector(".pair-res-tag"), eye = row.querySelector(".pair-res-eye");
+      side.classList.toggle("is-empty", !sel.value);
+      if (!sel.value) {
+        tag.textContent = "?";
+        name.textContent = "ресурс танланмаган";
+        name.disabled = eye.disabled = true;
+        meta.innerHTML = '<button type="button" class="pair-find rounded-md bg-sky-600 px-2 py-0.5 font-semibold text-white hover:bg-sky-700">Ресурс қидириш</button>' +
+          '<span class="text-rose-700">— локал ва ресурслар ёнма-ён очилади, ичини кўриб танланг</span>';
+        sel.classList.remove("hidden");
+        ov.textContent = "—";
+        ov.className = "pair-ov rounded-full px-2.5 py-0.5 text-sm font-bold bg-rose-100 text-rose-700";
+      } else {
+        var v = ovOf(opt);
+        tag.textContent = opt.dataset.tag;
+        name.textContent = opt.dataset.sheet;
+        name.dataset.k = eye.dataset.k = sel.value;
+        name.disabled = eye.disabled = false;
+        meta.innerHTML = '<svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>' +
+          (opt.dataset.same ? '<span class="rounded bg-sky-50 px-1 font-medium text-sky-700">шу файлнинг ўзида</span>'
+                            : '<span class="truncate" title="' + esc(opt.dataset.file) + '">' + esc(opt.dataset.title || opt.dataset.file) + "</span>") +
+          '<span class="shrink-0">· ' + esc(opt.dataset.rows) + " нарх</span>";
+        ov.textContent = v === null ? "—" : Math.round(v * 100) + "%";
+        ov.className = "pair-ov rounded-full px-2.5 py-0.5 text-sm font-bold " + (v === null ? "bg-slate-100 text-slate-600" : tone(v));
+        ov.title = "Локалдаги ресурсларнинг неча фоизи шу ресурс листида аниқ бор" + (v !== null && v < 0.4 ? " — кам: бошқа ресурс бўлса керак" : "");
+        if (inc.checked) n++;
+      }
+      row.classList.toggle("is-off", !inc.checked);
+    });
+    var c = document.getElementById("pair-count");
+    if (c) c.textContent = n + " та жуфтлик";
+  }
+  rows.forEach(function (row) {
+    var sel = row.querySelector(".pair-res"), inc = row.querySelector(".pair-include");
+    row.querySelector(".pair-change").addEventListener("click", function () {
+      sel.classList.toggle("hidden");
+      if (!sel.classList.contains("hidden")) sel.focus();
+    });
+    sel.addEventListener("change", function () {
+      var why = row.querySelector(".pair-why");
+      if (why) why.textContent = "қўлда танландингиз";
+      if (sel.value) { inc.checked = true; sel.classList.add("hidden"); }  // ресурс танланди — демак нархлаш керак
+      refresh();
+    });
+    inc.addEventListener("change", refresh);
+  });
+  refresh();
+
+  // ---- лист кўриниши (умумий модал, jobs/_sheet_viewer.html): ресурсни шу ердан танлаш ----
+  var V = window.narxViewer;
+  var SHEETS = JSON.parse(document.getElementById("sheets-data").textContent);
+  var BY_KEY = {};
+  SHEETS.forEach(function (s) { BY_KEY[s.k] = s; });
+  function candidates(row) {
+    return Array.prototype.slice.call(row.querySelector(".pair-res").options).filter(function (o) { return o.value; })
+      .map(function (o) { return {k: o.value, ov: ovOf(o), same: !!o.dataset.same}; });
+  }
+  function badgeFor(row) {
+    var sel = row.querySelector(".pair-res"), v = sel.value ? ovOf(sel.options[sel.selectedIndex]) : null;
+    return v === null ? "" : '<span class="rounded-full px-2.5 py-0.5 text-sm font-bold ' + tone(v) + '">мослик ' + Math.round(v * 100) + "%</span>";
+  }
+  // жуфтлик қаторидан очилган ресурс листини шу ердан танлаш
+  function pickFor(row) {
+    var sel = row.querySelector(".pair-res");
+    return {
+      label: function (k, s) {
+        if (!s || s.role !== "resource" || !Array.prototype.some.call(sel.options, function (o) { return o.value === k; })) return null;
+        return sel.value === k ? {text: "✓ " + row.dataset.tag + " учун танланган", chosen: true}
+                               : {text: "Шуни " + row.dataset.tag + " учун танлаш"};
+      },
+      choose: function (k) { sel.value = k; sel.dispatchEvent(new Event("change")); V.setBadge(badgeFor(row)); },
+    };
+  }
+  // жуфтлик: чапда локал (файлнинг ҳамма листлари), ўнгда ресурслар (ҳар бирининг мослиги)
+  function compare(row) {
+    var sel = row.querySelector(".pair-res"), cands = candidates(row);
+    var start = sel.value || (cands[0] && cands[0].k);
+    var panes = [{url: SHEET_URL, k: row.dataset.local, tabs: V.fileTabs(SHEETS, row.dataset.local), markFor: markFor}];
+    if (start) panes.push({url: SHEET_URL, k: start, tabs: V.candTabs(cands, BY_KEY, row.dataset.local), pick: pickFor(row), markFor: markFor});
+    V.open(row.dataset.tag + " · " + row.dataset.title + (sel.value ? " — локал ва ресурс ёнма-ён" : " — ресурс танланмаган: ўнгдаги рўйхатдан кўриб танланг"), panes, badgeFor(row));
+  }
+  rows.forEach(function (row) {
+    row.querySelector(".pair-compare").addEventListener("click", function () { compare(row); });
+  });
+
+  // «Листлар тури»даги тузатиш майдонлари → кўринишда ранг билан белгилаш; жадвалдан босиб танланса, майдонга ёзилади
+  // «Листлар тури»даги тузатиш майдонлари → Excel кўринишида: ранг билан белгилаш, турини танлаш, жадвалдан босиб
+  // кўрсатиш ва сақлаш (= «Қайта жуфтлаш»). k — лист калити; жадвалда бўлмаса — null
+  function markFor(k) {
+    var row = document.querySelector('.sheet-row[data-k="' + CSS.escape(k) + '"]');
+    if (!row) return null;
+    var ed = document.querySelector('.cols-row[data-i="' + row.dataset.i + '"]'), sel = row.querySelector(".role-select");
+    var m = {fields: [], changed: false};
+    function collect() {
+      m.fields = [];
+      if (sel.value === "unknown") return;
+      ed.querySelectorAll(".cols-field").forEach(function (lab) {
+        if (lab.classList.contains("hidden")) return;
+        var inp = lab.querySelector("select");
+        m.fields.push({key: lab.dataset.key, label: lab.dataset.label, hint: lab.dataset.hint, kind: "col", value: inp.value, input: inp});
+      });
+      [["start", "Биринчи қатор", "{{ row_hints.start|escapejs }}"], ["end", "Охирги қатор", "{{ row_hints.end|escapejs }}"]].forEach(function (x) {
+        var inp = ed.querySelector('input[name$="_' + x[0] + '"]');
+        m.fields.push({key: x[0], label: x[1], hint: x[2], kind: "row", value: inp.value || String(parseInt(inp.placeholder, 10) || ""), input: inp});
+      });
+    }
+    collect();
+    m.role = function () { return sel.value; };
+    m.setRole = function (v) { sel.value = v; sel.dispatchEvent(new Event("change")); m.changed = true; collect(); };
+    m.set = function (key, v) {
+      var f = m.fields.filter(function (x) { return x.key === key; })[0];
+      if (f.input.tagName === "SELECT" && !Array.prototype.some.call(f.input.options, function (o) { return o.value === v; })) {
+        f.input.add(new Option(v, v));
+      }
+      f.input.value = v;
+      f.input.dispatchEvent(new Event("change"));  // → cols_{i}_on = 1
+      ed.classList.remove("hidden");
+      m.changed = true;
+    };
+    m.save = function () { V.close(); ed.closest("form").requestSubmit(); };
+    return m;
+  }
+
+  // ---- ишлатилмаган ресурсни локалга бириктириш (тасдиқлагунча фақат танлов ўзгаради) ----
+  function attach(k, n) {
+    var row = rows.filter(function (r) { return r.dataset.n === String(n); })[0];
+    if (!row) return;
+    var sel = row.querySelector(".pair-res");
+    sel.value = k; sel.dispatchEvent(new Event("change"));
+    var why = row.querySelector(".pair-why");
+    if (why) why.textContent = "ишлатилмаган ресурсдан қўлда бириктирдингиз";
+    document.getElementById("structure").open = true;
+    row.scrollIntoView({behavior: "smooth", block: "center"});
+    row.classList.add("bg-sky-50");
+    setTimeout(function () { row.classList.remove("bg-sky-50"); }, 1800);
+  }
+  // бирор жуфтликда танланган бўлса — «→ Л3»
+  function syncUnused() {
+    document.querySelectorAll(".unused-res").forEach(function (u) {
+      var tags = rows.filter(function (r) { return r.querySelector(".pair-res").value === u.dataset.k; })
+        .map(function (r) { return r.dataset.tag; });
+      var done = u.querySelector(".unused-done");
+      done.textContent = tags.length ? "→ " + tags.join(", ") : "";
+      done.classList.toggle("hidden", !tags.length);
+      u.classList.toggle("border-emerald-300", !!tags.length);
+      u.classList.toggle("bg-emerald-50", !!tags.length);
+    });
+  }
+  document.querySelectorAll(".unused-attach").forEach(function (s) {
+    s.addEventListener("change", function () {
+      if (s.value === "") return;
+      attach(s.closest(".unused-res").dataset.k, s.value);
+      s.value = "";
+    });
+  });
+  rows.forEach(function (row) { row.querySelector(".pair-res").addEventListener("change", syncUnused); });
+  syncUnused();
+  // папка саҳифасидан «#unused» ёки «#structure» билан келса — йиғилган бўлимни очамиз
+  if (location.hash === "#unused" || location.hash === "#structure") {
+    document.getElementById("structure").open = true;
+    var t = document.querySelector(location.hash);
+    if (t) setTimeout(function () { t.scrollIntoView({block: "start"}); }, 50);
+  }
+  document.addEventListener("click", function (e) {
+    var f = e.target.closest(".pair-find");
+    if (f) { compare(f.closest(".pair-row")); return; }
+    var b = e.target.closest(".sheet-open");
+    if (!b || b.disabled || !b.dataset.k) return;
+    var row = b.closest(".pair-row"), isRes = !!b.closest(".side-res");
+    V.open("Файл — Excel кўриниши", [{url: SHEET_URL, k: b.dataset.k, tabs: V.fileTabs(SHEETS, b.dataset.k),
+      pick: isRes && row ? pickFor(row) : null, markFor: markFor}]);
+  });
+})();
+</script>
 {% endblock %}

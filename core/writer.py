@@ -21,10 +21,13 @@ from openpyxl.utils import column_index_from_string, coordinate_to_tuple, get_co
 from .classify import KIND_COLUMN
 
 NUM_FMT = "#,##0"
-SMART_NUM_FMT = "#,##0.00"  # smart: tiyinlar ko'rinsin (457,60 — 458 emas)
+SMART_NUM_FMT = '#,##0;-#,##0;"-"'  # smart: kasrsiz, 0 o'rniga «-» (qiymat o'zgarmaydi, faqat ko'rinishi)
 PERCENT_FMT = "0.00%"
 GRAY = "FFD9D9D9"
 SUM_COLS = ["H", "I", "J", "K", "L", "M", "N", "O", "P", "Q"]
+# Narx va umumiy summa yoziladigan ustunlar; jadval sarlavhasidagi nomlari (smetachi o'zgartira oladi)
+PRICE_COL, AMOUNT_COL = "G", "H"
+PRICE_HEADER, AMOUNT_HEADER = "Цена", "Сумма"
 
 
 def target_column(kind: str) -> str:
@@ -140,23 +143,24 @@ def safe_amount_formula(r: int) -> str:
 
 
 def write_priced_rows(w: SheetWriter, start: int, end: int, g_values: Dict[int, object], kinds: Dict[int, str],
-                      formula=amount_formula):
-    """G..K ustunlarini ``start..end`` oralig'ida to'ldiradi va A–H ramka chizadi."""
+                      formula=amount_formula, skip=()):
+    """G..K ustunlarini ``start..end`` oralig'ida to'ldiradi va A–H ramka chizadi.
+    ``skip`` qatorlarida G va H bo'sh, kategoriya ustuniga ham hech narsa yozilmaydi."""
     rows = range(start, end + 1)
     for r in rows:
-        w.set(f"G{r}", g_values.get(r))
-    w.number_format("G", start, end)
+        w.set(f"{PRICE_COL}{r}", g_values.get(r))
+    w.number_format(PRICE_COL, start, end)
 
     for r in rows:
-        w.set(f"H{r}", formula(r))
-    w.number_format("H", start, end)
+        w.set(f"{AMOUNT_COL}{r}", None if r in skip else formula(r))
+    w.number_format(AMOUNT_COL, start, end)
 
     for r in rows:
         col = target_column(kinds[r])
-        ref = f"=H{r}"
+        ref = f"={AMOUNT_COL}{r}"
         for c in "IJK":
-            w.set(f"{c}{r}", ref if col == c else None)
-        if col not in "IJK":
+            w.set(f"{c}{r}", ref if col == c and r not in skip else None)
+        if col not in "IJK" and r not in skip:
             # L/M (kabel, uskuna) va smetachi qo'shgan ustunlar — faqat shu qatorga;
             # boshqa qatorlardagi qo'lda kiritilganlarga tegilmaydi
             w.set(f"{col}{r}", ref)
@@ -174,19 +178,53 @@ def write_sum_row(w: SheetWriter, sum_row: int, start: int, end: int, extra=()):
         w.cell(f"{col}{sum_row}").number_format = w.num_fmt
 
 
+# ===================== resurs listini natijaga qo'shish (smart) =====================
+def copy_sheet(src, wb, title: str):
+    """``src`` listini (boshqa kitobdan) ``wb`` oxiriga nusxalaydi: qiymatlar (formula emas — natijasi),
+    uslub, birlashgan kataklar, ustun eni va qator balandligi. Smetachi narxni RES bilan shu faylda solishtiradi."""
+    ws = wb.create_sheet(title)
+    for row in src.iter_rows():
+        for c in row:
+            if isinstance(c, MergedCell):
+                continue
+            if c.value is None and not c.has_style:
+                continue
+            d = ws.cell(row=c.row, column=c.column, value=c.value)
+            if c.has_style:
+                d.font, d.fill, d.border = copy(c.font), copy(c.fill), copy(c.border)
+                d.alignment, d.number_format, d.protection = copy(c.alignment), c.number_format, copy(c.protection)
+    for rng in src.merged_cells.ranges:
+        ws.merge_cells(str(rng))
+    for key, dim in src.column_dimensions.items():
+        if dim.width:
+            ws.column_dimensions[key].width = dim.width
+        ws.column_dimensions[key].hidden = dim.hidden
+    for r, dim in src.row_dimensions.items():
+        if dim.height:
+            ws.row_dimensions[r].height = dim.height
+    ws.freeze_panes = src.freeze_panes
+    return ws
+
+
 # ===================== narxsiz qatorlarni qizil qilish (smart) =====================
 UNPRICED_FILL = "FFFFC7CE"
 UNPRICED_FONT = "FF9C0006"
 
 
-def mark_unpriced(ws, start: int, end: int, col: str = "G"):
+def mark_unpriced(ws, start: int, end: int, col: str = "G", blank_rows=()):
     """G da son bo'lmagan (matn) kataklar qizil. Shartli format: smetachi narx yozishi bilan
-    qizil o'zi yo'qoladi; katakning o'z uslubiga tegilmaydi."""
+    qizil o'zi yo'qoladi; katakning o'z uslubiga tegilmaydi. ``blank_rows`` — G bo'sh bo'lsa ham
+    qizil (smetachi «ТОПИЛМАДИ» so'zini olib tashlagan, narx hali yo'q)."""
     rng = f"{col}{start}:{col}{end}"
     ws.conditional_formatting.add(rng, FormulaRule(
         formula=[f'AND({col}{start}<>"",NOT(ISNUMBER({col}{start})))'],
         fill=PatternFill(bgColor=UNPRICED_FILL), font=Font(color=UNPRICED_FONT, b=True), stopIfTrue=True,
     ))
+    if blank_rows:
+        first = min(blank_rows)
+        ws.conditional_formatting.add(" ".join(f"{col}{r}" for r in sorted(blank_rows)), FormulaRule(
+            formula=[f"NOT(ISNUMBER({col}{first}))"], fill=PatternFill(bgColor=UNPRICED_FILL), stopIfTrue=True,
+        ))
 
 
 # ===================== ustun kengligi (smart) =====================

@@ -21,13 +21,17 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from openpyxl import load_workbook
+from openpyxl.cell.cell import MergedCell
+from openpyxl.styles import Alignment
 from openpyxl.utils import column_index_from_string, get_column_letter
+from openpyxl.utils.cell import coordinate_from_string
 
 from . import convert
 from .classify import (
     CABLE, COLUMN_KIND, EQUIPMENT, KIND_COLUMN, OTHER, is_chel_ch, is_machinists_labor, is_workers_row, name_hint, row_kind,
 )
-from .detect import cell_value, detect_layout
+from .columns import detect_local_columns, num as as_number, prepare_local
+from .detect import cell_value, detect_layout, override_layout
 from .log_sheet import LOG_TITLE, log_row, write_log
 from .matcher import AMBIGUOUS, EXACT, FUZZY, NOT_FOUND, Match, ResourceIndex
 from .normalize import norm_name, norm_unit
@@ -35,7 +39,7 @@ from .svodka import (
     DEFAULT_PERCENTS, XlError, make_evaluator, parse_text_number, resolve_percents, write_svodka,
 )
 from .writer import (
-    SMART_NUM_FMT, SUM_COLS, SheetWriter, amount_formula, target_column, fit_number_columns, mark_unpriced, restore_header_footer, write_cached_values, restore_merged_styles, safe_amount_formula,
+    AMOUNT_COL, AMOUNT_HEADER, copy_sheet, PRICE_COL, PRICE_HEADER, SMART_NUM_FMT, SUM_COLS, SheetWriter, amount_formula, target_column, fit_number_columns, mark_unpriced, restore_header_footer, write_cached_values, restore_merged_styles, safe_amount_formula,
     write_priced_rows, write_sum_row,
 )
 
@@ -50,8 +54,13 @@ WORK_HEADER = "WORK_HEADER"    # ish sarlavhasi: ostida resurslar bor, o'zi narx
 MACHINIST = "MACHINIST"        # mashinist mehnati: narxi mashina-soat narxi ichida
 UNIT_MISMATCH = "UNIT_MISMATCH"  # nom aniq, lekin birlik boshqa — narx yozilmaydi
 MANUAL = "MANUAL"              # smetachi narxni o'zi kiritgan yoki taklifni tasdiqlagan
+CLEARED = "CLEARED"            # birligi yo'q «ТОПИЛМАДИ» (bo'lim nomi va sh.k.) — smetachi tozalagan: G/H bo'sh
+
+# smart: G da yozuv qoladigan (narxlanmagan) holatlar — 1-bosqichda smetachi ko'rib chiqadi
+UNPRICED_STATUSES = (NOT_FOUND, FUZZY, AMBIGUOUS, UNIT_MISMATCH, NO_PRICE)
 
 MODES = ("smart", "compat")
+EMPTY_ROWS_AFTER = 5  # smart: svodkadan keyin shuncha bo'sh qator ko'rinadi, pasti yashiriladi
 LOCAL_NAME_COL = 3  # C, birlik D (compat)
 RES_NAME_COL = "D"  # birlik E (compat: foydalanuvchi C oldiga bo'sh ustun qo'shadi)
 RES_PRICE_COL = "G"
@@ -72,6 +81,9 @@ class Options:
     log_title: Optional[str] = None              # LOG list nomi (bir faylda bir nechta lokal narxlanganda)
     active_sheet: Optional[str] = None           # smart: fayl qaysi listda ochilsin (standart: narxlangan lokal)
     column_names: Optional[Dict[str, str]] = None  # smart: ustun nomlari {"K": "…", "N": "Монтаж"}; N.. — qo'shilgan
+    cleared: Optional[List[int]] = None  # smart: «ТОПИЛМАДИ» so'zi olib tashlangan qatorlar (birligi bor — qizil qoladi)
+    local_columns: Optional[dict] = None  # smart: smetachi ko'rsatgan lokal ustun/qatorlari (detect.override_layout)
+    res_columns: Optional[dict] = None    # smart: resurs listi uchun xuddi shunday
 
 
 @dataclass
@@ -97,6 +109,8 @@ class Result:
     res_sections: List[dict] = field(default_factory=list)  # smart: RES bo'limlari tartibda (sayt jadvali uchun)
     extra_columns: List[Tuple[str, str]] = field(default_factory=list)  # smart: smetachi qo'shgan ustunlar
     tail_removed: int = 0  # smart: «ИТОГО ПО ЛОКАЛЬНОЙ…» qismidan o'chirilgan qatorlar soni
+    cleared: List[int] = field(default_factory=list)  # smart: «ТОПИЛМАДИ» olib tashlangan qatorlar
+    checks: List[dict] = field(default_factory=list)  # narxlashdan keyingi tekshiruv: {"row", "problem"} — bo'sh bo'lishi kerak
 
 
 @dataclass
@@ -114,6 +128,9 @@ class _Priced:
     orig_status: Dict[int, str] = field(default_factory=dict)  # smart: qo'lda narxdan oldingi status
     positions: Dict[int, tuple] = field(default_factory=dict)  # smart: mos resurs RES da qayerda (bo'lim, qator)
     header_row: Optional[int] = None  # smart: jadval sarlavhasi qatori (ustun nomlari shu yerga)
+    numbering_row: Optional[int] = None  # smart: «1 2 3 …» qatori (filtr shu yerdan)
+    cleared: set = field(default_factory=set)  # smart: «ТОПИЛМАДИ» olib tashlangan qatorlar
+    near: Dict[int, dict] = field(default_factory=dict)  # smart: topilmaganga eng yaqin RES resursi
 
 
 def default_output_path(local_path: Path) -> Path:
@@ -132,6 +149,33 @@ def _pick_sheet(wb, name: Optional[str]):
 # Katak qiymatini o'qiydi, lekin ws.cell() kabi yangi katak yaratmaydi (aks holda writer
 # uni «faylda bor» deb o'ylab, qator uslubini bermay qo'yadi).
 _peek = cell_value
+
+
+def _check_priced(written: Dict[str, object], rows: List[dict], start: int, end: int, ln: int, lu: int) -> List[dict]:
+    """Narxlashdan keyingi tekshiruv — xato natija «тайёр» bo'lib ketmasin:
+    manba ustunlar (nom, birlik, E/F miqdorlar) ustidan yozilmagan; har bir narxlangan qatorda
+    H = miqdor × G; H kategoriya ustuniga (I…M) tushgan."""
+    out = []
+    keep = {ln, lu, 5, 6}
+    for addr in written:
+        col, r = coordinate_from_string(addr)
+        if start <= r <= end and column_index_from_string(col) in keep:
+            out.append({"row": r, "problem": f"{addr} — манба устуни (номи, бирлиги ёки миқдори) устидан ёзилди"})
+    for row in rows:
+        r = row["row"]
+        g = as_number(row["g"])
+        if f"H{r}" not in written or not g:
+            continue
+        q = as_number(row["qty"])
+        if q is None:
+            out.append({"row": r, "problem": f"нарх бор ({row['g']}), лекин миқдори йўқ ёки сон эмас ({row['qty']!r}) — H = 0"})
+            continue
+        h, expected = as_number(row["h"]), q * g
+        if h is None or abs(h - expected) > max(0.5, abs(expected) * 1e-6):
+            out.append({"row": r, "problem": f"H = {row['h']}, кутилгани {expected:,.2f} (миқдор {q:g} × нарх {g:g})"})
+        elif written.get(f"{row['category']}{r}") != f"=H{r}":
+            out.append({"row": r, "problem": f"сумма {row['category']} устунига тушмади"})
+    return out
 
 
 def _is_number(v) -> bool:
@@ -168,20 +212,22 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     # --- resurs indeksi ---
     wb_res = load_workbook(res_xlsx, data_only=True)
     ws_res = _pick_sheet(wb_res, opts.res_sheet)
-    res_layout = detect_layout(ws_res, need_price=True, stop_at_total=False) if smart else None
+    res_layout = override_layout(ws_res, detect_layout(ws_res, need_price=True, stop_at_total=False),
+                                 opts.res_columns, need_price=True) if smart else None
     if smart and (res_layout is None or res_layout.price_col is None):
         warnings.append("Resurs jadvalining sarlavhasi topilmadi — eski ustunlar olindi (nom D, birlik E, narx G)")
         res_layout = None
     if res_layout:
         warnings += res_layout.warnings
         index = ResourceIndex.from_sheet(ws_res, res_layout.name_col, res_layout.price_col,
-                                         res_layout.unit_col, res_layout.data_start)
+                                         res_layout.unit_col, res_layout.data_start, res_layout.data_stop)
         columns.update(res_name=get_column_letter(res_layout.name_col), res_unit=get_column_letter(res_layout.unit_col),
                        res_price=get_column_letter(res_layout.price_col))
     else:
         index = ResourceIndex.from_sheet(ws_res, RES_NAME_COL, RES_PRICE_COL)
         columns.update(res_name=RES_NAME_COL, res_unit="E", res_price=RES_PRICE_COL)
-    wb_res.close()
+    if not smart:
+        wb_res.close()  # smart: RES listi natija fayliga ham qo'shiladi (LOG dan keyin)
 
     # --- lokal ---
     keep_vba = local_xlsx.suffix.lower() == ".xlsm"
@@ -189,10 +235,18 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     restore_merged_styles(wb, local_xlsx)
     ws = _pick_sheet(wb, opts.local_sheet)
     sheet_titles = list(wb.sheetnames)
+    # Excel ko'rsatgan qiymatlar: lokal ustunlari shular bo'yicha aniqlanadi, miqdorlar E/F ga keltiriladi
+    # (o'qilgan sarlavha boshqacha yozilgan yoki yo'q bo'lsa ham); keyin svodka hisobi ham shu varaqdan
+    wb_vals = load_workbook(local_xlsx, data_only=True)
+    ws_vals = wb_vals[ws.title]
+    local_cols = detect_local_columns(ws_vals, opts.local_columns if smart else None)
+    if local_cols is not None:
+        warnings += prepare_local(ws, ws_vals, local_cols)
     threshold = int(max(80, min(100, opts.fuzzy_percent))) / 100.0
 
     if smart:
-        priced, ln, lu = _price_smart(ws, index, threshold, opts.ambiguity_delta, warnings, opts.prices)
+        priced, ln, lu = _price_smart(ws, index, threshold, opts.ambiguity_delta, warnings, opts.prices, opts.cleared,
+                                      layout=local_cols.as_layout() if local_cols else None)
     else:
         ln, lu = LOCAL_NAME_COL, LOCAL_NAME_COL + 1
         priced = _price_compat(ws, index, threshold, opts.ambiguity_delta)
@@ -229,7 +283,8 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     w = SheetWriter(ws)
     if smart:
         w.num_fmt = SMART_NUM_FMT
-    write_priced_rows(w, start_r, end_r, priced.g, kinds, safe_amount_formula if smart else amount_formula)
+    write_priced_rows(w, start_r, end_r, priced.g, kinds, safe_amount_formula if smart else amount_formula,
+                      skip={r for r, st in priced.status.items() if st == CLEARED})
     sum_row = end_r + 1
     write_sum_row(w, sum_row, start_r, end_r, extra=[c for c, _n in extra_columns])
     # compat: svodka darhol sum qatoridan keyin (pastki «СОСТАВИЛ» ustiga tushishi mumkin);
@@ -249,23 +304,49 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     percents = resolve_percents(opts.percents) if smart else dict(DEFAULT_PERCENTS)
     svodka_cells = write_svodka(w, svodka_start, sum_row, percents, smart=smart, extra=extra_columns)
     if smart:
-        mark_unpriced(ws, start_r, end_r)
+        # «ТОПИЛМАДИ» so'zi olib tashlangan, birligi bor qatorlar: G bo'sh, lekin narx yozilguncha qizil
+        mark_unpriced(ws, start_r, end_r, blank_rows=sorted(r for r in priced.cleared if priced.status.get(r) == NOT_FOUND))
         if priced.header_row:
-            for col, name in sorted((opts.column_names or {}).items()):
-                if name and (col in COLUMN_KIND or col in extra_letters):
-                    _write_header(w, priced.header_row, col, name)
+            names = {PRICE_COL: PRICE_HEADER, AMOUNT_COL: AMOUNT_HEADER}
+            given = {col: name for col, name in (opts.column_names or {}).items()
+                     if name and (col in names or col in COLUMN_KIND or col in extra_letters)}
+            names.update(given)
+            head, num = priced.header_row, priced.numbering_row
+            last_col = max(SUM_COLS + list(extra_letters), key=column_index_from_string)
+            # Sarlavha qatorlari (raqamlashdan yuqori) rangi summa ustunida tugaydi; I.. ustunlarga faqat
+            # smetachi bergan nom yoziladi. Raqamlash (filtr) qatori esa oxirgi ustungacha: rang va 7, 8 … 17.
+            _write_table_header(w, range(head, num or head + 1), AMOUNT_COL, names, forced=set(given))
+            if num and num - 1 > head:
+                for col in (PRICE_COL, AMOUNT_COL):
+                    _merge_down(ws, col, head, num - 1)  # «Цена»/«Сумма» butun sarlavha balandligida
+            for col in sorted(given, key=column_index_from_string):
+                if column_index_from_string(col) > column_index_from_string(AMOUNT_COL):
+                    _write_table_header(w, range(head, head + 1), col, {col: given[col]}, forced={col}, first_col=col)
+            if num:
+                _write_table_header(w, range(num, num + 1), last_col, numbering=num)
+            # Filtr raqamlash qatorida (bo'lmasa sarlavhada), oxirgi resurs qatorigacha — sum qatori va svodka tashqarida
+            ws.auto_filter.ref = f"A{num or head}:{last_col}{end_r}"
     write_log(wb, priced.log_rows, smart=smart, title=opts.log_title or LOG_TITLE)
+    if smart:
+        # LOG dan keyin — narxlar olingan resurs listi (smetachi Excel'da solishtiradi). Lokal faylning
+        # o'zida shu nomli list bo'lsa (lokal va resurs bitta faylda) — u allaqachon bor, qayta qo'shilmaydi.
+        if ws_res.title not in wb.sheetnames:
+            copy_sheet(ws_res, wb, ws_res.title)
+        wb_res.close()
     if smart:
         # Fayl narxlangan listda ochilsin: manba fayl boshqa (narxlanmagan) listda saqlangan bo'lishi mumkin,
         # shunda smetachi ochganda «hammasi bo'sh» deb o'ylaydi.
         target = wb[opts.active_sheet] if opts.active_sheet in wb.sheetnames else ws
+        # Yashirin list narxlangan bo'lsa — ko'rinadigan qilinadi (aks holda Excel uni faol qila olmaydi
+        # va smetachi natijani ko'rmaydi)
+        for sheet in {ws, target}:
+            if sheet.sheet_state != "visible":
+                sheet.sheet_state = "visible"
         for sheet in wb.worksheets:
             sheet.sheet_view.tabSelected = sheet is target
         wb.active = target
 
     # --- svodka summalari (Excel saqlagan qiymatlar + biz yozgan formulalar) ---
-    wb_vals = load_workbook(local_xlsx, data_only=True)
-    ws_vals = wb_vals[ws.title]
     ev = make_evaluator(w.written, lambda a: ws_vals[a].value)
     totals = {key: ev.value(addr) for key, addr in svodka_cells.items()}
 
@@ -280,6 +361,11 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
             "name": _peek(ws, r, ln),
             "unit": _peek(ws, r, lu),
             "qty": _quantity(ws_vals, r),
+            # сметадаги кўриниши (смета­чи Excel билан солиштириши учун): № п.п., шифр, миқдор бирликка/жами
+            "num": _peek(ws, r, 1) if ln > 1 else None,
+            "code": _peek(ws, r, 2) if ln > 2 else None,
+            "qty_unit": ws_vals.cell(row=r, column=5).value,
+            "qty_total": ws_vals.cell(row=r, column=6).value,
             "g": w.written.get(f"G{r}"),
             "h": ev.value(f"H{r}") if f"H{r}" in w.written else None,
             "kind": kinds[r],
@@ -298,10 +384,13 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
             "orig_status": priced.orig_status.get(r, status),
             "res_section": priced.positions[r][0] if r in priced.positions else None,
             "res_row": priced.positions[r][1] if r in priced.positions else None,
+            "cleared": r in priced.cleared,
+            "near": priced.near.get(r),
         })
         hint = category_hints.get(r)
         if hint and KIND_COLUMN[hint[0]] != rows[-1]["category"]:
             rows[-1]["suggested_category"], rows[-1]["suggest_reason"] = KIND_COLUMN[hint[0]], hint[1]
+    checks = _check_priced(w.written, rows, start_r, end_r, ln, lu)
     wb_vals.close()
 
     if smart:
@@ -320,6 +409,9 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     # formulalar natijasi — fayl «Защищённый просмотр»da ham to'liq ko'rinsin
     cached = {addr: ev.value(addr) for addr, v in w.written.items() if isinstance(v, str) and v.startswith("=")}
 
+    if smart:
+        _hide_rows_below(ws, _last_content_row(ws) + EMPTY_ROWS_AFTER)
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(out_path)
     wb.close()
@@ -329,7 +421,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     # --- statistika va muammolar ---
     stats = Counter({EXACT: 0, FUZZY: 0, AMBIGUOUS: 0, NOT_FOUND: 0})
     if smart:
-        stats.update({NO_PRICE: 0, UNIT_MISMATCH: 0, WORK_HEADER: 0, MACHINIST: 0, MANUAL: 0})
+        stats.update({NO_PRICE: 0, UNIT_MISMATCH: 0, WORK_HEADER: 0, MACHINIST: 0, MANUAL: 0, CLEARED: 0})
         stats.update(priced.status.values())
     else:
         stats.update(row[3] for row in priced.log_rows)
@@ -341,7 +433,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         final = priced.g.get(r)
         status = priced.status.get(r, row[3])
         note = priced.notes.get(r, "")
-        if not _is_number(final):
+        if not _is_number(final) and status != CLEARED:
             problems.append({
                 "row": r, "name": row[1], "unit": row[2], "status": status,
                 "picked_name": row[5], "score": row[6], "written": final, "note": note,
@@ -354,8 +446,18 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
             warnings.append(f"{len(problems)} та қатор нархланмади (Excel'да G қизил): нархни қўлда киритинг — "
                             "H ва сводка ўзи қайта ҳисобланади. Ҳозирги сумма тўлиқ эмас.")
 
+    exact = [r for r in rows if r["status"] == EXACT]
+    zero = [r for r in exact if as_number(r["g"]) == 0]
+    if len(exact) >= 3 and len(zero) >= 0.8 * len(exact):
+        checks.append({"row": None, "problem": f"{len(zero)} / {len(exact)} та аниқ топилган ресурснинг нархи 0 — ресурс файли "
+                                                "нархланмаган ёки нарх устуни нотўғри"})
+    elif stats.get(EXACT) and (as_number(totals.get("s_nds")) or 0) == 0 and any(as_number(r["g"]) for r in rows):
+        checks.append({"row": None, "problem": "аниқ топилган нархлар бор, лекин жами сумма 0 — миқдор ёки сумма устуни нотўғри"})
+    if checks:
+        warnings.insert(0, f"Текширувдан ўтмади: {len(checks)} та муаммо — натижага ишониб бўлмайди, «Текширув» рўйхатини кўринг")
+
     return Result(
-        output_path=out_path, stats=dict(stats), problems=problems, totals=totals,
+        output_path=out_path, stats=dict(stats), problems=problems, totals=totals, checks=checks[:200],
         local_sheet=ws.title, start_row=start_r, end_row=end_r, sum_row=sum_row,
         svodka_start=svodka_start, log=priced.log_rows, rows=rows, mode=opts.mode,
         warnings=warnings, columns=columns, percents=percents, categories=applied_categories,
@@ -363,6 +465,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         res_sections=[{"kind": k, "column": KIND_COLUMN[k], "title": t} for k, t in index.section_list] if smart else [],
         extra_columns=extra_columns, tail_removed=tail_removed,
         prices={r: priced.g[r] for r, st in priced.status.items() if st == MANUAL},
+        cleared=sorted(priced.cleared),
     )
 
 
@@ -371,7 +474,7 @@ def _category_hints(ws, priced: "_Priced", default_kinds: Dict[int, str], ln: in
     bo'lmasa K dagi qatorlar uchun nomdagi so'z («кабель», «насос» …). ``{qator: (tur, sabab)}``."""
     hints = {}
     for r, kind in default_kinds.items():
-        if priced.status.get(r) in (WORK_HEADER, MACHINIST) or r not in priced.status:
+        if priced.status.get(r) in (WORK_HEADER, MACHINIST, CLEARED) or r not in priced.status:
             continue
         section = priced.sections.get(r)
         if section and section[0] != kind:
@@ -453,11 +556,56 @@ def _drop_rows_from(ws, start: int) -> int:
     return max(0, last - start + 1)
 
 
-def _write_header(w: SheetWriter, row: int, col: str, name: str):
-    """Jadval sarlavhasiga ustun nomini yozadi (qo'shni sarlavha katagining uslubi bilan)."""
-    src = w.ws._cells.get((row, column_index_from_string("E")))
-    if w.set(f"{col}{row}", name) and src is not None:
-        w.cell(f"{col}{row}")._style = copy(src._style)
+def _merge_down(ws, col: str, top: int, bottom: int):
+    """``col{top}:col{bottom}`` ni birlashtiradi — pastdagi kataklar bo'sh va boshqa birlashmaga
+    tegmasa (lokalda o'zi birlashtirilgan yoki yozuvli sarlavha buzilmaydi)."""
+    c = column_index_from_string(col)
+    if any(ws.cell(r, c).value not in (None, "") for r in range(top + 1, bottom + 1)):
+        return
+    if any(m.min_col <= c <= m.max_col and m.min_row <= bottom and m.max_row >= top for m in ws.merged_cells.ranges):
+        return
+    ws.merge_cells(f"{col}{top}:{col}{bottom}")
+    cell = ws[f"{col}{top}"]
+    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+
+def _write_table_header(w: SheetWriter, rows: range, last_col: str, names: Dict[str, str] = None,
+                        forced=(), first_col: str = PRICE_COL, numbering: Optional[int] = None):
+    """``rows`` qatorlarida ``first_col`` (standart: narx ustuni) dan ``last_col`` gacha kataklar lokal
+    jadval sarlavhasi bilan bir xil ko'rinadi: har qatorda narx ustunidan chapdagi katak uslubi olinadi.
+    Bo'sh kataklarga ``names`` dagi nomlar, ``numbering`` qatoriga esa raqamlar davomi (7, 8, …) yoziladi.
+    Lokalda allaqachon yozilgan katakka tegilmaydi — ``forced`` (smetachi bergan nomlar) bundan mustasno."""
+    names = names or {}
+    price = column_index_from_string(PRICE_COL)
+    for r in rows:
+        src = w.ws._cells.get((r, price - 1))
+        start = src.value if r == numbering and src is not None and isinstance(src.value, int) else None
+        for c in range(column_index_from_string(first_col), column_index_from_string(last_col) + 1):
+            col = get_column_letter(c)
+            number = start + c - price + 1 if start is not None else None
+            cell = w.cell(f"{col}{r}")
+            if isinstance(cell, MergedCell):
+                continue
+            named = r == rows[0] and col in names  # nom faqat birinchi (sarlavha) qatoriga
+            if cell.value not in (None, "") and not (named and col in forced):
+                continue
+            value = number if r == numbering else names.get(col) if named else None
+            if value is not None:
+                w.set(f"{col}{r}", value)
+            if src is not None:
+                cell._style = copy(src._style)
+
+
+def _hide_rows_below(ws, last: int):
+    """``last`` dan pastdagi hamma qatorlar yashirin (list cheksiz pastga ketmaydi). Excel usuli:
+    ``zeroHeight`` — faylda yozilmagan qatorlar yashirin; shuning uchun 1..``last`` dagi bo'sh qatorlarga
+    standart balandlik beriladi. Faylda bor qatorlar balandligi o'zgarmaydi (Excel o'zi moslaydi)."""
+    with_cells = {r for r, _c in ws._cells}
+    default = ws.sheet_format.defaultRowHeight
+    for r in range(1, last + 1):
+        if r not in with_cells and r not in ws.row_dimensions:
+            ws.row_dimensions[r].height = default
+    ws.sheet_format.zeroHeight = True
 
 
 def _last_content_row(ws) -> int:
@@ -554,8 +702,10 @@ def _smart_log_row(r, name_raw, unit_raw, m: Match, status: str, written, note: 
 
 
 def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warnings: List[str],
-                 prices: Optional[Dict[int, float]] = None):
-    layout = detect_layout(ws)
+                 prices: Optional[Dict[int, float]] = None, cleared=None, layout=None):
+    """``cleared`` — smetachi «ТОПИЛМАДИ» so'zini olib tashlagan qatorlar: birligi borida G bo'sh
+    (Excel'da qizil qoladi, narx kutadi), birligi yo'g'ida (bo'lim nomi va sh.k.) G va H bo'sh."""
+    layout = layout or detect_layout(ws)
     if layout is None:
         warnings.append("Lokal jadval sarlavhasi («Наименование…», «Ед. изм.») topilmadi — butun list ko'rildi")
         ln, lu, start, stop = LOCAL_NAME_COL, LOCAL_NAME_COL + 1, 1, ws.max_row + 1
@@ -577,6 +727,9 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
     sections: Dict[int, tuple] = {}
     orig_status: Dict[int, str] = {}
     positions: Dict[int, tuple] = {}
+    to_clear = {int(r) for r in (cleared or [])}
+    near: Dict[int, dict] = {}
+    applied_clear = set()
     manual_prices = {int(r): float(v) for r, v in (prices or {}).items()}
     for r, v in manual_prices.items():
         if v < 0:
@@ -592,6 +745,8 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
         m = index.match(local_name, local_unit, threshold, delta)
         machinist = is_chel_ch(unit_raw) and is_machinists_labor(name_raw)
         note = ""
+        # nomi bilan bir xil «birlik» — C:D birlashtirilgan katak, haqiqiy birlik emas
+        real_unit = bool(local_unit) and str(unit_raw).strip() != str(name_raw).strip()
 
         price = _as_price(m.price)
         suggestion = None
@@ -621,6 +776,34 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
                     f"ўхшашлик {round(m.score, 3)}")
         else:
             st, value = NOT_FOUND, NOT_FOUND_TEXT
+            # aniq ham, o'xshash ham emas — lekin RES dagi eng yaqin resurs narxi taklif qilinadi
+            # (G ga yozilmaydi; smetachi tasdiqlasa, narx RES dan aynan ko'chiriladi)
+            if real_unit and m.near_name and _as_price(m.near_price) is not None:
+                suggestion = m.near_price
+                raw_name, raw_unit = index.raw_of(m.near_unit, m.near_name)
+                near[r] = {"name": raw_name, "unit": raw_unit, "price": m.near_price,
+                           "score": round(m.near_score, 3), "same_unit": m.near_unit == local_unit}
+                note = (f"яқин ресурс: «{raw_name}» ({raw_unit}) {round(m.near_score * 100)}% — {m.near_price}"
+                        + ("" if m.near_unit == local_unit else f"; бирлик бошқа (локал «{unit_raw}»)"))
+
+        # o'xshash / shubhali / birligi boshqa: taklif qilingan RES resursi (1-bosqich jadvali uchun, asl yozuvda)
+        if st in (FUZZY, AMBIGUOUS, UNIT_MISMATCH) and m.name and _as_price(m.price) is not None:
+            raw_name, raw_unit = index.raw_of(m.unit, m.name)
+            near[r] = {"name": raw_name, "unit": raw_unit, "price": m.price,
+                       "score": round(m.score or 0, 3), "same_unit": m.unit == local_unit}
+        if r in near:
+            # RES listidagi qatori — saytda resurs faylini shu qatorda ochish uchun
+            key = (m.near_unit, m.near_name) if st == NOT_FOUND else (m.unit, m.name)
+            near[r]["res_row"] = (index.position_of(*key) or (None, None))[1]
+
+        # smetachi G dagi yozuvni («ТОПИЛМАДИ», «ТЕКШИРИНГ» …) olib tashlagan: birligi borida G bo'sh
+        # (Excel'da qizil qoladi, narx kutadi), birligi yo'g'ida G va H bo'sh
+        if r in to_clear and st in UNPRICED_STATUSES:
+            applied_clear.add(r)
+            if real_unit:
+                value, note = None, f"«{value}» олиб ташланди — нарх киритинг" + (f"; {note}" if note else "")
+            else:
+                st, value, note = CLEARED, None, "бирлиги йўқ — тозаланди"
 
         if r in manual_prices:
             # Smetachi narxni o'zi kiritgan yoki taklifni tasdiqlagan — u har doim ustun
@@ -648,6 +831,9 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
     p.orig_status = orig_status
     p.positions = positions
     p.header_row = layout.header_row if layout else None
+    p.numbering_row = layout.numbering_row if layout else None
+    p.cleared = applied_clear
+    p.near = near
     return p, ln, lu
 
 

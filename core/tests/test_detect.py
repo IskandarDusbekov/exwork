@@ -17,3 +17,4 @@ def test_fallbacks():
     assert pair_sheets(["Лист1"], ["Лист1"]) == ("Лист1", "Лист1")
     assert pair_sheets(["Лист1"], ["Ресурс", "БР 3"]) == ("Лист1", "БР 3")
     assert pair_sheets([], ["a"]) == (None, "a")
+

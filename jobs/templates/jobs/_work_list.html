@@ -1,0 +1,72 @@
+{% load narx %}{# Ишлар рўйхати (юклаш саҳифасидаги «охирги ишлар» ва дашборд): compact — тор устун учун #}
+<ul id="recent-list" class="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  {% for it in items %}
+  <li data-kind="{{ it.kind }}" data-state="{{ it.state }}" data-name="{{ it.name|lower }}" class="recent-item flex items-stretch">
+    <a href="{{ it.url }}" class="group flex min-w-0 flex-1 items-center gap-3 {% if compact %}px-3 py-2.5{% else %}px-4 py-3{% endif %} hover:bg-slate-50">
+      <span class="grid {% if compact %}h-8 w-8{% else %}h-9 w-9{% endif %} shrink-0 place-items-center rounded-lg {% if it.kind == 'folder' %}bg-amber-50 text-amber-600{% elif it.kind == 'object' %}bg-slate-100 text-slate-500{% else %}bg-emerald-50 text-emerald-600{% endif %}">
+        {% if it.kind == "folder" %}{% icon "folder" "h-5 w-5" "1.75" %}{% elif it.kind == "object" %}{% icon "layers" "h-5 w-5" "1.75" %}{% else %}{% icon "sheet" "h-5 w-5" "1.75" %}{% endif %}
+      </span>
+      <span class="min-w-0 flex-1">
+        <span class="block truncate {% if compact %}text-sm{% endif %} font-medium text-slate-800" title="{{ it.name }}">{{ it.name }}</span>
+        {% if compact %}<span class="mt-1 flex items-center gap-2 text-xs text-slate-400">{% include "jobs/_work_badge.html" %}<span class="truncate">{{ it.created|date:"d.m H:i" }}</span></span>
+        {% else %}<span class="block truncate text-xs text-slate-500">{% if it.kind == "folder" %}Папка{% elif it.kind == "object" %}Объект{% else %}Смета{% endif %}{% if it.meta %} · {{ it.meta }}{% endif %} · {{ it.created|date:"d.m.Y H:i" }}</span>
+        {% if it.reason %}<span class="block truncate text-xs text-slate-500" title="{{ it.reason }}">Сабаби: {{ it.reason }}</span>{% endif %}{% endif %}
+        {% if it.working and not compact %}<span class="mt-1.5 block h-1 max-w-xs overflow-hidden rounded-full bg-slate-100"><span class="block h-full rounded-full bg-sky-500" style="width: {{ it.percent }}%"></span></span>{% endif %}
+      </span>
+      {% if not compact %}{% include "jobs/_work_badge.html" %}{% endif %}
+      {% if not compact %}
+      <span class="hidden w-40 shrink-0 text-right sm:block"><span class="num block text-sm font-semibold text-slate-800">{% if it.total %}{{ it.total|som }}{% else %}<span class="text-slate-300">—</span>{% endif %}</span>
+        <span class="block text-[11px] text-slate-400">Всего с НДС</span></span>
+      {% endif %}
+      <span class="text-slate-300 group-hover:text-slate-500">{% icon "chevron-right" "h-4 w-4" %}</span>
+    </a>
+    {% if it.working %}<button type="button" class="work-stop grid w-10 shrink-0 place-items-center border-l border-slate-100 text-sky-500 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-40"
+            data-url="{{ it.stop_url }}" data-name="{{ it.name }}" title="Тўхтатиш — очилганлари сақланади, кейин давом эттириш мумкин" aria-label="Тўхтатиш: {{ it.name }}">{% icon "stop" "h-4 w-4" %}</button>{% endif %}
+    <button type="button" class="work-delete grid w-10 shrink-0 place-items-center border-l border-slate-100 text-slate-300 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
+            data-url="{{ it.delete_url }}" data-name="{{ it.name }}" data-kind="{% if it.kind == 'folder' %}папка{% elif it.kind == 'object' %}объект{% else %}смета{% endif %}"
+            {% if it.working %}data-working="1" title="Тўхтатиб, тарихдан ўчириш"{% else %}title="Тарихдан ўчириш"{% endif %} aria-label="Ўчириш: {{ it.name }}">{% icon "trash" "h-4 w-4" %}</button>
+  </li>
+  {% endfor %}
+</ul>
+<script>
+  // ===== ишлар рўйхати: тўхтатиш ва ўчириш (тасдиқлаб) =====
+  (function () {
+    var list = document.getElementById("recent-list");
+    if (!list) return;
+    function csrf() { var t = document.querySelector("[name=csrfmiddlewaretoken]"); return t ? t.value : ""; }
+    // тўхтатиш: тасдиқсиз (ҳеч нарса ўчмайди), кейин саҳифа янгиланади
+    list.addEventListener("click", function (e) {
+      var s = e.target.closest(".work-stop");
+      if (!s || s.disabled) return;
+      s.disabled = true;
+      fetch(s.dataset.url, {method: "POST", credentials: "same-origin", headers: {"X-CSRFToken": csrf(), "X-Requested-With": "fetch"}})
+        .then(function () { setTimeout(function () { location.reload(); }, 1500); })
+        .catch(function () { alert("Тармоқ хатоси"); s.disabled = false; });
+    });
+    list.addEventListener("click", function (e) {
+      var b = e.target.closest(".work-delete");
+      if (!b || b.disabled) return;
+      var msg = "«" + b.dataset.name + "» (" + b.dataset.kind + ") тарихдан ўчирилсинми?\n\n" +
+                (b.dataset.working ? "Ҳозир ишланяпти — аввал тўхтатилади.\n" : "") +
+                "Юкланган файллар ва натижалар бутунлай ўчади — қайтариб бўлмайди.";
+      if (!confirm(msg)) return;
+      b.disabled = true;
+      if (b.dataset.working) b.innerHTML = '{% icon "loader" "h-4 w-4 animate-spin" "2.5" %}';
+      fetch(b.dataset.url, {method: "POST", credentials: "same-origin", headers: {"X-CSRFToken": csrf(), "X-Requested-With": "fetch"}})
+        .then(function (r) { return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; }); })
+        .then(function (d) {
+          if (!d.ok) { alert(d.error || "Ўчириб бўлмади"); b.disabled = false; return; }
+          var li = b.closest("li"), href = li.querySelector("a").getAttribute("href");
+          // «давом эттириш» картаси ҳам шу иш бўлса — олиб ташланади
+          document.querySelectorAll('a[href="' + href + '"]').forEach(function (a) { if (!list.contains(a)) a.remove(); });
+          li.style.transition = "opacity .25s"; li.style.opacity = "0";
+          setTimeout(function () {
+            li.remove();
+            list.dispatchEvent(new CustomEvent("work-removed"));
+            if (!list.children.length) { var sec = list.closest("[data-work-section]"); if (sec) sec.remove(); }
+          }, 250);
+        })
+        .catch(function () { alert("Тармоқ хатоси"); b.disabled = false; });
+    });
+  })();
+</script>

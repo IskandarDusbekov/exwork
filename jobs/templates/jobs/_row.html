@@ -1,6 +1,6 @@
 {% load narx %}<tr data-row="{{ row.row }}" data-status="{{ row.status }}"{% if group %} data-group="{{ group.id }}"{% endif %} {% if result_mode == "smart" and row.name %}data-selectable="1"{% endif %}
-    data-flags="CAT_{{ row.category }}{% if row.override %} OVERRIDE{% endif %}{% if row.suggested_category %} SUGG_{{ row.suggested_category }}{% endif %}{% if row.zero %} ZERO_RULE{% endif %}{% if 'UNIT_MISMATCH' in row.note %} UNIT_MISMATCH{% endif %}{% if row.g and not row.g|is_number %} NON_NUMERIC NOT_PRICED{% endif %}{% if row.manual %} MANUAL{% elif row.suggested_price is not None %} HAS_SUGG{% endif %}{% if row.suggested_category %} SUGG_ANY{% endif %}"
-    class="{% if row.name and not row.g|is_number %}xl-red{% elif row.zero %}xl-zero{% elif row.status == 'FUZZY' or row.status == 'AMBIGUOUS' %}xl-yellow{% endif %} {% if not row.name %}xl-blank{% endif %}">
+    data-flags="CAT_{{ row.category }}{% if row.override %} OVERRIDE{% endif %}{% if row.suggested_category %} SUGG_{{ row.suggested_category }}{% endif %}{% if row.zero %} ZERO_RULE{% endif %}{% if 'UNIT_MISMATCH' in row.note %} UNIT_MISMATCH{% endif %}{% if row.name and not row.g|is_number and row.status != "CLEARED" %} NON_NUMERIC NOT_PRICED{% endif %}{% if row.cleared %} CLEARED{% endif %}{% if row.lm_target %} LM_{{ row.lm_target }}{% endif %}{% if row.manual %} MANUAL{% elif row.suggested_price is not None %} HAS_SUGG{% endif %}{% if row.suggested_category %} SUGG_ANY{% endif %}"
+    class="{% if row.status == 'CLEARED' %}xl-zero{% elif row.name and not row.g|is_number %}xl-red{% elif row.zero %}xl-zero{% elif row.status == 'FUZZY' or row.status == 'AMBIGUOUS' %}xl-yellow{% endif %} {% if not row.name %}xl-blank{% endif %}">
   <td class="xl-gutter">{{ row.row }}</td>
   <td class="xl-name">
     {{ row.name|default_if_none:"" }}
@@ -10,14 +10,14 @@
   <td class="text-center">{{ row.unit|default_if_none:"" }}</td>
   <td class="num text-right">{{ row.qty|qty }}</td>
   <td class="num text-right xl-g {% if row.g and not row.g|is_number %}xl-red-text{% endif %} {% if row.manual %}xl-manual{% endif %}">
-    {% if result_mode == "smart" and row.name and not row.g|is_number %}
+    {% if result_mode == "smart" and row.name and not row.g|is_number and row.status != "CLEARED" %}
     <div class="flex items-center justify-end gap-1">
       <input type="text" inputmode="decimal" class="g-input" data-row="{{ row.row }}" autocomplete="off"
              placeholder="{% if row.suggested_price is not None %}{{ row.suggested_price|som }}{% else %}нарх{% endif %}"
              title="Нарх ёзинг ва Enter · Ctrl+Enter — белгиланган ҳамма қаторларга">
       {% if row.suggested_price is not None %}<button type="button" class="g-accept" data-row="{{ row.row }}" title="Таклифни қабул қилиш: {{ row.suggested_price|som }}">{% icon "check" "h-3 w-3" "3" %}</button>{% endif %}
     </div>
-    <div class="xl-sub xl-red-text">{{ row.g }}{% if row.suggested_price is not None %} · таклиф {{ row.suggested_price|som }}{% endif %}</div>
+    <div class="xl-sub xl-red-text">{{ row.g|default_if_none:"" }}{% if row.suggested_price is not None %} · таклиф {{ row.suggested_price|som }}{% endif %}</div>
     {% elif row.manual %}
     <span>{{ row.g|som }}</span><button type="button" class="g-clear" data-row="{{ row.row }}" title="Қўлда нархни бекор қилиш">×</button>
     <div class="xl-sub text-sky-700">қўлда{% if row.suggested_price is not None %} · таклиф {{ row.suggested_price|som }}{% endif %}</div>
@@ -27,12 +27,13 @@
   {% for c, _label in grid_columns %}
   <td class="num text-right xl-cat {% if row.name and row.category == c %}xl-cat-on {{ c|cat_class }}{% endif %}">
     {% if row.name and row.category == c %}{{ row.h|som }}{% if row.override %}<span class="xl-mark" title="Қўлда ўзгартирилган (асли {{ row.default_category }})">{% icon "swap" "inline h-3 w-3" %}</span>{% endif %}{% endif %}
-    {% if row.suggested_category == c %}<span class="xl-sugg" title="Таклиф: {{ row.suggest_reason }}">{{ c }}?</span>{% endif %}
+    {% if row.suggested_category == c or row.lm_target == c %}<span class="xl-sugg" title="Таклиф: {% firstof row.suggest_reason "ресурс файлида шу бўлимда" %}">{{ c }}?</span>{% endif %}
   </td>
   {% endfor %}
   <td class="xl-extra">
     {% if row.status == "MANUAL" %}<span class="xl-tag bg-sky-600 text-white" title="асли: {{ row.orig_status|status_label }}">қўлда</span>
     {% elif row.status == "WORK_HEADER" %}<span class="xl-tag bg-slate-200 text-slate-700">иш сарлавҳаси</span>
+    {% elif row.status == "CLEARED" %}<span class="xl-tag bg-slate-100 text-slate-600">тозаланди</span>
     {% elif row.status == "MACHINIST" %}<span class="xl-tag bg-slate-200 text-slate-700">машинист</span>
     {% elif row.status == "NO_PRICE" %}<span class="xl-tag bg-rose-200 text-rose-800">нархсиз</span>
     {% elif row.zero %}<span class="xl-tag bg-slate-100 text-slate-600">нол қоидаси</span>

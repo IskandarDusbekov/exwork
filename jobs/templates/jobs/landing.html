@@ -1,0 +1,250 @@
+{% load narx %}<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Нархлаш — локал сметани автоматик нархлаш</title>
+  <meta name="description" content="Локал смета ресурсларини RES нархлари билан сонияларда нархлайди: жуфтлаш, мослаштириш, свод, ҳисобот.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <style>
+    body { font-family: Inter, "Segoe UI", system-ui, sans-serif; }
+    .num { font-variant-numeric: tabular-nums; }
+    .grid-bg { background-image: linear-gradient(rgba(148, 163, 184, .08) 1px, transparent 1px), linear-gradient(90deg, rgba(148, 163, 184, .08) 1px, transparent 1px); background-size: 32px 32px; }
+    .glow { background: radial-gradient(600px 300px at 20% 0%, rgba(16, 185, 129, .22), transparent 70%), radial-gradient(500px 300px at 90% 20%, rgba(56, 189, 248, .14), transparent 70%); }
+    .mock td, .mock th { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+    .fade-in { animation: fade .6s ease both; }
+    @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .price-cell { animation: pop .5s ease both; }
+    @keyframes pop { from { background: #bbf7d0; } to { background: transparent; } }
+    @media (prefers-reduced-motion: reduce) { .fade-in, .price-cell { animation: none; } }
+  </style>
+</head>
+<body class="bg-white text-slate-800 antialiased">
+
+{# ================= навигация ================= #}
+<header class="absolute inset-x-0 top-0 z-20">
+  <div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-4">
+    <a href="{% url 'landing' %}" class="flex items-center gap-2 text-white">
+      <span class="grid h-9 w-9 place-items-center rounded-lg bg-emerald-500 text-slate-950">{% icon "logo" "h-5 w-5" %}</span>
+      <span class="text-lg font-bold tracking-tight">Нархлаш</span></a>
+    <nav class="ml-6 hidden items-center gap-6 text-sm text-slate-300 md:flex">
+      <a href="#features" class="hover:text-white">Имкониятлар</a>
+      <a href="#how" class="hover:text-white">Қандай ишлайди</a>
+      <a href="#speed" class="hover:text-white">Тезлик</a>
+      <a href="#security" class="hover:text-white">Хавфсизлик</a>
+    </nav>
+    <a href="{% url 'dashboard' %}" class="ml-auto hidden rounded-lg px-3 py-2 text-sm font-medium text-slate-200 hover:text-white sm:block">Дашборд</a>
+    <a href="{% url 'index' %}" class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-emerald-50 sm:ml-0 ml-auto">Смета юклаш</a>
+  </div>
+</header>
+
+{# ================= бош қисм ================= #}
+<section class="relative overflow-hidden bg-slate-950 text-white">
+  <div class="grid-bg glow absolute inset-0"></div>
+  <div class="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pb-20 pt-32 lg:grid-cols-[1.05fr_1fr] lg:pt-36">
+    <div class="fade-in min-w-0">
+      <span class="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+        <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Смета­чилар учун</span>
+      <h1 class="mt-5 text-[2rem] font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
+        Локал сметани <span class="text-emerald-400">RES нархлари</span> билан сонияларда нархланг</h1>
+      <p class="mt-5 max-w-xl text-lg leading-relaxed text-slate-300">
+        Минглаб ресурсни қўлда қидириб, нархини кўчириб ёзиш шарт эмас. Нархлаш ресурсларни RES билан номи ва бирлиги бўйича солиштиради,
+        нархни ёзади, сводни ҳисоблайди — тайёр Excel файлни беради.</p>
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a href="{% url 'index' %}" class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 hover:bg-emerald-400">
+          {% icon "upload" "h-5 w-5" %} Смета юклаш</a>
+        <a href="#how" class="inline-flex items-center gap-2 rounded-xl border border-white/15 px-5 py-3 font-semibold text-white hover:bg-white/5">Қандай ишлайди {% icon "arrow-right" "h-4 w-4" %}</a>
+      </div>
+      <dl class="mt-10 grid max-w-lg grid-cols-3 gap-4 border-t border-white/10 pt-6">
+        <div><dt class="text-xs text-slate-400">1 800 қаторли смета</dt><dd class="num mt-1 text-xl font-bold sm:text-2xl">≈ 14 с</dd></div>
+        <div><dt class="text-xs text-slate-400">аниқ топилган ресурс</dt><dd class="num mt-1 text-xl font-bold sm:text-2xl">99,8%</dd></div>
+        <div><dt class="text-xs text-slate-400">формат</dt><dd class="mt-1 text-xl font-bold sm:text-2xl">.xls .xlsx</dd></div>
+      </dl>
+    </div>
+
+    {# натижа намунаси: олдин / кейин #}
+    <div class="fade-in relative min-w-0" style="animation-delay:.15s">
+      <div class="absolute -inset-4 rounded-3xl bg-emerald-500/10 blur-2xl"></div>
+      <div class="relative overflow-hidden rounded-2xl bg-white text-slate-800 shadow-2xl ring-1 ring-white/10">
+        <div class="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-xs">
+          <span class="flex gap-1"><i class="h-2.5 w-2.5 rounded-full bg-rose-300"></i><i class="h-2.5 w-2.5 rounded-full bg-amber-300"></i><i class="h-2.5 w-2.5 rounded-full bg-emerald-300"></i></span>
+          <span class="ml-2 font-medium text-slate-600">Локал_смета_narxlandi.xlsx</span>
+          <span class="ml-auto rounded bg-emerald-100 px-1.5 py-0.5 font-semibold text-emerald-700">нархланди</span>
+        </div>
+        <div class="overflow-x-auto">
+        <table class="mock w-full text-[12px]">
+          <thead class="bg-slate-50 text-left text-[10px] uppercase tracking-wide text-slate-400">
+            <tr><th>Ресурс</th><th>Бирл.</th><th class="text-right">Жами</th><th class="text-right">Нарх</th><th class="text-right">Сумма</th></tr></thead>
+          <tbody class="num">
+            <tr class="font-semibold text-slate-900"><td colspan="5">Разработка грунта экскаватором · 0,84 × 1000 м3</td></tr>
+            <tr><td>Затраты труда рабочих</td><td>чел.-ч</td><td class="text-right">11,59</td><td class="price-cell text-right" style="animation-delay:.4s">28 500</td><td class="text-right">330 372</td></tr>
+            <tr><td>Экскаваторы 0,65 м3</td><td>маш.-ч</td><td class="text-right">17,98</td><td class="price-cell text-right" style="animation-delay:.55s">410 000</td><td class="text-right">7 370 160</td></tr>
+            <tr><td>Бульдозеры 79 кВт</td><td>маш.-ч</td><td class="text-right">3,53</td><td class="price-cell text-right" style="animation-delay:.7s">365 000</td><td class="text-right">1 287 720</td></tr>
+            <tr class="font-semibold text-slate-900"><td colspan="5">Укладка стальных трубопроводов 219 мм · 0,35 км</td></tr>
+            <tr><td>Трубы стальные 219х6</td><td>м</td><td class="text-right">350</td><td class="price-cell text-right" style="animation-delay:.85s">685 000</td><td class="text-right">239 750 000</td></tr>
+            <tr class="bg-rose-50"><td>Электроды Э46 (RES'да йўқ)</td><td>т</td><td class="text-right">0,04</td><td class="text-right font-semibold text-rose-600">ТОПИЛМАДИ</td><td class="text-right text-slate-400">—</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="grid grid-cols-3 border-t border-slate-200 bg-slate-50 text-center text-[11px]">
+          <div class="px-2 py-2.5"><b class="block text-base text-emerald-600">10</b>аниқ</div>
+          <div class="border-x border-slate-200 px-2 py-2.5"><b class="block text-base text-rose-600">1</b>қизил — текширинг</div>
+          <div class="px-2 py-2.5"><b class="num block text-base text-slate-900">423,0 млн</b>Всего с НДС</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ================= муаммо ================= #}
+<section class="border-b border-slate-100 bg-slate-50">
+  <div class="mx-auto grid max-w-6xl gap-8 px-4 py-14 md:grid-cols-3">
+    <div class="md:col-span-1">
+      <p class="text-sm font-semibold uppercase tracking-wider text-emerald-600">Нима учун</p>
+      <h2 class="mt-2 text-2xl font-bold tracking-tight text-slate-900">Қўлда нархлаш — секин ва хатоли</h2>
+    </div>
+    <div class="grid gap-6 sm:grid-cols-3 md:col-span-2">
+      <div><p class="font-semibold text-slate-900">Минглаб қатор</p><p class="mt-1 text-sm leading-relaxed text-slate-600">Битта объект сметасида 1 500+ ресурс бўлади — ҳар бирини RES'дан қўлда қидириш жуда кўп вақт олади.</p></div>
+      <div><p class="font-semibold text-slate-900">Кўчиришдаги хато</p><p class="mt-1 text-sm leading-relaxed text-slate-600">Бошқа қатор нархини олиш, бирликни адаштириш — суммани кўп ёки кам кўрсатади.</p></div>
+      <div><p class="font-semibold text-slate-900">Ҳар хил жадвал</p><p class="mt-1 text-sm leading-relaxed text-slate-600">Ҳар бир лойиҳачида устунлар бошқача: ном C'да ёки G'да, миқдор бир ёки икки устунда.</p></div>
+    </div>
+  </div>
+</section>
+
+{# ================= имкониятлар ================= #}
+<section id="features" class="scroll-mt-8">
+  <div class="mx-auto max-w-6xl px-4 py-20">
+    <div class="max-w-2xl">
+      <p class="text-sm font-semibold uppercase tracking-wider text-emerald-600">Нима қилади</p>
+      <h2 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">Юклашдан тайёр файлгача — бир жойда</h2>
+      <p class="mt-3 text-slate-600">Смета­чи фақат натижани текширади. Қолганини тизим бажаради.</p>
+    </div>
+    <div class="mt-12 grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-3">
+      {% for icon_name, title, text in features %}
+      <div class="bg-white p-6">
+        <span class="grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-emerald-600">{% icon icon_name "h-5 w-5" %}</span>
+        <h3 class="mt-4 font-semibold text-slate-900">{{ title }}</h3>
+        <p class="mt-1.5 text-sm leading-relaxed text-slate-600">{{ text }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{# ================= қандай ишлайди ================= #}
+<section id="how" class="scroll-mt-8 bg-slate-950 text-white">
+  <div class="mx-auto max-w-6xl px-4 py-20">
+    <div class="max-w-2xl">
+      <p class="text-sm font-semibold uppercase tracking-wider text-emerald-400">Қандай ишлайди</p>
+      <h2 class="mt-2 text-3xl font-bold tracking-tight">Тўрт қадам</h2>
+    </div>
+    <ol class="mt-12 grid gap-6 md:grid-cols-4">
+      {% for title, text in steps %}
+      <li class="relative rounded-2xl border border-white/10 bg-white/[.03] p-6">
+        <span class="num grid h-9 w-9 place-items-center rounded-full bg-emerald-500 font-bold text-slate-950">{{ forloop.counter }}</span>
+        <h3 class="mt-4 font-semibold">{{ title }}</h3>
+        <p class="mt-1.5 text-sm leading-relaxed text-slate-400">{{ text }}</p>
+      </li>
+      {% endfor %}
+    </ol>
+
+    {# мослик ҳолатлари #}
+    <div class="mt-14 rounded-2xl border border-white/10 bg-white/[.03] p-6 md:p-8">
+      <h3 class="text-lg font-semibold">Ҳар бир ресурс учун аниқ ҳолат</h3>
+      <p class="mt-1 text-sm text-slate-400">Тизим ном ва бирликни солиштиради ва натижани ранг билан белгилайди — нимани текшириш кераклиги дарҳол кўринади.</p>
+      <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-xl bg-white p-4 text-slate-800"><span class="rounded bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">аниқ</span>
+          <p class="mt-2 text-sm">Ном ва бирлик RES билан тўлиқ мос — нарх ёзилади.</p></div>
+        <div class="rounded-xl bg-white p-4 text-slate-800"><span class="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">ўхшаш</span>
+          <p class="mt-2 text-sm">Ном бироз фарқ қилади (95%+ ўхшаш) — нарх ёзилади, текшириш учун белгиланади.</p></div>
+        <div class="rounded-xl bg-white p-4 text-slate-800"><span class="rounded bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-700">ШАБҲАЛИ</span>
+          <p class="mt-2 text-sm">Иккита бир хил ўхшаш ресурс — тизим тахмин қилмайди, смета­чи танлайди.</p></div>
+        <div class="rounded-xl bg-white p-4 text-slate-800"><span class="rounded bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">ТОПИЛМАДИ</span>
+          <p class="mt-2 text-sm">RES'да йўқ — қизил билан белгиланади, энг яқин ресурс таклиф қилинади.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ================= тезлик ва фойда ================= #}
+<section id="speed" class="scroll-mt-8">
+  <div class="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 lg:grid-cols-2">
+    <div>
+      <p class="text-sm font-semibold uppercase tracking-wider text-emerald-600">Тезлик</p>
+      <h2 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">Узоқ қўл меҳнати — бир неча сонияда</h2>
+      <p class="mt-3 leading-relaxed text-slate-600">Ҳақиқий объект сметасида ўлчанган натижа: 1 800 қатор, 198 та иш ва 1 520 та ресурс.
+        Тизим уларни RES билан солиштириб, нархни ёзиб, сводни ҳисоблади.</p>
+      <ul class="mt-6 space-y-3 text-sm text-slate-700">
+        <li class="flex gap-3">{% icon "check-circle" "mt-0.5 h-5 w-5 shrink-0 text-emerald-600" %}<span><b>Бутун папка бир марта:</b> ZIP/RAR ёки папкани юкланг — ичидаги ҳамма локал ва RES жуфтланиб, кетма-кет нархланади.</span></li>
+        <li class="flex gap-3">{% icon "check-circle" "mt-0.5 h-5 w-5 shrink-0 text-emerald-600" %}<span><b>Хатолар камаяди:</b> нарх қўлда кўчирилмайди. Ҳар бир ресурс учун RES'даги қайси ном ва бирлик олингани LOG листида ёзилади.</span></li>
+        <li class="flex gap-3">{% icon "check-circle" "mt-0.5 h-5 w-5 shrink-0 text-emerald-600" %}<span><b>Вақт текширишга кетади:</b> смета­чи фақат қизил ва сариқ қаторларни кўриб чиқади.</span></li>
+      </ul>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-6 md:p-8">
+      <p class="text-sm font-medium text-slate-500">Битта объект · 1 800 қатор</p>
+      <div class="mt-6 space-y-5">
+        <div>
+          <div class="flex items-baseline justify-between text-sm"><span class="font-semibold text-slate-900">Нархлаш</span><span class="num font-bold text-emerald-600">13–14 сония</span></div>
+          <div class="mt-2 h-3 rounded-full bg-slate-200"><div class="h-3 w-[3%] min-w-[10px] rounded-full bg-emerald-500"></div></div>
+        </div>
+        <div>
+          <div class="flex items-baseline justify-between text-sm"><span class="font-semibold text-slate-900">Аниқ топилган</span><span class="num font-bold text-slate-900">1 517 / 1 520</span></div>
+          <div class="mt-2 h-3 rounded-full bg-slate-200"><div class="h-3 w-[99.8%] rounded-full bg-emerald-500"></div></div>
+        </div>
+        <div>
+          <div class="flex items-baseline justify-between text-sm"><span class="font-semibold text-slate-900">Қўлда текшириш керак</span><span class="num font-bold text-rose-600">3 қатор</span></div>
+          <div class="mt-2 h-3 rounded-full bg-slate-200"><div class="h-3 w-[2%] min-w-[8px] rounded-full bg-rose-500"></div></div>
+        </div>
+      </div>
+      <p class="mt-6 text-xs text-slate-400">Тизим ишлаётган компьютерда ўлчанган. Вақт смета ҳажми ва компьютерга қараб ўзгаради.</p>
+    </div>
+  </div>
+</section>
+
+{# ================= хавфсизлик ================= #}
+<section id="security" class="scroll-mt-8 border-y border-slate-100 bg-slate-50">
+  <div class="mx-auto max-w-6xl px-4 py-20">
+    <div class="max-w-2xl">
+      <p class="text-sm font-semibold uppercase tracking-wider text-emerald-600">Хавфсизлик</p>
+      <h2 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">Маълумот сизда қолади</h2>
+      <p class="mt-3 text-slate-600">Смета — тижорат сири. Шунинг учун тизим уни ҳеч қаерга юбормайди ва асл файлга тегмайди.</p>
+    </div>
+    <div class="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+      {% for title, text in security %}
+      <div class="rounded-2xl border border-slate-200 bg-white p-6">
+        <span class="grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-emerald-400">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/></svg></span>
+        <h3 class="mt-4 font-semibold text-slate-900">{{ title }}</h3>
+        <p class="mt-1.5 text-sm leading-relaxed text-slate-600">{{ text }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="mt-6 flex items-start gap-2 text-sm text-slate-500">{% icon "alert-circle" "mt-0.5 h-4 w-4 shrink-0" %}
+      <span>Ҳозирги версияда фойдаланувчи логини йўқ — ишга фақат тасодифий ҳавола орқали кирилади. Тизимни корхонанинг ички тармоғида ишлатинг.</span></p>
+  </div>
+</section>
+
+{# ================= якун ================= #}
+<section class="bg-slate-950 text-white">
+  <div class="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-16 md:flex-row md:items-center">
+    <div class="flex-1">
+      <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">Биринчи сметангизни ҳозир нархланг</h2>
+      <p class="mt-2 text-slate-400">Локал ва RES файлини ёки бутун папкани юкланг — натижани бир неча сонияда кўрасиз.</p>
+    </div>
+    <a href="{% url 'index' %}" class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-3.5 font-semibold text-slate-950 hover:bg-emerald-400">
+      {% icon "upload" "h-5 w-5" %} Смета юклаш</a>
+  </div>
+  <footer class="border-t border-white/10">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-sm text-slate-500">
+      <span class="flex items-center gap-2 text-slate-300"><span class="grid h-6 w-6 place-items-center rounded bg-emerald-500 text-slate-950">{% icon "logo" "h-3.5 w-3.5" %}</span> Нархлаш</span>
+      <a href="{% url 'index' %}" class="hover:text-white">Юклаш</a>
+      <a href="{% url 'dashboard' %}" class="hover:text-white">Дашборд</a>
+      <a href="#security" class="hover:text-white">Хавфсизлик</a>
+    </div>
+  </footer>
+</section>
+</body>
+</html>

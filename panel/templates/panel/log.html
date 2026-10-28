@@ -1,0 +1,52 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Журнал — Панел{% endblock %}
+{% block panel %}
+<div class="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+  <section class="rounded-xl border {% if locked_emails %}border-amber-200 bg-amber-50{% else %}border-slate-200 bg-white{% endif %} p-4 shadow-sm">
+    <h2 class="flex items-center gap-2 text-sm font-semibold">{% icon "lock" %} Блокланган ҳисоблар</h2>
+    <p class="text-xs text-slate-500">кўп хато пароль — {{ window_minutes }} дақиқага</p>
+    <ul class="mt-2 space-y-1 text-sm">
+      {% for r in locked_emails %}<li class="flex justify-between gap-2"><span class="truncate">{{ r.key }}</span><span class="num text-amber-800">{{ r.n }}×</span></li>
+      {% empty %}<li class="text-slate-400">Йўқ</li>{% endfor %}
+    </ul>
+  </section>
+  <section class="rounded-xl border {% if locked_ips %}border-rose-200 bg-rose-50{% else %}border-slate-200 bg-white{% endif %} p-4 shadow-sm">
+    <h2 class="flex items-center gap-2 text-sm font-semibold">{% icon "shield" %} Блокланган IP'лар</h2>
+    <p class="text-xs text-slate-500">битта манзилдан кўп уриниш</p>
+    <ul class="mt-2 space-y-1 text-sm">
+      {% for r in locked_ips %}<li class="flex justify-between gap-2"><span class="num truncate">{{ r.key }}</span><span class="num text-rose-700">{{ r.n }}×</span></li>
+      {% empty %}<li class="text-slate-400">Йўқ</li>{% endfor %}
+    </ul>
+  </section>
+  <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <h2 class="flex items-center gap-2 text-sm font-semibold">{% icon "alert" %} Хато кириш — IP бўйича</h2>
+    <p class="text-xs text-slate-500">охирги 24 соат</p>
+    <ul class="mt-2 space-y-1 text-sm">
+      {% for r in top_ips %}<li class="flex justify-between gap-2"><a href="?q={{ r.key|urlencode }}" class="num truncate hover:underline">{{ r.key }}</a><span class="num text-slate-600">{{ r.n }}×</span></li>
+      {% empty %}<li class="text-slate-400">Йўқ</li>{% endfor %}
+    </ul>
+  </section>
+</div>
+
+<section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+  <form method="get" class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
+    <label class="relative block w-full sm:w-64">
+      <span class="pointer-events-none absolute inset-y-0 left-2.5 grid place-items-center text-slate-400">{% icon "search" "h-4 w-4" %}</span>
+      <input name="q" value="{{ q }}" type="search" placeholder="Email, IP ёки матн" class="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-sm outline-none focus:border-slate-400">
+    </label>
+    <select name="kind" onchange="this.form.submit()" class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-slate-400" aria-label="Тур">
+      <option value="">Барча ҳаракатлар</option>
+      <option value="security" {% if kind == 'security' %}selected{% endif %}>Хавфсизлик (хато кириш, рўйхат)</option>
+      <option value="admin" {% if kind == 'admin' %}selected{% endif %}>Админ ҳаракатлари</option>
+      {% for k, label in kinds %}<option value="{{ k }}" {% if kind == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">Қидириш</button>
+    <span class="ml-auto text-xs text-slate-500">{{ page.paginator.count }} та ёзув</span>
+  </form>
+  <ul class="divide-y divide-slate-100">
+    {% for ev in page %}{% include "panel/_event.html" %}{% empty %}<li class="px-4 py-10 text-center text-sm text-slate-400">Ёзув йўқ</li>{% endfor %}
+  </ul>
+</section>
+{% include "panel/_pager.html" %}
+{% endblock %}

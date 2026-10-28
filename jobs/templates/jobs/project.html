@@ -5,6 +5,7 @@
 {% block main_class %}{% endblock %}
 {% block content %}
 <div id="project-body">{% include "jobs/_project_body.html" %}</div>
+{% include "jobs/_sheet_viewer.html" %}
 
 <style>
   .explorer { font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
@@ -21,6 +22,11 @@
   details[open] > summary .tree-ico-closed { display: none; }
   .tree-name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; }
   .tree-deco { margin-left: auto; flex-shrink: 0; font-size: 12px; display: inline-flex; align-items: center; }
+  /* папка ёнидаги «очиш» — сичқонча келганда ёки фаол бўлганда кўринади */
+  .tree-open { flex-shrink: 0; display: none; align-items: center; gap: 2px; margin-left: 4px; padding: 0 6px; border-radius: 4px;
+               font-size: 11px; color: #fff; background: #2563eb; }
+  .tree-row:hover > .tree-open, .tree-row.is-active > .tree-open { display: inline-flex; }
+  .tree-open:hover { background: #1d4ed8; }
   .tree-children { background: linear-gradient(#dcdcdc, #dcdcdc) no-repeat; background-size: 1px 100%;
                    background-position: calc(var(--guide) + 17px) 0; }
   .tree-file .tree-name { color: #334155; }
@@ -70,6 +76,37 @@
     }
     wire();
 
+    // локал / ресурс номини босиш — Excel кўриниши (файлнинг ҳамма листлари); фоиз — ёнма-ён
+    body.addEventListener("click", function (e) {
+      var o = e.target.closest(".pv-open, .pv-compare");
+      if (!o || !o.dataset.k) return;
+      e.stopPropagation();
+      var data = JSON.parse(document.getElementById("pv-data").textContent)[o.dataset.part];
+      if (!data || !window.narxViewer) return;
+      var V = window.narxViewer, by = {};
+      data.sheets.forEach(function (s) { by[s.k] = s; });
+      if (o.classList.contains("pv-open")) {
+        V.open("Файл — Excel кўриниши", [{url: data.url, k: o.dataset.k, tabs: V.fileTabs(data.sheets, o.dataset.k)}]);
+        return;
+      }
+      var cands = (data.cands[+o.dataset.i] || []), panes = [{url: data.url, k: o.dataset.k, tabs: V.fileTabs(data.sheets, o.dataset.k)}];
+      if (o.dataset.r) panes.push({url: data.url, k: o.dataset.r, tabs: cands.length ? V.candTabs(cands, by, o.dataset.k) : V.fileTabs(data.sheets, o.dataset.r)});
+      var c = cands.filter(function (x) { return x.k === o.dataset.r; })[0];
+      V.open("Локал ва таклиф қилинган ресурс — ёнма-ён (ресурсни ўзгартириш — қисмни очинг)", panes,
+             c && c.ov != null ? '<span class="rounded-full px-2.5 py-0.5 text-sm font-bold ' + V.tone(c.ov) + '">мослик ' + Math.round(c.ov * 100) + "%</span>" : "");
+    }, true);
+
+    // қисм қатори: исталган жойини босиш — очиш (Ctrl/ўрта тугма — янги вкладкада); ички ҳаволалар ўзича ишлайди.
+    // body ичидагиси ҳар янгиланишда алмашади, шунинг учун делегат.
+    function go(href, e) { if (e.ctrlKey || e.metaKey || e.button === 1) window.open(href, "_blank"); else location.href = href; }
+    body.addEventListener("click", function (e) {
+      var tr = e.target.closest(".part-row[data-href]");
+      if (tr && !e.target.closest("a, button, input")) go(tr.dataset.href, e);
+    });
+    body.addEventListener("auxclick", function (e) {
+      var tr = e.target.closest(".part-row[data-href]");
+      if (tr && e.button === 1 && !e.target.closest("a, button")) go(tr.dataset.href, e);
+    });
     // фонда ишланаётган бўлса — ҳар 2.5 сонияда янгилаймиз (скролл жойида қолади)
     function poll() {
       var st = document.getElementById("project-state");

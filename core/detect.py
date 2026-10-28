@@ -44,16 +44,18 @@ def pair_sheets(local_sheets: List[str], res_sheets: List[str],
 
 
 # ===================== jadval tuzilishi =====================
-_NAME_RE = re.compile(r"наименован")
-# «Единица измерения», «ЕД.ИЗМ», «Ед. изм.» — lekin «на.ед.изм.» (narx sarlavhasi) emas
-_UNIT_RE = re.compile(r"(?:^|[\s|(])(?:единиц[аы]\s+измер|ед\.?\s*изм)")
+# «Наименование», «НАИМ. РАБОТ», «Название», «Номи» — katta-kichik harf farqi yo'q (matn kichik harfga keltiriladi)
+_NAME_RE = re.compile(r"наименован|\bнаим\b|\bназвани|\bномлан|\bноми\b|\bnomi\b|работ и затрат")
+# «Единица измерения», «ЕД.ИЗМ», «Ед. изм.», «Ед-ца», «Ед.», «Изм.», «Ўлчов бирлиги» — lekin «на.ед.изм.» (narx sarlavhasi) emas
+_UNIT_RE = re.compile(r"(?:^|[\s|(])(?:единиц[аы]\s+измер|ед\.?\s*изм|ед-?ца|ўлчов|улчов|o.lchov)"
+                      r"|(?:^|\|\s)(?:ед\.?|единица|изм\.?|е\.?\s?и\.?)(?:\s\||$)")
 _TOTAL_RE = re.compile(r"^(итого|всего)\s+по\s+(локальн|смет)")
 HEADER_SCAN_ROWS = 80
 
 
 @dataclass
 class Layout:
-    header_row: int
+    header_row: Optional[int]  # None — ustunlar qo'lda ko'rsatilgan, sarlavha topilmagan
     numbering_row: Optional[int]
     data_start: int
     data_stop: int  # oxirgi qatordan keyingisi (ИТОГО ПО ЛОКАЛЬНОЙ… yoki max_row + 1)
@@ -142,6 +144,8 @@ def _pick_price_col(texts: Dict[int, str], name_col: int) -> Optional[int]:
             score = 2
         elif per_unit and "текущ" not in t:
             score = 1
+        elif per_unit:
+            score = 0.5  # «в текущем уровне цен · на ед.» — boshqa narx ustuni bo'lmasa (Форма 6а)
         else:
             score = 0
         if score > best_score:
@@ -168,13 +172,42 @@ def detect_layout(ws, need_price: bool = False, stop_at_total: bool = True) -> O
         warnings.append(f"«1 2 3 4…» raqamlash qatori topilmadi; ma'lumot {header + 1}-qatordan deb olindi")
     data_start = (numbering or header) + 1
 
-    data_stop = ws.max_row + 1
-    for r in (range(data_start, ws.max_row + 1) if stop_at_total else ()):
-        if any(_TOTAL_RE.match(_norm(cell_value(ws, r, c))) for c in range(1, min(ws.max_column, 4) + 1)):
-            data_stop = r
-            break
+    data_stop = _total_row(ws, data_start) if stop_at_total else ws.max_row + 1
 
     price_col = _pick_price_col(texts, name_col) if need_price else None
     if need_price and price_col is None:
         warnings.append("Narx ustuni sarlavhasi topilmadi («ЦЕНА» yoki «в базисном уровне / на.ед.изм.»)")
     return Layout(header, numbering, data_start, data_stop, name_col, unit_col, price_col, warnings)
+
+
+
+def _total_row(ws, start: int, cols: int = 4) -> int:
+    """«Итого по локальной смете» qatori (ma'lumot shundan oldin tugaydi); topilmasa — oxirgi qatordan keyingisi."""
+    for r in range(start, ws.max_row + 1):
+        if any(_TOTAL_RE.match(_norm(cell_value(ws, r, c))) for c in range(1, min(ws.max_column, cols) + 1)):
+            return r
+    return ws.max_row + 1
+
+
+# ===================== smetachi ko'rsatgan ustunlar =====================
+COLUMN_FIELDS = ("name", "unit", "qty_unit", "qty_total", "price")
+
+
+def override_layout(ws, layout: Optional[Layout], cols: Optional[dict], need_price: bool = False) -> Optional[Layout]:
+    """Smetachi qo'lda ko'rsatgan ustun va qatorlar (``{"name": 3, "unit": 4, "price": 7, "start": 22, "end": 850}``)
+    avtomatik topilganining ustidan; ko'rsatilmagani avtomatikdan qoladi. Nom, birlik yoki boshlanish
+    qatori ikkalasida ham bo'lmasa — ``layout`` o'zgarmaydi."""
+    if not cols:
+        return layout
+    name = cols.get("name") or (layout.name_col if layout else None)
+    unit = cols.get("unit") or (layout.unit_col if layout else None)
+    start = cols.get("start") or (layout.data_start if layout else None)
+    if not (name and unit and start):
+        return layout
+    # oxirgi qator ko'rsatilmasa — «Итого по локальной смете» dan oldin (avtomatik topilgani undan uzoq bo'lsa ham)
+    stop = cols["end"] + 1 if cols.get("end") else min(layout.data_stop if layout else ws.max_row + 1,
+                                                       _total_row(ws, start, max(4, name)))
+    price = cols.get("price") or (layout.price_col if layout else None)
+    warnings = [w for w in (layout.warnings if layout else []) if not (cols.get("price") and "Narx ustuni" in w)]
+    return Layout(layout.header_row if layout else None, layout.numbering_row if layout else None,
+                  start, max(stop, start + 1), name, unit, price if need_price else None, warnings)

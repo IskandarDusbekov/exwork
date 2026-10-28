@@ -8,12 +8,13 @@ from django.conf import settings
 from openpyxl import load_workbook
 
 from core import convert
+from core.columns import LayoutError
 from core.batch import apply_roles, inspect_workbook, mark_duplicates, plan_pairs
 from core.detect import pair_sheets
 from core.pipeline import MODES, Options, run
 from core.svodka import DEFAULT_PERCENTS, parse_text_number
 
-from .models import Batch, Job
+from .models import Batch, Job, Setting
 
 ALLOWED_EXT = (".xls", ".xlsx", ".xlsm")
 
@@ -46,12 +47,24 @@ def sheet_names(path: Path):
         wb.close()
 
 
-def create_job(local_file, res_file=None) -> Job:
+def remembered_percents(owner) -> dict:
+    """Смета­чи охирги марта танлаган сводка фоизлари (бўш — стандарт)."""
+    s = Setting.objects.filter(owner_id=getattr(owner, "pk", owner), key="percents").first()
+    return dict(s.value) if s and isinstance(s.value, dict) else {}
+
+
+def remember_percents(owner, percents: Optional[dict]):
+    """Охирги танлов доим сақланади (стандартга қайтарилса — стандарт қийматлар ёзилади, бўш эмас)."""
+    Setting.objects.update_or_create(owner_id=getattr(owner, "pk", owner), key="percents", defaults={"value": {**DEFAULT_PERCENTS, **(percents or {})}})
+
+
+def create_job(owner, local_file, res_file=None) -> Job:
     """Fayllarni saqlaydi, .xlsx ga o'giradi, listlarni o'qib standart juftlikni tanlaydi."""
     local_ext = _check_upload(local_file, "Локал файл")
     res_ext = _check_upload(res_file, "Ресурс файл") if res_file else local_ext
 
-    job = Job(local_name=Path(local_file.name).name, res_name=Path((res_file or local_file).name).name)
+    job = Job(owner=owner, local_name=Path(local_file.name).name, res_name=Path((res_file or local_file).name).name,
+              percents=remembered_percents(owner))
     try:
         _save(local_file, job.abs(f"upload/local{local_ext}"))
         local_xlsx = convert.ensure_xlsx(job.abs(f"upload/local{local_ext}"), job.abs("conv"))
@@ -83,6 +96,10 @@ def _jsonable(v):
         return str(v)  # XlError ham oddiy "#VALUE!" satrga aylanadi
     if isinstance(v, (dt.date, dt.datetime, dt.time)):
         return v.isoformat()
+    if isinstance(v, dict):
+        return {str(k): _jsonable(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [_jsonable(x) for x in v]
     return str(v)
 
 
@@ -105,22 +122,32 @@ def parse_percents(data, previous: Optional[dict] = None) -> dict:
 
 def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzzy: int,
             mode: Optional[str] = None, percents: Optional[dict] = None,
-            categories: Optional[dict] = None, prices: Optional[dict] = None) -> Job:
-    """``percents``/``categories``/``prices``: None — avvalgilari qoladi, {} — tozalanadi.
-    Lokal list almashsa, qo'lda kategoriya va narxlar tozalanadi (qator raqamlari boshqa listga tegishli)."""
+            categories: Optional[dict] = None, prices: Optional[dict] = None,
+            cleared: Optional[list] = None) -> Job:
+    """``percents``/``categories``/``prices``/``cleared``: None — avvalgilari qoladi, {} / [] — tozalanadi.
+    Lokal list almashsa, qo'lda kategoriya, narxlar va tozalashlar bekor (qator raqamlari boshqa listga tegishli)."""
     if local_sheet and local_sheet != job.local_sheet:
         job.categories = {}
         job.prices = {}
+        job.cleared = []
+        job.local_columns = {}  # ustunlar boshqa listga tegishli
+    if res_sheet and res_sheet != job.res_sheet:
+        job.res_columns = {}
     if categories is not None:
         job.categories = categories
     if prices is not None:
         job.prices = prices
+    if cleared is not None:
+        job.cleared = sorted({int(r) for r in cleared})
     job.local_sheet = local_sheet or job.local_sheet
     job.res_sheet = res_sheet or job.res_sheet
     job.fuzzy = max(80, min(100, int(fuzzy)))
     job.mode = mode if mode in MODES else job.mode
     if percents is not None:
         job.percents = percents
+    if not job.percents:
+        # смета ўз фоизини олмаган — смета­чининг охирги танлови (у ҳеч қачон ўчмайди)
+        job.percents = remembered_percents(job.owner_id)
     out = job.abs("out") / job.download_name
     try:
         result = run(job.abs(job.local_path), job.abs(job.res_path), Options(
@@ -128,11 +155,12 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
             output_path=out, percents=job.percents or None,
             categories={int(r): c for r, c in (job.categories or {}).items()} or None,
             prices={int(r): float(p) for r, p in (job.prices or {}).items()} or None,
-            column_names=job.column_names or None,
+            column_names=job.column_names or None, cleared=job.cleared or None,
+            local_columns=job.local_columns or None, res_columns=job.res_columns or None,
         ))
     except Exception as e:  # foydalanuvchiga ko'rsatamiz, server yiqilmasin
         job.status = Job.Status.FAILED
-        job.error = f"{type(e).__name__}: {e}"
+        job.error = str(e) if isinstance(e, LayoutError) else f"{type(e).__name__}: {e}"  # жадвал тузилиши — тушунарли сабаб
         job.save()
         return job
 
@@ -150,6 +178,7 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
         "svodka_start": result.svodka_start,
         "mode": result.mode,
         "warnings": result.warnings,
+        "checks": result.checks,  # narxlashdan keyingi tekshiruv: bo'sh bo'lmasa — natijaga ishonib bo'lmaydi
         "columns": result.columns,
         "percents": result.percents,
         "categories": {str(r): c for r, c in result.categories.items()},
@@ -157,6 +186,7 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
         "res_sections": result.res_sections,
         "extra_columns": [list(c) for c in result.extra_columns],
         "tail_removed": result.tail_removed,
+        "cleared": result.cleared,
     }
     job.save()
     return job
@@ -166,14 +196,14 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
 MAX_FILES = 10
 
 
-def create_batch(files) -> "Batch":
+def create_batch(owner, files) -> "Batch":
     """Fayllarni saqlaydi, .xlsx ga o'giradi, har bir listni tahlil qilib juftliklarni taklif qiladi."""
     if not files:
         raise UploadError("Камида битта файл танланг")
     if len(files) > MAX_FILES:
         raise UploadError(f"Бир марта кўпи билан {MAX_FILES} та файл юкланг")
     names = [Path(f.name).name for f in files]
-    batch = Batch(name=names[0] if len(names) == 1 else f"{names[0]} + {len(names) - 1} та файл")
+    batch = Batch(owner=owner, name=names[0] if len(names) == 1 else f"{names[0]} + {len(names) - 1} та файл")
     try:
         for i, f in enumerate(files):
             ext = _check_upload(f, f.name)
@@ -194,18 +224,20 @@ def create_batch(files) -> "Batch":
     return batch
 
 
-def analyze_batch(batch: "Batch", roles: Optional[dict] = None) -> "Batch":
-    """Listlar turini aniqlaydi (``roles`` — smetachining qo'lda tuzatishlari), nusxalarni
-    ajratadi va juftliklarni taklif qiladi."""
+def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optional[dict] = None) -> "Batch":
+    """Listlar turini aniqlaydi (``roles`` / ``columns`` — smetachining qo'lda tuzatishlari: list turi
+    va ustunlar), nusxalarni ajratadi va juftliklarni taklif qiladi."""
+    if roles is not None:
+        batch.roles = roles
+    if columns is not None:
+        batch.columns = columns
     infos = []
     for i, f in enumerate(batch.files):
         wb = load_workbook(batch.abs(f["path"]))
         try:
-            infos += inspect_workbook(wb, i, f["name"])
+            infos += inspect_workbook(wb, i, f["name"], batch.roles, batch.columns)
         finally:
             wb.close()
-    if roles is not None:
-        batch.roles = roles
     apply_roles(infos, batch.roles or {})
     mark_duplicates(infos)
     pairs, _unused = plan_pairs(infos)
@@ -235,10 +267,11 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
             continue
         loc, res = batch.sheet(p["local"]), batch.sheet(p["res"])
         lf, rf = batch.files[loc["file"]], batch.files[res["file"]]
-        job = Job(batch=batch, batch_label=p["label"], batch_file=loc["file"], batch_order=n,
+        job = Job(owner_id=batch.owner_id, batch=batch, batch_label=p["label"], batch_file=loc["file"], batch_order=n,
                   local_name=p["label"], res_name=f'{rf["name"]} · {res["sheet"]}',
                   local_sheets=lf["sheets"], res_sheets=rf["sheets"],
-                  local_sheet=loc["sheet"], res_sheet=res["sheet"], mode="smart")
+                  local_sheet=loc["sheet"], res_sheet=res["sheet"], mode="smart", percents=remembered_percents(batch.owner_id),
+                  local_columns=(batch.columns or {}).get(p["local"], {}), res_columns=(batch.columns or {}).get(p["res"], {}))
         local_dst = job.abs(f"conv/{loc['file']}.xlsx")
         res_dst = job.abs(f"conv/{res['file']}.xlsx")
         local_dst.parent.mkdir(parents=True, exist_ok=True)
@@ -253,6 +286,21 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
     batch.status = Batch.Status.DONE
     batch.save()
     return jobs
+
+
+def delete_batch(batch: "Batch"):
+    """Obyekt (bir/ko'p fayl) butunlay: yuklangan fayllar va uning smetalari."""
+    dirs = [batch.dir] + [j.dir for j in batch.jobs.all()]
+    batch.delete()
+    for d in dirs:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def delete_job(job: Job):
+    """Alohida smeta: yuklangan fayllar va natija."""
+    d = job.dir
+    job.delete()
+    shutil.rmtree(d, ignore_errors=True)
 
 
 def batch_outputs(batch: "Batch") -> list:
@@ -282,7 +330,8 @@ def batch_outputs(batch: "Batch") -> list:
                 percents=job.percents or None,
                 categories={int(r): c for r, c in (job.categories or {}).items()} or None,
                 prices={int(r): float(v) for r, v in (job.prices or {}).items()} or None,
-                column_names=job.column_names or None,
+                column_names=job.column_names or None, cleared=job.cleared or None,
+                local_columns=job.local_columns or None, res_columns=job.res_columns or None,
             )) for job in jobs]
             run_many(batch.abs(batch.files[f]["path"]), steps, out)
         outputs.append(out)

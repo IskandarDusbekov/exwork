@@ -65,3 +65,14 @@ def test_not_found_below_threshold():
 def test_best_two_matches_order():
     best, bs, second, ss = best_two_matches("abcd", ["abcx", "abcd", "zzzz"])
     assert best == "abcd" and bs == 1.0 and second == "abcx" and ss == 0.75
+
+
+def test_not_found_keeps_nearest_for_suggestion():
+    """Chegaradan past bo'lsa ham eng yaqin resurs eslab qolinadi; birligi bir xili ustun,
+    juda o'xshamasa (< 50%) — taklif yo'q."""
+    idx = _index([("ГАЙКА М20 ОЦИНКОВАННАЯ", "ШТ", 1500), ("ГАЙКА М22", "КГ", 99000), ("ЦЕМЕНТ", "Т", 900000)])
+    m = _match(idx, "ГАЙКА М22 ОЦИНК", "ШТ")
+    assert m.status == NOT_FOUND
+    assert (m.near_name, m.near_unit, m.near_price) == (norm_name("ГАЙКА М20 ОЦИНКОВАННАЯ"), norm_unit("ШТ"), 1500)
+    assert 0.5 <= m.near_score < 0.95
+    assert _match(idx, "ПЕСОК КАРЬЕРНЫЙ", "М3").near_name is None

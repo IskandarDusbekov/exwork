@@ -221,3 +221,6 @@ __marimo__/
 
 # Нархлаш: yuklangan va natija fayllar
 media/
+
+# IDE sozlamalari
+.idea/

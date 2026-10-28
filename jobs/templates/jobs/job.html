@@ -2,169 +2,82 @@
 {% load narx %}
 {% block title %}{{ job.local_name }} · Нархлаш{% endblock %}
 {% block header_class %}px-4 lg:px-6{% endblock %}
-{% block main_class %}px-4 lg:px-6 py-5{% endblock %}
+{% block main_class %}px-4 lg:px-6 py-4{% endblock %}
 {% block content %}
-<div class="lg:grid lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-6">
-
-{# ================= ён панел ================= #}
-<aside id="sidebar" class="mb-6 lg:mb-0">
-  <div class="space-y-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pb-4">
-    {% if job.batch.project_id %}
-    <a href="{% url 'project' job.batch.project_id %}" class="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm hover:border-slate-300 hover:bg-slate-50">
-      {% icon "arrow-left" "h-4 w-4 shrink-0 text-slate-500" %}
-      <span class="min-w-0"><span class="block truncate font-semibold text-slate-800">{{ job.batch.project.name }}</span>
-        <span class="block truncate text-xs text-slate-500">папкага қайтиш · {{ job.batch.folder }}</span></span></a>
-    {% elif job.batch_id %}
-    <a href="{% url 'batch' job.batch_id %}" class="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm hover:border-slate-300 hover:bg-slate-50">
-      {% icon "arrow-left" "h-4 w-4 shrink-0 text-slate-500" %}
-      <span class="min-w-0"><span class="block truncate font-semibold text-slate-800">{{ job.batch.name }}</span>
-        <span class="block text-xs text-slate-500">объектга қайтиш</span></span></a>
-    {% endif %}
-
-    {% if job.status == "done" %}
-    {# ---- натижа ва юклаб олиш ---- #}
-    <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div class="bg-slate-900 px-4 py-4 text-white">
-        <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Всего с НДС</div>
-        <div class="mt-0.5 text-2xl font-semibold leading-tight num {% if s_nds|is_error %}text-rose-300{% endif %}">{{ s_nds|som }}</div>
-        <div class="mt-1 text-xs text-slate-400">без НДС <span class="num text-slate-200">{{ bez_nds|som }}</span></div>
-      </div>
-      <div class="space-y-3 p-3">
-        {% if not_priced %}
-        <div class="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
-          {% icon "alert-circle" "mt-px h-4 w-4 shrink-0 text-rose-600" %}
-          <span><b>{{ not_priced }} та қатор нархланмади</b> — сумма тўлиқ эмас. Excel'да G устунида қизил бўлади.</span>
-        </div>
-        {% elif result_mode == "smart" %}
-        <div class="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
-          {% icon "check-circle" "h-4 w-4 shrink-0 text-emerald-600" %} Ҳамма қаторлар нархланган
-        </div>
-        {% endif %}
-        <a href="{% url 'job_download' job.id %}" class="group flex items-center gap-3 rounded-lg bg-emerald-600 px-3 py-2.5 text-white shadow-sm ring-1 ring-inset ring-emerald-700/30 transition hover:bg-emerald-700">
-          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white/15">{% icon "download" "h-5 w-5" %}</span>
-          <span class="min-w-0">
-            <span class="block text-sm font-semibold">Юклаб олиш · Excel</span>
-            <span class="block truncate text-xs text-emerald-100" title="{{ job.download_name }}">{{ job.download_name }}</span>
-          </span>
-        </a>
-        <p class="flex gap-2 px-1 text-xs leading-relaxed text-slate-500">{% icon "file" "mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" %}
-          <span>Лист <b class="text-slate-700">{{ job.local_sheet }}</b> да очилади{% if job.local_sheets|length > 1 %}; бошқа {{ job.local_sheets|length|add:"-1" }} та лист ўзгармаган{% if job.batch_id %} — ҳаммаси учун объект саҳифасидаги «Битта файлда»{% endif %}{% endif %}.</span></p>
-      </div>
-    </section>
-    {% endif %}
-
-    {# ---- файллар ---- #}
-    <section class="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
-      <div class="flex items-start gap-2.5 px-1">
-        <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-slate-100 text-slate-500">{% icon "file" "h-4 w-4" %}</span>
-        <div class="min-w-0">
-          <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Локал</div>
-          <div class="break-words font-medium leading-snug">{{ job.local_name }}</div>
-          {% if job.local_sheet %}<div class="text-xs text-slate-500">лист {{ job.local_sheet }}</div>{% endif %}
-        </div>
-      </div>
-      <div class="mt-2.5 flex items-start gap-2.5 border-t border-slate-100 px-1 pt-2.5">
-        <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md bg-slate-100 text-slate-500">{% icon "tag" "h-4 w-4" %}</span>
-        <div class="min-w-0">
-          <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Ресурс (нархлар)</div>
-          <div class="break-words leading-snug">{{ job.res_name }}</div>
-          {% if job.res_sheet %}<div class="text-xs text-slate-500">лист {{ job.res_sheet }}</div>{% endif %}
-        </div>
-      </div>
-      {% if job.status == "done" %}
-      <div class="mt-2.5 flex items-center gap-2 border-t border-slate-100 px-1 pt-2.5 text-xs text-slate-500">
-        <span class="rounded bg-slate-900 px-1.5 py-0.5 font-medium text-white">{{ result_mode }}</span> ўхшашлик {{ job.fuzzy }}%
-      </div>
-      {% endif %}
-    </section>
-
-    {% if job.status == "done" and result_mode == "smart" %}
-    {# ---- тезкор фильтр ---- #}
-    <section class="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-      <div class="flex items-center gap-1.5 px-2 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wider text-slate-400">{% icon "filter" "h-3.5 w-3.5" %} Тезкор фильтр</div>
-      <div class="grid gap-0.5 text-sm">
-        <button type="button" data-filter="NOT_PRICED" data-label="Нархланмади" {% if not not_priced %}disabled{% endif %}
-                class="cat-chip flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left enabled:hover:bg-rose-50 disabled:opacity-40">
-          {% icon "alert-circle" "h-4 w-4 shrink-0 text-rose-600" %}<span class="flex-1">Нархланмади</span>
-          <span class="num rounded bg-rose-100 px-1.5 text-xs font-semibold text-rose-700">{{ not_priced }}</span></button>
-        <button type="button" data-filter="HAS_SUGG" data-label="Нарх таклифи бор" {% if not sugg_price_count %}disabled{% endif %}
-                class="cat-chip flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left enabled:hover:bg-amber-50 disabled:opacity-40">
-          {% icon "tag" "h-4 w-4 shrink-0 text-amber-600" %}<span class="flex-1">Нарх таклифи бор</span>
-          <span class="num rounded bg-amber-100 px-1.5 text-xs font-semibold text-amber-800">{{ sugg_price_count }}</span></button>
-        <button type="button" data-filter="MANUAL" data-label="Қўлда нархланган" {% if not manual_count %}disabled{% endif %}
-                class="cat-chip flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left enabled:hover:bg-sky-50 disabled:opacity-40">
-          {% icon "pencil" "h-4 w-4 shrink-0 text-sky-600" %}<span class="flex-1">Қўлда нархланган</span>
-          <span class="num rounded bg-sky-100 px-1.5 text-xs font-semibold text-sky-700">{{ manual_count }}</span></button>
-        <button type="button" data-filter="SUGG_ANY" data-label="Устун таклифи" {% if not sugg_cat_count %}disabled{% endif %}
-                class="cat-chip flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left enabled:hover:bg-fuchsia-50 disabled:opacity-40">
-          {% icon "columns" "h-4 w-4 shrink-0 text-fuchsia-600" %}<span class="flex-1">Устун таклифи</span>
-          <span class="num rounded bg-fuchsia-100 px-1.5 text-xs font-semibold text-fuchsia-700">{{ sugg_cat_count }}</span></button>
-        <button type="button" data-filter="OVERRIDE" data-label="Қўлда ўзгартирилган устун" {% if not override_count %}disabled{% endif %}
-                class="cat-chip flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left enabled:hover:bg-slate-100 disabled:opacity-40">
-          {% icon "swap" "h-4 w-4 shrink-0 text-slate-500" %}<span class="flex-1">Қўлда ўтказилган устун</span>
-          <span class="num rounded bg-slate-100 px-1.5 text-xs font-semibold text-slate-700">{{ override_count }}</span></button>
-        <button type="button" id="side-filter-reset" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-xs text-slate-500 hover:bg-slate-100">
-          {% icon "x" "h-3.5 w-3.5 shrink-0" %} Фильтрни олиб ташлаш</button>
-      </div>
-    </section>
-    {% endif %}
-
-    {# ---- бўлимлар ---- #}
-    <nav class="rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-sm">
-      <div class="px-2 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wider text-slate-400">Саҳифа</div>
-      {% if job.status == "done" %}
-      <a href="#stats" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "chart" "h-4 w-4 shrink-0 text-slate-400" %}Статистика</a>
-      <a href="#svodka" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "calculator" "h-4 w-4 shrink-0 text-slate-400" %}Сводка ва фоизлар</a>
-      <a href="#problems" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "alert" "h-4 w-4 shrink-0 text-slate-400" %}Муаммоли қаторлар</a>
-      {% if category_suggestions %}<a href="#cat-suggest" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "columns" "h-4 w-4 shrink-0 text-slate-400" %}Устун таклифлари</a>{% endif %}
-      <a href="#rows-section" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "table" "h-4 w-4 shrink-0 text-slate-400" %}Жадвал</a>
-      {% endif %}
-      <a href="#settings" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "sliders" "h-4 w-4 shrink-0 text-slate-400" %}Созламалар</a>
-    </nav>
-
-    {% if siblings|length > 1 %}
-    <nav class="rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-sm">
-      <div class="flex items-center gap-1.5 px-2 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-wider text-slate-400">{% icon "layers" "h-3.5 w-3.5" %} Объект қисмлари</div>
-      {% for s in siblings %}
-      <a href="{% url 'job' s.id %}" class="flex items-start justify-between gap-2 rounded-md px-2 py-1.5 {% if s.id == job.id %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-slate-100{% endif %}">
-        <span class="break-words leading-snug">{{ s.batch_label }}</span>
-        {% if s.result.stats.NOT_PRICED %}<span class="num shrink-0 rounded bg-rose-100 px-1.5 text-xs font-semibold text-rose-700">{{ s.result.stats.NOT_PRICED }}</span>
-        {% else %}<span class="shrink-0 {% if s.id == job.id %}text-emerald-300{% else %}text-emerald-600{% endif %}">{% icon "check" "h-4 w-4" %}</span>{% endif %}
-      </a>
-      {% endfor %}
-    </nav>
-    {% endif %}
-  </div>
-</aside>
-
-<div class="min-w-0">
 
 {% if job.status == "failed" %}
-<div class="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">
+<div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">
   <div class="font-medium">Нархлашда хато</div>
-  <div class="text-sm mt-1 font-mono">{{ job.error }}</div>
+  <div class="mt-1 font-mono text-sm">{{ job.error }}</div>
 </div>
 {% endif %}
 
-{# ---- кейинги қадам: смета­чига нима қилиш кераклиги ---- #}
-{% if job.status == "done" and result_mode == "smart" %}
-<div class="mb-5 rounded-xl border {% if not_priced %}border-rose-200 bg-rose-50{% elif sugg_cat_count %}border-fuchsia-200 bg-fuchsia-50{% else %}border-emerald-200 bg-emerald-50{% endif %} px-4 py-3">
-  <div class="text-xs font-semibold uppercase tracking-wide {% if not_priced %}text-rose-700{% elif sugg_cat_count %}text-fuchsia-700{% else %}text-emerald-700{% endif %}">Кейинги қадам</div>
-  {% if not_priced %}
-  <ol class="mt-1 grid gap-1 text-sm text-slate-800 md:grid-cols-3 md:gap-4">
-    <li><b>1.</b> Чапдаги <button type="button" data-filter="NOT_PRICED" data-label="Нархланмади" class="cat-chip inline-flex items-center gap-1 rounded bg-white px-1.5 font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-100">{% icon "alert-circle" "h-3.5 w-3.5" %} Нархланмади ({{ not_priced }})</button> ни босинг — жадвалда фақат қизиллар қолади.</li>
-    <li><b>2.</b> Таклиф тўғри бўлса <b class="inline-flex rounded bg-amber-300 px-1 align-middle">{% icon "check" "h-3.5 w-3.5" "3" %}</b> ни босинг, бўлмаса G катакка нархни ёзиб <b>Enter</b>. Кўпини бирдан: белгилаб, пастки панелда «таклифларни қабул қилиш».</li>
-    <li><b>3.</b> Ҳаммаси тайёр бўлгач — чапдаги <b>«Юклаб олиш»</b>.</li>
-  </ol>
-  {% elif sugg_cat_count %}
-  <p class="mt-1 text-sm text-slate-800">Нархлар тайёр. {{ sugg_cat_count }} та қатор бошқа устунга (кабель/ускуна) тегишли бўлиши мумкин —
-    <a href="#cat-suggest" class="font-medium text-fuchsia-700 underline">«Устун таклифлари»</a>ни кўриб чиқинг, кейин юклаб олинг.</p>
-  {% else %}
-  <p class="mt-1 text-sm text-slate-800">Ҳамма қаторлар нархланган. Фоизларни текширинг (Сводка) ва чапдаги <b>«Юклаб олиш»</b> ни босинг.</p>
+{# ================= юқори панел: смета, сумма, юклаб олиш ================= #}
+<section class="mb-3 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+  <div class="flex min-w-0 flex-1 items-center gap-3">
+    {% if job.batch.project_id %}
+    <a href="{% url 'project' job.batch.project_id %}" title="Папкага қайтиш: {{ job.batch.project.name }}"
+       class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100">{% icon "arrow-left" "h-4 w-4" %}</a>
+    {% elif job.batch_id %}
+    <a href="{% url 'batch' job.batch_id %}" title="Объектга қайтиш: {{ job.batch.name }}"
+       class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100">{% icon "arrow-left" "h-4 w-4" %}</a>
+    {% endif %}
+    <div class="min-w-0">
+      <h1 class="truncate text-base font-semibold leading-tight" title="{{ job.local_name }}">{{ job.local_name }}</h1>
+      <div class="truncate text-xs text-slate-500">лист <b class="font-medium text-slate-700">{{ job.local_sheet }}</b>
+        · ресурс {{ job.res_name }}{% if job.res_sheet %} / {{ job.res_sheet }}{% endif %}
+        {% if job.status == "done" %}· <span class="rounded bg-slate-100 px-1 font-medium text-slate-600">{{ result_mode }}</span>{% endif %}</div>
+    </div>
+    {% if siblings|length > 1 %}
+    <details class="relative shrink-0">
+      <summary class="flex cursor-pointer select-none items-center gap-1.5 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm hover:bg-slate-50">
+        {% icon "layers" "h-4 w-4 text-slate-500" %} Объект қисмлари <span class="num text-slate-500">{{ siblings|length }}</span> {% icon "chevron-down" "h-3.5 w-3.5 text-slate-400" %}</summary>
+      <div class="absolute left-0 z-40 mt-1 max-h-96 w-80 overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+        {% for s in siblings %}
+        <a href="{% url 'job' s.id %}" class="flex items-start justify-between gap-2 rounded-md px-2 py-1.5 text-sm {% if s.id == job.id %}bg-slate-900 text-white{% else %}text-slate-700 hover:bg-slate-100{% endif %}">
+          <span class="break-words leading-snug">{{ s.batch_label }}</span>
+          {% if s.result.stats.NOT_PRICED %}<span class="num shrink-0 rounded bg-rose-100 px-1.5 text-xs font-semibold text-rose-700">{{ s.result.stats.NOT_PRICED }}</span>
+          {% else %}<span class="shrink-0 {% if s.id == job.id %}text-emerald-300{% else %}text-emerald-600{% endif %}">{% icon "check" "h-4 w-4" %}</span>{% endif %}
+        </a>
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+  </div>
+  {% if job.status == "done" %}
+  <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+    <div class="text-right">
+      <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Всего с НДС</div>
+      <div id="side-snds" class="text-xl font-semibold leading-tight num {% if s_nds|is_error %}text-rose-600{% endif %}">{{ s_nds|som }}</div>
+      <div class="text-xs text-slate-500">без НДС <span id="side-bez" class="num">{{ bez_nds|som }}</span></div>
+    </div>
+    {% if not_priced %}
+    <button type="button" data-filter="NOT_PRICED" data-label="Нархланмади" title="Жадвалда фақат нархланмаганларни кўрсатиш"
+            class="cat-chip inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800 hover:bg-rose-100">
+      {% icon "alert-circle" "h-4 w-4 text-rose-600" %} <span class="num">{{ not_priced }}</span> та нархланмади</button>
+    {% elif result_mode == "smart" and not checks %}
+    <span class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">{% icon "check-circle" "h-4 w-4 text-emerald-600" %} ҳаммаси нархланган</span>
+    {% endif %}
+    <a href="{% url 'job_download' job.id %}" title="{{ job.download_name }}"
+       class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">{% icon "download" "h-4 w-4" %} Юклаб олиш · Excel</a>
+  </div>
   {% endif %}
+</section>
+
+{% if checks %}
+{# ---- нархлашдан кейинги текширув: ўтмаган бўлса натижага ишониб бўлмайди ---- #}
+<div class="mb-6 rounded-xl border border-rose-300 bg-rose-50 px-5 py-4 text-sm text-rose-900 shadow-sm">
+  <div class="flex items-center gap-2 font-semibold">{% icon "x-circle" "h-5 w-5 text-rose-600" %} Текширувдан ўтмади — {{ checks|length }} та муаммо</div>
+  <p class="mt-1 text-rose-800">Нархлангандан кейин натижа текширилди: миқдор ва нарх устунлари жойида, ҳар бир қаторда H = миқдор × G,
+    сумма ўз устунига тушган. Қуйидагилар мос келмади — Excel'даги суммага ишониб бўлмайди. Локал жадвал устунларини текширинг.</p>
+  <ul class="mt-2 max-h-48 space-y-0.5 overflow-auto font-mono text-xs">
+    {% for c in checks|slice:":50" %}<li>{% if c.row %}<b>{{ c.row }}-қатор:</b> {% endif %}{{ c.problem }}</li>{% endfor %}
+    {% if checks|length > 50 %}<li class="text-rose-600">… яна {{ checks|length|add:"-50" }} та</li>{% endif %}
+  </ul>
 </div>
 {% endif %}
 
+{% if job.status != "done" %}
 {# ---- созлаш (камдан-кам керак — йиғилган) ---- #}
 <details id="settings" class="scroll-mt-4 mb-6 rounded-xl border border-slate-200 bg-white shadow-sm" {% if job.status != "done" %}open{% endif %}>
   <summary class="flex cursor-pointer select-none flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-sm">
@@ -172,7 +85,7 @@
     {% if job.status == "done" %}
     <span class="text-slate-500">лист <b class="text-slate-700">{{ job.local_sheet }}</b> / <b class="text-slate-700">{{ job.res_sheet }}</b> ·
       {{ result_mode }} · fuzzy {{ job.fuzzy }}%{% if columns %} · ресурс устунлари: ном {{ columns.res_name }}, бирлик {{ columns.res_unit }}, нарх {{ columns.res_price }}{% endif %}</span>
-    <span class="ml-auto inline-flex items-center gap-1 text-xs text-slate-400">ўзгартириш учун очинг {% icon "chevron-down" "h-3.5 w-3.5" %}</span>
+    <span class="inline-flex items-center gap-1 text-xs text-slate-400">ўзгартириш учун очинг {% icon "chevron-down" "h-3.5 w-3.5" %}</span>
     {% endif %}
   </summary>
   <form method="post" action="{% url 'job_run' job.id %}" data-busy
@@ -210,116 +123,316 @@
     {% endif %}
   </form>
 </details>
+{% else %}
 
-{% if job.status == "done" %}
-{% if warnings %}
-<div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-  {% for w in warnings %}<div class="flex items-start gap-2">{% icon "alert" "mt-0.5 h-4 w-4 shrink-0 text-amber-600" %}<span>{{ w }}</span></div>{% endfor %}
+{# ================= босқичлар (таблар): доим тепада, бирини босиш — ўша босқич очилади ================= #}
+<nav id="tabs" class="sticky top-0 z-30 -mx-4 mb-4 border-b border-slate-200 bg-slate-50/95 px-4 pt-1 backdrop-blur lg:-mx-6 lg:px-6" aria-label="Босқичлар">
+  <div class="flex gap-1 overflow-x-auto" role="tablist">
+    {% for st in stages %}
+    <button type="button" role="tab" data-tab-btn="{{ st.n }}"
+            class="tab-btn group flex min-w-0 shrink-0 items-center gap-2.5 border-b-2 border-transparent px-3 py-2.5 text-left text-sm">
+      <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold
+          {% if st.state == 'done' %}bg-emerald-600 text-white{% elif st.state == 'current' %}bg-slate-900 text-white{% else %}bg-slate-200 text-slate-500{% endif %}">
+        {% if st.state == 'done' %}{% icon "check" "h-3.5 w-3.5" "3" %}{% else %}{{ st.n }}{% endif %}</span>
+      <span class="min-w-0"><span class="block font-medium">{{ st.title }}</span>
+        <span class="block text-xs {% if st.state == 'done' %}text-emerald-700{% elif st.state == 'current' %}text-slate-600{% else %}text-slate-400{% endif %}">{{ st.note }}</span></span>
+    </button>
+    {% if not forloop.last %}<span class="self-center text-slate-300" aria-hidden="true">{% icon "chevron-right" "h-4 w-4" %}</span>{% endif %}
+    {% empty %}
+    <button type="button" role="tab" data-tab-btn="2" class="tab-btn shrink-0 border-b-2 border-transparent px-3 py-2.5 text-sm font-medium">Жадвал</button>
+    <button type="button" role="tab" data-tab-btn="3" class="tab-btn shrink-0 border-b-2 border-transparent px-3 py-2.5 text-sm font-medium">Сводка</button>
+    {% endfor %}
+    <button type="button" role="tab" data-tab-btn="more"
+            class="tab-btn ml-auto flex shrink-0 items-center gap-2 border-b-2 border-transparent px-3 py-2.5 text-sm text-slate-600">
+      {% icon "chart" "h-4 w-4 text-slate-400" %} Қўшимча <span class="hidden text-xs text-slate-400 xl:inline">статистика · муаммолар · созламалар</span></button>
+  </div>
+</nav>
+
+{# ---------------- 1-босқич ---------------- #}
+<div data-tab="1" class="tab-panel hidden" id="t-1">
+{% if nf %}
+{% with nf_pending=nf.pending %}
+<section id="stage-nf" class="scroll-mt-20 mb-5 overflow-hidden rounded-xl border {% if nf_pending %}border-rose-300{% else %}border-emerald-200{% endif %} bg-white shadow-sm">
+  <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 {% if nf_pending %}bg-rose-50{% else %}bg-emerald-50{% endif %}">
+    <span class="rounded-md {% if nf_pending %}bg-rose-600{% else %}bg-emerald-600{% endif %} px-2 py-0.5 text-xs font-semibold text-white">1-босқич</span>
+    <h2 class="font-semibold">Топилмаганлар</h2>
+    {% if nf_pending %}
+    <span class="text-sm text-slate-600"><b class="num text-rose-700">{{ nf_pending }}</b> та қатор нархланмаган («ТОПИЛМАДИ», «ТЕКШИРИНГ» …) — яқин нархни қўйинг ёки ёзувни олиб ташланг.</span>
+    {% else %}
+    <span class="inline-flex items-center gap-1.5 text-sm text-emerald-800">{% icon "check-circle" "h-4 w-4" %} «ТОПИЛМАДИ» / «ТЕКШИРИНГ» ёзуви қолмади.</span>
+    <button type="button" data-goto="2" class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">2-босқичга ўтиш →</button>
+    {% endif %}
+  </div>
+
+  {% if nf_pending %}
+  <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2.5">
+    <span class="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Кўрсатиш</span>
+    <button type="button" class="chip nf-pick is-active" data-kind="all">Ҳаммаси <span class="num cnt">{{ nf_pending }}</span></button>
+    <button type="button" class="chip nf-pick" data-kind="unit" {% if not nf.with_unit %}disabled{% endif %}
+            title="Ресурс, лекин RES'да йўқ: сўз олинади, G қизил қолади — нархни кейин киритасиз">
+      <span class="dot bg-rose-500"></span>Бирлиги бор (ресурс) <span class="num cnt">{{ nf.with_unit|length }}</span></button>
+    <button type="button" class="chip nf-pick" data-kind="nounit" {% if not nf.no_unit %}disabled{% endif %}
+            title="Одатда бўлим номлари: G ва H бутунлай бўш бўлади">
+      <span class="dot bg-slate-400"></span>Бирлиги йўқ (бўлим номлари) <span class="num cnt">{{ nf.no_unit|length }}</span></button>
+    <span class="mx-1 h-5 w-px bg-slate-200" aria-hidden="true"></span>
+    <span class="text-sm text-slate-600"><b id="nf-count" class="num">0</b> та белгиланди</span>
+    <button type="button" id="nf-near-bulk" class="rounded-lg bg-amber-300 px-3 py-1.5 text-sm font-semibold text-amber-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40" disabled
+            title="Белгиланганлар ичида яқин ресурси борларига нархини қўйиш">Яқин нархни қўйиш <span id="nf-near-n" class="num"></span></button>
+    <button type="button" id="nf-clear" class="rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40" disabled title="G даги «ТОПИЛМАДИ» / «ТЕКШИРИНГ» ёзувини олиб ташлаш">Ёзувни олиб ташлаш</button>
+    <span id="nf-status" class="text-xs text-slate-500"></span>
+  </div>
+  <p id="nf-hint" class="border-b border-slate-100 bg-slate-50 px-4 py-1.5 text-xs text-slate-600">
+    Турини танланг — ўша қаторлар белгиланади. Кераксизини белгидан чиқаринг. Олиб ташлангач: <b class="text-rose-700">бирлиги борида</b> G бўш ва қизил қолади (нарх кутади),
+    <b>бирлиги йўғида</b> G ва H бутунлай бўш бўлади. Ресурсда ўхшаши бўлса — <b class="text-amber-700">«нархни қўйиш»</b>: нарх RES дан айнан кўчирилади, <b>миқдор эса локал сметадан</b> (F, бўш бўлса E) — ресурсдаги миқдор олинмайди. Қатор сметада қаерда эканини <b>↗</b> билан кўринг.</p>
+  <div class="max-h-[60vh] overflow-auto">
+    <table class="nf-table w-full text-sm">
+      <thead class="sticky top-0 z-10 bg-slate-100 text-xs text-slate-600"><tr>
+        <th class="w-9 px-3 py-2"><input type="checkbox" id="nf-all" class="h-4 w-4 accent-rose-600" title="Кўринганларнинг ҳаммаси"></th>
+        <th class="w-16 px-2 py-2 text-right" title="Excel'даги қатор рақами">Қатор</th>
+        <th class="w-16 px-2 py-2 text-left">№ п.п.</th>
+        <th class="w-40 px-2 py-2 text-left">Шифр / код</th>
+        <th class="px-2 py-2 text-left">Наименование работ и затрат <span class="font-normal text-slate-400">· сметадаги ўрни</span></th>
+        <th class="w-20 px-2 py-2 text-left">Ед. изм.</th>
+        <th class="w-24 px-2 py-2 text-right" title="Локал сметанинг E устуни">Кол-во<br><span class="font-normal">на ед.</span><br><span class="font-normal text-slate-400">локал · E</span></th>
+        <th class="w-28 px-2 py-2 text-right" title="Локал сметанинг F устуни — H формуласи шуни олади (бўш бўлса E)">Кол-во<br><span class="font-normal">по проекту</span><br><span class="font-normal text-slate-400">локал · F</span></th>
+        <th class="w-32 px-2 py-2 text-left">Тури</th>
+        <th class="min-w-[260px] px-2 py-2 text-left">Яқин ресурс (RES) <span class="font-normal text-slate-400">· нархи ресурсдан айнан олинади</span></th>
+        <th class="w-36 px-2 py-2 text-left" title="Шу қаторни жадвалда ёки файлнинг ўзида (Excel кўринишида) очиш">Кўриш</th>
+      </tr></thead>
+      <tbody>
+      {% for r in nf.rows %}
+      <tr class="nf-row border-t border-slate-100 align-top hover:bg-slate-50" data-kind="{{ r.nf_kind }}" data-row="{{ r.row }}"{% if r.near %} data-near="1"{% endif %}>
+        <td class="px-3 py-1.5"><input type="checkbox" class="nf-check h-4 w-4 accent-rose-600" value="{{ r.row }}"></td>
+        <td class="num px-2 py-1.5 text-right text-slate-500">{{ r.row }}</td>
+        <td class="num px-2 py-1.5 text-slate-700">{{ r.num|default_if_none:"" }}</td>
+        <td class="px-2 py-1.5 text-xs text-slate-700">{{ r.code|default_if_none:"" }}</td>
+        <td class="px-2 py-1.5">
+          <div class="{% if r.is_heading %}font-semibold{% endif %}">{{ r.name }}</div>
+          {% if r.is_heading %}<div class="mt-0.5 text-xs text-slate-500">
+            {% if r.ctx_count %}остида <b class="num">{{ r.ctx_count }}</b> та қатор{% if r.ctx_first %}: {{ r.ctx_first|truncatechars:80 }}{% endif %}{% else %}остида қатор йўқ — кейингиси ҳам сарлавҳа{% endif %}
+          </div>
+          {% elif r.ctx_section or r.ctx_work %}<div class="mt-0.5 text-xs text-slate-500">
+            {% if r.ctx_section %}<span title="Бўлим">{% icon "folder" "inline h-3 w-3 text-slate-400" %} {{ r.ctx_section|truncatechars:70 }}</span>{% endif %}
+            {% if r.ctx_work %}<span class="ml-1" title="Иш (норматив) — бу ресурс шу иш таркибида">› {{ r.ctx_work|truncatechars:90 }}</span>{% endif %}
+          </div>{% endif %}
+        </td>
+        <td class="px-2 py-1.5">{% if r.nf_kind == 'nounit' %}<span class="text-slate-300" {% if r.unit %}title="Бирлик катагида номнинг ўзи (C:D бирлаштирилган)"{% endif %}>—</span>{% else %}{{ r.unit }}{% endif %}</td>
+        <td class="num px-2 py-1.5 text-right">{{ r.qty_unit|qty }}</td>
+        <td class="num px-2 py-1.5 text-right font-medium">{{ r.qty_total|qty }}</td>
+        <td class="px-2 py-1.5">{% if r.nf_kind == 'unit' %}<span class="rounded bg-rose-100 px-1.5 py-0.5 text-xs font-medium text-rose-800" title="Excel'да G: {{ r.g }}">{% if r.status == 'FUZZY' %}ўхшаш · текширинг{% elif r.status == 'AMBIGUOUS' %}2 та номзод{% elif r.status == 'UNIT_MISMATCH' %}бирлик бошқа{% elif r.status == 'NO_PRICE' %}ресурсда нарх йўқ{% else %}топилмади{% endif %}</span>
+          {% elif r.is_heading %}<span class="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">бўлим номи</span>
+          {% else %}<span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800" title="№ ва шифр бор, лекин бирлик катагида номнинг ўзи — Excel'да текширинг">иш · бирлиги йўқ</span>{% endif %}</td>
+        <td class="px-2 py-1.5">
+          {% if r.near %}
+          <div class="flex items-start gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="text-xs leading-snug text-slate-800" title="{{ r.near.name }}">{{ r.near.name|truncatechars:70 }}</div>
+              <div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">
+                <span class="{% if r.near.same_unit %}text-slate-500{% else %}font-semibold text-amber-700{% endif %}" {% if not r.near.same_unit %}title="Бирлик бошқа — нарх бошқа бирлик учун"{% endif %}>{{ r.near.unit }}{% if not r.near.same_unit %} ≠ {{ r.unit }}{% endif %}</span>
+                <span class="num font-semibold text-slate-900">{{ r.near.price|som }}</span>
+                <span class="rounded px-1 {% if r.near.score >= 0.8 %}bg-emerald-100 text-emerald-800{% elif r.near.score >= 0.65 %}bg-amber-100 text-amber-800{% else %}bg-slate-100 text-slate-600{% endif %}" title="Номлар ўхшашлиги">{% widthratio r.near.score 1 100 %}%</span>
+              </div>
+              {% if r.near_sum is not None %}<div class="mt-0.5 text-xs text-slate-500" title="H = миқдор (локал сметадан, {{ r.qty_col }} устуни) × нарх (RES дан). Ресурсдаги миқдор олинмайди.">
+                H: <span class="num">{{ r.qty|qty }}</span> <span class="text-slate-400">(локал {{ r.qty_col }})</span> × <span class="num">{{ r.near.price|som }}</span> <span class="text-slate-400">(RES)</span> = <span class="num font-semibold text-slate-800">{{ r.near_sum|som }}</span>
+                {% if not r.near.same_unit %}<span class="font-semibold text-amber-700" title="Локал миқдор «{{ r.unit }}» да, RES нархи «{{ r.near.unit }}» учун">· бирлик мос эмас</span>{% endif %}
+              </div>{% endif %}
+            </div>
+            <button type="button" class="nf-near-accept shrink-0 rounded-md bg-amber-300 px-2 py-1 text-xs font-semibold text-amber-950 hover:bg-amber-400" data-row="{{ r.row }}"
+                    title="G га шу нархни ёзиш: {{ r.near.price|som }} (ресурсдан айнан)">нархни қўйиш</button>
+          </div>
+          {% elif r.nf_kind == 'unit' %}<span class="text-xs text-slate-400">ресурсда ўхшаши йўқ — нархни қўлда</span>
+          {% else %}<span class="text-xs text-slate-300">—</span>{% endif %}
+        </td>
+        <td class="px-2 py-1.5">
+          <div class="grid grid-cols-2 gap-1 text-xs">
+            <button type="button" class="nf-goto nf-look" data-row="{{ r.row }}" title="Жадвалда (2-босқич) шу қаторни кўрсатиш — нарх ва устун билан ишлаш">Жадвал</button>
+            <button type="button" class="nf-file nf-look" data-view="xl_local" data-row="{{ r.row }}" title="Юкланган локал файлда {{ r.row }}-қатор">Локал</button>
+            <button type="button" class="nf-file nf-look" data-view="xl_out" data-row="{{ r.row }}" title="Нархланган смета (натижа) файлида {{ r.row }}-қатор">Натижа</button>
+            {% if r.near %}<button type="button" class="nf-file nf-look nf-look-res" data-view="xl_res" data-row="{% firstof r.near.res_row r.res_row %}" data-find="{{ r.near.name }}"
+                    title="Ресурс файлида таклиф қилинган ресурс: {{ r.near.name }}">Ресурс</button>{% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if nf.cleared %}
+  <details class="border-t border-slate-100 text-sm">
+    <summary class="cursor-pointer select-none px-4 py-2 text-slate-600 hover:bg-slate-50">Олиб ташланганлар: <b class="num">{{ nf.cleared|length }}</b> та қатор — қайтариш мумкин</summary>
+    <div class="max-h-72 overflow-auto border-t border-slate-100">
+      <table class="w-full text-sm">
+        {% for r in nf.cleared %}<tr class="border-t border-slate-100 first:border-0">
+          <td class="w-10 px-3 py-1"><input type="checkbox" class="nf-restore-check h-4 w-4" value="{{ r.row }}"></td>
+          <td class="num w-16 px-2 py-1 text-slate-500">{{ r.row }}</td><td class="px-2 py-1">{{ r.name }}</td>
+          <td class="px-2 py-1 text-xs {% if r.status == 'CLEARED' %}text-slate-500{% else %}text-rose-700{% endif %}">{% if r.status == 'CLEARED' %}бўш (бирлиги йўқ){% else %}қизил · {{ r.unit }}{% endif %}</td></tr>{% endfor %}
+      </table>
+    </div>
+    <div class="flex items-center gap-2 border-t border-slate-100 px-4 py-2">
+      <button type="button" id="nf-restore" class="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-100 disabled:opacity-50" disabled>Ёзувни қайтариш</button>
+      <span class="text-xs text-slate-500">белгиланганларга</span>
+    </div>
+  </details>
+  {% endif %}
+</section>
+<script>
+  (function () {
+    var URL = "{% url 'job_not_found' job.id %}";
+    var all = document.getElementById("nf-all"), cnt = document.getElementById("nf-count"), st = document.getElementById("nf-status");
+    var nfRows = Array.prototype.slice.call(document.querySelectorAll(".nf-row"));
+    function visible() { return nfRows.filter(function (tr) { return tr.style.display !== "none"; }); }
+    function checked() {
+      return visible().map(function (tr) { return tr.querySelector(".nf-check"); }).filter(function (c) { return c.checked; });
+    }
+    function update() {
+      var vis = visible(), n = checked().length;
+      if (cnt) cnt.textContent = n;
+      if (all) { all.checked = vis.length > 0 && n === vis.length; all.indeterminate = n > 0 && n < vis.length; }
+      var btn = document.getElementById("nf-clear");
+      if (btn) btn.disabled = n === 0;
+      var nearN = checked().filter(function (c) { return c.closest("tr").dataset.near; }).length;
+      var nb = document.getElementById("nf-near-bulk");
+      if (nb) { nb.disabled = nearN === 0; document.getElementById("nf-near-n").textContent = nearN ? "(" + nearN + ")" : ""; }
+      nfRows.forEach(function (tr) { tr.classList.toggle("bg-rose-50", tr.querySelector(".nf-check").checked && tr.style.display !== "none"); });
+    }
+    // тур танланса — фақат ўша турдагилар кўринади ва ҳаммаси белгиланади; «Ҳаммаси» — белгилар тозаланади
+    document.querySelectorAll(".nf-pick").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var kind = b.dataset.kind;
+        document.querySelectorAll(".nf-pick").forEach(function (x) { x.classList.toggle("is-active", x === b); });
+        nfRows.forEach(function (tr) {
+          var on = kind === "all" || tr.dataset.kind === kind;
+          tr.style.display = on ? "" : "none";
+          tr.querySelector(".nf-check").checked = on && kind !== "all";
+        });
+        if (st) st.textContent = "";
+        update();
+      });
+    });
+    if (all) all.addEventListener("change", function () {
+      visible().forEach(function (tr) { tr.querySelector(".nf-check").checked = all.checked; });
+      update();
+    });
+    nfRows.forEach(function (tr) {
+      tr.querySelector(".nf-check").addEventListener("change", update);
+      // қаторнинг исталган жойини босиш — белгилаш (↗ ва белги катагидан ташқари)
+      tr.addEventListener("click", function (e) {
+        if (e.target.closest("input, button, a")) return;
+        var c = tr.querySelector(".nf-check"); c.checked = !c.checked; update();
+      });
+    });
+    document.querySelectorAll(".nf-goto").forEach(function (b) {
+      b.addEventListener("click", function () { if (window.narxGoToRow) window.narxGoToRow(b.dataset.row); });
+    });
+    // файлнинг ўзида: локал / натижа — шу қатор; ресурс — таклиф қилинган ресурс қатори (бўлмаса номи бўйича излаш)
+    document.querySelectorAll(".nf-file").forEach(function (b) {
+      b.addEventListener("click", function () {
+        if (!window.narxOpenFile) return;
+        var opts = {row: b.dataset.row || null};
+        if (b.dataset.find !== undefined) opts.find = b.dataset.find;
+        window.narxOpenFile(b.dataset.view, opts);
+      });
+    });
+    update();
+
+    function send(action, rows, btn) {
+      btn.disabled = true;
+      if (st) st.textContent = "сақланяпти, қайта ҳисобланяпти…";
+      fetch(URL, {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value},
+        body: JSON.stringify({action: action, rows: rows}),
+      }).then(function (r) {
+        return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; });
+      }).then(function (d) {
+        if (!d.ok) throw new Error(d.error || "хато");
+        location.reload();
+      }).catch(function (e) { btn.disabled = false; alert("Хато: " + e.message); });
+    }
+    // яқин ресурс нархини қабул қилиш: нарх RES дан айнан ёзилади (қўлда нарх сифатида сақланади)
+    var PRICE_URL = "{% url 'job_prices' job.id %}";
+    function acceptNear(rows, btn) {
+      if (!rows.length) return;
+      btn.disabled = true;
+      if (st) st.textContent = "нарх қўйиляпти, қайта ҳисобланяпти…";
+      fetch(PRICE_URL, {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value},
+        body: JSON.stringify({action: "accept", rows: rows}),
+      }).then(function (r) {
+        return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; });
+      }).then(function (d) {
+        if (!d.ok) throw new Error(d.error || "хато");
+        location.reload();
+      }).catch(function (e) { btn.disabled = false; alert("Хато: " + e.message); });
+    }
+    document.querySelectorAll(".nf-near-accept").forEach(function (b) {
+      b.addEventListener("click", function () { acceptNear([Number(b.dataset.row)], b); });
+    });
+    var nearBulk = document.getElementById("nf-near-bulk");
+    if (nearBulk) nearBulk.addEventListener("click", function () {
+      acceptNear(checked().filter(function (c) { return c.closest("tr").dataset.near; }).map(function (c) { return Number(c.value); }), nearBulk);
+    });
+
+    var clearBtn = document.getElementById("nf-clear");
+    if (clearBtn) clearBtn.addEventListener("click", function () {
+      send("clear", checked().map(function (c) { return Number(c.value); }), clearBtn);
+    });
+    var restoreBtn = document.getElementById("nf-restore");
+    var restoreChecks = document.querySelectorAll(".nf-restore-check");
+    restoreChecks.forEach(function (c) {
+      c.addEventListener("change", function () {
+        restoreBtn.disabled = !Array.prototype.some.call(restoreChecks, function (x) { return x.checked; });
+      });
+    });
+    if (restoreBtn) restoreBtn.addEventListener("click", function () {
+      send("restore", Array.prototype.filter.call(restoreChecks, function (c) { return c.checked; }).map(function (c) { return Number(c.value); }), restoreBtn);
+    });
+  })();
+</script>
+{% endwith %}
+{% endif %}
 </div>
+
+{# ---------------- 2-босқич: L/M ва жадвал ---------------- #}
+<div data-tab="2" class="tab-panel hidden" id="t-2">
+{% if lm %}
+{% if not stages.0.state == "done" %}<p class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">Аввал 1-босқични тугатиш тавсия этилади — нархланмаган қаторлар ҳали бор.</p>{% endif %}
+<section id="stage-table" class="scroll-mt-20 mb-4 rounded-xl border {% if job.table_checked %}border-emerald-200{% else %}border-fuchsia-300{% endif %} bg-white shadow-sm">
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
+    <span class="rounded-md {% if job.table_checked %}bg-emerald-600{% else %}bg-fuchsia-700{% endif %} px-2 py-0.5 text-xs font-semibold text-white">2-босқич</span>
+    <h2 class="font-semibold">L / M устунлар</h2>
+    {% for c in lm.cards %}
+    <div class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 py-1 pl-2 pr-1 text-sm"
+         title="{% for r in c.rows|slice:':8' %}{{ r.name }}&#10;{% endfor %}{% if c.rows|length > 8 %}…{% endif %}">
+      <span class="rounded px-1.5 text-xs font-bold {{ c.col|cat_class }}">{{ c.col }}</span>
+      <span class="font-medium">{{ c.label }}</span>
+      {% if c.rows %}
+      <span class="text-slate-600"><b class="num text-fuchsia-700">{{ c.rows|length }}</b> та таклиф · <span class="num">{{ c.sum|som }}</span></span>
+      <button type="button" class="lm-review rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium hover:bg-slate-100" data-col="{{ c.col }}" data-label="{{ c.col }} га ўтказиладиганлар">Кўриб чиқиш</button>
+      <button type="button" class="sugg-xl rounded-md border border-fuchsia-300 bg-white px-2.5 py-1 text-xs font-medium text-fuchsia-800 hover:bg-fuchsia-50" data-to="{{ c.col }}"
+              title="Нархланган смета (Excel кўриниши)да таклиф қилинган қаторларни бирма-бир кўрсатиш">Натижада кўриш</button>
+      <button type="button" class="lm-move rounded-md bg-fuchsia-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-fuchsia-800 disabled:opacity-50" data-col="{{ c.col }}" data-rows="{% for r in c.rows %}{{ r.row }}{% if not forloop.last %},{% endif %}{% endfor %}">Ҳаммасини {{ c.col }} га</button>
+      {% else %}
+      <span class="inline-flex items-center gap-1 pr-2 text-emerald-700">{% icon "check" "h-3.5 w-3.5" %} таклиф йўқ <span class="text-slate-400">· устунда {{ c.done }}</span></span>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% if job.table_checked %}
+    <span class="inline-flex items-center gap-1.5 text-sm text-emerald-800">{% icon "check-circle" "h-4 w-4" %} текширилди</span>
+    <form method="post" action="{% url 'job_table_checked' job.id %}">{% csrf_token %}<input type="hidden" name="done" value="0">
+      <button type="submit" class="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs hover:bg-slate-100">қайта очиш</button></form>
+    {% else %}
+    <span class="text-xs text-slate-500">«Кўриб чиқиш» — жадвалда белгиланади, пастки панелдан ўтказасиз.</span>
+    {% endif %}
+  </div>
+</section>
 {% endif %}
 
-{# ---- статистика ---- #}
-<div id="stats" class="scroll-mt-4 grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 mb-6">
-  {% for key, label, count, color in stats %}
-  <button type="button" data-filter="{{ key }}" {% if not count %}disabled{% endif %} title="Жадвалда фақат шу қаторларни кўрсатиш"
-          class="stat-card text-left bg-white rounded-xl border border-slate-200 p-4 shadow-sm enabled:hover:border-slate-400 disabled:cursor-default">
-    <div class="text-xs text-slate-500">{{ label }}</div>
-    <div class="text-2xl font-semibold num {% if count %}text-{{ color }}-600{% else %}text-slate-300{% endif %}">{{ count }}</div>
-  </button>
-  {% endfor %}
-</div>
-
-<div class="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] mb-8">
-  {# ---- сводка ---- #}
-  <section id="svodka" class="scroll-mt-4 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-    <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-baseline">
-      <h2 class="font-semibold">Сводка</h2>
-      <span class="text-sm">Всего с НДС: <b class="num {% if s_nds|is_error %}text-rose-600{% endif %}">{{ s_nds|som }}</b></span>
-    </div>
-    <form method="post" action="{% url 'job_run' job.id %}" data-busy>
-    {% csrf_token %}
-    <input type="hidden" name="local_sheet" value="{{ job.local_sheet }}">
-    <input type="hidden" name="res_sheet" value="{{ job.res_sheet }}">
-    <input type="hidden" name="fuzzy" value="{{ job.fuzzy }}">
-    <input type="hidden" name="mode" value="{{ job.mode }}">
-    <table class="w-full text-sm">
-      {% for s in svodka %}
-      <tr class="border-t border-slate-100 {% if forloop.last %}bg-slate-50 font-semibold{% endif %}">
-        <td class="px-4 py-1.5">{{ s.text }}</td>
-        <td class="px-2 py-1 text-right text-slate-500 num">
-          {% if s.pct is not None and result_mode == "smart" %}
-          <span class="inline-flex items-center gap-1">
-            <input type="text" inputmode="decimal" name="pct_{{ s.key }}" value="{{ s.pct|pct_input }}"
-                   class="w-16 rounded border px-1.5 py-0.5 text-right num {% if s.pct != s.default %}border-amber-400 bg-amber-50 text-amber-900{% else %}border-slate-300{% endif %}"
-                   title="Стандарт: {{ s.default|pct }}">%</span>
-          {% else %}{{ s.pct|pct }}{% endif %}
-        </td>
-        <td class="px-4 py-1.5 text-right num {% if s.value|is_error %}text-rose-600{% endif %}">{{ s.value|som }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-    {% if result_mode == "smart" %}
-    <div class="flex flex-wrap items-center gap-2 px-4 py-3 border-t border-slate-100">
-      <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60">
-        <span class="when-idle">Фоизлар билан қайта ҳисоблаш</span><span class="when-busy">Ҳисобланяпти…</span>
-      </button>
-      {% if percents_changed %}
-      <button type="submit" name="reset_percents" value="1" class="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100">Стандарт фоизлар</button>
-      {% endif %}
-      <span class="text-xs text-slate-500">Excel'да ҳам D устунидаги фоизни ўзгартирсангиз, сумма ўзи қайта ҳисобланади.</span>
-    </div>
-    {% else %}
-    <p class="px-4 py-3 border-t border-slate-100 text-xs text-slate-500">Фоизларни ўзгартириш учун Smart режимда нархланг.</p>
-    {% endif %}
-    </form>
-    {% if has_errors %}
-    <div class="m-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
-      Excel'да ҳам <b>#ЗНАЧ!</b> чиқади: G устунида рақам бўлмаган қийматлар бор (масалан «--», «ТОПИЛМАДИ»).
-      Улар пастдаги жадвалда қизил. Бу эски дастур билан бир хил натижа (compat режими) — <b>Smart</b> режимда қайта нархланг.
-    </div>
-    {% elif result_mode == "smart" and problems %}
-    <div class="m-4 rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-900">
-      <b>{{ problems|length }} та қатор нархланмади</b> — сумма тўлиқ эмас. Бу қаторлар Excel'да G устунида
-      қизил: нархни ўзингиз киритинг, H ва сводка ўзи қайта ҳисобланади, қизил ранг йўқолади.
-    </div>
-    {% endif %}
-  </section>
-
-  {# ---- муаммолар ---- #}
-  <section id="problems" class="scroll-mt-4 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-    <div class="px-4 py-3 border-b border-slate-100">
-      <h2 class="font-semibold">Муаммоли қаторлар <span class="text-slate-400 font-normal">({{ problems|length }})</span></h2>
-      <p class="text-xs text-slate-500">{% if result_mode == "smart" %}аниқ мос келмади — нарх ёзилмади, қўлда киритинг. «Таклиф» фақат маълумот учун{% else %}G устунида рақам эмас — H формуласи хато беради{% endif %}</p>
-    </div>
-    {% if problems %}
-    <div class="max-h-80 overflow-auto">
-    <table class="w-full text-sm">
-      <thead class="bg-slate-50 text-slate-500 text-xs sticky top-0"><tr>
-        <th class="px-3 py-2 text-left">№</th><th class="px-3 py-2 text-left">Ном</th><th class="px-3 py-2 text-left">Бирлик</th>
-        <th class="px-3 py-2 text-left">Статус</th><th class="px-3 py-2 text-right">G</th>
-        {% if result_mode == "smart" %}<th class="px-3 py-2 text-right">Таклиф</th>{% endif %}
-      </tr></thead>
-      {% for p in problems %}
-      <tr class="border-t border-slate-100">
-        <td class="px-3 py-1.5 num text-slate-500">{{ p.row }}</td>
-        <td class="px-3 py-1.5">{{ p.name }}{% if p.picked_name %}<div class="text-xs text-slate-400">ресурсда: {{ p.picked_name }}</div>{% endif %}{% if p.note %}<div class="text-xs text-amber-700">{{ p.note }}</div>{% endif %}</td>
-        <td class="px-3 py-1.5 text-slate-500">{% if p.unit != "None" %}{{ p.unit }}{% endif %}</td>
-        <td class="px-3 py-1.5 text-xs">{{ p.status }}</td>
-        <td class="px-3 py-1.5 text-right text-rose-600">{{ p.written|som }}</td>
-        {% if result_mode == "smart" %}<td class="px-3 py-1.5 text-right num text-slate-400">{{ p.suggested_price|som }}</td>{% endif %}
-      </tr>
-      {% endfor %}
-    </table>
-    </div>
-    {% else %}
-    <p class="flex items-center gap-2 px-4 py-6 text-sm text-emerald-700">{% icon "check-circle" %} Ҳамма қаторларда нарх рақам</p>
-    {% endif %}
-  </section>
-</div>
-
-{# ---- устун таклифлари ---- #}
 {% if result_mode == "smart" and category_suggestions %}
-<section id="cat-suggest" class="scroll-mt-4 mb-6 rounded-xl border border-fuchsia-200 bg-fuchsia-50 p-4 shadow-sm">
+<section id="cat-suggest" class="scroll-mt-20 mb-6 rounded-xl border border-fuchsia-200 bg-fuchsia-50 p-4 shadow-sm">
   <div class="flex flex-wrap items-baseline gap-x-3">
     <h2 class="font-semibold text-fuchsia-950">Устун таклифлари</h2>
     <span class="text-xs text-fuchsia-900/70">Дастур ўзи ҳеч нарсани кўчирмайди. «Кўриб чиқиш» — қаторлар жадвалда белгиланади:
@@ -332,57 +445,581 @@
       <span class="inline-flex items-center gap-1.5"><b>{{ s.count }} та қатор</b> {% icon "arrow-right" "h-3.5 w-3.5 text-slate-400" %} {{ s.label }} бўлиши мумкин</span>
       <span class="text-xs text-slate-500">{{ s.reasons|join:" · " }}</span>
       <button type="button" data-review="{{ s.cat }}" data-label="Таклиф: {{ s.cat }} · {{ s.label }}"
-              class="ml-auto rounded-lg bg-fuchsia-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-fuchsia-800">Кўриб чиқиш</button>
+              class="rounded-lg bg-fuchsia-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-fuchsia-800">Кўриб чиқиш</button>
+      <button type="button" class="sugg-xl rounded-lg border border-fuchsia-300 bg-white px-3 py-1.5 text-sm font-medium text-fuchsia-800 hover:bg-fuchsia-50" data-to="{{ s.cat }}"
+              title="Нархланган смета (Excel кўриниши)да таклиф қилинган қаторларни бирма-бир кўрсатиш">Натижада кўриш</button>
     </div>
     {% endfor %}
   </div>
 </section>
 {% endif %}
 
-{# ---- ҳамма қаторлар: Excel кўринишида ---- #}
-<section id="rows-section" class="scroll-mt-4 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-  <div class="px-4 py-3 border-b border-slate-200 space-y-2">
-    <div class="flex flex-wrap gap-x-4 items-baseline">
-      <h2 class="font-semibold">Нархланган қаторлар</h2>
-      {% if res_groups %}
-      <span class="inline-flex overflow-hidden rounded-md border border-slate-300 text-xs">
-        <a href="?view=res#rows-section" class="px-2 py-1 {% if view == 'res' %}bg-slate-900 text-white{% else %}hover:bg-slate-100{% endif %}">Ресурс бўлимлари бўйича</a>
-        <a href="?view=local#rows-section" class="border-l border-slate-300 px-2 py-1 {% if view == 'local' %}bg-slate-900 text-white{% else %}hover:bg-slate-100{% endif %}">Локал тартибида (Excel)</a>
+{# ---- жадвал: Excel кўринишида ---- #}
+<section id="rows-section" class="scroll-mt-20 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="space-y-2.5 border-b border-slate-200 px-4 py-3">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <h2 class="font-semibold">Жадвал</h2>
+      <span class="js-grid text-xs text-slate-500 {% if xl_file %}hidden{% endif %}"><span id="row-visible" class="num font-medium text-slate-700"></span> та қатор кўриняпти</span>
+      <span class="inline-flex overflow-hidden rounded-lg border border-slate-300 text-sm" role="group" aria-label="Қаторлар тартиби">
+        {% if res_groups %}
+        <a href="?view=res#t-2" data-view="res" title="Ресурс (нархлар) файлидаги бўлимлар бўйича гуруҳлаш"
+           class="view-btn px-3 py-1.5 {% if view == 'res' %}is-on{% endif %}">Ресурс бўлимлари</a>
+        {% endif %}
+        <a href="?view=local#t-2" data-view="local" title="Сметадаги асл тартиб — нарх ва устунлар билан ишлаш"
+           class="view-btn {% if res_groups %}border-l border-slate-300 {% endif %}px-3 py-1.5 {% if view == 'local' %}is-on{% endif %}">Смета тартиби</a>
       </span>
-      {% endif %}
-      <span id="row-filter" class="hidden text-xs">фильтр: <b id="row-filter-name"></b>
-        <button type="button" id="row-filter-reset" class="ml-1 rounded border border-slate-300 px-1.5 hover:bg-slate-100">барчаси</button></span>
-      <span class="text-xs text-slate-500">Сумма (H) ўз устунига тушади: I иш ҳақи · J машина · K материал · L кабель · M ускуна</span>
-    </div>
-    <div class="flex flex-wrap items-center gap-1.5 text-xs">
-      <span class="text-slate-500 mr-1">Устун:</span>
-      {% for c, label, count in category_counts %}
-      <button type="button" data-filter="CAT_{{ c }}" data-label="Устун {{ c }} · {{ label }}" {% if not count %}disabled{% endif %}
-              class="cat-chip rounded-md px-2 py-1 font-medium {{ c|cat_class }} enabled:hover:ring-2 enabled:hover:ring-slate-300 disabled:opacity-40">
-        {{ c }} · {{ label }} <span class="num opacity-70">{{ count }}</span></button>
-      {% endfor %}
+      <span class="inline-flex overflow-hidden rounded-lg border border-emerald-300 text-sm" role="group" aria-label="Файл кўриниши">
+        <span class="flex items-center gap-1 bg-emerald-50 px-2 text-xs font-medium text-emerald-800" title="Файлнинг ўзи — Excel'даги каби: ҳамма устун ва қаторлар, бирлаштирилган катаклар, ранглар">{% icon "file" "h-3.5 w-3.5" %}Файл</span>
+        {% for v, label in xl_files %}
+        <a href="?view={{ v }}#t-2" data-view="{{ v }}"
+           class="view-btn view-xl border-l border-emerald-300 px-3 py-1.5 {% if view == v %}is-on{% endif %}">{{ label }}</a>
+        {% endfor %}
+      </span>
+      <label class="js-grid relative min-w-[220px] flex-1 sm:max-w-sm {% if xl_file %}hidden{% endif %}">
+        <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">{% icon "search" "h-4 w-4" %}</span>
+        <input type="search" id="row-search" placeholder="Номи бўйича излаш…" autocomplete="off"
+               class="w-full rounded-lg border border-slate-300 py-1.5 pl-8 pr-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+      </label>
       {% if result_mode == "smart" %}
-      <button type="button" data-filter="OVERRIDE" data-label="Қўлда ўзгартирилган" {% if not override_count %}disabled{% endif %}
-              class="cat-chip rounded-md border border-slate-300 px-2 py-1 enabled:hover:bg-slate-100 disabled:opacity-40"><span class="inline-flex items-center gap-1">{% icon "swap" "h-3.5 w-3.5" %} қўлда</span> <span class="num opacity-70">{{ override_count }}</span></button>
-      <details class="ml-auto relative">
-        <summary class="cursor-pointer select-none rounded-md border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50">Қандай танлайман?</summary>
-        <div class="absolute right-0 z-30 mt-1 w-80 rounded-lg border border-slate-200 bg-white p-3 text-slate-700 shadow-lg">
-          <ul class="space-y-1.5">
-            <li><b>Босиш</b> — қаторни белгилайди, яна босиш — олиб ташлайди. Узоқ жойлардагиларни ҳам бир-бир қўшиш мумкин.</li>
-            <li><b>Босиб туриб судраш</b> — оралиқни бирдан белгилайди (белгиланган қатордан бошласангиз — олиб ташлайди).</li>
-            <li><b>Shift + босиш</b> — охирги босилгандан шу қаторгача.</li>
-            <li><b>Ctrl + A</b> ёки сарлавҳадаги белги катаги — кўриниб турганларнинг ҳаммаси (аввал фильтр қўйсангиз, фақат ўшалар).</li>
-            <li><b>Esc</b> — белгиларни тозалаш. Белгилар фильтр алмашса ҳам сақланади.</li>
+      <details class="js-grid relative {% if xl_file %}hidden{% endif %}">
+        <summary class="flex cursor-pointer select-none items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100">{% icon "help" "h-4 w-4 text-slate-400" %} Қандай ишлайди?</summary>
+        <div class="absolute right-0 z-30 mt-1 w-96 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700 shadow-lg">
+          <p class="mb-2"><b>H</b> (Сумма) қайси турга тегишли бўлса, шу устунга ёзилади: <b>I</b> иш ҳақи · <b>J</b> машина · <b>K</b> материал · <b>L</b> кабель · <b>M</b> ускуна.</p>
+          <ul class="space-y-1">
+            <li><b>Босиш</b> — қаторни белгилаш / белгини олиш.</li>
+            <li><b>Босиб судраш</b> — бир нечта қаторни бирдан.</li>
+            <li><b>Shift + босиш</b> — оралиқни белгилаш.</li>
+            <li><b>Ctrl + A</b> — кўриниб турганларнинг ҳаммаси. <b>Esc</b> — тозалаш.</li>
+            <li>Белгилангач пастда панел чиқади: устунга ўтказиш ёки нарх бериш.</li>
           </ul>
         </div>
       </details>
-      {% else %}
-      <span class="ml-auto text-slate-500">Устунни ўзгартириш учун Smart режимда нархланг.</span>
       {% endif %}
+    </div>
+
+    <div class="js-grid flex flex-wrap items-center gap-1.5 {% if xl_file %}hidden{% endif %}" role="group" aria-label="Фильтр">
+      <span class="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Кўрсатиш</span>
+      <button type="button" data-filter="" data-label="" class="chip cat-chip">Ҳаммаси</button>
+      {% if result_mode == "smart" %}
+      <button type="button" data-filter="NOT_PRICED" data-label="Нархланмади" {% if not not_priced %}disabled{% endif %} class="chip cat-chip">
+        <span class="dot bg-rose-500"></span>Нархланмади <span class="num cnt">{{ not_priced }}</span></button>
+      <button type="button" data-filter="HAS_SUGG" data-label="Нарх таклифи бор" {% if not sugg_price_count %}disabled{% endif %} class="chip cat-chip">
+        <span class="dot bg-amber-400"></span>Нарх таклифи бор <span class="num cnt">{{ sugg_price_count }}</span></button>
+      <button type="button" data-filter="MANUAL" data-label="Қўлда нархланган" {% if not manual_count %}disabled{% endif %} class="chip cat-chip">
+        <span class="dot bg-sky-500"></span>Қўлда нархланган <span class="num cnt">{{ manual_count }}</span></button>
+      <button type="button" data-filter="SUGG_ANY" data-label="Устун таклифи" {% if not sugg_cat_count %}disabled{% endif %} class="chip cat-chip">
+        <span class="dot bg-fuchsia-500"></span>Устун таклифи <span class="num cnt">{{ sugg_cat_count }}</span></button>
+      <button type="button" data-filter="OVERRIDE" data-label="Қўлда ўтказилган устун" {% if not override_count %}disabled{% endif %} class="chip cat-chip">
+        {% icon "swap" "h-3.5 w-3.5" %}Қўлда ўтказилган <span class="num cnt">{{ override_count }}</span></button>
+      {% endif %}
+      <span class="mx-1.5 h-5 w-px bg-slate-200" aria-hidden="true"></span>
+      <span class="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Устун</span>
+      {% for c, label, count in category_counts %}
+      <button type="button" data-filter="CAT_{{ c }}" data-label="Устун {{ c }} · {{ label }}" {% if not count %}disabled{% endif %}
+              title="Фақат «{{ c }} · {{ label }}» устунидаги қаторлар" class="chip cat-chip">
+        <span class="rounded px-1 text-xs font-bold {{ c|cat_class }}">{{ c }}</span>{{ label }} <span class="num cnt">{{ count }}</span></button>
+      {% endfor %}
+      <span id="row-filter" class="hidden inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1 text-sm text-white">
+        <b id="row-filter-name"></b>
+        <button type="button" id="row-filter-reset" class="grid h-5 w-5 place-items-center rounded-full bg-white/20 hover:bg-white/30" title="Фильтрни олиб ташлаш">×</button></span>
     </div>
   </div>
 
-  <div id="grid-wrap" tabindex="0" class="xl-wrap max-h-[76vh] overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+  {{ sugg_marks|json_script:"sugg-marks" }}
+  {{ price_marks|json_script:"price-marks" }}
+  <div id="xl-view" class="{% if not xl_file %}hidden{% endif %}" data-url="{% url 'job_sheet' job.id %}"
+       data-view="{{ view }}" data-grid-view="{{ grid_view }}" data-sheet="{{ job.local_sheet }}">
+    <div id="xs-sugg-bar" class="hidden flex-wrap items-center gap-2 border-b border-fuchsia-200 bg-fuchsia-50 px-4 py-1.5 text-xs">
+      <span class="font-semibold text-fuchsia-950">Устун таклифлари:</span>
+      <span id="xs-sugg-chips" class="inline-flex flex-wrap gap-1"></span>
+      <span id="xs-sugg-info" class="min-w-0 flex-1 truncate text-fuchsia-900/80">тугмани босинг — кейинги таклиф қилинган қаторга ўтади</span>
+      <button type="button" id="xs-sugg-grid" class="rounded-md border border-fuchsia-300 bg-white px-2 py-0.5 font-medium text-fuchsia-800 hover:bg-fuchsia-100"
+              title="Жадвалда белгилаб, пастдаги панелдан ўтказиш">Ўтказиш учун жадвалга</button>
+    </div>
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-slate-50 px-4 py-2">
+      <label class="relative min-w-[240px] flex-1 sm:max-w-md">
+        <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">{% icon "search" "h-4 w-4" %}</span>
+        <input type="search" id="xs-q" placeholder="Файлда излаш: ном, шифр, рақам…" autocomplete="off"
+               class="w-full rounded-lg border border-slate-300 bg-white py-1.5 pl-8 pr-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200">
+      </label>
+      <span class="inline-flex items-center gap-1">
+        <button type="button" id="xs-prev" class="grid h-7 w-7 place-items-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40" title="Олдингиси (Shift+Enter)" disabled>↑</button>
+        <button type="button" id="xs-next" class="grid h-7 w-7 place-items-center rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-40" title="Кейингиси (Enter)" disabled>↓</button>
+        <span id="xs-count" class="num ml-1 text-xs text-slate-500"></span>
+      </span>
+      <span class="text-xs text-slate-600">{% icon "file" "inline h-3.5 w-3.5 text-slate-400" %} <b id="xl-file" class="text-slate-800"></b> <span id="xl-info"></span></span>
+      <span class="ml-auto text-xs text-slate-400" title="Ctrl+босиш — алоҳида қатор; сариқ белгили G катагини босиш — нарх ёзиш">Қаторни босинг ёки юқори-пастга судранг — белгиланади, Shift — оралиқ · пастдаги панелдан ўтказинг</span>
+    </div>
+    <div id="xl-scroll" class="xs-wrap relative max-h-[76vh] overflow-auto"><div class="p-6 text-sm text-slate-500">Файл очиляпти…</div></div>
+    <div id="xs-price" class="fixed z-40 hidden w-[340px] rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-2xl" role="dialog" aria-label="Нарх ёзиш">
+      <div class="flex items-start gap-2">
+        <div class="min-w-0 flex-1"><div id="xs-price-title" class="text-xs font-semibold text-slate-500"></div>
+          <div id="xs-price-name" class="mt-0.5 line-clamp-3 font-medium leading-snug text-slate-900"></div>
+          <div id="xs-price-meta" class="mt-0.5 text-xs text-slate-500"></div></div>
+        <button type="button" id="xs-price-x" class="grid h-6 w-6 shrink-0 place-items-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Ёпиш (Esc)">×</button>
+      </div>
+      <div id="xs-price-near" class="mt-2 hidden rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs"></div>
+      <form id="xs-price-form" class="mt-2 flex items-center gap-2">
+        <input type="text" id="xs-price-in" inputmode="decimal" autocomplete="off" placeholder="нарх, масалан 4 600 000"
+               class="num min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-right focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+        <button type="submit" class="rounded-lg bg-slate-900 px-3 py-1.5 font-medium text-white hover:bg-slate-700 disabled:opacity-50">Ёзиш</button>
+      </form>
+      <div id="xs-price-sum" class="mt-1 text-right text-xs text-slate-500"></div>
+      <div class="mt-2 flex items-center gap-2">
+        <button type="button" id="xs-price-clear" class="hidden rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">Қўлда нархни бекор қилиш</button>
+        <span id="xs-price-st" class="ml-auto text-xs text-slate-500">Фақат шу қатор нархланади, сумма ва сводка қайта ҳисобланади</span>
+      </div>
+    </div>
+    <div id="xl-tabs" class="xs-tabs"></div>
+  </div>
+  <script>
+  (function () {
+    var box = document.getElementById("xl-view"), URL = box.dataset.url, GRID_VIEW = box.dataset.gridView;
+    var FILES = {xl_out: "out", xl_local: "local", xl_res: "res"};
+    var scroll = document.getElementById("xl-scroll"), tabs = document.getElementById("xl-tabs");
+    var info = document.getElementById("xl-info"), fileEl = document.getElementById("xl-file");
+    var q = document.getElementById("xs-q"), countEl = document.getElementById("xs-count");
+    var prevBtn = document.getElementById("xs-prev"), nextBtn = document.getElementById("xs-next");
+    var LOADING = '<div class="p-6 text-sm text-slate-500">Файл очиляпти…</div>';
+    var cache = {}, cur = {kind: null, sheet: null, ready: false}, cells = [], rowByNum = {}, hits = [], hitIdx = -1, target = null;
+
+    function norm(t) { return (t || "").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, ""); }
+
+    // ---- кўриниш: жадвал ёки файл (саҳифани қайта юкламасдан) ----
+    function setView(view) {
+      var xl = !!FILES[view];
+      document.querySelectorAll(".js-grid").forEach(function (el) { el.classList.toggle("hidden", xl); });
+      box.classList.toggle("hidden", !xl);
+      document.querySelectorAll(".view-btn").forEach(function (b) { b.classList.toggle("is-on", b.dataset.view === view); });
+      if (history.replaceState) {
+        var u = new URLSearchParams(location.search);
+        u.set("view", view);
+        history.replaceState(null, "", location.pathname + "?" + u.toString() + location.hash);
+      }
+    }
+    document.querySelectorAll(".view-btn").forEach(function (b) {
+      b.addEventListener("click", function (e) {
+        var v = b.dataset.view;
+        if (FILES[v]) { e.preventDefault(); setView(v); open(FILES[v]); }
+        else if (v === GRID_VIEW) { e.preventDefault(); setView(v); }
+      });
+    });
+
+    // ---- файл ва лист ----
+    function fetchSheet(kind, sheet) {
+      var key = kind + "|" + (sheet || "");
+      if (!cache[key]) {
+        cache[key] = fetch(URL + "?f=" + kind + (sheet ? "&s=" + encodeURIComponent(sheet) : ""), {credentials: "same-origin"})
+          .then(function (r) { return r.json().catch(function () { return {error: "сервер хатоси (" + r.status + ")"}; }); })
+          .then(function (d) { if (d.error) { delete cache[key]; throw new Error(d.error); } return d; });
+      }
+      return cache[key];
+    }
+    function open(kind, opts) {
+      opts = opts || {};
+      if (cur.kind === kind && cur.ready && (!opts.sheet || opts.sheet === cur.sheet)) { after(opts); return; }
+      cur = {kind: kind, sheet: opts.sheet || null, ready: false};
+      scroll.innerHTML = LOADING;
+      fetchSheet(kind, opts.sheet).then(function (d) {
+        if (cur.kind !== kind) return;
+        cache[kind + "|" + d.sheet] = cache[kind + "|" + d.sheet] || Promise.resolve(d);
+        render(kind, d);
+        cur.sheet = d.sheet; cur.ready = true;
+        after(opts);
+      }).catch(function (e) {
+        scroll.innerHTML = '<div class="p-6 text-sm text-rose-700">Файлни кўрсатиб бўлмади: ' + (e.message || e) + "</div>";
+      });
+    }
+    function render(kind, d) {
+      fileEl.textContent = d.file;
+      info.textContent = "· лист «" + d.sheet + "» · " + d.rows + " қатор · " + d.cols + " устун"
+        + (d.truncated ? " · фақат биринчи " + d.rows + " қатор кўрсатилди" : "");
+      scroll.innerHTML = d.html;
+      scroll.scrollTop = 0; scroll.scrollLeft = 0;
+      cells = Array.prototype.slice.call(scroll.querySelectorAll("tbody td"));
+      rowByNum = {}; target = null;
+      scroll.querySelectorAll("tbody tr").forEach(function (tr) { rowByNum[tr.firstElementChild.textContent] = tr; });
+      tabs.innerHTML = "";
+      d.sheets.forEach(function (name) {
+        var b = document.createElement("button");
+        b.type = "button"; b.textContent = name;
+        if (name === d.sheet) b.className = "is-on";
+        b.addEventListener("click", function () { if (name !== d.sheet) open(kind, {sheet: name}); });
+        tabs.appendChild(b);
+      });
+      runSearch(false);
+      xsOn = kind === "out" && d.sheet === box.dataset.sheet && !!window.narxSel;
+      scroll.classList.toggle("xs-selectable", xsOn);
+      markSuggestions(kind, d);
+      markPrices(kind, d);
+      if (kind === "out") fitColumns();
+      paintSel();
+      if (kind === "out") restorePos();
+    }
+
+    // ---- устун таклифлари (L, M, …): натижа файлида катак ва қатор белгиланади ----
+    var MARKS = JSON.parse((document.getElementById("sugg-marks") || {}).textContent || "[]");
+    var suggBar = document.getElementById("xs-sugg-bar"), suggChips = document.getElementById("xs-sugg-chips");
+    var suggInfo = document.getElementById("xs-sugg-info"), suggPos = {};
+    function cellAt(tr, letter, letters) {
+      var want = letters.indexOf(letter), pos = 0, tds = tr.querySelectorAll("td");
+      if (want < 0) return null;
+      for (var i = 0; i < tds.length; i++) {
+        var span = parseInt(tds[i].getAttribute("colspan") || "1", 10);
+        if (want < pos + span) return want >= pos ? tds[i] : null;
+        pos += span;
+      }
+      return null;
+    }
+    function markSuggestions(kind, d) {
+      var on = kind === "out" && d.sheet === box.dataset.sheet && MARKS.length;
+      suggBar.classList.toggle("hidden", !on);
+      suggBar.classList.toggle("flex", !!on);
+      if (!on) return;
+      var letters = Array.prototype.map.call(scroll.querySelectorAll("thead th"), function (th) { return th.textContent; }).slice(1);
+      MARKS.forEach(function (m) {
+        var tr = rowByNum[String(m.row)];
+        if (!tr) return;
+        tr.classList.add("xs-sugg-row");
+        tr.title = m.name + " — таклиф: " + (m.from ? m.from + " → " : "") + m.to + (m.why ? " (" + m.why + ")" : "");
+        var to = cellAt(tr, m.to, letters), from = m.from ? cellAt(tr, m.from, letters) : null;
+        if (from) from.classList.add("xs-sugg-from");
+        if (to) {
+          to.classList.add("xs-sugg-cell");
+          // бўш катакка ўтадиган сумма хира ёзилади — ўтказилса шундай бўлади
+          if (!to.textContent.trim() && m.h != null) {
+            to.insertAdjacentHTML("afterbegin", '<span class="xs-sugg-amt">' + Math.round(m.h).toLocaleString("ru-RU") + "</span>");
+          }
+          to.insertAdjacentHTML("beforeend", '<span class="xs-sugg-tag">' + (m.from ? m.from + "→" : "") + m.to + "</span>");
+        }
+      });
+      var by = {};
+      MARKS.forEach(function (m) { (by[m.to] = by[m.to] || []).push(m); });
+      suggChips.innerHTML = "";
+      Object.keys(by).sort().forEach(function (to) {
+        var b = document.createElement("button");
+        b.type = "button"; b.dataset.to = to;
+        b.className = "rounded-md bg-fuchsia-700 px-2 py-0.5 font-semibold text-white hover:bg-fuchsia-800";
+        b.textContent = to + " · " + by[to].length + " та";
+        b.title = to + " устунига таклиф қилинган қаторлар — босган сайин кейингисига ўтади";
+        b.addEventListener("click", function () { nextSugg(to); });
+        suggChips.appendChild(b);
+      });
+    }
+    function nextSugg(to) {
+      var list = MARKS.filter(function (m) { return m.to === to && rowByNum[String(m.row)]; });
+      if (!list.length) return;
+      var i = suggPos[to] = ((suggPos[to] === undefined ? -1 : suggPos[to]) + 1) % list.length, m = list[i];
+      goRow(m.row);
+      var cell = target && target.querySelector(".xs-sugg-cell");
+      if (cell) place(target, cell.offsetLeft);
+      suggInfo.textContent = (i + 1) + " / " + list.length + " · " + m.row + "-қатор: " + m.name +
+        " — " + (m.from ? m.from + " → " : "") + m.to + (m.why ? " · " + m.why : "");
+      suggInfo.title = suggInfo.textContent;
+    }
+    // ---- белгилаш (Excel каби): қатор рақамини босиш ёки судраш, Shift — оралиқ, Ctrl — қўшиш/олиб ташлаш ----
+    var xsLast = null, xsDrag = null, xsOn = false;
+    function S() { return window.narxSel; }
+    function rowOf(el) { var tr = el && el.closest && el.closest("#xl-scroll tbody tr"); return tr ? tr.firstElementChild.textContent : null; }
+    function orderedNums() { return Array.prototype.map.call(scroll.querySelectorAll("tbody tr"), function (tr) { return tr.firstElementChild.textContent; }); }
+    function xsRange(base, a, b, adding) {
+      var all = orderedNums(), i = all.indexOf(a), j = all.indexOf(b);
+      if (i < 0 || j < 0) return;
+      all.slice(Math.min(i, j), Math.max(i, j) + 1).forEach(function (n) {
+        if (!S().selectable(n)) return;
+        if (adding) base.add(n); else base.delete(n);
+      });
+    }
+    function paintSel() {
+      if (!xsOn || !S()) return;
+      scroll.querySelectorAll("tbody tr").forEach(function (tr) {
+        tr.classList.toggle("xs-sel", S().set.has(tr.firstElementChild.textContent));
+      });
+    }
+    window.narxSelChanged = paintSel;
+    scroll.addEventListener("mousedown", function (e) {
+      if (!xsOn || !S() || e.button !== 0) return;
+      // қаторнинг исталган жойидан: босиш — белгилаш/олиб ташлаш, судраш — оралиқ (жадвалдаги каби).
+      // G даги нарх катаги (нархланмаган / қўлда) — нарх ойнаси учун, у ердан белгиланмайди
+      var mod = e.ctrlKey || e.metaKey, n = rowOf(e.target);
+      if (!n || !S().selectable(n)) return;
+      if (e.target.closest("td.xs-price-cell") && !mod && !e.shiftKey) return;
+      e.preventDefault();
+      var set = S().set;
+      if (e.shiftKey && xsLast) { xsRange(set, xsLast, n, true); S().render(); return; }
+      if (mod) { if (set.has(n)) set.delete(n); else set.add(n); xsLast = n; S().render(); return; }
+      xsDrag = {anchor: n, current: n, adding: !set.has(n), base: new Set(set)};
+      xsRange(xsDrag.base, n, n, xsDrag.adding);
+      set.clear(); xsDrag.base.forEach(function (x) { set.add(x); });
+      xsLast = n;
+      S().render();
+    });
+    document.addEventListener("mousemove", function (e) {
+      if (!xsDrag) return;
+      var n = rowOf(document.elementFromPoint(e.clientX, e.clientY));
+      if (n && n !== xsDrag.current) {
+        xsDrag.current = n;
+        var next = new Set(xsDrag.base), set = S().set;
+        xsRange(next, xsDrag.anchor, n, xsDrag.adding);
+        set.clear(); next.forEach(function (x) { set.add(x); });
+        xsLast = n;
+        S().render();
+      }
+      var r = scroll.getBoundingClientRect();
+      if (e.clientY > r.bottom - 28) scroll.scrollTop += 18;
+      else if (e.clientY < r.top + 40) scroll.scrollTop -= 18;
+    });
+    document.addEventListener("mouseup", function () { xsDrag = null; });
+
+    // тор устунлар (L, M…): рақам сиғмаса — Excel'даги «####» ўрнига кенгайтирамиз
+    function fitColumns() {
+      var letters = Array.prototype.map.call(scroll.querySelectorAll("thead th"), function (th) { return th.textContent; }).slice(1);
+      var colEls = scroll.querySelectorAll("colgroup col"), table = scroll.querySelector("table.xs");
+      var trs = Array.prototype.slice.call(scroll.querySelectorAll("tbody tr"), 0, 600), grow = 0;
+      letters.forEach(function (L, i) {
+        if (L < "G" || L.length > 1 && L > "Z") return;
+        // I…M ва қўшилган устунлар — суммалар тушади: камида 96px (бўш бўлса ҳам — ўтказилганда сиғсин)
+        var col = colEls[i + 1], cur = col ? parseInt(col.style.width, 10) : 0, need = L >= "I" ? Math.max(cur, 96) : cur;
+        trs.forEach(function (tr) {
+          var td = cellAt(tr, L, letters);
+          if (td && !td.hasAttribute("colspan") && td.scrollWidth > td.clientWidth + 1 && /\d/.test(td.textContent)) {
+            need = Math.max(need, Math.min(td.scrollWidth + 10, 190));
+          }
+        });
+        if (col && need > cur) { col.style.width = need + "px"; grow += need - cur; }
+      });
+      if (table && grow) table.style.width = (parseInt(table.style.width, 10) + grow) + "px";
+    }
+
+    // қайта юкланганда жадвал жойи сақланади (ўтказиш, нарх ёзишдан кейин)
+    var XS_POS = "narx-xs-pos-" + location.pathname;
+    window.addEventListener("beforeunload", function () {
+      try { if (cur.ready && cur.kind === "out") sessionStorage.setItem(XS_POS, scroll.scrollTop + "|" + scroll.scrollLeft); } catch (e) {}
+    });
+    function restorePos() {
+      try {
+        var v = sessionStorage.getItem(XS_POS);
+        sessionStorage.removeItem(XS_POS);
+        if (v && !new URLSearchParams(location.search).get("row")) {
+          var p = v.split("|"); scroll.scrollTop = +p[0]; scroll.scrollLeft = +p[1];
+        }
+      } catch (e) {}
+    }
+
+    // ---- нарх ёзиш: натижа файлида нархланмаган (қизил) ва қўлда нархланган G катаклари ----
+    var PRICES = JSON.parse((document.getElementById("price-marks") || {}).textContent || "[]");
+    var PRICE_URL = "{% url 'job_prices' job.id %}", priceBox = document.getElementById("xs-price"), priceCur = null;
+    var priceIn = document.getElementById("xs-price-in"), priceSt = document.getElementById("xs-price-st");
+    function money(v) { var n = typeof v === "number" ? v : parsePrice(v); return n === null || isNaN(n) ? "" : Math.round(n).toLocaleString("ru-RU"); }
+    function parsePrice(t) { var v = String(t || "").replace(/[\s\u00a0]/g, "").replace(",", "."); return /^\d+(\.\d+)?$/.test(v) ? parseFloat(v) : null; }
+    function markPrices(kind, d) {
+      if (kind !== "out" || d.sheet !== box.dataset.sheet || !PRICES.length) return;
+      var letters = Array.prototype.map.call(scroll.querySelectorAll("thead th"), function (th) { return th.textContent; }).slice(1);
+      PRICES.forEach(function (p) {
+        var tr = rowByNum[String(p.row)], td = tr && cellAt(tr, "G", letters);
+        if (!td) return;
+        td.classList.add("xs-price-cell");
+        td.dataset.priceRow = p.row;
+        td.title = (p.manual ? "Қўлда ёзилган нарх — ўзгартириш ёки бекор қилиш" : "Нарх ёзиш") +
+          (p.near && p.near.price != null ? " · таклиф: " + money(p.near.price) : "");
+        var hint = !p.manual && p.near && money(p.near.price) ? "таклиф " + money(p.near.price) : (p.manual ? "қўлда" : "нарх ёзиш");
+        td.insertAdjacentHTML("beforeend", '<span class="xs-price-tag' + (p.manual ? " is-manual" : "") + '">✎ ' + hint + "</span>");
+      });
+    }
+    function qtyOf(p) { var q = parsePrice(p.qty); return q === null && typeof p.qty === "number" ? p.qty : q; }
+    function showSum() {
+      var p = priceCur, v = parsePrice(priceIn.value), q = p && qtyOf(p);
+      document.getElementById("xs-price-sum").textContent = v !== null && q !== null ? "H = " + q.toLocaleString("ru-RU") + " × " + money(v) + " = " + money(q * v) : "";
+    }
+    function openPrice(td) {
+      var p = PRICES.filter(function (x) { return String(x.row) === td.dataset.priceRow; })[0];
+      if (!p) return;
+      priceCur = p;
+      document.getElementById("xs-price-title").textContent = p.row + "-қатор" + (p.manual ? " · қўлда нархланган" : " · нархланмаган");
+      document.getElementById("xs-price-name").textContent = p.name;
+      document.getElementById("xs-price-name").title = p.name;
+      document.getElementById("xs-price-meta").textContent = [p.unit, p.qty != null ? "миқдор " + p.qty : ""].filter(Boolean).join(" · ");
+      var near = document.getElementById("xs-price-near");
+      near.classList.toggle("hidden", !(p.near && p.near.price != null));
+      if (p.near && p.near.price != null) {
+        near.innerHTML = '<div class="text-amber-900">Ресурсдаги энг яқини' + (p.near.score != null ? " · " + Math.round(p.near.score * 100) + "% ўхшаш" : "") + ":</div>" +
+          '<div class="mt-0.5 line-clamp-3 font-medium text-slate-900"></div>' +
+          '<div class="mt-1 flex items-center gap-2"><span class="num font-semibold">' + money(p.near.price) + "</span>" +
+          '<span class="' + (p.near.same_unit === false ? "font-semibold text-amber-700" : "text-slate-500") + '"></span>' +
+          '<button type="button" class="ml-auto rounded-md bg-amber-300 px-2 py-1 font-semibold text-amber-950 hover:bg-amber-400">Шу нархни қўйиш</button></div>';
+        near.children[1].textContent = p.near.name || "";
+        near.children[1].title = p.near.name || "";
+        near.querySelector("span + span").textContent = (p.near.unit || "") + (p.near.same_unit === false ? " ≠ " + p.unit : "");
+        near.querySelector("button").onclick = function () { savePrice("accept"); };
+      }
+      priceIn.value = p.manual && typeof p.g === "number" ? money(p.g) : "";
+      document.getElementById("xs-price-clear").classList.toggle("hidden", !p.manual);
+      priceSt.textContent = "Фақат шу қатор нархланади, сумма ва сводка қайта ҳисобланади";
+      showSum();
+      var r = td.getBoundingClientRect();
+      priceBox.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 352)) + "px";
+      priceBox.style.top = (r.bottom + 260 > window.innerHeight ? Math.max(8, r.top - 260) : r.bottom + 4) + "px";
+      priceBox.classList.remove("hidden");
+      priceBox.dataset.top = scroll.scrollTop;
+      setTimeout(function () { priceIn.focus(); priceIn.select(); }, 0);
+    }
+    function closePrice() { priceBox.classList.add("hidden"); priceCur = null; }
+    function savePrice(action) {
+      if (!priceCur) return;
+      var body = {action: action, rows: [priceCur.row]};
+      if (action === "set") {
+        var v = parsePrice(priceIn.value);
+        if (v === null) { priceSt.textContent = "Нарх рақам бўлиши керак (масалан 4 600 000)"; priceSt.className = "ml-auto text-xs text-rose-600"; return; }
+        body.price = v;
+      }
+      priceBox.querySelectorAll("button, input").forEach(function (el) { el.disabled = true; });
+      priceSt.className = "ml-auto text-xs text-slate-500";
+      priceSt.textContent = "сақланяпти, қайта ҳисобланяпти…";
+      fetch(PRICE_URL, {method: "POST", credentials: "same-origin",
+                        headers: {"Content-Type": "application/json", "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value},
+                        body: JSON.stringify(body)})
+        .then(function (r) { return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; }); })
+        .then(function (d) {
+          if (!d.ok) throw new Error(d.error || "хато");
+          if (action === "accept" && d.skipped) throw new Error("бу қаторда нарх таклифи йўқ");
+          // саҳифа янгиланади ва шу қаторга қайтади (сумма, сводка, ҳисоблагичлар — ҳаммаси янги)
+          var u = new URLSearchParams(location.search);
+          u.set("view", "xl_out"); u.set("row", priceCur.row);
+          location.href = location.pathname + "?" + u.toString() + "#t-2";
+        })
+        .catch(function (e) {
+          priceBox.querySelectorAll("button, input").forEach(function (el) { el.disabled = false; });
+          priceSt.className = "ml-auto text-xs text-rose-600";
+          priceSt.textContent = e.message;
+        });
+    }
+    scroll.addEventListener("click", function (e) {
+      var td = e.target.closest("td.xs-price-cell");
+      if (td && !e.shiftKey && !e.ctrlKey && !e.metaKey) { e.stopPropagation(); openPrice(td); }
+    });
+    document.getElementById("xs-price-form").addEventListener("submit", function (e) { e.preventDefault(); savePrice("set"); });
+    document.getElementById("xs-price-clear").addEventListener("click", function () { savePrice("clear"); });
+    document.getElementById("xs-price-x").addEventListener("click", closePrice);
+    priceIn.addEventListener("input", showSum);
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !priceBox.classList.contains("hidden")) closePrice(); });
+    document.addEventListener("mousedown", function (e) {
+      if (!priceBox.classList.contains("hidden") && !priceBox.contains(e.target) && !e.target.closest("td.xs-price-cell")) closePrice();
+    });
+    // жадвал сезиларли сурилса — ойна катакдан узоқлашади, ёпилади
+    scroll.addEventListener("scroll", function () {
+      if (priceCur && Math.abs(scroll.scrollTop - (+priceBox.dataset.top || 0)) > 80) closePrice();
+    });
+
+    // ташқаридан: карталардаги «Натижада кўриш» — натижа файлини очиб, биринчи таклифга ўтади
+    window.narxSuggestXl = function (to) {
+      suggPos[to] = -1;
+      window.narxOpenFile("xl_out", {});
+      var tries = 0;
+      (function wait() {
+        if (cur.kind === "out" && cur.ready) { nextSugg(to); return; }
+        if (tries++ < 100) setTimeout(wait, 100);
+      })();
+    };
+    window.narxShowGrid = function () { if (!box.classList.contains("hidden")) setView(GRID_VIEW); };
+    document.getElementById("xs-sugg-grid").addEventListener("click", function () {
+      var first = suggChips.querySelector("button");
+      setView(GRID_VIEW);
+      var card = first && document.querySelector('[data-review="' + first.dataset.to + '"], .lm-review[data-col="' + first.dataset.to + '"]');
+      if (card) card.click();
+    });
+
+    function after(opts) {
+      // жадвал чизилгач (ўлчамлари аниқ бўлгач) жойлаймиз
+      setTimeout(function () {
+        if (opts.reveal) {
+          // саҳифа: излаш қатори тепадаги ёпишқоқ панел остида қолмасин
+          var nav = document.getElementById("tabs"), navH = (nav ? nav.offsetHeight : 60) + 12;
+          window.scrollTo(0, Math.max(0, box.getBoundingClientRect().top + window.scrollY - navH));
+        }
+        if (opts.row) goRow(opts.row);
+        if (opts.find !== undefined) {
+          q.value = opts.find;
+          runSearch(!target);
+          // қатор топилган бўлса — шу қатордаги мослик жорий бўлади
+          var i = target ? hits.findIndex(function (td) { return td.parentElement === target; }) : -1;
+          if (i >= 0) { hitIdx = i - 1; step(1); }
+        }
+      }, 0);
+    }
+
+    // ---- қаторга ўтиш (1-босқичдан) ----
+    function place(el, left) {
+      var head = scroll.querySelector("thead");
+      scroll.scrollTop = Math.max(0, el.offsetTop - (head ? head.offsetHeight : 0) - scroll.clientHeight / 3);
+      if (left !== undefined && (left < scroll.scrollLeft + 50 || left > scroll.scrollLeft + scroll.clientWidth - 120)) {
+        scroll.scrollLeft = Math.max(0, left - 160);
+      }
+    }
+    function goRow(r) {
+      var n = parseInt(r, 10), tr = rowByNum[String(n)];
+      for (var k = n + 1; !tr && k < n + 50; k++) tr = rowByNum[String(k)];  // яширин қатор — кейингиси
+      if (target) target.classList.remove("xs-target");
+      target = tr || null;
+      if (!tr) return;
+      tr.classList.add("xs-target");
+      scroll.scrollLeft = 0;
+      place(tr);
+    }
+
+    // ---- излаш: ёзилиши билан (real vaqt) ----
+    function updateCount() {
+      var v = q.value.trim();
+      countEl.textContent = !v ? "" : !hits.length ? "топилмади" : hitIdx < 0 ? hits.length + " та" : (hitIdx + 1) + " / " + hits.length;
+      countEl.classList.toggle("text-rose-600", !!v && !hits.length);
+      prevBtn.disabled = nextBtn.disabled = hits.length < 1;
+    }
+    function step(delta) {
+      if (!hits.length) return;
+      if (hits[hitIdx]) hits[hitIdx].classList.remove("xs-cur");
+      hitIdx = ((hitIdx < 0 ? (delta > 0 ? -1 : 0) : hitIdx) + delta + hits.length) % hits.length;
+      var td = hits[hitIdx];
+      td.classList.add("xs-cur");
+      place(td.parentElement, td.offsetLeft);
+      updateCount();
+    }
+    function runSearch(jump) {
+      hits.forEach(function (td) { td.classList.remove("xs-hit", "xs-cur"); });
+      hits = []; hitIdx = -1;
+      var v = norm(q.value);
+      if (v) {
+        cells.forEach(function (td) {
+          if (td._t === undefined) td._t = norm(td.textContent);
+          if (td._t && td._t.indexOf(v) >= 0) { hits.push(td); td.classList.add("xs-hit"); }
+        });
+      }
+      if (jump && hits.length) step(1); else updateCount();
+    }
+    var timer = null;
+    q.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(function () { runSearch(true); }, 120); });
+    q.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); step(e.shiftKey ? -1 : 1); }
+      if (e.key === "Escape") { q.value = ""; runSearch(false); }
+    });
+    prevBtn.addEventListener("click", function () { step(-1); });
+    nextBtn.addEventListener("click", function () { step(1); });
+
+    // 1-босқичдан: «Локал / Натижа / Ресурс» — файлни шу қаторда очиш
+    window.narxOpenFile = function (view, opts) {
+      if (window.narxShowTab) window.narxShowTab("2");
+      setView(view);
+      opts = opts || {};
+      opts.reveal = true;
+      if (opts.find === undefined && q.value) { q.value = ""; runSearch(false); }  // эски излов чалғитмасин
+      open(FILES[view], opts);
+    };
+
+    if (FILES[box.dataset.view]) {
+      var backRow = new URLSearchParams(location.search).get("row");
+      open(FILES[box.dataset.view], backRow ? {row: backRow, reveal: true} : {});
+    }
+  })();
+  </script>
+  <div id="grid-wrap" tabindex="0" class="js-grid {% if xl_file %}hidden {% endif %}xl-wrap max-h-[76vh] overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
   <table class="xl-grid">
     <thead>
       <tr class="xl-letters">
@@ -415,7 +1052,7 @@
       </tr>
     </thead>
     <tbody id="rows-body">
-    {% if view == "res" %}
+    {% if grid_view == "res" %}
     {% for group in res_groups %}
     <tr class="xl-group" data-group-head="{{ group.id }}">
       <td class="xl-gutter"></td>
@@ -428,7 +1065,7 @@
                   data-rows="{{ group.to_move|join:',' }}" data-move-to="{{ group.column }}"
                   title="Бу қаторлар RES'да «{{ group.title }}» бўлимида, ҳозир бошқа устунда">{{ group.to_move|length }} таси {{ group.column }} да эмас — {{ group.column }} га ўтказамизми?</button>{% endif %}
           {% if group.count %}<button type="button" class="grp-select rounded border border-slate-300 bg-white px-2 py-0.5 text-xs hover:bg-slate-100" data-group="{{ group.id }}" title="Бўлимдаги ҳамма қаторларни белгилаш — кейин пастки панелдан устун танланг">белгилаш</button>{% endif %}
-          <span class="ml-auto num text-sm font-semibold" title="Бўлим бўйича сумма (H)">{{ group.sum|som }}</span>
+          <span class="num text-sm font-semibold" title="Бўлим бўйича сумма (H)">{{ group.sum|som }}</span>
         </div>
       </td>
     </tr>
@@ -441,6 +1078,256 @@
   </table>
   </div>
 </section>
+
+{% if lm %}
+<div class="mt-4 flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 {% if job.table_checked %}border-emerald-200 bg-emerald-50{% else %}border-slate-200 bg-white{% endif %}">
+  {% if job.table_checked %}
+  <span class="inline-flex items-center gap-1.5 text-sm text-emerald-800">{% icon "check-circle" "h-4 w-4" %} 2-босқич якунланган.</span>
+  <button type="button" data-goto="3" class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">3-босқичга ўтиш →</button>
+  {% else %}
+  <form method="post" action="{% url 'job_table_checked' job.id %}">{% csrf_token %}<input type="hidden" name="done" value="1">
+    <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">✓ Жадвал текширилди — 3-босқичга</button></form>
+  <span class="text-sm text-slate-600">{% if lm.pending %}<b class="text-fuchsia-800">{{ lm.pending }} та L/M таклиф</b> ҳали ўтказилмаган — керак бўлмаса шундай қолдиринг.{% else %}L/M таклифлари кўриб чиқилди.{% endif %}</span>
+  {% endif %}
+</div>
+{% endif %}
+</div>
+
+{# ---------------- 3-босқич: сводка ва фоизлар ---------------- #}
+<div data-tab="3" class="tab-panel hidden" id="t-3">
+{% if stages and not job.table_checked %}<p class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">2-босқич ҳали якунланмаган — жадвални текширгач, сводкага қайтинг.</p>{% endif %}
+<section id="svodka" class="scroll-mt-20 mb-5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-100 px-4 py-3">
+    {% if lm %}<span class="rounded-md bg-sky-600 px-2 py-0.5 text-xs font-semibold text-white">3-босқич</span>{% endif %}
+    <h2 class="font-semibold">Сводка ва фоизлар</h2>
+    <span id="pct-status" class="text-xs text-slate-500" aria-live="polite"></span>
+  </div>
+  <div class="grid lg:grid-cols-[minmax(0,860px)_minmax(320px,1fr)]">
+    <form id="pct-form" method="post" action="{% url 'job_run' job.id %}" data-busy class="min-w-0">
+      {% csrf_token %}
+      <input type="hidden" name="local_sheet" value="{{ job.local_sheet }}">
+      <input type="hidden" name="res_sheet" value="{{ job.res_sheet }}">
+      <input type="hidden" name="fuzzy" value="{{ job.fuzzy }}">
+      <input type="hidden" name="mode" value="{{ job.mode }}">
+      <table class="w-full text-sm">
+        {% for s in svodka %}
+        <tr data-key="{{ s.key }}" class="border-t border-slate-100 first:border-0 {% if forloop.last %}bg-slate-50 font-semibold{% endif %}">
+          <td class="px-4 py-1.5">{{ s.text }}</td>
+          <td class="w-28 px-2 py-1 text-right text-slate-500 num">
+            {% if s.pct is not None and result_mode == "smart" %}
+            <span class="inline-flex items-center gap-1">
+              <input type="text" inputmode="decimal" name="pct_{{ s.key }}" value="{{ s.pct|pct_input }}" autocomplete="off"
+                     class="pct-input w-16 rounded border px-1.5 py-0.5 text-right num {% if s.pct != s.default %}border-amber-400 bg-amber-50 text-amber-900{% else %}border-slate-300{% endif %}"
+                     data-default="{{ s.default|pct_input }}" title="Стандарт: {{ s.default|pct }} · ўзгартиринг — ўзи ҳисобланади">%</span>
+            {% else %}{{ s.pct|pct }}{% endif %}
+          </td>
+          <td class="sv-val w-44 px-4 py-1.5 text-right num {% if s.value|is_error %}text-rose-600{% endif %}">{{ s.value|som }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      <noscript><button type="submit" class="m-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white">Фоизлар билан қайта ҳисоблаш</button></noscript>
+    </form>
+
+    <aside class="space-y-3 border-t border-slate-100 bg-slate-50/60 p-4 text-sm md:border-l md:border-t-0">
+      <div>
+        <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Всего с НДС</div>
+        <div id="sv-snds" class="text-2xl font-semibold leading-tight num {% if s_nds|is_error %}text-rose-600{% endif %}">{{ s_nds|som }}</div>
+      </div>
+      {% if result_mode == "smart" %}
+      <p class="flex gap-2 text-xs leading-relaxed text-slate-600">{% icon "check-circle" "mt-px h-4 w-4 shrink-0 text-emerald-600" %}
+        <span>Фоизни ўзгартиринг — сумма <b>ўзи қайта ҳисобланади</b>. Танлов <b>эслаб қолинади</b>: кейинги сметалар шу фоизлар билан бошланади.</span></p>
+      {% if pct_memory.diff %}
+      <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
+        <div class="mb-1 font-medium text-slate-700">Эслаб қолинган (стандартдан фарқли):</div>
+        {% for d in pct_memory.diff %}<div class="flex justify-between gap-2 text-slate-600"><span class="truncate">{{ d.text }}</span><span class="num"><s class="text-slate-400">{{ d.default }}</s> → <b>{{ d.pct }}</b></span></div>{% endfor %}
+      </div>
+      {% endif %}
+      <div class="flex flex-wrap gap-2">
+        {% if pct_memory.differs %}
+        <button type="button" id="pct-remembered" class="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700">Эслаб қолинган фоизларни қўллаш</button>
+        {% endif %}
+        <button type="button" id="pct-reset" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs hover:bg-slate-100 {% if not percents_changed %}hidden{% endif %}">Стандарт фоизлар</button>
+      </div>
+      {% else %}
+      <p class="text-xs text-slate-500">Фоизларни ўзгартириш учун Smart режимда нархланг.</p>
+      {% endif %}
+      {% if has_errors %}
+      <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        Excel'да ҳам <b>#ЗНАЧ!</b> чиқади: G устунида рақам бўлмаган қийматлар бор. <b>Smart</b> режимда қайта нархланг.
+      </div>
+      {% elif not_priced %}
+      <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+        <b>{{ not_priced }} та қатор нархланмади</b> — сумма тўлиқ эмас. Excel'да G қизил: нарх ёзилса, сводка ўзи ҳисобланади.
+      </div>
+      {% endif %}
+      <a href="{% url 'job_download' job.id %}" class="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 font-semibold text-white shadow-sm hover:bg-emerald-700">
+        {% icon "download" "h-5 w-5" %} Юклаб олиш · Excel</a>
+    </aside>
+  </div>
+</section>
+{% if result_mode == "smart" %}
+<script>
+  // Фоиз ўзгарса — тугмасиз қайта ҳисоблаш (ёзиб бўлгач 0,7 с, Enter ёки бошқа катакка ўтганда).
+  // Бир вақтда битта сўров; у тугагунча яна ўзгарса — охиргиси кейин юборилади.
+  (function () {
+    var URL = "{% url 'job_percents' job.id %}";
+    var form = document.getElementById("pct-form"), st = document.getElementById("pct-status");
+    var inputs = Array.prototype.slice.call(form.querySelectorAll(".pct-input"));
+    var timer = null, busy = false, queued = null, lastSent = snapshot();
+    function snapshot() { var o = {}; inputs.forEach(function (i) { o[i.name.slice(4)] = i.value.trim(); }); return o; }
+    function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+    function setStatus(text, cls) { st.textContent = text; st.className = "text-xs " + (cls || "text-slate-500"); }
+    function send(payload) {
+      if (busy) { queued = payload; return; }
+      busy = true;
+      setStatus("ҳисобланяпти…", "text-sky-700");
+      fetch(URL, {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value},
+        body: JSON.stringify(payload),
+      }).then(function (r) {
+        return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; });
+      }).then(function (d) {
+        if (!d.ok) throw new Error(d.error || "хато");
+        d.rows.forEach(function (row) {
+          var tr = form.querySelector('tr[data-key="' + row.key + '"]');
+          if (!tr) return;
+          tr.querySelector(".sv-val").textContent = row.value;
+          var inp = tr.querySelector(".pct-input");
+          if (inp && row.pct !== null) {
+            if (document.activeElement !== inp) inp.value = row.pct;
+            inp.classList.toggle("border-amber-400", row.changed); inp.classList.toggle("bg-amber-50", row.changed);
+            inp.classList.toggle("text-amber-900", row.changed); inp.classList.toggle("border-slate-300", !row.changed);
+          }
+        });
+        ["sv-snds", "side-snds"].forEach(function (id) { var el = document.getElementById(id); if (el) el.textContent = d.s_nds; });
+        var bez = document.getElementById("side-bez"); if (bez) bez.textContent = d.bez_nds;
+        var reset = document.getElementById("pct-reset"); if (reset) reset.classList.toggle("hidden", !d.changed);
+        var rem = document.getElementById("pct-remembered"); if (rem) rem.classList.add("hidden");
+        lastSent = snapshot();
+        setStatus("✓ ҳисобланди ва эслаб қолинди", "text-emerald-700");
+      }).catch(function (e) {
+        setStatus("Хато: " + e.message, "text-rose-700");
+      }).then(function () {
+        busy = false;
+        if (queued) { var q = queued; queued = null; send(q); }
+      });
+    }
+    function changed() {
+      clearTimeout(timer);
+      var now = snapshot();
+      if (!same(now, lastSent)) send({pct: now});
+    }
+    inputs.forEach(function (i) {
+      i.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(changed, 700); setStatus("ўзгартириляпти…"); });
+      i.addEventListener("change", changed);
+      i.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); changed(); } });
+    });
+    form.addEventListener("submit", function (e) { e.preventDefault(); changed(); });
+    var reset = document.getElementById("pct-reset");
+    if (reset) reset.addEventListener("click", function () { send({reset: true}); });
+    var rem = document.getElementById("pct-remembered");
+    if (rem) rem.addEventListener("click", function () { send({remembered: true}); });
+  })();
+</script>
+{% endif %}
+</div>
+
+{# ---------------- қўшимча ---------------- #}
+<div data-tab="more" class="tab-panel hidden" id="t-more">
+{% if warnings %}
+<div class="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+  {% for w in warnings %}<div class="flex items-start gap-2">{% icon "alert" "mt-0.5 h-4 w-4 shrink-0 text-amber-600" %}<span>{{ w }}</span></div>{% endfor %}
+</div>
+{% endif %}
+{# ---- статистика ---- #}
+<div id="stats" class="scroll-mt-4 grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 mb-6">
+  {% for key, label, count, color in stats %}
+  <button type="button" data-filter="{{ key }}" {% if not count %}disabled{% endif %} title="Жадвалда фақат шу қаторларни кўрсатиш"
+          class="stat-card text-left bg-white rounded-xl border border-slate-200 p-4 shadow-sm enabled:hover:border-slate-400 disabled:cursor-default">
+    <div class="text-xs text-slate-500">{{ label }}</div>
+    <div class="text-2xl font-semibold num {% if count %}text-{{ color }}-600{% else %}text-slate-300{% endif %}">{{ count }}</div>
+  </button>
+  {% endfor %}
+</div>
+<div id="problems-wrap" class="mb-4">
+  {# ---- муаммолар ---- #}
+  <section id="problems" class="scroll-mt-20 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-4 py-3 border-b border-slate-100">
+      <h2 class="font-semibold">Муаммоли қаторлар <span class="text-slate-400 font-normal">({{ problems|length }})</span></h2>
+      <p class="text-xs text-slate-500">{% if result_mode == "smart" %}аниқ мос келмади — нарх ёзилмади, қўлда киритинг. «Таклиф» фақат маълумот учун{% else %}G устунида рақам эмас — H формуласи хато беради{% endif %}</p>
+    </div>
+    {% if problems %}
+    <div class="max-h-80 overflow-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-slate-500 text-xs sticky top-0"><tr>
+        <th class="px-3 py-2 text-left">№</th><th class="px-3 py-2 text-left">Ном</th><th class="px-3 py-2 text-left">Бирлик</th>
+        <th class="px-3 py-2 text-left">Статус</th><th class="px-3 py-2 text-right">G</th>
+        {% if result_mode == "smart" %}<th class="px-3 py-2 text-right">Таклиф</th>{% endif %}
+      </tr></thead>
+      {% for p in problems %}
+      <tr class="border-t border-slate-100">
+        <td class="px-3 py-1.5 num text-slate-500">{{ p.row }}</td>
+        <td class="px-3 py-1.5">{{ p.name }}{% if p.picked_name %}<div class="text-xs text-slate-400">ресурсда: {{ p.picked_name }}</div>{% endif %}{% if p.note %}<div class="text-xs text-amber-700">{{ p.note }}</div>{% endif %}</td>
+        <td class="px-3 py-1.5 text-slate-500">{% if p.unit != "None" %}{{ p.unit }}{% endif %}</td>
+        <td class="px-3 py-1.5 text-xs">{{ p.status }}</td>
+        <td class="px-3 py-1.5 text-right text-rose-600">{{ p.written|som }}</td>
+        {% if result_mode == "smart" %}<td class="px-3 py-1.5 text-right num text-slate-400">{{ p.suggested_price|som }}</td>{% endif %}
+      </tr>
+      {% endfor %}
+    </table>
+    </div>
+    {% else %}
+    <p class="flex items-center gap-2 px-4 py-6 text-sm text-emerald-700">{% icon "check-circle" %} Ҳамма қаторларда нарх рақам</p>
+    {% endif %}
+  </section>
+</div>
+{# ---- созлаш (камдан-кам керак — йиғилган) ---- #}
+<details id="settings" class="scroll-mt-4 mb-6 rounded-xl border border-slate-200 bg-white shadow-sm" {% if job.status != "done" %}open{% endif %}>
+  <summary class="flex cursor-pointer select-none flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-sm">
+    <span class="inline-flex items-center gap-2 font-semibold">{% icon "sliders" "h-4 w-4 text-slate-500" %} Созламалар</span>
+    {% if job.status == "done" %}
+    <span class="text-slate-500">лист <b class="text-slate-700">{{ job.local_sheet }}</b> / <b class="text-slate-700">{{ job.res_sheet }}</b> ·
+      {{ result_mode }} · fuzzy {{ job.fuzzy }}%{% if columns %} · ресурс устунлари: ном {{ columns.res_name }}, бирлик {{ columns.res_unit }}, нарх {{ columns.res_price }}{% endif %}</span>
+    <span class="inline-flex items-center gap-1 text-xs text-slate-400">ўзгартириш учун очинг {% icon "chevron-down" "h-3.5 w-3.5" %}</span>
+    {% endif %}
+  </summary>
+  <form method="post" action="{% url 'job_run' job.id %}" data-busy
+        class="grid gap-4 border-t border-slate-100 p-5 md:grid-cols-[1fr_1fr_1fr_1fr_auto] md:items-end">
+    {% csrf_token %}
+    <label class="block text-sm">
+      <span class="font-medium">Локал лист (иш ҳажмлари)</span>
+      <select name="local_sheet" class="mt-1 w-full rounded-md border border-slate-300 px-2 py-2">
+        {% for s in job.local_sheets %}<option value="{{ s }}" {% if s == job.local_sheet %}selected{% endif %}>{{ s }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block text-sm">
+      <span class="font-medium">Ресурс лист (нархлар)</span>
+      <select name="res_sheet" class="mt-1 w-full rounded-md border border-slate-300 px-2 py-2">
+        {% for s in job.res_sheets %}<option value="{{ s }}" {% if s == job.res_sheet %}selected{% endif %}>{{ s }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block text-sm">
+      <span class="font-medium">Режим</span>
+      <select name="mode" class="mt-1 w-full rounded-md border border-slate-300 px-2 py-2">
+        {% for value, label in modes %}<option value="{{ value }}" {% if value == job.mode %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block text-sm">
+      <span class="font-medium">Таклиф учун ўхшашлик: <span id="fuzzy-out" class="num">{{ job.fuzzy }}%</span></span>
+      <input type="range" name="fuzzy" min="80" max="100" step="1" value="{{ job.fuzzy }}" data-out="fuzzy-out" class="mt-3 w-full accent-slate-900">
+    </label>
+    <button type="submit" class="rounded-lg bg-slate-900 px-6 py-2.5 font-medium text-white hover:bg-slate-700 disabled:opacity-60">
+      <span class="when-idle">{% if job.status == "done" %}Қайта нархлаш{% else %}Нархлаш{% endif %}</span>
+      <span class="when-busy">Ҳисобланяпти…</span>
+    </button>
+    {% if job.status == "done" %}
+    <p class="text-xs text-slate-500 md:col-span-5">Лист алмашса — қўлда киритилган нарх ва устунлар тозаланади. Smart: фақат аниқ мос келган нарх ёзилади, қолгани қизил.
+      «Эски дастур каби» — .pyw дастур билан бир хил натижа (солиштириш учун).</p>
+    {% endif %}
+  </form>
+</details>
+</div>
 
 {% if result_mode == "smart" %}
 <div class="h-32" aria-hidden="true"></div>{# пастки панел охирги қаторларни ёпиб қўймасин #}
@@ -470,7 +1357,36 @@
 {% endif %}
 
 <style>
+  /* таблар */
+  .tab-btn { color: #475569; }
+  .tab-btn:hover { color: #0f172a; background: rgba(255,255,255,.7); }
+  .tab-btn.is-active { color: #0f172a; border-bottom-color: #0f172a; background: #fff; border-top-left-radius: .5rem; border-top-right-radius: .5rem; }
+  /* фильтр тугмалари: аниқ кўринадиган, босиладиган */
+  .chip { display: inline-flex; align-items: center; gap: .375rem; height: 2rem; padding: 0 .75rem; border: 1px solid #cbd5e1;
+          border-radius: 9999px; background: #fff; font-size: .8125rem; font-weight: 500; color: #334155; cursor: pointer;
+          transition: background-color .12s, border-color .12s, box-shadow .12s; }
+  .chip:hover:not(:disabled) { border-color: #64748b; background: #f8fafc; box-shadow: 0 1px 2px rgba(15,23,42,.08); }
+  .chip:disabled { opacity: .4; cursor: default; }
+  .chip .cnt { color: #64748b; font-weight: 600; }
+  .chip .dot { width: .5rem; height: .5rem; border-radius: 9999px; }
+  .chip.is-active { background: #0f172a; border-color: #0f172a; color: #fff; }
+  .chip.is-active .cnt { color: #cbd5e1; }
+  .stat-card.is-active { box-shadow: 0 0 0 2px #0f172a; }
   /* Excel'га ўхшаш катакча жадвал */
+  /* жадвал / файл тугмалари */
+  .view-btn { color: #334155; }
+  .view-btn:hover { background: #f1f5f9; }
+  .view-btn.is-on { background: #0f172a; color: #fff; font-weight: 500; }
+  .view-xl:hover { background: #ecfdf5; }
+  .view-xl.is-on { background: #047857; color: #fff; }
+  .nf-look { border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 6px; color: #334155; background: #fff; white-space: nowrap; }
+  .nf-look:hover { background: #f1f5f9; }
+  .nf-file { border-color: #6ee7b7; color: #065f46; }
+  .nf-file:hover { background: #ecfdf5; }
+  .nf-look-res { border-color: #fcd34d; color: #92400e; }
+  .nf-look-res:hover { background: #fffbeb; }
+  /* файл кўриниши (Excel каби) */
+  {% include "jobs/_xs_css.html" %}
   .xl-grid { border-collapse: separate; border-spacing: 0; width: 100%; font: 13px/1.35 "Segoe UI", Calibri, Arial, sans-serif; color: #1f2937; }
   .xl-grid th, .xl-grid td { border-right: 1px solid #d4d4d4; border-bottom: 1px solid #d4d4d4; padding: 3px 6px; vertical-align: top; background-clip: padding-box; }
   .xl-grid thead th { position: sticky; z-index: 3; background: #f3f3f3; color: #444; font-weight: 600; text-align: center; white-space: nowrap; }
@@ -486,6 +1402,26 @@
   .xl-grid .xl-sub { font-size: 11px; color: #6b7280; white-space: normal; }
   .xl-grid .xl-tag { display: inline-block; border-radius: 4px; padding: 0 6px; font-size: 11px; }
   .xl-grid .xl-mark { margin-left: 3px; font-size: 11px; }
+  .xs tr.xs-sugg-row > th { background: #f5d0fe; color: #86198f; font-weight: 600; }
+  .xs tr.xs-sugg-row > td { box-shadow: inset 0 0 0 9999px rgba(217, 70, 239, .06); }
+  .xs td.xs-sugg-cell { position: relative; outline: 2px dashed #c026d3; outline-offset: -2px; background-color: #fdf4ff !important; }
+  .xs td.xs-sugg-from { text-decoration: line-through; text-decoration-color: #c026d3; }
+  .xs .xs-sugg-tag { position: absolute; right: 1px; top: 1px; z-index: 1; border-radius: 3px; background: #c026d3; color: #fff;
+                     padding: 0 3px; font: 600 9px/1.35 "Segoe UI", system-ui, sans-serif; text-decoration: none; pointer-events: none; }
+  .xs-selectable .xs tbody th { cursor: pointer; }
+  .xs-selectable .xs tbody tr { cursor: cell; user-select: none; }
+  .xs-selectable .xs tbody th:hover { background: #dbeafe; color: #1e40af; }
+  .xs tr.xs-sel > td { box-shadow: inset 0 0 0 9999px rgba(37, 99, 235, .16); }
+  .xs tr.xs-sel > th { background: #2563eb !important; color: #fff !important; font-weight: 600; }
+  .xs td.xs-price-cell { position: relative; cursor: pointer; }
+  .xs td.xs-price-cell:hover { outline: 2px solid #2563eb; outline-offset: -2px; }
+  .xs .xs-price-tag { position: absolute; left: 1px; bottom: 1px; z-index: 1; border-radius: 3px; background: #f59e0b; color: #fff;
+                      padding: 0 3px; font: 600 9px/1.35 "Segoe UI", system-ui, sans-serif; white-space: nowrap; pointer-events: none; }
+  .xs .xs-price-tag.is-manual { background: #0284c7; }
+  .xs .xs-sugg-amt { display: block; text-align: right; color: #a21caf; font-style: italic; opacity: .75; padding-right: 2px; }
+  .xs tr.xs-target.xs-sugg-row > td { box-shadow: inset 0 0 0 9999px rgba(37, 99, 235, .14); }
+  @keyframes row-flash { 0%, 60% { background: #f5d0fe; } 100% { background: transparent; } }
+  .xl-grid tr.row-flash > td { animation: row-flash 2.2s ease-out; }
   .xl-grid .xl-sugg { display: inline-block; margin-left: 2px; border: 1px dashed #c026d3; border-radius: 3px; padding: 0 3px; font-size: 10px; color: #a21caf; }
   .xl-grid tbody tr:hover > td:not(.xl-gutter) { background-color: #f8fafc; }
   .xl-grid tbody tr.xl-red > td:not(.xl-gutter) { background-color: #ffe4e6; }
@@ -556,37 +1492,116 @@
         selAll.indeterminate = on > 0 && on < vis.length;
       }
       store(KEY, JSON.stringify(Array.from(sel)));
+      if (window.narxSelChanged) window.narxSelChanged();
     }
+    // Excel кўриниши (натижа файли) шу белгилар билан ишлайди — пастки панел иккаласида бир хил
+    var selectableNums = new Set(rows.filter(function (t) { return t.dataset.selectable; }).map(function (t) { return t.dataset.row; }));
+    window.narxSel = {
+      set: sel, render: render,
+      selectable: function (r) { return selectableNums.has(String(r)); },
+    };
+
+    var search = document.getElementById("row-search"), visibleOut = document.getElementById("row-visible");
+    function norm(t) { return (t || "").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " "); }
+    rows.forEach(function (tr) { var n = tr.querySelector(".xl-name"); tr._text = norm(n ? n.textContent : ""); });
 
     function applyFilter(key, label) {
       filterKey = key || null;
+      var q = norm(search ? search.value.trim() : "");
+      var shown = 0;
       rows.forEach(function (tr) {
         var hit = !filterKey;
         if (filterKey === "SELECTED") hit = sel.has(tr.dataset.row);
         else if (filterKey) hit = tr.dataset.status === filterKey || flags(tr).indexOf(" " + filterKey + " ") >= 0;
+        if (hit && q) hit = tr._text.indexOf(q) >= 0;
         tr.style.display = hit ? "" : "none";
+        if (hit && tr.dataset.selectable) shown++;
       });
       body.querySelectorAll("tr[data-group-head]").forEach(function (h) {
         var id = h.dataset.groupHead;
-        h.style.display = !filterKey || rows.some(function (t) { return t.dataset.group === id && t.style.display !== "none"; }) ? "" : "none";
+        h.style.display = (!filterKey && !q) || rows.some(function (t) { return t.dataset.group === id && t.style.display !== "none"; }) ? "" : "none";
       });
-      box.classList.toggle("hidden", !filterKey);
+      if (visibleOut) visibleOut.textContent = shown;
+      // фильтр тугмаси бор бўлса — ўша тугма ёнади; бўлмаса (L/M, танланганлар…) — кўк ёрлиқ
+      var chip = false;
+      document.querySelectorAll(".cat-chip, .stat-card").forEach(function (b) {
+        var on = (b.dataset.filter || "") === (filterKey || "");
+        b.classList.toggle("is-active", on);
+        if (on && filterKey && b.classList.contains("chip")) chip = true;
+      });
+      box.classList.toggle("hidden", !filterKey || chip);
       boxName.textContent = label || "";
-      document.querySelectorAll(".stat-card, .cat-chip").forEach(function (b) {
-        var on = !!filterKey && b.dataset.filter === filterKey;
-        b.classList.toggle("ring-2", on);
-        b.classList.toggle("ring-slate-900", on);
-      });
       store(KEY + "-filter", filterKey ? filterKey + "|" + (label || "") : null);
       render();
     }
+    if (search) {
+      var searchTimer = null;
+      search.addEventListener("input", function () {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () { applyFilter(filterKey, boxName.textContent); }, 120);
+      });
+    }
 
-    function scrollToTable() { document.getElementById("rows-section").scrollIntoView({behavior: "smooth", block: "start"}); }
+    // ---- таблар (босқичлар): битта босқич кўринади, қолганлари яширин ----
+    var TAB_KEY = KEY + "-tab";
+    function hasTab(name) { return !!document.querySelector('.tab-panel[data-tab="' + name + '"]'); }
+    function showTab(name, scroll) {
+      name = String(name);
+      document.querySelectorAll(".tab-panel").forEach(function (p) { p.classList.toggle("hidden", p.dataset.tab !== name); });
+      document.querySelectorAll(".tab-btn").forEach(function (b) {
+        var on = b.dataset.tabBtn === name;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      store(TAB_KEY, name);
+      if (history.replaceState) history.replaceState(null, "", location.pathname + location.search + "#t-" + name);
+      if (scroll) window.scrollTo({top: 0, behavior: "smooth"});
+    }
+    function openUp(el) {
+      var p = el && el.closest(".tab-panel");
+      if (p) showTab(p.dataset.tab);
+      for (var d = el && el.closest("details"); d; d = d.parentElement.closest("details")) d.open = true;
+    }
+    document.querySelectorAll(".tab-btn").forEach(function (b) { b.addEventListener("click", function () { showTab(b.dataset.tabBtn, true); }); });
+    document.querySelectorAll("[data-goto]").forEach(function (b) { b.addEventListener("click", function () { showTab(b.dataset.goto, true); }); });
+    document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+      a.addEventListener("click", function () { openUp(document.querySelector(a.getAttribute("href"))); });
+    });
+    // қайси таб: манзилдаги #t-2 → охирги очилгани (босқич ўзгармаган бўлса) → биринчи тугамаган босқич
+    var DEFAULT_TAB = "{{ default_tab }}";
+    var hashTab = (location.hash.match(/^#t-(\w+)/) || [])[1];
+    var hashEl = !hashTab && location.hash.length > 1 ? document.getElementById(location.hash.slice(1)) : null;
+    var savedTab = read(TAB_KEY + "-default") === DEFAULT_TAB ? read(TAB_KEY) : null;
+    if (hashTab && hasTab(hashTab)) showTab(hashTab);
+    else if (hashEl && hashEl.closest(".tab-panel")) openUp(hashEl);
+    else showTab(savedTab && hasTab(savedTab) ? savedTab : DEFAULT_TAB);
+    store(TAB_KEY + "-default", DEFAULT_TAB);
+
+    // 1-босқичдаги «↗»: 2-босқич жадвалида шу қаторни (атрофи билан) кўрсатиш
+    window.narxShowTab = showTab;
+    window.narxGoToRow = function (r) {
+      var tr = body.querySelector('tr[data-row="' + r + '"]');
+      if (!tr) return;
+      if (search) search.value = "";
+      applyFilter(null);
+      showTab("2");
+      document.getElementById("rows-section").scrollIntoView({block: "start"});
+      wrap.scrollTop = Math.max(0, tr.offsetTop - wrap.clientHeight / 3);
+      tr.classList.add("flash");
+      setTimeout(function () { tr.classList.remove("flash"); }, 2600);
+    };
+
+    function scrollToTable() {
+      var t = document.getElementById("rows-section");
+      openUp(t);
+      t.scrollIntoView({behavior: "smooth", block: "start"});
+    }
 
     document.querySelectorAll(".stat-card, .cat-chip").forEach(function (b) {
       b.addEventListener("click", function () {
-        applyFilter(b.dataset.filter, b.dataset.label || b.querySelector("div").textContent);
-        scrollToTable();
+        var label = b.dataset.label !== undefined ? b.dataset.label : (b.querySelector("div") || b).textContent;
+        applyFilter(b.dataset.filter, label);
+        if (b.dataset.filter || !b.classList.contains("chip")) scrollToTable();
       });
     });
     document.getElementById("row-filter-reset").addEventListener("click", function () { applyFilter(null); });
@@ -662,8 +1677,23 @@
         if (e.key === "Escape" && sel.size && !inField) { sel.clear(); render(); }
       });
 
+      // таклиф қилинган биринчи қаторга ўтиб, бир зум ёритади
+      function revealFirst(flag) {
+        var wrapEl = document.getElementById("grid-wrap");
+        var t = rows.filter(function (tr) { return tr.style.display !== "none" && flags(tr).indexOf(" " + flag + " ") >= 0; })[0];
+        if (!t || !wrapEl) return;
+        setTimeout(function () {
+          var head = wrapEl.querySelector("thead");
+          wrapEl.scrollTop = Math.max(0, t.offsetTop - (head ? head.offsetHeight : 0) - 8);
+          wrapEl.querySelectorAll("tr.row-flash").forEach(function (x) { x.classList.remove("row-flash"); });
+          void t.offsetWidth;
+          t.classList.add("row-flash");
+        }, 350);
+      }
+
       document.querySelectorAll("[data-review]").forEach(function (btn) {
         btn.addEventListener("click", function () {
+          if (window.narxShowGrid) window.narxShowGrid();
           var cat = btn.dataset.review;
           rows.forEach(function (t) { if (flags(t).indexOf(" SUGG_" + cat + " ") >= 0) sel.add(t.dataset.row); });
           applyFilter("SUGG_" + cat, btn.dataset.label);
@@ -672,6 +1702,7 @@
             m.classList.toggle("ring-white", m.dataset.move === cat);
           });
           scrollToTable();
+          revealFirst("SUGG_" + cat);
         });
       });
 
@@ -803,6 +1834,33 @@
           if (sel.size) moveRows(Array.from(sel), btn.dataset.move);
         });
       });
+      // 2-босқич: L/M карталари — «кўриб чиқиш» (жадвалда белгилаш) ва «ҳаммасини ўтказиш»
+      document.querySelectorAll(".lm-review").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          if (window.narxShowGrid) window.narxShowGrid();
+          var col = btn.dataset.col;
+          rows.forEach(function (t) { if (flags(t).indexOf(" LM_" + col + " ") >= 0) sel.add(t.dataset.row); });
+          applyFilter("LM_" + col, btn.dataset.label);
+          document.querySelectorAll(".move-btn").forEach(function (m) {
+            m.classList.toggle("ring-2", m.dataset.move === col);
+            m.classList.toggle("ring-white", m.dataset.move === col);
+          });
+          scrollToTable();
+          revealFirst("LM_" + col);
+        });
+      });
+      document.querySelectorAll(".sugg-xl").forEach(function (btn) {
+        btn.addEventListener("click", function () { if (window.narxSuggestXl) window.narxSuggestXl(btn.dataset.to); });
+      });
+      document.querySelectorAll(".lm-move").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var list = btn.dataset.rows.split(",");
+          if (confirm(list.length + " та қатор " + btn.dataset.col + " устунига ўтказилади, сумма ва сводка қайта ҳисобланади. Давом этамизми?")) {
+            btn.disabled = true;
+            moveRows(list, btn.dataset.col);
+          }
+        });
+      });
       // бўлим сарлавҳаси: «белгилаш» — бўлимдаги қаторларни танлайди; «M га ўтказамизми?» — бир босишда
       body.addEventListener("click", function (e) {
         var g = e.target.closest(".grp-select"), m = e.target.closest(".grp-move");
@@ -842,6 +1900,4 @@
   })();
 </script>
 {% endif %}
-</div>{# min-w-0 #}
-</div>{# grid #}
 {% endblock %}

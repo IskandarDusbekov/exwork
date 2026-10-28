@@ -6,6 +6,8 @@
     <span class="tree-ico-open text-amber-500">{% icon "folder-open" "h-[18px] w-[18px]" "1.75" %}</span>
     <span class="tree-name {% if node.depth == 0 %}font-semibold uppercase tracking-wide text-xs{% endif %}">{{ node.name }}</span>
     {% include "jobs/_tree_state.html" with state=node.state count=node.not_priced message=node.part.batch.message %}
+    {% if node.part.jobs|length == 1 %}<a href="{% url 'job' node.part.jobs.0.id %}" class="tree-open" title="Сметани очиш">{% icon "external" "h-3.5 w-3.5" %} очиш</a>
+    {% elif node.part and node.state != "queued" and node.state != "converting" and node.state != "empty" %}<a href="{% url 'batch' node.part.batch.id %}" class="tree-open" title="Қисмни очиш">{% icon "external" "h-3.5 w-3.5" %} очиш</a>{% endif %}
   </summary>
   <div class="tree-children" style="--guide: {% widthratio node.depth 1 18 %}px">
     {% for child in node.folders %}{% include "jobs/_tree_node.html" with node=child %}{% endfor %}
@@ -17,7 +19,7 @@
       <span class="tree-name italic">{{ f.name }}</span><span class="tree-deco text-[10px] text-slate-400">{{ f.skip }}</span>
     </div>
     {% else %}
-    {% if f.role == "local" and f.jobs|length == 1 %}<a href="{% url 'job' f.jobs.0.id %}"{% elif node.part %}<a href="{% url 'batch' node.part.batch.id %}"{% else %}<div{% endif %}
+    {% if f.role == "local" and f.jobs|length == 1 %}<a href="{% url 'job' f.jobs.0.id %}"{% elif node.part.jobs|length == 1 %}<a href="{% url 'job' node.part.jobs.0.id %}"{% elif node.part %}<a href="{% url 'batch' node.part.batch.id %}"{% else %}<div{% endif %}
        class="tree-row tree-file" style="padding-left: calc({% widthratio depth 1 18 %}px + 8px)"
        title="{{ f.name }}{% if f.role == 'local' %} — локал (иш ҳажмлари), очиш{% elif f.role == 'resource' %} — ресурс (нархлар){% endif %}">
       <span class="tree-chevron"></span>

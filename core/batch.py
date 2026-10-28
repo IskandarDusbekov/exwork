@@ -7,6 +7,11 @@ yoki ikkita alohida faylni yuklaydi. Har bir list mazmunidan aniqlanadi:
 * **Локал** — resurslar ro'yxati («Наименование», «Ед. изм.»), narx ustuni yo'q;
 * qolganlari (svodka va h.k.) — o'tkazib yuboriladi.
 
+Narx ustuni bo'lsa ham resurs emas (``kind`` — nega o'tkazildi, sahifada ko'rsatiladi):
+narx katalogi (miqdor ustuni yo'q), allaqachon narxlangan ЛРВ («1.1, 1.2 …» — ish va uning
+resurslari). Narxsiz bo'lsa ham lokal emas: дефект акти (ishlar ro'yxati). Yashirin listlar
+qoladi, lekin nusxa bo'lsa ko'rinadigani olinadi va juftlashda afzal.
+
 Juftlash belgilari (eng kuchlisi birinchi): lokaldagi resurs nomlarining qanchasi resurs
 listida aynan bor; smeta raqami («№ 1-6»); list nomining prefiksi («202611450_БВ» ↔ «…_БР»);
 obyekt nomi. Bu faqat taklif — smetachi tasdiqlaydi yoki o'zgartiradi.
@@ -16,7 +21,8 @@ import re
 from dataclasses import asdict, dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from .detect import cell_value, detect_layout, header_texts
+from .columns import detect_local_columns
+from .detect import cell_value, detect_layout, header_texts, override_layout
 from .normalize import norm_name, norm_unit
 
 LOCAL = "local"
@@ -26,6 +32,25 @@ ROLES = (LOCAL, RESOURCE, UNKNOWN)
 
 TITLE_SCAN_ROWS = 14
 _PRICE_WORDS = ("цена", "стоимост", "базис")
+_QTY_WORDS = ("колич", "кол-во", "кол.", "объем", "объём")
+DOTTED_SHARE = 0.3  # 1-ustunda «1.1, 2.3» ulushi shundan ko'p — ish + resurslari (ЛРВ), resurs ro'yxati emas
+DOTTED_SCAN = 300
+
+# Nega o'tkazildi / nima ekan (``SheetInfo.kind``)
+KIND_CATALOG = "catalog"
+KIND_PRICED = "priced"
+KIND_ACT = "act"
+KIND_SUMMARY = "summary"
+KIND_EMPTY = "empty"
+KIND_LABELS = {
+    KIND_CATALOG: "нарх каталоги",
+    KIND_PRICED: "нархланган смета",
+    KIND_ACT: "дефект акти",
+    KIND_SUMMARY: "сводка / умумий ҳисоб",
+    KIND_EMPTY: "бўш лист",
+}
+_SUMMARY_WORDS = ("свод", "объектн", "рекомендуем", "стартов", "общий расчет", "общий расчёт", "якуний", "ҳаражат",
+                  "харажат", "обложк", "титул", "пояснительн", "расчет стоимости", "итоговый")
 _NUMBER_RE = re.compile(r"№\s*([0-9A-Za-zА-Яа-яЁё][\w\-./]*)")
 MIN_OVERLAP = 0.3     # bundan kam bo'lsa — juft taklif qilinmaydi
 MIN_SCORE = 3.0       # umumiy ball (raqam zid bo'lsa jarima bilan)
@@ -47,6 +72,13 @@ class SheetInfo:
     rows: int = 0
     signature: str = ""
     duplicate_of: Optional[str] = None
+    hidden: bool = False  # Excel'da yashirin list
+    kind: str = ""        # o'tkazilgan list nima ekan: KIND_* (sahifada ko'rsatish uchun)
+    # tizim (yoki smetachi) qaysi ustunni nima deb oldi: {"name": 3, "unit": 4, "price": 7, "qty_unit": 5,
+    # "qty_total": 6, "start": 22, "end": 850, "header": 11}; ``manual`` — smetachi qo'lda ko'rsatgan
+    columns: dict = field(default_factory=dict)
+    manual: bool = False
+    headers: dict = field(default_factory=dict)  # ustun -> sarlavha matni / namuna (qo'lda tanlash ro'yxati uchun)
     names: frozenset = field(default_factory=frozenset, repr=False)
 
     @property
@@ -69,6 +101,8 @@ class Pair:
     reasons: List[str] = field(default_factory=list)
     shared: bool = False         # bu resurs boshqa lokal bilan ham juftlangan
     label: str = ""
+    # smetachi qo'lda tanlashi uchun: har bir resurs listi bilan mosligi, eng yaxshisi birinchi
+    options: List[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -107,33 +141,119 @@ def _labelled(head: Dict[int, str], low: Dict[int, str], prefix: str, label: str
     return ""
 
 
-def inspect_sheet(ws, file: int = 0, file_name: str = "") -> SheetInfo:
+def _dotted_share(ws, col: int, start: int, stop: int) -> float:
+    """1-ustundagi raqamlarning qanchasi «1.1», «12.3» (ish ichidagi resurs) ko'rinishida."""
+    dotted = total = 0
+    for r in range(start, min(stop, start + DOTTED_SCAN)):
+        v = cell_value(ws, r, col)
+        if v is None or str(v).strip() == "":
+            continue
+        total += 1
+        if isinstance(v, float) and not v.is_integer():
+            dotted += 1
+        elif isinstance(v, str) and re.fullmatch(r"\d+\.\d+", v.strip()):
+            dotted += 1
+    return dotted / total if total >= 5 else 0.0
+
+
+HEADER_COLS = 30  # qo'lda tanlash ro'yxatida nechta ustun
+
+
+def _column_headers(ws, layout) -> Dict[str, str]:
+    """Ustun -> «sarlavha · namuna» (qisqa): smetachi qaysi ustun nima ekanini tanlashi uchun."""
+    texts = {}
+    if layout is not None and layout.header_row:
+        bottom = (layout.numbering_row - 1) if layout.numbering_row else layout.header_row
+        texts = header_texts(ws, layout.header_row, bottom)
+    start = layout.data_start if layout is not None else 1
+    out = {}
+    for c in range(1, min(ws.max_column, HEADER_COLS) + 1):
+        sample = next((str(v).strip() for r in range(start, min(start + 15, ws.max_row + 1))
+                       for v in [cell_value(ws, r, c)] if v is not None and str(v).strip()), "")
+        head = texts.get(c, "")
+        if head or sample:
+            out[str(c)] = " · ".join(t[:40] for t in (head, sample) if t)
+    return out
+
+
+def _skipped(file, file_name, ws, kind: str, reason: str, hidden: bool, headers=None) -> SheetInfo:
+    return SheetInfo(file, file_name, ws.title, UNKNOWN, reason, hidden=hidden, kind=kind, headers=headers or {})
+
+
+def inspect_sheet(ws, file: int = 0, file_name: str = "", role: Optional[str] = None,
+                  cols: Optional[dict] = None) -> SheetInfo:
+    """``role`` — smetachi qo'lda bergan tur (lokal / resurs bo'lsa avtomatik tekshiruvlar — дефект акти,
+    narxlangan smeta — o'tkazilmaydi); ``cols`` — qo'lda ko'rsatilgan ustun va qatorlar."""
     head = {r: _row_text(ws, r) for r in range(1, min(ws.max_row, TITLE_SCAN_ROWS) + 1)}
     head = {r: t for r, t in head.items() if t}
     low = {r: _low(t) for r, t in head.items()}
-
-    layout = detect_layout(ws, need_price=True, stop_at_total=False)
-    if layout is None:
-        return SheetInfo(file, file_name, ws.title, UNKNOWN,
-                         "«Наименование» ва «Ед. изм.» сарлавҳали жадвал топилмади")
-
-    bottom = (layout.numbering_row - 1) if layout.numbering_row else layout.header_row
-    header = " | ".join(header_texts(ws, layout.header_row, bottom).values())
     joined = " ".join(low.values())
-    has_price = any(w in header for w in _PRICE_WORDS)
-    if has_price:
-        role, reason = RESOURCE, "нарх устуни бор («цена / стоимость»)"
+    hidden = ws.sheet_state != "visible"
+    forced = role if role in (LOCAL, RESOURCE) else None
+    cols = cols or {}
+
+    layout = override_layout(ws, detect_layout(ws, need_price=True, stop_at_total=False), cols, need_price=True)
+    headers = _column_headers(ws, layout)
+    if layout is None:
+        if forced:
+            return SheetInfo(file, file_name, ws.title, forced,
+                             "қўлда белгиланди — «Наименование» ва «Ед. изм.» устунлари топилмади, уларни кўрсатинг",
+                             hidden=hidden, manual=bool(cols), headers=headers)
+        if not head:
+            return _skipped(file, file_name, ws, KIND_EMPTY, "бўш лист", hidden, headers)
+        if any(w in joined or w in _low(ws.title) for w in _SUMMARY_WORDS):
+            return _skipped(file, file_name, ws, KIND_SUMMARY, "сводка / умумий ҳисоб — смета эмас, нархланмайди", hidden, headers)
+        return SheetInfo(file, file_name, ws.title, UNKNOWN,
+                         "«Наименование» ва «Ед. изм.» сарлавҳали жадвал топилмади", hidden=hidden, headers=headers)
+
+    header = ""
+    if layout.header_row:
+        bottom = (layout.numbering_row - 1) if layout.numbering_row else layout.header_row
+        header = " | ".join(header_texts(ws, layout.header_row, bottom).values())
+    form6 = "форма n 6" in joined or "ресурсный сметный расчет" in joined
+    has_price = any(w in header for w in _PRICE_WORDS) or (form6 and layout.price_col is not None)
+    if forced is None:
+        if "дефектн" in joined or "дефектн" in _low(ws.title):
+            return _skipped(file, file_name, ws, KIND_ACT, "дефект акти — ишлар рўйхати, ресурслар эмас", hidden, headers)
+        if has_price:
+            if not any(w in header for w in _QTY_WORDS):
+                return _skipped(file, file_name, ws, KIND_CATALOG,
+                                "нарх каталоги — миқдор устуни йўқ, смета эмас (жуфтлашга олинмайди)", hidden, headers)
+            if _dotted_share(ws, 1, layout.data_start, layout.data_stop) >= DOTTED_SHARE:
+                return _skipped(file, file_name, ws, KIND_PRICED,
+                                "нархланган локал смета (иш ва унинг ресурслари «1.1, 1.2…», нарх ёзилган) — тайёр. "
+                                "Қайта нархлаш керак бўлса — турини «Локал» қилинг", hidden, headers)
+    role = forced or (RESOURCE if has_price else LOCAL)
+    found = {"header": layout.header_row}
+    if role == RESOURCE:
+        reason = "нарх устуни бор («цена / стоимость»)"
         if "форма n 6" in joined or "сметный расчет" in joined or "ресурсная смета" in joined:
             reason += " · Форма 6а"
+        if layout.price_col is None:
+            reason += " · нарх устуни топилмади — кўрсатинг"
         name_col, unit_col, price_col = layout.name_col, layout.unit_col, layout.price_col
         start, stop = layout.data_start, layout.data_stop
+        found["price"] = price_col
     else:
-        role, reason = LOCAL, "ресурслар рўйхати, нарх устуни йўқ"
+        reason = "ресурслар рўйхати, нарх устуни йўқ"
         if "форма n 5" in joined or "ведомост" in joined:
             reason += " · Форма 5"
-        loc = detect_layout(ws) or layout
-        name_col, unit_col, price_col = loc.name_col, loc.unit_col, None
-        start, stop = loc.data_start, loc.data_stop
+        loc = detect_local_columns(ws, cols)
+        if loc is not None:
+            name_col, unit_col, start, stop = loc.name, loc.unit, loc.data_start, loc.data_stop
+            found.update(qty_unit=loc.qty_unit, qty_total=loc.qty_total)
+        else:
+            loc = override_layout(ws, detect_layout(ws) or layout, cols)
+            name_col, unit_col, start, stop = loc.name_col, loc.unit_col, loc.data_start, loc.data_stop
+            reason += " · миқдор устуни топилмади — кўрсатинг"
+        price_col = None
+    found.update(name=name_col, unit=unit_col, start=start, end=stop - 1)
+    if forced:
+        reason = "қўлда белгиланди · " + reason
+    if cols:
+        reason += " · устунлар қўлда кўрсатилган"
+    if hidden:
+        reason += " · яширин лист"
 
     title_row = next((r for r, t in low.items()
                       if "ведомост" in t or "сметный расчет" in t or "ресурсная смета" in t), None)
@@ -161,28 +281,32 @@ def inspect_sheet(ws, file: int = 0, file_name: str = "") -> SheetInfo:
         file, file_name, ws.title, role, reason, title=title, number=number,
         stroyka=_labelled(head, low, "наименование стройки", "наименование стройки"),
         obj=_labelled(head, low, "наименование объекта", "наименование объекта"),
-        part=part, rows=len(rows_for_sig), signature=signature, names=frozenset(names),
+        part=part, rows=len(rows_for_sig), signature=signature, hidden=hidden, names=frozenset(names),
+        columns=found, manual=bool(cols), headers=headers,
     )
 
 
-def inspect_workbook(wb, file: int = 0, file_name: str = "") -> List[SheetInfo]:
-    return [inspect_sheet(ws, file, file_name) for ws in wb.worksheets]
+def inspect_workbook(wb, file: int = 0, file_name: str = "", roles: Optional[dict] = None,
+                     columns: Optional[dict] = None) -> List[SheetInfo]:
+    """``roles`` / ``columns`` — smetachining qo'lda tuzatishlari, kaliti «fayl:list» (``SheetInfo.key``)."""
+    roles, columns = roles or {}, columns or {}
+    return [inspect_sheet(ws, file, file_name, roles.get(f"{file}:{ws.title}"), columns.get(f"{file}:{ws.title}"))
+            for ws in wb.worksheets]
 
 
 # ===================== nusxalar va juftlash =====================
 def mark_duplicates(infos: Iterable[SheetInfo]) -> List[SheetInfo]:
-    """Bir xil turdagi, mazmuni aynan bir xil listlar (masalan, ikki faylda takrorlangan) — birinchisi qoladi."""
+    """Bir xil turdagi, mazmuni aynan bir xil listlar (masalan, ikki faylda takrorlangan) — birinchisi qoladi.
+    Ko'rinadigan list yashirinidan oldin: smetachi asl listni yashirib, nusxasi bilan ishlaydi."""
     seen: Dict[Tuple[str, str], str] = {}
-    out = []
-    for info in infos:
+    for info in sorted(infos, key=lambda i: i.hidden):
         if info.role in (LOCAL, RESOURCE) and info.rows:
             k = (info.role, info.signature)
             if k in seen:
                 info.duplicate_of = seen[k]
             else:
                 seen[k] = info.key
-        out.append(info)
-    return out
+    return list(infos)
 
 
 def _prefix(sheet: str) -> str:
@@ -214,11 +338,14 @@ def pair_score(loc: SheetInfo, res: SheetInfo) -> Tuple[float, float, List[str]]
         reasons.append("қисм номи бир хил")
     if loc.file == res.file:
         score += 0.3
+    if res.hidden and not loc.hidden:
+        score -= 0.5  # yashirin resurs — ko'rinadigan nusxasi bo'lsa, o'shanisi afzal
     return score, overlap, reasons
 
 
-def pair_label(loc: SheetInfo) -> str:
-    base = loc.part or loc.obj or loc.title or loc.sheet
+def pair_label(loc: SheetInfo, file_stem: str = "") -> str:
+    """``file_stem`` — faylda yagona lokal bo'lsa uning nomi («2. ЭО»): «ЛОКАЛЬНО-РЕСУРСНАЯ ВЕДОМОСТЬ»dan aniqroq."""
+    base = loc.part or loc.obj or file_stem or loc.title or loc.sheet
     return f"{base} · № {loc.number}" if loc.number and loc.number not in base else base
 
 
@@ -252,10 +379,23 @@ def plan_pairs(infos: List[SheetInfo]) -> Tuple[List[Pair], List[SheetInfo]]:
     pairs = []
     for li, loc in enumerate(locals_):
         p = chosen.get(li) or Pair(loc.key, None, reasons=["мос ресурс листи топилмади"])
-        p.label = pair_label(loc)
+        alone = sum(1 for x in locals_ if x.file == loc.file) == 1
+        p.label = pair_label(loc, re.sub(r"\.(xlsx|xlsm|xls)$", "", loc.file_name, flags=re.I).strip() if alone else "")
+        p.options = pair_options(loc, resources)
         pairs.append(p)
     unused = [r for r in resources if r.key not in {p.res for p in pairs}]
     return pairs, unused
+
+
+def pair_options(loc: SheetInfo, resources: List[SheetInfo]) -> List[dict]:
+    """Smetachi qo'lda tanlashi uchun barcha resurs listlari — moslik bo'yicha (eng yaxshisi birinchi)."""
+    out = []
+    for res in resources:
+        score, overlap, reasons = pair_score(loc, res)
+        out.append({"res": res.key, "score": round(score, 2), "overlap": round(overlap, 4),
+                    "same_file": res.file == loc.file, "reasons": reasons[:3]})
+    out.sort(key=lambda o: (-o["score"], -o["overlap"]))
+    return out
 
 
 def apply_roles(infos: List[SheetInfo], roles: Dict[str, str]) -> List[SheetInfo]:

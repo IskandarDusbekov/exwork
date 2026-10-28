@@ -1,3 +1,5 @@
+import re
+
 from django import template
 
 register = template.Library()
@@ -12,6 +14,30 @@ _EXCEL_ERRORS_RU = {
     "#N/A": "#Н/Д",
     "#NULL!": "#ПУСТО!",
 }
+
+
+_CAPS_WORD = re.compile(r"[A-ZА-ЯЁЎҚҒҲ]{4,}")
+_CAPS_SHORT = re.compile(r"\b(?:НА|В|И|ПО|С|К|ОТ|ДО|ИЗ|ЗА|ДЛЯ|ПРИ|БЕЗ)\b")
+
+
+@register.filter
+def readable(v) -> str:
+    """«ПОДАЮЩИЙ  ТРУБОПРОВОД» -> «Подающий трубопровод»: бош ҳарфли узун сўзлар кичик, ортиқча бўшлиқ йўқ
+    (қисқартмалар — ЭО, ЛВС — ўзича қолади)."""
+    s = " ".join(str(v or "").split())
+    if _CAPS_WORD.search(s):
+        s = _CAPS_WORD.sub(lambda m: m.group(0).lower(), s)
+        s = _CAPS_SHORT.sub(lambda m: m.group(0).lower(), s)  # «НА», «ДЛЯ» каби боғловчилар ҳам
+    i = next((n for n, ch in enumerate(s) if ch.isalpha()), None)
+    return s if i is None else s[:i] + s[i].upper() + s[i + 1:]
+
+
+@register.filter
+def file_title(name) -> str:
+    """Файл номидан ўқиладиган ном: «104192_ALL_03-08_ПОДАЮЩИЙ ТРУБОПРОВОД.xls» -> «03-08 Подающий трубопровод»."""
+    stem = re.sub(r"\.(xlsx|xlsm|xls)$", "", str(name or ""), flags=re.I)
+    stem = re.sub(r"^\d{4,}_(?:[A-Za-z]{2,4}_)*", "", stem)  # дастур коди «104192_ALL_»
+    return readable(stem.replace("_", " ").strip(" .")) or str(name or "")
 
 
 @register.filter
@@ -154,6 +180,18 @@ _ICONS = {
     "minus": '<path d="M5 12h14"/>',
     "external": '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
     "x-circle": '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>',
+    "stop": '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
+    "play": '<path d="M7 5v14l11-7z"/>',
+    "trash": '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/>',
+    "search": '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    "help": '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/>',
+    "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+    "user": '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    "shield": '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+    "activity": '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+    "database": '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/>',
+    "lock": '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    "grid": '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
     "logo": '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h6M7 12h10M7 16h4M15 16h2"/>',
 }
 _SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -170,3 +208,15 @@ def icon(name, cls="h-4 w-4 shrink-0", width="2"):
 @register.filter
 def get_item(d, key):
     return d.get(key) if hasattr(d, "get") else None
+
+
+@register.filter
+def hsize(n):
+    """Файл ҳажми: 1 536 → «1,5 КБ»."""
+    if n is None or n == "":
+        return "—"
+    n = float(n)
+    for unit in ("Б", "КБ", "МБ", "ГБ"):
+        if n < 1024 or unit == "ГБ":
+            return (f"{n:.0f} {unit}" if unit == "Б" or n >= 100 else f"{n:.1f} {unit}").replace(".", ",")
+        n /= 1024

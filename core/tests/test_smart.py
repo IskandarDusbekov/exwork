@@ -61,12 +61,102 @@ def test_range_stops_before_itogo(tmp_path):
     r = _run(d / "input_local.xlsx", d / "input_res.xlsx", tmp_path)
     assert (r.start_row, r.end_row) == (15, 44)
     ws = load_workbook(r.output_path)["202611450_БВ"]
-    assert ws["G46"].value is None and ws["G12"].value is None
+    assert ws["G46"].value is None
     # «ИТОГО ПО ЛОКАЛЬНОЙ…» qismi (46..77, «СОСТАВИЛ» bilan) olib tashlandi — svodka sum qatoridan keyin
     assert r.sum_row == 45 and r.tail_removed == 32
     assert ws[f"C{r.svodka_start}"].value == "Зарплата" and r.svodka_start == 46
     assert all(ws.cell(row, 2).value != "СОСТАВИЛ" for row in range(1, ws.max_row + 1))
     assert ws.max_row == 46 + 12
+
+
+def test_price_and_amount_headers_and_filter(tmp_path):
+    """Narx/summa ustunlari tepasida «Цена»/«Сумма» (jadval sarlavhasi uslubida), raqamlash
+    qatori Q gacha davom etadi (7 … 17); yuqori sarlavha rangi summa ustunida tugaydi; filtr oxirgi resurs qatorigacha."""
+    from core.writer import AMOUNT_COL, PRICE_COL
+    d = TESTS / "golden/202611450"
+    r = _run(d / "input_local.xlsx", d / "input_res.xlsx", tmp_path)
+    ws = load_workbook(r.output_path)["202611450_БВ"]
+    layout = detect_layout(load_workbook(d / "input_local.xlsx")["202611450_БВ"])
+    head, num = layout.header_row, layout.numbering_row
+    assert ws[f"{PRICE_COL}{head}"].value == "Цена" and ws[f"{AMOUNT_COL}{head}"].value == "Сумма"
+    assert ws[f"{PRICE_COL}{head}"].fill.fgColor.rgb == ws[f"E{head}"].fill.fgColor.rgb == ws[f"H{head}"].fill.fgColor.rgb
+    assert f"G{head}:G{num - 1}" in {str(m) for m in ws.merged_cells.ranges}
+    assert ws[f"G{head + 1}"].value is None and ws[f"I{head}"].fill.fill_type is None  # sarlavha rangi summa ustunida tugaydi
+    assert [ws[f"{c}{num}"].value for c in "FGHIQ"] == [6, 7, 8, 9, 17]  # raqamlash (filtr) qatori oxirigacha
+    assert ws[f"Q{num}"].fill.fgColor.rgb == ws[f"G{num}"].fill.fgColor.rgb
+    assert ws.auto_filter.ref == f"A{num}:Q{r.end_row}"  # filtr esa hamma ustunlar bo'ylab
+
+    renamed = _run(d / "input_local.xlsx", d / "input_res.xlsx", tmp_path, column_names={"G": "Нарх"})
+    assert load_workbook(renamed.output_path)["202611450_БВ"][f"G{head}"].value == "Нарх"
+
+
+def test_rows_below_svodka_hidden(tmp_path):
+    """Svodkadan keyin 5 bo'sh qator ko'rinadi, pasti yashirin (zeroHeight): ichidagi bo'sh
+    qatorlar standart balandlikda qoladi, yozuvli qatorlarniki esa Excel'ning o'ziga qoldiriladi."""
+    from core.pipeline import EMPTY_ROWS_AFTER
+    d = TESTS / "golden/202611450"
+    r = _run(d / "input_local.xlsx", d / "input_res.xlsx", tmp_path)
+    ws = load_workbook(r.output_path)["202611450_БВ"]
+    last = r.svodka_start + 12
+    assert ws.sheet_format.zeroHeight
+    assert all(ws.row_dimensions[row].height for row in range(last + 1, last + EMPTY_ROWS_AFTER + 1))
+    assert last + EMPTY_ROWS_AFTER + 1 not in ws.row_dimensions
+    src = load_workbook(d / "input_local.xlsx")["202611450_БВ"]
+    assert ws.row_dimensions[20].height == src.row_dimensions[20].height
+
+
+def test_cleared_not_found(sample_files, tmp_path):
+    """«ТОПИЛМАДИ» олиб ташланса: бирлиги бор қаторда G бўш, лекин қизил (шартли формат) ва ҳали
+    нархланмаган; бирлиги йўқ қаторда G, H ва категория бўш, нархланмаганлар қаторига кирмайди."""
+    from core.pipeline import CLEARED
+    local, res = sample_files
+    row = FIRST_DATA_ROW + 7
+    before = _run(local, res, tmp_path).stats["NOT_PRICED"]
+    r = _run(local, res, tmp_path, cleared=[row])
+    ws = load_workbook(r.output_path)["202611450_БВ"]
+    assert r.cleared == [row] and ws[f"G{row}"].value is None and ws[f"H{row}"].value is not None
+    assert any(f"G{row}" in str(cf.sqref) and str(cf.sqref) != f"G{r.start_row}:G{r.end_row}"
+               for cf in ws.conditional_formatting)
+    assert r.stats["NOT_PRICED"] == before and row in [p["row"] for p in r.problems]
+
+    wb = load_workbook(local)
+    wb["202611450_БВ"][f"D{row}"] = None  # бирлиги йўқ (бўлим номи каби)
+    wb.save(tmp_path / "nounit.xlsx")
+    r = _run(tmp_path / "nounit.xlsx", res, tmp_path, cleared=[row])
+    ws = load_workbook(r.output_path)["202611450_БВ"]
+    st = {x["row"]: x["status"] for x in r.rows}
+    assert st[row] == CLEARED and r.stats["NOT_PRICED"] == before - 1
+    assert [ws[f"{c}{row}"].value for c in "GHIJK"] == [None] * 5
+
+
+def test_not_found_suggests_nearest_resource_price(sample_files, tmp_path):
+    """Topilmagan (o'xshashlik chegarasidan past) qatorga RES dagi eng yaqin resursning narxi taklif:
+    G ga yozilmaydi; smetachi tasdiqlasa (prices) — narx RES dan aynan."""
+    local, res = sample_files
+    row = FIRST_DATA_ROW + 7
+    wb = load_workbook(local)
+    ws = wb["202611450_БВ"]
+    ws[f"C{row}"], ws[f"D{row}"] = "ТКАНЬ МЕШОЧНАЯ ДВОЙНАЯ", "10М2"
+    wb.save(tmp_path / "near.xlsx")
+    r = _run(tmp_path / "near.xlsx", res, tmp_path)
+    x = {y["row"]: y for y in r.rows}[row]
+    assert x["status"] == "NOT_FOUND" and x["g"] == "ТОПИЛМАДИ"
+    assert x["suggested_price"] == 105000 and x["near"]["same_unit"] and 0.5 <= x["near"]["score"] < 0.95
+    accepted = _run(tmp_path / "near.xlsx", res, tmp_path, prices={row: 105000})
+    assert load_workbook(accepted.output_path)["202611450_БВ"][f"G{row}"].value == 105000
+
+
+def test_fuzzy_row_has_near_and_can_be_cleared(sample_files, tmp_path):
+    """«ТЕКШИРИНГ» (o'xshash) qator ham 1-bosqichda: RES dagi nomzodi (asl yozuvda) va yozuvni olib tashlash."""
+    local, res = sample_files
+    r = _run(local, res, tmp_path)
+    fuzzy = next(x for x in r.rows if x["status"] == "FUZZY")
+    assert fuzzy["g"] == CHECK_TEXT and fuzzy["near"]["price"] == 485994
+    assert fuzzy["near"]["name"] == "БЕТОН ТЯЖЕЛЫЙ КЛАССА В15 /М-200/ ФРАКЦИИ 5-20ММ"
+    c = _run(local, res, tmp_path, cleared=[fuzzy["row"]])
+    ws = load_workbook(c.output_path)["202611450_БВ"]
+    assert ws[f"G{fuzzy['row']}"].value is None and c.cleared == [fuzzy["row"]]
+    assert fuzzy["row"] in [p["row"] for p in c.problems]  # narx hali kerak — qizil
 
 
 def test_rules_on_sample(sample_files, tmp_path):
@@ -97,7 +187,11 @@ def test_log_is_last_and_smeta_stays_active(sample_files, tmp_path):
     local, res = sample_files
     r = _run(local, res, tmp_path)
     wb = load_workbook(r.output_path)
-    assert wb.sheetnames == ["202611450_БВ", LOG_TITLE]
+    res_ws = load_workbook(res).active
+    # LOG dan keyin — resurs listi (qiymatlari bilan), smetachi narxni shu faylda solishtiradi
+    assert wb.sheetnames == ["202611450_БВ", LOG_TITLE, res_ws.title]
+    copied = wb[res_ws.title]
+    assert [[c.value for c in row] for row in copied.iter_rows(max_row=12)] ==            [[c.value for c in row] for row in res_ws.iter_rows(max_row=12)]
     assert wb.active.title == "202611450_БВ"
     log = wb[LOG_TITLE]
     assert log["K1"].value == "note" and log.auto_filter.ref == "A1:K1"
@@ -508,6 +602,22 @@ def test_custom_columns_named_and_in_svodka(tmp_path):
     without = run(local, res, Options(mode="smart", output_path=tmp_path / "p.xlsx"))
     assert r.totals["pryamye"] == pytest.approx(without.totals["pryamye"]
                                                  - n * 0.03)  # N da qoladi, faqat material transporti (3%) tushadi
-    assert ws[f"G4"].number_format == "#,##0.00"
+    assert ws[f"G4"].number_format == '#,##0;-#,##0;"-"'  # kasrsiz, 0 o'rniga «-»
     with pytest.raises(ValueError, match="kategoriya"):
         run(local, res, Options(mode="smart", output_path=tmp_path / "x.xlsx", categories={4: "O"}))
+
+
+def test_hidden_local_sheet_is_priced_and_shown(tmp_path):
+    """Smetachi asl listni yashirib, nusxasi bilan ishlagan bo'lishi mumkin: yashirin list narxlansa
+    yiqilmasin («Only visible sheets can be made active») va natijada ko'rinadigan bo'lsin."""
+    f = TESTS / "batch/obekt_lokal_7list.xlsx"
+    wb = load_workbook(f)
+    wb.active = wb["202611450_БВ"]
+    wb["202611410_БВ"].sheet_state = "hidden"
+    src = tmp_path / "hidden.xlsx"
+    wb.save(src)
+    r = run(src, src, Options(mode="smart", local_sheet="202611410_БВ", res_sheet="202611410_БР",
+                              output_path=tmp_path / "p.xlsx"))
+    out = load_workbook(r.output_path)
+    assert out["202611410_БВ"].sheet_state == "visible"
+    assert out.active.title == "202611410_БВ"

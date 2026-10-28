@@ -17,10 +17,34 @@
     <div class="{% block header_class %}max-w-6xl mx-auto px-4{% endblock %} py-3 flex items-center gap-3">
       <a href="{% url 'index' %}" class="flex items-center gap-2 text-slate-900">
         <span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-900 text-white">{% icon "logo" "h-5 w-5" %}</span>
-        <span class="text-lg font-semibold tracking-tight">Нархлаш</span></a>
-      {% if crumbs %}{% include "jobs/_crumbs.html" %}{% else %}<span class="hidden text-sm text-slate-400 sm:inline">смета нархлаш</span>{% endif %}
+        <span class="hidden text-lg font-semibold tracking-tight sm:inline">Нархлаш</span></a>
+      {% if user.is_authenticated %}
+      <nav class="ml-2 flex shrink-0 items-center gap-1 rounded-lg bg-slate-100 p-1 text-sm" aria-label="Бўлимлар">
+        <a href="{% url 'dashboard' %}" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'dashboard' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'dashboard' %} aria-current="page"{% endif %}>
+          {% icon "chart" "h-4 w-4" %}<span class="hidden sm:inline">Дашборд</span></a>
+        <a href="{% url 'index' %}" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'upload' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'upload' %} aria-current="page"{% endif %}>
+          {% icon "upload" "h-4 w-4" %}<span class="hidden sm:inline">Юклаш</span></a>
+        <a href="{% url 'landing' %}" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium text-slate-500 hover:text-slate-900">
+          {% icon "help" "h-4 w-4" %}<span class="hidden sm:inline">Тизим ҳақида</span></a>
+        {% if user.is_staff %}<a href="{% url 'panel:overview' %}" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'panel' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'panel' %} aria-current="page"{% endif %}>
+          {% icon "shield" "h-4 w-4" %}<span class="hidden sm:inline">Панел</span></a>{% endif %}
+      </nav>
+      {% if crumbs %}{% include "jobs/_crumbs.html" %}{% endif %}
       {% block header_extra %}{% endblock %}
-      <a href="{% url 'index' %}" class="ml-auto rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"><span class="inline-flex items-center gap-1.5">{% icon "upload" %} Янги юклаш</span></a>
+      {% if nav != "upload" %}<a href="{% url 'index' %}" class="ml-auto hidden shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 md:block"><span class="inline-flex items-center gap-1.5">{% icon "plus" %} Янги юклаш</span></a>{% endif %}
+      <div class="ml-auto {% if nav != 'upload' %}md:ml-0 {% endif %}flex shrink-0 items-center gap-2 text-sm">
+        <span class="hidden max-w-[12rem] truncate text-slate-600 lg:inline" title="{{ user.email }}">{{ user.get_full_name|default:user.email }}</span>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}
+          <button type="submit" class="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900">Чиқиш</button>
+        </form>
+      </div>
+      {% else %}
+      <div class="ml-auto flex items-center gap-2 text-sm">
+        <a href="{% url 'landing' %}" class="hidden rounded-lg px-3 py-1.5 font-medium text-slate-500 hover:text-slate-900 sm:block">Тизим ҳақида</a>
+        <a href="{% url 'login' %}" class="rounded-lg px-3 py-1.5 font-medium text-slate-700 hover:text-slate-900">Кириш</a>
+        <a href="{% url 'register' %}" class="rounded-lg bg-slate-900 px-3 py-1.5 font-medium text-white hover:bg-slate-700">Рўйхатдан ўтиш</a>
+      </div>
+      {% endif %}
     </div>
   </header>
   <main class="{% block main_class %}max-w-6xl mx-auto px-4 py-6{% endblock %}">
