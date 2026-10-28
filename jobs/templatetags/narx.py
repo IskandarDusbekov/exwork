@@ -192,6 +192,8 @@ _ICONS = {
     "database": '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/>',
     "lock": '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
     "grid": '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+    "monitor": '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+    "phone": '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
     "logo": '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h6M7 12h10M7 16h4M15 16h2"/>',
 }
 _SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -220,3 +222,43 @@ def hsize(n):
         if n < 1024 or unit == "ГБ":
             return (f"{n:.0f} {unit}" if unit == "Б" or n >= 100 else f"{n:.1f} {unit}").replace(".", ",")
         n /= 1024
+
+
+@register.filter
+def dur(sec):
+    """Давомийлик: 45 → «45 с», 200 → «3 дақ 20 с», 4000 → «1 соат 6 дақ»."""
+    if sec is None or sec == "":
+        return "—"
+    if float(sec) < 10:  # қисқа вақт — ўндан бир аниқликда («0,4 с»)
+        return f"{float(sec):.1f} с".replace(".", ",")
+    sec = int(round(float(sec)))
+    if sec < 60:
+        return f"{sec} с"
+    m, s = divmod(sec, 60)
+    if m < 60:
+        return f"{m} дақ {s} с" if s and m < 10 else f"{m} дақ"
+    h, m = divmod(m, 60)
+    return f"{h} соат {m} дақ" if m else f"{h} соат"
+
+
+@register.simple_tag
+def help(key, cls=""):
+    """``{% help "warn" %}`` — огоҳлантириш ёнидаги «?»: босилса нимани билдиради ва нима қилиш кераклиги чиқади."""
+    from django.utils.html import format_html
+
+    from jobs.guide import ALIASES, HELP
+    key = ALIASES.get(key, key)
+    if key not in HELP:
+        return ""
+    # матнлар саҳифада бир марта (help_data) — жадвалнинг ҳар бир қаторида такрорланмайди
+    return format_html('<button type="button" class="help-q {}" data-help="{}" title="{}: бу нима дегани?" '
+                       'aria-label="{}: бу нима дегани?">?</button>', cls, key, HELP[key][0], HELP[key][0])
+
+
+@register.simple_tag
+def help_data():
+    """«?» изоҳлари учун матнлар: {калит: [номи, нимани билдиради, нима қилиш керак]} (_guide.html)."""
+    from django.utils.html import json_script
+
+    from jobs.guide import HELP
+    return json_script(HELP, "help-data")

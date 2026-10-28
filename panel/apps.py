@@ -9,15 +9,19 @@ class PanelConfig(AppConfig):
     def ready(self):
         from django.contrib.auth.signals import user_logged_in, user_logged_out, user_login_failed
 
-        from . import audit
+        from . import audit, sessions
         from .models import Event
 
         def on_login(sender, request, user, **kw):
             audit.log(request, Event.Kind.LOGIN, actor=user)
+            if request is not None and hasattr(request, "session"):
+                sessions.start(request, user)
 
         def on_logout(sender, request, user, **kw):
             if user is not None:
                 audit.log(request, Event.Kind.LOGOUT, actor=user)
+            if request is not None and getattr(request, "session", None) is not None and request.session.session_key:
+                sessions.end(request.session.session_key, "logout")
 
         def on_failed(sender, credentials, request=None, **kw):
             audit.log(request, Event.Kind.LOGIN_FAILED, email=credentials.get("username", ""))

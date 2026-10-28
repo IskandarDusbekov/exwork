@@ -1,0 +1,102 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Статистика — Панел{% endblock %}
+{% block panel %}
+<div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="text-2xl font-semibold">Статистика</h1>
+    <p class="text-sm text-slate-500">Охирги {{ days }} кун</p>
+  </div>
+  <div class="inline-flex rounded-lg bg-slate-100 p-1 text-sm" role="tablist" aria-label="Давр">
+    {% for d in periods %}<a href="?days={{ d }}" class="rounded-md px-3 py-1 font-medium {% if d == days %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}">{{ d }} кун</a>{% endfor %}
+  </div>
+</div>
+
+{# ================= асосий рақамлар ================= #}
+<div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Юкланди</div><div class="num mt-1 text-2xl font-semibold">{{ s.n_uploads }}</div><div class="text-[11px] text-slate-400">папка, объект, смета</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider text-emerald-600">Нархланди</div><div class="num mt-1 text-2xl font-semibold">{{ s.n_done }}</div><div class="text-[11px] text-slate-400">смета / {{ s.n_jobs }}</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider {% if s.n_failed %}text-rose-600{% else %}text-slate-400{% endif %}">Хато</div><div class="num mt-1 text-2xl font-semibold">{{ s.n_failed }}</div><div class="text-[11px] text-slate-400">смета</div></div>
+  <div class="col-span-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-1"><div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Жами сумма (с НДС)</div><div class="num mt-1 truncate text-2xl font-semibold" title="{{ s.total_sum|som }}">{{ s.total_sum|som }}</div><div class="text-[11px] text-slate-400">нархланган сметалар</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Кириш</div><div class="num mt-1 text-2xl font-semibold">{{ s.n_logins }}</div><div class="text-[11px] text-slate-400">марта</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider text-violet-600">Янги</div><div class="num mt-1 text-2xl font-semibold">{{ s.n_regs }}</div><div class="text-[11px] text-slate-400">фойдаланувчи</div></div>
+</div>
+
+{# ================= кунлар бўйича ================= #}
+<div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex items-baseline justify-between"><h2 class="font-semibold">Юклашлар</h2><span class="text-xs text-slate-400">кунлар бўйича</span></div>{% include "panel/_days.html" with days=s.uploads color="bg-emerald-500" %}</section>
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex items-baseline justify-between"><h2 class="font-semibold">Нархланган сметалар</h2><span class="text-xs text-slate-400">кунлар бўйича</span></div>{% include "panel/_days.html" with days=s.priced color="bg-indigo-500" %}</section>
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex items-baseline justify-between"><h2 class="font-semibold">Киришлар</h2><span class="text-xs text-slate-400">кунлар бўйича</span></div>{% include "panel/_days.html" with days=s.logins color="bg-sky-500" %}</section>
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div class="flex items-baseline justify-between"><h2 class="font-semibold">Рўйхатдан ўтганлар</h2><span class="text-xs text-slate-400">кунлар бўйича</span></div>{% include "panel/_days.html" with days=s.regs color="bg-violet-500" %}</section>
+</div>
+
+<div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
+  {# ================= вақтлар ================= #}
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="flex items-center gap-2 font-semibold">{% icon "clock" %} Вақтлар</h2>
+    <dl class="mt-3 space-y-2 text-sm">
+      <div class="flex justify-between gap-3"><dt class="text-slate-500">Битта смета нархланиши — ўртача</dt><dd class="num font-semibold">{{ s.dur_avg|dur }}</dd></div>
+      <div class="flex justify-between gap-3"><dt class="text-slate-500">… медиана</dt><dd class="num">{{ s.dur_med|dur }}</dd></div>
+      <div class="flex justify-between gap-3"><dt class="text-slate-500">… энг узоғи</dt><dd class="num">{{ s.dur_max|dur }}</dd></div>
+      <div class="flex justify-between gap-3 border-t border-slate-100 pt-2"><dt class="text-slate-500">Папка қисмини очиш — ўртача</dt><dd class="num font-semibold">{{ s.open_avg|dur }}</dd></div>
+      <div class="flex justify-between gap-3"><dt class="text-slate-500">Папка қисмини нархлаш — ўртача</dt><dd class="num font-semibold">{{ s.price_avg|dur }}</dd></div>
+    </dl>
+    {% if s.slow %}
+    <h3 class="mt-5 text-xs font-medium uppercase tracking-wider text-slate-400">Энг узоқ ишланган папкалар</h3>
+    <ul class="mt-2 space-y-1.5 text-sm">
+      {% for r in s.slow %}<li class="flex justify-between gap-3"><a href="{% url 'panel:work' 'folder' r.project.id %}" class="truncate hover:underline" title="{{ r.project.owner.email }}">{{ r.project.name }}</a><span class="num shrink-0 text-slate-600">{{ r.secs|dur }}</span></li>{% endfor %}
+    </ul>
+    {% endif %}
+    <p class="mt-4 text-[11px] text-slate-400">Вақтлар шу янгиланишдан бошлаб ўлчанади — эски ишларда йўқ.</p>
+  </section>
+
+  {# ================= мослик сифати ================= #}
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="flex items-center gap-2 font-semibold">{% icon "search" %} Ресурслар қандай топилди</h2>
+    <p class="text-xs text-slate-500">нархланган сметалардаги барча қаторлар</p>
+    <ul class="mt-3 space-y-2 text-sm">
+      {% for m in s.match %}
+      <li>
+        <div class="flex justify-between gap-3"><span class="truncate">{{ labels|get_item:m.key|default:m.key }}</span><span class="num shrink-0 text-slate-600">{{ m.n }} · {{ m.pct }}%</span></div>
+        <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full {% if m.key == 'EXACT' %}bg-emerald-500{% elif m.key == 'MANUAL' %}bg-sky-500{% elif m.key in 'WORK_HEADER MACHINIST' %}bg-slate-400{% elif m.key == 'FUZZY' %}bg-amber-500{% else %}bg-rose-500{% endif %}" style="width: {{ m.pct|stringformat:'s' }}%"></div></div>
+      </li>
+      {% empty %}<li class="text-slate-400">Маълумот йўқ</li>{% endfor %}
+    </ul>
+    {% if s.not_priced %}<p class="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700">{{ s.not_priced }} та қатор қўлда нархланиши керак эди</p>{% endif %}
+  </section>
+
+  {# ================= соатлар бўйича ================= #}
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="flex items-center gap-2 font-semibold">{% icon "activity" %} Кун давомида фаоллик</h2>
+    <p class="text-xs text-slate-500">юклаш ва кириш — соат бўйича</p>
+    <div class="mt-4 flex h-32 items-end gap-px" role="img" aria-label="Соатлар бўйича фаоллик">
+      {% for h in s.hours %}<div class="flex h-full flex-1 items-end" title="{{ h.h }}:00 — {{ h.count }}"><div class="w-full rounded-t {% if h.count %}bg-slate-700{% else %}bg-slate-100{% endif %}" style="height: {% if h.count %}{{ h.pct }}%{% else %}2px{% endif %}"></div></div>{% endfor %}
+    </div>
+    <div class="mt-1 flex justify-between text-[10px] text-slate-400"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+  </section>
+</div>
+
+<div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+  <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Смета­чилар бўйича</h2></div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="text-left text-xs uppercase tracking-wider text-slate-500"><tr><th class="px-4 py-2 font-medium">Фойдаланувчи</th><th class="px-3 py-2 text-right font-medium">Смета</th><th class="px-4 py-2 text-right font-medium">Сумма (с НДС)</th></tr></thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for t in s.top %}<tr class="hover:bg-slate-50"><td class="px-4 py-2"><a href="{% url 'panel:user' t.user.pk %}" class="hover:underline">{{ t.user.get_full_name|default:t.user.email }}</a></td><td class="num px-3 py-2 text-right">{{ t.n }}</td><td class="num px-4 py-2 text-right">{{ t.sum|som }}</td></tr>
+          {% empty %}<tr><td colspan="3" class="px-4 py-8 text-center text-slate-400">Йўқ</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="font-semibold">Қурилмалар</h2>
+    <p class="text-xs text-slate-500">шу даврдаги киришлар</p>
+    <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+      {% include "panel/_breakdown.html" with title="Тури" rows=s.devices device=True %}
+      {% include "panel/_breakdown.html" with title="Браузер" rows=s.browsers %}
+      {% include "panel/_breakdown.html" with title="Тизим" rows=s.oses %}
+    </div>
+  </section>
+</div>
+{% endblock %}

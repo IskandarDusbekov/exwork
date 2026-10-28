@@ -15,6 +15,7 @@
   </div>
   <div class="shrink-0 text-right text-xs text-slate-400">
     <div class="num">{{ ev.created|date:"d.m H:i" }}</div>
-    {% if ev.ip %}<div class="num">{{ ev.ip }}</div>{% endif %}
+    {% if ev.ip %}<div class="num" title="{{ ev.device }}">{{ ev.ip }}</div>{% endif %}
+    {% if ev.device %}<div class="hidden max-w-[14rem] truncate sm:block">{{ ev.device }}</div>{% endif %}
   </div>
 </li>

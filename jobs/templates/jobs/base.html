@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if user.is_authenticated %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
   <title>{% block title %}Нархлаш{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
   <style>
@@ -12,7 +13,7 @@
     .busy .when-busy { display: inline-flex; }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
+<body class="bg-slate-50 text-slate-800 min-h-screen"{% if request.viewing_owner %} data-inspect="1"{% endif %}>
   <header class="bg-white border-b border-slate-200">
     <div class="{% block header_class %}max-w-6xl mx-auto px-4{% endblock %} py-3 flex items-center gap-3">
       <a href="{% url 'index' %}" class="flex items-center gap-2 text-slate-900">
@@ -24,7 +25,7 @@
           {% icon "chart" "h-4 w-4" %}<span class="hidden sm:inline">Дашборд</span></a>
         <a href="{% url 'index' %}" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'upload' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'upload' %} aria-current="page"{% endif %}>
           {% icon "upload" "h-4 w-4" %}<span class="hidden sm:inline">Юклаш</span></a>
-        <a href="{% url 'landing' %}" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium text-slate-500 hover:text-slate-900">
+        <a href="{% url 'landing' %}" class="hidden items-center gap-1.5 rounded-md px-3 py-1 font-medium text-slate-500 hover:text-slate-900 sm:inline-flex">
           {% icon "help" "h-4 w-4" %}<span class="hidden sm:inline">Тизим ҳақида</span></a>
         {% if user.is_staff %}<a href="{% url 'panel:overview' %}" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'panel' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'panel' %} aria-current="page"{% endif %}>
           {% icon "shield" "h-4 w-4" %}<span class="hidden sm:inline">Панел</span></a>{% endif %}
@@ -33,6 +34,8 @@
       {% block header_extra %}{% endblock %}
       {% if nav != "upload" %}<a href="{% url 'index' %}" class="ml-auto hidden shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 md:block"><span class="inline-flex items-center gap-1.5">{% icon "plus" %} Янги юклаш</span></a>{% endif %}
       <div class="ml-auto {% if nav != 'upload' %}md:ml-0 {% endif %}flex shrink-0 items-center gap-2 text-sm">
+        <a href="{% url 'help' %}" id="guide-btn" data-guide="help-btn" class="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 font-medium text-violet-700 hover:bg-violet-100" title="Йўриқнома: иш тартиби ва огоҳлантиришлар">
+          {% icon "help" "h-4 w-4" %}<span class="hidden sm:inline">Йўриқнома</span></a>
         <span class="hidden max-w-[12rem] truncate text-slate-600 lg:inline" title="{{ user.email }}">{{ user.get_full_name|default:user.email }}</span>
         <form method="post" action="{% url 'logout' %}">{% csrf_token %}
           <button type="submit" class="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900">Чиқиш</button>
@@ -47,6 +50,15 @@
       {% endif %}
     </div>
   </header>
+  {% if request.viewing_owner %}{% with o=request.viewing_owner %}
+  <div class="border-b border-amber-200 bg-amber-50 text-sm text-amber-900">
+    <div class="{% block banner_class %}max-w-6xl mx-auto{% endblock %} flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
+      <span class="inline-flex items-center gap-1.5 font-semibold">{% icon "shield" "h-4 w-4" %} Текширув режими</span>
+      <span>Бу <a href="{% url 'panel:user' o.pk %}" class="font-medium underline">{{ o.get_full_name|default:o.email }}</a> ({{ o.email }}) иши — фақат кўриш ва юклаб олиш, ўзгартириб бўлмайди. Кўрганингиз журналга ёзилади.</span>
+      <a href="{% url 'panel:user' o.pk %}" class="ml-auto inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 font-medium hover:bg-amber-200">{% icon "arrow-left" "h-3.5 w-3.5" %} Панелга</a>
+    </div>
+  </div>
+  {% endwith %}{% endif %}
   <main class="{% block main_class %}max-w-6xl mx-auto px-4 py-6{% endblock %}">
     {% block content %}{% endblock %}
   </main>
@@ -74,5 +86,9 @@
       r.addEventListener("input", sync); sync();
     });
   </script>
+  {% if user.is_authenticated %}
+  <script>window.narxGuide = {% block guide %}null{% endblock %};</script>
+  {% include "jobs/_guide.html" %}
+  {% endif %}
 </body>
 </html>

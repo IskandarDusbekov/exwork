@@ -224,3 +224,6 @@ media/
 
 # IDE sozlamalari
 .idea/
+
+# deploy sirlari
+deploy/.env

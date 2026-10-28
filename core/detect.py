@@ -182,11 +182,14 @@ def detect_layout(ws, need_price: bool = False, stop_at_total: bool = True) -> O
 
 
 def _total_row(ws, start: int, cols: int = 4) -> int:
-    """«Итого по локальной смете» qatori (ma'lumot shundan oldin tugaydi); topilmasa — oxirgi qatordan keyingisi."""
-    for r in range(start, ws.max_row + 1):
-        if any(_TOTAL_RE.match(_norm(cell_value(ws, r, c))) for c in range(1, min(ws.max_column, cols) + 1)):
+    """«Итого по локальной смете» qatori (ma'lumot shundan oldin tugaydi); topilmasa — oxirgi qatordan keyingisi.
+    ``max_row``/``max_column`` bir marta: openpyxl ularni har chaqiruvda butun listdan hisoblaydi
+    (16 000 qatorli smetada har qatorda chaqirilsa — daqiqalar)."""
+    last_row, last_col = ws.max_row, min(ws.max_column, cols)
+    for r in range(start, last_row + 1):
+        if any(_TOTAL_RE.match(_norm(cell_value(ws, r, c))) for c in range(1, last_col + 1)):
             return r
-    return ws.max_row + 1
+    return last_row + 1
 
 
 # ===================== smetachi ko'rsatgan ustunlar =====================

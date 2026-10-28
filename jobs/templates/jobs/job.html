@@ -13,7 +13,7 @@
 {% endif %}
 
 {# ================= юқори панел: смета, сумма, юклаб олиш ================= #}
-<section class="mb-3 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+<section data-guide="job-top" class="mb-3 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
   <div class="flex min-w-0 flex-1 items-center gap-3">
     {% if job.batch.project_id %}
     <a href="{% url 'project' job.batch.project_id %}" title="Папкага қайтиш: {{ job.batch.project.name }}"
@@ -54,11 +54,11 @@
     {% if not_priced %}
     <button type="button" data-filter="NOT_PRICED" data-label="Нархланмади" title="Жадвалда фақат нархланмаганларни кўрсатиш"
             class="cat-chip inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-800 hover:bg-rose-100">
-      {% icon "alert-circle" "h-4 w-4 text-rose-600" %} <span class="num">{{ not_priced }}</span> та нархланмади</button>
+      {% icon "alert-circle" "h-4 w-4 text-rose-600" %} <span class="num">{{ not_priced }}</span> та нархланмади</button>{% help "warn" "-ml-3 text-rose-500" %}
     {% elif result_mode == "smart" and not checks %}
     <span class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">{% icon "check-circle" "h-4 w-4 text-emerald-600" %} ҳаммаси нархланган</span>
     {% endif %}
-    <a href="{% url 'job_download' job.id %}" title="{{ job.download_name }}"
+    <a href="{% url 'job_download' job.id %}" title="{{ job.download_name }}" data-guide="download"
        class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">{% icon "download" "h-4 w-4" %} Юклаб олиш · Excel</a>
   </div>
   {% endif %}
@@ -67,7 +67,7 @@
 {% if checks %}
 {# ---- нархлашдан кейинги текширув: ўтмаган бўлса натижага ишониб бўлмайди ---- #}
 <div class="mb-6 rounded-xl border border-rose-300 bg-rose-50 px-5 py-4 text-sm text-rose-900 shadow-sm">
-  <div class="flex items-center gap-2 font-semibold">{% icon "x-circle" "h-5 w-5 text-rose-600" %} Текширувдан ўтмади — {{ checks|length }} та муаммо</div>
+  <div class="flex items-center gap-2 font-semibold">{% icon "x-circle" "h-5 w-5 text-rose-600" %} Текширувдан ўтмади — {{ checks|length }} та муаммо {% help "checks" %}</div>
   <p class="mt-1 text-rose-800">Нархлангандан кейин натижа текширилди: миқдор ва нарх устунлари жойида, ҳар бир қаторда H = миқдор × G,
     сумма ўз устунига тушган. Қуйидагилар мос келмади — Excel'даги суммага ишониб бўлмайди. Локал жадвал устунларини текширинг.</p>
   <ul class="mt-2 max-h-48 space-y-0.5 overflow-auto font-mono text-xs">
@@ -155,7 +155,7 @@
 <section id="stage-nf" class="scroll-mt-20 mb-5 overflow-hidden rounded-xl border {% if nf_pending %}border-rose-300{% else %}border-emerald-200{% endif %} bg-white shadow-sm">
   <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 {% if nf_pending %}bg-rose-50{% else %}bg-emerald-50{% endif %}">
     <span class="rounded-md {% if nf_pending %}bg-rose-600{% else %}bg-emerald-600{% endif %} px-2 py-0.5 text-xs font-semibold text-white">1-босқич</span>
-    <h2 class="font-semibold">Топилмаганлар</h2>
+    <h2 class="font-semibold">Топилмаганлар</h2>{% help "warn" "text-slate-500" %}
     {% if nf_pending %}
     <span class="text-sm text-slate-600"><b class="num text-rose-700">{{ nf_pending }}</b> та қатор нархланмаган («ТОПИЛМАДИ», «ТЕКШИРИНГ» …) — яқин нархни қўйинг ёки ёзувни олиб ташланг.</span>
     {% else %}
@@ -219,7 +219,7 @@
         <td class="px-2 py-1.5">{% if r.nf_kind == 'nounit' %}<span class="text-slate-300" {% if r.unit %}title="Бирлик катагида номнинг ўзи (C:D бирлаштирилган)"{% endif %}>—</span>{% else %}{{ r.unit }}{% endif %}</td>
         <td class="num px-2 py-1.5 text-right">{{ r.qty_unit|qty }}</td>
         <td class="num px-2 py-1.5 text-right font-medium">{{ r.qty_total|qty }}</td>
-        <td class="px-2 py-1.5">{% if r.nf_kind == 'unit' %}<span class="rounded bg-rose-100 px-1.5 py-0.5 text-xs font-medium text-rose-800" title="Excel'да G: {{ r.g }}">{% if r.status == 'FUZZY' %}ўхшаш · текширинг{% elif r.status == 'AMBIGUOUS' %}2 та номзод{% elif r.status == 'UNIT_MISMATCH' %}бирлик бошқа{% elif r.status == 'NO_PRICE' %}ресурсда нарх йўқ{% else %}топилмади{% endif %}</span>
+        <td class="px-2 py-1.5">{% if r.nf_kind == 'unit' %}<span class="rounded bg-rose-100 px-1.5 py-0.5 text-xs font-medium text-rose-800" title="Excel'да G: {{ r.g }}">{% if r.status == 'FUZZY' %}ўхшаш · текширинг{% elif r.status == 'AMBIGUOUS' %}2 та номзод{% elif r.status == 'UNIT_MISMATCH' %}бирлик бошқа{% elif r.status == 'NO_PRICE' %}ресурсда нарх йўқ{% else %}топилмади{% endif %}</span>{% help r.status "ml-1 text-rose-400" %}
           {% elif r.is_heading %}<span class="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">бўлим номи</span>
           {% else %}<span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800" title="№ ва шифр бор, лекин бирлик катагида номнинг ўзи — Excel'да текширинг">иш · бирлиги йўқ</span>{% endif %}</td>
         <td class="px-2 py-1.5">
@@ -403,7 +403,7 @@
 <section id="stage-table" class="scroll-mt-20 mb-4 rounded-xl border {% if job.table_checked %}border-emerald-200{% else %}border-fuchsia-300{% endif %} bg-white shadow-sm">
   <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
     <span class="rounded-md {% if job.table_checked %}bg-emerald-600{% else %}bg-fuchsia-700{% endif %} px-2 py-0.5 text-xs font-semibold text-white">2-босқич</span>
-    <h2 class="font-semibold">L / M устунлар</h2>
+    <h2 class="font-semibold">L / M устунлар</h2>{% help "lm" "text-slate-500" %}
     {% for c in lm.cards %}
     <div class="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 py-1 pl-2 pr-1 text-sm"
          title="{% for r in c.rows|slice:':8' %}{{ r.name }}&#10;{% endfor %}{% if c.rows|length > 8 %}…{% endif %}">
@@ -502,11 +502,11 @@
       <button type="button" data-filter="" data-label="" class="chip cat-chip">Ҳаммаси</button>
       {% if result_mode == "smart" %}
       <button type="button" data-filter="NOT_PRICED" data-label="Нархланмади" {% if not not_priced %}disabled{% endif %} class="chip cat-chip">
-        <span class="dot bg-rose-500"></span>Нархланмади <span class="num cnt">{{ not_priced }}</span></button>
+        <span class="dot bg-rose-500"></span>Нархланмади <span class="num cnt">{{ not_priced }}</span></button>{% help "warn" "text-slate-400" %}
       <button type="button" data-filter="HAS_SUGG" data-label="Нарх таклифи бор" {% if not sugg_price_count %}disabled{% endif %} class="chip cat-chip">
         <span class="dot bg-amber-400"></span>Нарх таклифи бор <span class="num cnt">{{ sugg_price_count }}</span></button>
       <button type="button" data-filter="MANUAL" data-label="Қўлда нархланган" {% if not manual_count %}disabled{% endif %} class="chip cat-chip">
-        <span class="dot bg-sky-500"></span>Қўлда нархланган <span class="num cnt">{{ manual_count }}</span></button>
+        <span class="dot bg-sky-500"></span>Қўлда нархланган <span class="num cnt">{{ manual_count }}</span></button>{% help "manual" "text-slate-400" %}
       <button type="button" data-filter="SUGG_ANY" data-label="Устун таклифи" {% if not sugg_cat_count %}disabled{% endif %} class="chip cat-chip">
         <span class="dot bg-fuchsia-500"></span>Устун таклифи <span class="num cnt">{{ sugg_cat_count }}</span></button>
       <button type="button" data-filter="OVERRIDE" data-label="Қўлда ўтказилган устун" {% if not override_count %}disabled{% endif %} class="chip cat-chip">
@@ -1099,7 +1099,7 @@
 <section id="svodka" class="scroll-mt-20 mb-5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
   <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-100 px-4 py-3">
     {% if lm %}<span class="rounded-md bg-sky-600 px-2 py-0.5 text-xs font-semibold text-white">3-босқич</span>{% endif %}
-    <h2 class="font-semibold">Сводка ва фоизлар</h2>
+    <h2 class="font-semibold">Сводка ва фоизлар</h2>{% help "percents" "text-slate-500" %}
     <span id="pct-status" class="text-xs text-slate-500" aria-live="polite"></span>
   </div>
   <div class="grid lg:grid-cols-[minmax(0,860px)_minmax(320px,1fr)]">
@@ -1153,7 +1153,7 @@
       {% endif %}
       {% if has_errors %}
       <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-        Excel'да ҳам <b>#ЗНАЧ!</b> чиқади: G устунида рақам бўлмаган қийматлар бор. <b>Smart</b> режимда қайта нархланг.
+        Excel'да ҳам <b>#ЗНАЧ!</b> чиқади: G устунида рақам бўлмаган қийматлар бор. <b>Smart</b> режимда қайта нархланг. {% help "value_error" %}
       </div>
       {% elif not_priced %}
       <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
@@ -1270,7 +1270,7 @@
         <td class="px-3 py-1.5 num text-slate-500">{{ p.row }}</td>
         <td class="px-3 py-1.5">{{ p.name }}{% if p.picked_name %}<div class="text-xs text-slate-400">ресурсда: {{ p.picked_name }}</div>{% endif %}{% if p.note %}<div class="text-xs text-amber-700">{{ p.note }}</div>{% endif %}</td>
         <td class="px-3 py-1.5 text-slate-500">{% if p.unit != "None" %}{{ p.unit }}{% endif %}</td>
-        <td class="px-3 py-1.5 text-xs">{{ p.status }}</td>
+        <td class="px-3 py-1.5 text-xs">{{ p.status }} {% help p.status "text-slate-400" %}</td>
         <td class="px-3 py-1.5 text-right text-rose-600">{{ p.written|som }}</td>
         {% if result_mode == "smart" %}<td class="px-3 py-1.5 text-right num text-slate-400">{{ p.suggested_price|som }}</td>{% endif %}
       </tr>
@@ -1901,3 +1901,27 @@
 </script>
 {% endif %}
 {% endblock %}
+{% block guide %}{page: "smeta", steps: [
+  {sel: '[data-guide="job-top"]', title: "Нархланган смета",
+   text: "Тепада: смета номи, қайси локал лист ва ресурс билан нархлангани, жами сумма (Всего с НДС). <span class='rounded bg-rose-50 px-1 text-rose-800'>N та нархланмади</span> — RES'дан нархи топилмаган қаторлар; улар суммага кирмаган."},
+  {sel: "#tabs", title: "Смета 3 босқичда якунланади",
+   text: "<b>1. Топилмаганлар</b> — нархи топилмаган қаторлар.<br><b>2. L/M ва жадвал</b> — кабель ва ускуналарни ўз устунига ўтказиш, натижани кўриш.<br><b>3. Сводка ва фоизлар</b> — устамалар ва юклаб олиш.<br>Яшил ✓ — тайёр. «Қўшимча»да — статистика ва созламалар."},
+  {sel: "#stage-nf", before: function () { var b = document.querySelector('[data-tab-btn="1"]'); if (b) b.click(); },
+   title: "1-босқич: топилмаганлар",
+   text: "Ҳар бир қаторда сабаби ёзилган: <b>топилмади</b>, <b>ўхшаш · текширинг</b>, <b>2 та номзод</b>, <b>бирлик бошқа</b>, <b>нарх йўқ</b> — ёнидаги <span class='help-q text-slate-500'>?</span> нимани билдиришини айтади.<br>" +
+         "Турини танланг → кераксизини белгидан чиқаринг → <b class='text-amber-700'>«Яқин нархни қўйиш»</b> (RES'даги ўхшашининг нархи) ёки <b class='text-rose-700'>ёзувни олиб ташлаш</b> (бўлим номлари)."},
+  {sel: "#stage-table", before: function () { var b = document.querySelector('[data-tab-btn="2"]'); if (b) b.click(); },
+   title: "2-босқич: L / M устунлар",
+   text: "Тизим кабель (L) ва ускуна (M) бўлиши мумкин бўлган материалларни таклиф қилади — ўзи кўчирмайди. «Кўриб чиқиш» — жадвалда белгиланади, «Ҳаммасини … га» — ўтказади. Тугагач «текширилди»."},
+  {sel: "#rows-section", before: function () { var b = document.querySelector('[data-tab-btn="2"]'); if (b) b.click(); },
+   title: "Жадвал — натижанинг ўзи",
+   text: "Excel'даги каби кўриниш. Тепадаги чиплар билан фильтрланг: <span class='tour-dot bg-rose-500'></span> нархланмади, <span class='tour-dot bg-amber-400'></span> нарх таклифи бор, <span class='tour-dot bg-sky-500'></span> қўлда нархланган.<br>" +
+         "Қаторни босиб белгиланг — пастда панел чиқади: таклифни қабул қилиш, нарх бериш ёки устунга ўтказиш. Қизил G катагини боссангиз — нархни шу ерда ёзасиз."},
+  {sel: "#svodka", before: function () { var b = document.querySelector('[data-tab-btn="3"]'); if (b) b.click(); },
+   title: "3-босқич: сводка ва фоизлар",
+   text: "Устама фоизлар (накладные, прибыль, НДС…). Ўзгартирсангиз — сумма дарҳол қайта ҳисобланади; <b>сариқ</b> — стандартдан ўзгартирилган. «Эслаб қолинган фоизлар» — олдинги сметангиздагилар."},
+  {sel: '[data-guide="download"]', title: "Юклаб олиш",
+   text: "Тайёр Excel: нархлар, сводка ва «LOG» листи. Сиз қилган ҳамма ўзгаришлар (нарх, устун, фоиз) файлга киради. Нархланмаган қаторлар Excel'да қизил бўлиб қолади — у ерда нарх ёзсангиз, сумма ўзи ҳисобланади."},
+  {sel: '[data-tab-btn="more"]', title: "Қўшимча",
+   text: "Статистика, муаммоли қаторлар рўйхати ва созламалар (бошқа лист ёки режимда қайта нархлаш)."}
+]}{% endblock %}

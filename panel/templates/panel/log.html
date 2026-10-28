@@ -29,6 +29,31 @@
   </section>
 </div>
 
+<section class="mb-3 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+    <h2 class="flex items-center gap-2 font-semibold">{% icon "shield" %} Блокланган IP'лар <span class="num text-xs font-normal text-slate-400">{{ blocked|length }}</span></h2>
+    {% if can_act %}
+    <form method="post" action="{% url 'panel:ip_block' %}" class="flex flex-wrap items-center gap-2" onsubmit="return confirm('Шу IP блоклансинми? Ундан ҳеч ким кира олмайди.')">{% csrf_token %}
+      <input type="hidden" name="next" value="{{ here }}">
+      <input name="ip" required placeholder="IP манзил" class="num w-40 rounded-lg border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400" aria-label="IP">
+      <input name="reason" placeholder="Сабаби (ихтиёрий)" class="w-48 rounded-lg border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400" aria-label="Сабаби">
+      <button class="rounded-lg bg-rose-600 px-3 py-1 text-sm font-medium text-white hover:bg-rose-700">Блоклаш</button>
+      <span class="num text-xs text-slate-400">сизнинг IP: {{ my_ip }}</span>
+    </form>
+    {% endif %}
+  </div>
+  <ul class="divide-y divide-slate-100 text-sm">
+    {% for b in blocked %}
+    <li class="flex flex-wrap items-center gap-3 px-4 py-2">
+      <span class="num font-medium text-rose-700">{{ b.ip }}</span>
+      <span class="min-w-0 flex-1 truncate text-slate-500">{{ b.reason|default:"сабаби ёзилмаган" }} · {{ b.created|date:"d.m.Y H:i" }}{% if b.created_by %} · {{ b.created_by.email }}{% endif %}</span>
+      {% if can_act %}<form method="post" action="{% url 'panel:ip_block' %}">{% csrf_token %}<input type="hidden" name="ip" value="{{ b.ip }}"><input type="hidden" name="action" value="unblock"><input type="hidden" name="next" value="{{ here }}">
+        <button class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Блокдан чиқариш</button></form>{% endif %}
+    </li>
+    {% empty %}<li class="px-4 py-6 text-center text-slate-400">Блокланган IP йўқ</li>{% endfor %}
+  </ul>
+</section>
+
 <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
   <form method="get" class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
     <label class="relative block w-full sm:w-64">

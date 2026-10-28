@@ -11,18 +11,19 @@ from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from accounts.models import AuthAttempt
-from accounts.throttle import LOGIN_PER_EMAIL, LOGIN_PER_IP, WINDOW
+from accounts.throttle import LOGIN_PER_EMAIL, LOGIN_PER_IP, WINDOW, client_ip
 from jobs.folders import build_project_zip, stop_project
 from jobs.models import Batch, Job, Project
 from jobs.services import UploadError, build_combined
-from jobs.views import PART_STATES, _job_sums, work_items
+from jobs.views import PART_STATES, STAT_CARDS, _job_sums, work_items
 
-from . import data
+from . import data, sessions
 from .audit import log as audit
-from .models import Event
+from .models import BlockedIP, Event, LoginSession
 
 User = get_user_model()
 
@@ -56,9 +57,30 @@ def _ctx(request, tab, **kw):
 def _panel_items(user):
     """Фойдаланувчининг ишлари (дашборддаги каби), лекин ҳаволалар панелдаги кўринишга."""
     items = work_items(user)
+    download = {"folder": "project_download", "object": "batch_download", "smeta": "job_download"}
     for it in items:
-        it["url"] = reverse("panel:work", args=[it["kind"], it["url"].rstrip("/").rsplit("/", 1)[-1]])
+        work_id = it["url"].rstrip("/").rsplit("/", 1)[-1]
+        it["view_url"] = it["url"]  # смета­чининг ўз саҳифаси (суперфойдаланувчига — текширув режимида)
+        it["url"] = reverse("panel:work", args=[it["kind"], work_id])
+        if it["total"] or it["state"] in ("done", "warn"):
+            it["download_url"] = reverse(download[it["kind"]], args=[work_id])
     return items
+
+
+def _back(request, default):
+    """Амалдан кейин қайтиш: ўз сайтимиздаги саҳифа (фойдаланувчилар рўйхати ёки профил)."""
+    nxt = request.POST.get("next", "")
+    if nxt and url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()}):
+        return redirect(nxt)
+    return redirect(default)
+
+
+def _last_sessions(user_ids):
+    """{user_id: охирги сессия} — IP, қурилма, онлайнми."""
+    out = {}
+    for s in LoginSession.objects.filter(user_id__in=user_ids).order_by("user_id", "-last_seen"):
+        out.setdefault(s.user_id, s)
+    return out
 
 
 # ===================== умумий кўриниш =====================
@@ -72,7 +94,7 @@ def overview(request):
     top = sorted(counts.items(), key=lambda kv: kv[1]["jobs"], reverse=True)[:5]
     jobs = Job.objects.all()
     return render(request, "panel/overview.html", _ctx(
-        request, "overview",
+        request, "overview", live=data.live(),
         users_total=users.count(),
         users_new=users.filter(date_joined__gte=week).count(),
         users_online=users.filter(last_login__gte=day).count(),
@@ -84,12 +106,38 @@ def overview(request):
         uploads_today=sum(data.top_level(k).filter(created__gte=day).count() for k in data.KINDS),
         failed_logins=Event.objects.filter(kind=Event.Kind.LOGIN_FAILED, created__gte=day).count(),
         disk=data.disk_total(),
-        processes=data.processes(),
         reg_days=data.per_day(users, "date_joined"),
         upload_days=data.uploads_per_day(),
         top=[{"user": names.get(uid), **c} for uid, c in top if uid in names],
         events=Event.objects.select_related("actor", "target")[:15],
     ))
+
+
+@staff_required
+def live(request):
+    """Умумий саҳифанинг «ҳозир» блоки — ҳар 3 сонияда шу HTML бўлаги билан алмаштирилади."""
+    return render(request, "panel/_live.html", _ctx(request, "overview", live=data.live()))
+
+
+STAT_PERIODS = (7, 30, 90)
+
+
+@staff_required
+def speed(request):
+    """Тезлик: файлларни очиш (.xls → .xlsx, ўқиш, таҳлил) ва нархлаш (1000 қаторга неча сония)."""
+    days = int(request.GET["days"]) if request.GET.get("days", "").isdigit() else 7
+    days = days if days in STAT_PERIODS else 7
+    return render(request, "panel/speed.html", _ctx(request, "speed", sp=data.speed(days), days=days,
+                                                    periods=STAT_PERIODS, live=data.live()))
+
+
+@staff_required
+def stats(request):
+    days = int(request.GET.get("days", 30)) if request.GET.get("days", "").isdigit() else 30
+    days = days if days in STAT_PERIODS else 30
+    labels = {k: label for cards in STAT_CARDS.values() for k, label, _c in cards}
+    return render(request, "panel/stats.html", _ctx(request, "stats", s=data.stats(days), days=days,
+                                                    periods=STAT_PERIODS, labels=labels))
 
 
 # ===================== фойдаланувчилар =====================
@@ -109,9 +157,12 @@ def users(request):
     page = Paginator(qs, 50).get_page(request.GET.get("page"))
     counts = data.counts_by_user()
     disk = data.disk_by_user()
-    rows = [{"user": u, "c": counts.get(u.pk, {}), "disk": disk.get(u.pk, 0)} for u in page]
+    last = _last_sessions([u.pk for u in page])
+    online = sessions.online_since()
+    rows = [{"user": u, "c": counts.get(u.pk, {}), "disk": disk.get(u.pk, 0), "s": last.get(u.pk),
+             "online": bool(last.get(u.pk) and not last[u.pk].ended and last[u.pk].last_seen >= online)} for u in page]
     return render(request, "panel/users.html", _ctx(request, "users", page=page, rows=rows, q=q, status=status,
-                                                    total=User.objects.count()))
+                                                    total=User.objects.count(), here=request.get_full_path()))
 
 
 @staff_required
@@ -132,6 +183,9 @@ def user_detail(request, pk):
         files_size=sum(f["size"] or 0 for f in files), events=events,
         locked=AuthAttempt.objects.filter(kind=AuthAttempt.Kind.LOGIN, email=u.email,
                                           created__gte=since).count() >= LOGIN_PER_EMAIL,
+        sessions=u.login_sessions.all()[:30], online_since=sessions.online_since(),
+        blocked_ips=sessions.blocked_ips(), my_ip=client_ip(request),
+        ips=list(u.login_sessions.values_list("ip").annotate(n=Count("id")).order_by("-n")[:10]),
     ))
 
 
@@ -154,7 +208,54 @@ def user_toggle(request, pk, field):
     audit(request, Event.Kind.ADMIN_USER, target=u, detail=f"{u.email}: {on if value else off}")
     if field == "is_active" and value:
         AuthAttempt.objects.filter(kind=AuthAttempt.Kind.LOGIN, email=u.email).delete()
-    return redirect("panel:user", pk=u.pk)
+    if field == "is_active" and not value:
+        sessions.revoke_all(u, "blocked")  # очиқ сессиялари дарҳол ёпилади
+    return _back(request, reverse("panel:user", args=[u.pk]))
+
+
+@require_POST
+@superuser_required
+def session_revoke(request, pk, sid=None):
+    """Битта сессияни (ёки ``sid`` бўлмаса — ҳаммасини) тугатиш: фойдаланувчи тизимдан чиқади."""
+    u = get_object_or_404(User, pk=pk)
+    if u.pk == request.user.pk and sid is None:
+        raise PermissionDenied("Ўзингизнинг барча сессияларингизни бу ердан тугатиб бўлмайди")
+    if sid is None:
+        n = sessions.revoke_all(u)
+        audit(request, Event.Kind.ADMIN_SESSION, target=u, detail=f"{u.email}: барча сессиялар ({n})")
+    else:
+        s = get_object_or_404(LoginSession, pk=sid, user=u)
+        sessions.revoke(s)
+        audit(request, Event.Kind.ADMIN_SESSION, target=u, detail=f"{u.email}: {s.ip} · {s.browser} · {s.os}")
+    return _back(request, reverse("panel:user", args=[u.pk]))
+
+
+@require_POST
+@superuser_required
+def ip_block(request):
+    """IP'ни блоклаш / блокдан чиқариш. Ўзингиз турган IP'ни блоклаб бўлмайди (панелдан қулфланиб қоласиз)."""
+    ip = request.POST.get("ip", "").strip()
+    try:
+        from ipaddress import ip_address
+        ip = str(ip_address(ip))
+    except ValueError:
+        raise Http404("Нотўғри IP")
+    target = User.objects.filter(pk=request.POST.get("user")).first() if request.POST.get("user", "").isdigit() else None
+    if request.POST.get("action") == "unblock":
+        BlockedIP.objects.filter(ip=ip).delete()
+        detail = f"{ip}: блокдан чиқарилди"
+    else:
+        if ip == client_ip(request):
+            raise PermissionDenied("Ўзингиз турган IP'ни блоклаб бўлмайди")
+        BlockedIP.objects.get_or_create(ip=ip, defaults={"created_by": request.user,
+                                                         "reason": request.POST.get("reason", "")[:200]})
+        # шу IP'дан очилган сессиялар ҳам ёпилади
+        for s in LoginSession.objects.filter(ip=ip, ended__isnull=True):
+            sessions.revoke(s, "blocked")
+        detail = f"{ip}: блокланди"
+    sessions.blocked_changed()
+    audit(request, Event.Kind.ADMIN_IP, target=target, detail=detail)
+    return _back(request, reverse("panel:log"))
 
 
 @require_POST
@@ -255,7 +356,7 @@ def processes(request):
     finished = (Project.objects.filter(status__in=[Project.Status.DONE, Project.Status.READY], created__gte=day)
                 .select_related("owner")[:20])
     return render(request, "panel/processes.html", _ctx(
-        request, "processes", procs=procs, recent_failed=recent_failed, failed_parts=failed_parts, finished=finished,
+        request, "processes", procs=procs, workers=data.workers(), recent_failed=recent_failed, failed_parts=failed_parts, finished=finished,
         stale_minutes=data.stalled_after_minutes(), any_alive=any(p["alive"] for p in procs)))
 
 
@@ -312,7 +413,9 @@ def log(request):
     top_ips = _group(Event.objects.filter(kind=Event.Kind.LOGIN_FAILED, created__gte=day), "ip")[:8]
     return render(request, "panel/log.html", _ctx(
         request, "log", page=page, kind=kind, q=q, kinds=Event.Kind.choices, locked_emails=locked_emails,
-        locked_ips=locked_ips, top_ips=top_ips, window_minutes=int(WINDOW.total_seconds() // 60)))
+        locked_ips=locked_ips, top_ips=top_ips, window_minutes=int(WINDOW.total_seconds() // 60),
+        blocked=BlockedIP.objects.select_related("created_by"), my_ip=client_ip(request),
+        here=request.get_full_path()))
 
 
 def _group(qs, field):

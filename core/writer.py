@@ -138,8 +138,9 @@ def amount_formula(r: int) -> str:
 
 
 def safe_amount_formula(r: int) -> str:
-    """Smart (T6): G da son bo'lmasa 0 — bitta qator butun svodkani #ЗНАЧ! qilmaydi."""
-    return f'=IF(ISNUMBER(G{r}),IF(F{r}="",E{r}*G{r},F{r}*G{r}),0)'
+    """Smart (T6): G da son bo'lmasa 0 — bitta qator butun svodkani #ЗНАЧ! qilmaydi. Miqdor ham son
+    bo'lmasa (masalan «--» yozilgan) — 0: aks holda shu qatordan xato SUM orqali butun smetaga tarqaladi."""
+    return f'=IF(ISNUMBER(G{r}),IFERROR(IF(F{r}="",E{r}*G{r},F{r}*G{r}),0),0)'
 
 
 def write_priced_rows(w: SheetWriter, start: int, end: int, g_values: Dict[int, object], kinds: Dict[int, str],

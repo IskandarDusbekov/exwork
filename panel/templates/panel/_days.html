@@ -1,9 +1,9 @@
 {# кунлик устун диаграмма: days = [{date, count, h}], color — tailwind фон синфи #}
-<div class="mt-4 flex h-32 items-end gap-1 pt-4" role="img" aria-label="Кунлар бўйича сони">
+<div class="mt-4 flex h-32 items-end {% if days|length > 40 %}gap-px{% else %}gap-1{% endif %} pt-4" role="img" aria-label="Кунлар бўйича сони">
   {% for d in days %}
   <div class="flex h-full flex-1 items-end" title="{{ d.date|date:'d.m' }}: {{ d.count }}">
     <div class="relative w-full rounded-t {% if d.count %}{{ color }}{% else %}bg-slate-100{% endif %}" style="height: {% if d.count %}{{ d.h }}%{% else %}2px{% endif %}">
-      {% if d.count %}<span class="num absolute inset-x-0 -top-4 text-center text-[10px] text-slate-500">{{ d.count }}</span>{% endif %}
+      {% if d.count and days|length <= 31 %}<span class="num absolute inset-x-0 -top-4 text-center text-[10px] text-slate-500">{{ d.count }}</span>{% endif %}
     </div>
   </div>
   {% endfor %}

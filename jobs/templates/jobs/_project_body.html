@@ -3,7 +3,7 @@
 <div id="project-state" data-working="{{ working|yesno:'1,0' }}" class="lg:grid lg:min-h-[calc(100vh-7.5rem)] lg:grid-cols-[420px_minmax(0,1fr)]">
 
 {# ================= Explorer (VS Code каби) ================= #}
-<aside class="explorer border-b border-slate-200 bg-[#f8f8f8] lg:border-b-0 lg:border-r">
+<aside data-guide="tree" class="explorer border-b border-slate-200 bg-[#f8f8f8] lg:border-b-0 lg:border-r">
   <div class="flex items-center justify-between px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
     <span>Папка</span>
     <span class="flex items-center gap-1">
@@ -30,29 +30,29 @@
       <h1 class="mt-0.5 break-words text-xl font-semibold text-slate-900">{{ project.name }}</h1>
     </div>
     {% if can_download %}
-    <a href="{% url 'project_download' project.id %}" class="flex items-center gap-3 rounded-lg bg-emerald-600 px-4 py-2.5 text-white shadow-sm ring-1 ring-inset ring-emerald-700/30 transition hover:bg-emerald-700">
+    <a href="{% url 'project_download' project.id %}" data-guide="download" class="flex items-center gap-3 rounded-lg bg-emerald-600 px-4 py-2.5 text-white shadow-sm ring-1 ring-inset ring-emerald-700/30 transition hover:bg-emerald-700">
       <span class="grid h-9 w-9 place-items-center rounded-md bg-white/15">{% icon "download" "h-5 w-5" %}</span>
       <span><span class="block text-sm font-semibold">Ҳаммасини юклаб олиш</span>
         <span class="block text-xs text-emerald-100">ZIP · папкалар тузилиши сақланади</span></span>
     </a>
     {% else %}
-    <span class="flex items-center gap-3 rounded-lg bg-slate-100 px-4 py-2.5 text-slate-400">
+    <span data-guide="download" class="flex items-center gap-3 rounded-lg bg-slate-100 px-4 py-2.5 text-slate-400">
       {% icon "download" "h-5 w-5" %}<span class="text-sm">Натижа ҳали йўқ</span></span>
     {% endif %}
   </div>
 
   {# ---- текшириш: ҳисоблаш смета­чи босгандагина бошланади ---- #}
   {% if awaiting and count_ready %}
-  <div class="rounded-xl border border-violet-300 bg-violet-50 p-4 shadow-sm">
+  <div data-guide="awaiting" class="rounded-xl border border-violet-300 bg-violet-50 p-4 shadow-sm">
     <div class="flex flex-wrap items-center gap-4">
       <div class="min-w-0 flex-1 text-sm text-slate-800">
-        <div class="text-xs font-semibold uppercase tracking-wide text-violet-700">Файллар очилди ва текширилди — ҳали ҳисобланмади</div>
+        <div class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-violet-700">Файллар очилди ва текширилди — ҳали ҳисобланмади {% help "awaiting" %}</div>
         <b>{{ count_ready }} та қисм</b>да <b>{{ count_pairs_ready }} та локал → ресурс жуфтлиги</b> топилди.
         Пастдаги жадвалда қайси локал қайси ресурс билан ҳисобланишини кўринг; ўзгартириш учун қисмни очинг
         (у ерда ресурсни бошқасига алмаштириш мумкин).{% if count_review %} <b class="text-amber-800">{{ count_review }} та қисмда ресурсни ўзингиз танланг.</b>{% endif %}
       </div>
       <form method="post" action="{% url 'project_price' project.id %}">{% csrf_token %}
-        <button type="submit" class="flex items-center gap-2 rounded-lg bg-violet-700 px-5 py-3 font-semibold text-white shadow-sm hover:bg-violet-800">
+        <button type="submit" data-guide="price-start" class="flex items-center gap-2 rounded-lg bg-violet-700 px-5 py-3 font-semibold text-white shadow-sm hover:bg-violet-800">
           {% icon "calculator" "h-5 w-5" %} Ҳисоблашни бошлаш</button>
       </form>
     </div>
@@ -60,7 +60,7 @@
   {% endif %}
 
   {# ---- жараён ---- #}
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <div data-guide="progress" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
     <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
       <span class="flex items-center gap-2 font-medium">
         {% if working and stopping %}<span class="text-amber-600">{% icon "loader" "h-4 w-4 animate-spin" "2.5" %}</span> Тўхтатиляпти…
@@ -70,7 +70,7 @@
         <span class="font-normal text-slate-500">· {{ finished }} / {{ nodes|length }} қисм</span>
       </span>
       <span class="flex min-w-0 items-center gap-3">
-        {% if current %}<span class="min-w-0 truncate text-xs text-slate-500">{{ current.part.batch.get_stage_display }}: <b class="text-slate-700">{{ current.path }}</b></span>{% endif %}
+        {% if current %}<span class="min-w-0 truncate text-xs text-slate-500" title="{{ current.part.batch.step }}">{{ current.part.batch.get_stage_display }}: <b class="text-slate-700">{{ current.path }}</b>{% if current.part.batch.step %} · {{ current.part.batch.step }}{% endif %}</span>{% endif %}
         {% if working and not stopping %}
         <form method="post" action="{% url 'project_stop' project.id %}" class="shrink-0">{% csrf_token %}
           <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
@@ -94,27 +94,27 @@
         <div class="text-xs text-emerald-800">Тайёр</div><div class="num text-lg font-semibold text-emerald-700">{{ count_done }}</div>
       </div>
       <div class="rounded-lg border {% if count_warn %}border-rose-200 bg-rose-50{% else %}border-slate-200{% endif %} px-3 py-2.5">
-        <div class="text-xs {% if count_warn %}text-rose-800{% else %}text-slate-500{% endif %}">Нархланмаган қатори бор</div>
+        <div class="flex items-center gap-1.5 text-xs {% if count_warn %}text-rose-800{% else %}text-slate-500{% endif %}">Нархланмаган қатори бор {% help "warn" %}</div>
         <div class="num text-lg font-semibold {% if count_warn %}text-rose-700{% else %}text-slate-300{% endif %}">{{ count_warn }}{% if not_priced_total %} <span class="text-xs font-normal">({{ not_priced_total }} қатор)</span>{% endif %}</div>
       </div>
       <div class="rounded-lg border {% if count_review %}border-amber-200 bg-amber-50{% else %}border-slate-200{% endif %} px-3 py-2.5">
-        <div class="text-xs {% if count_review %}text-amber-800{% else %}text-slate-500{% endif %}">Текшириш керак</div>
+        <div class="flex items-center gap-1.5 text-xs {% if count_review %}text-amber-800{% else %}text-slate-500{% endif %}">Текшириш керак {% help "review" %}</div>
         <div class="num text-lg font-semibold {% if count_review %}text-amber-700{% else %}text-slate-300{% endif %}">{{ count_review }}</div>
       </div>
     </div>
   </div>
 
   {# ---- қисмлар ---- #}
-  <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div data-guide="parts" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
     <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
       <h2 class="flex items-center gap-2 font-semibold">{% icon "list" "h-4 w-4 text-slate-500" %} Қисмлар</h2>
-      <span class="text-xs text-slate-500">қаторнинг исталган жойини босинг — смета очилади · ҳар бир ички папка — алоҳида смета{% if count_skipped %} · {{ count_skipped }} та олдинги натижа олинмади{% endif %}</span>
+      <span class="text-xs text-slate-500">қаторнинг исталган жойини босинг — смета очилади · ҳар бир ички папка — алоҳида смета{% if count_skipped %} · {{ count_skipped }} та олдинги натижа олинмади {% help "skipped" %}{% endif %}</span>
     </div>
     <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead class="bg-slate-50 text-left text-xs text-slate-500">
-        <tr><th class="px-4 py-2 font-medium">Папка</th><th class="px-3 py-2 font-medium">Смета: локал → ресурс</th>
-          <th class="px-3 py-2 font-medium">Ҳолат</th><th class="px-3 py-2 text-right font-medium">Всего с НДС</th><th class="px-3 py-2"></th></tr>
+        <tr><th class="px-4 py-2 font-medium">Папка</th><th class="px-3 py-2 font-medium" data-guide="pairs-col"><span class="inline-flex items-center gap-1.5">Смета: локал → ресурс {% help "overlap" %}</span></th>
+          <th class="px-3 py-2 font-medium" data-guide="state-col">Ҳолат</th><th class="px-3 py-2 text-right font-medium">Всего с НДС</th><th class="px-3 py-2"></th></tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
       {% for n in nodes %}
@@ -147,7 +147,7 @@
                       title="Локал ва таклиф қилинган ресурслар ёнма-ён (ҳар бирининг мослиги билан)">→ {% widthratio x.overlap 1 100 %}%</button>
               <span class="tag tag-res !min-w-0 !leading-4">Р</span><button type="button" class="pv-open truncate text-left text-sky-700 hover:underline" data-part="{{ b.id }}" data-k="{{ x.rk }}" title="Ресурс — {{ x.res }} (лист {{ x.res_sheet }})">{{ x.res_sheet }}{% if x.same_file %} <span class="text-slate-400">(шу файлда)</span>{% else %} · {{ x.res|file_title }}{% endif %}</button>
               {% else %}
-              <a href="{% url 'batch' b.id %}#structure" class="shrink-0 rounded bg-rose-50 px-1.5 font-semibold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100">{% icon "search" "inline h-3 w-3" %} ресурс топилмади — танлаш</a>
+              <a href="{% url 'batch' b.id %}#structure" class="shrink-0 rounded bg-rose-50 px-1.5 font-semibold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100">{% icon "search" "inline h-3 w-3" %} ресурс топилмади — танлаш</a>{% help "res_missing" "text-rose-400" %}
               {% endif %}
             </div></div>
           {% empty %}{% for f in b.files %}<div class="truncate text-slate-400">{{ f.name }}</div>{% endfor %}{% endfor %}{% endfor %}
@@ -155,14 +155,14 @@
             <button type="button" class="pv-open block max-w-full truncate text-left text-[13px] font-medium text-slate-800 hover:text-emerald-700 hover:underline" data-part="{{ b.id }}" data-k="{{ x.lk }}" title="{{ x.title }} — локални Excel кўринишида очиш ({{ x.local }})">{{ x.title }}</button>
             <div class="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-slate-400">
               <span class="tag tag-loc !min-w-0 !leading-4">Л</span><span class="truncate">{{ x.local_sheet }}</span>
-              <a href="{% url 'batch' b.id %}#structure" class="shrink-0 rounded bg-rose-50 px-1.5 font-semibold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100">{% icon "search" "inline h-3 w-3" %} ресурс топилмади — танлаш</a>
+              <a href="{% url 'batch' b.id %}#structure" class="shrink-0 rounded bg-rose-50 px-1.5 font-semibold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100">{% icon "search" "inline h-3 w-3" %} ресурс топилмади — танлаш</a>{% help "res_missing" "text-rose-400" %}
             </div></div>{% endif %}{% endfor %}{% endif %}
-          {% if p.unused and p.state != "queued" and p.state != "converting" %}<a href="{% url 'batch' b.id %}#unused" class="mt-1.5 inline-flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 ring-1 ring-inset ring-sky-200 hover:bg-sky-100" title="Ҳеч бир локалга бириктирилмаган ресурс листлари — очиб, керакли локалга бириктиринг">{{ p.unused }} та ишлатилмаган ресурс</a>{% endif %}
+          {% if p.unused and p.state != "queued" and p.state != "converting" %}<a href="{% url 'batch' b.id %}#unused" class="mt-1.5 inline-flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 ring-1 ring-inset ring-sky-200 hover:bg-sky-100" title="Ҳеч бир локалга бириктирилмаган ресурс листлари — очиб, керакли локалга бириктиринг">{{ p.unused }} та ишлатилмаган ресурс</a> {% help "unused_res" "text-sky-500" %}{% endif %}
         </td>
         <td class="px-3 py-2.5">
           {% with st=states|get_item:p.state %}
           <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium bg-{{ st.1 }}-50 text-{{ st.1 }}-700 ring-1 ring-inset ring-{{ st.1 }}-200">
-            {% if p.state == "warn" %}{% icon "alert-circle" "h-3.5 w-3.5" %}{% else %}{% include "jobs/_tree_state.html" with state=p.state message="" %}{% endif %}{% if p.state == "warn" %}{{ p.not_priced }} та қатор нархланмади{% else %}{{ st.0 }}{% endif %}</span>
+            {% if p.state == "warn" %}{% icon "alert-circle" "h-3.5 w-3.5" %}{% else %}{% include "jobs/_tree_state.html" with state=p.state message="" %}{% endif %}{% if p.state == "warn" %}{{ p.not_priced }} та қатор нархланмади{% else %}{{ st.0 }}{% endif %}</span>{% help p.state "ml-1 text-slate-400" %}
           {% endwith %}
           {% if b.message and p.state != "done" %}<div class="mt-1 max-w-xs text-xs text-slate-500">{{ b.message|truncatechars:140 }}</div>{% endif %}
         </td>

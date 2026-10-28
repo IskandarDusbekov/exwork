@@ -2,7 +2,19 @@
 {% load narx %}
 {% block title %}Панел — Нархлаш{% endblock %}
 {% block panel %}
-{# ================= асосий кўрсаткичлар ================= #}
+<div class="mb-5 flex flex-wrap items-end justify-between gap-2">
+  <div>
+    <h1 class="text-2xl font-semibold">Умумий</h1>
+    <p class="text-sm text-slate-500">Тизимда ҳозир нима бўляпти ва жами кўрсаткичлар</p>
+  </div>
+  <a href="{% url 'panel:stats' %}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">{% icon "chart" %} Батафсил статистика</a>
+</div>
+
+{# ================= ҳозир (жонли) ================= #}
+<div id="live" data-url="{% url 'panel:live' %}">{% include "panel/_live.html" %}</div>
+
+{# ================= жами ================= #}
+<h2 class="mb-2 mt-8 text-sm font-semibold uppercase tracking-wider text-slate-500">Жами</h2>
 <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
   <a href="{% url 'panel:users' %}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300">
     <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">{% icon "users" "h-4 w-4" %} Фойдаланувчилар</div>
@@ -12,11 +24,12 @@
   <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
     <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">{% icon "layers" "h-4 w-4" %} Ишлар</div>
     <div class="num mt-2 text-3xl font-semibold">{{ works.folder|add:works.object|add:works.smeta }}</div>
-    <div class="mt-1 text-xs text-slate-500">{{ works.folder }} папка · {{ works.object }} объект · {{ works.smeta }} смета · бугун {{ uploads_today }} юклаш</div>
+    <div class="mt-1 text-xs text-slate-500">{{ works.folder }} папка · {{ works.object }} объект · {{ works.smeta }} смета</div>
   </div>
   <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
     <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-emerald-600">{% icon "check-circle" "h-4 w-4" %} Нархланган сметалар</div>
     <div class="mt-2 flex items-baseline gap-2"><span class="num text-3xl font-semibold">{{ jobs_priced }}</span><span class="text-sm text-slate-400">/ {{ jobs_total }}</span></div>
+    <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width: {% widthratio jobs_priced jobs_total 100 %}%"></div></div>
     <div class="mt-1 text-xs {% if jobs_failed %}text-rose-600{% else %}text-slate-500{% endif %}">{{ jobs_failed }} та хато билан</div>
   </div>
   <a href="{% url 'panel:files' %}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300">
@@ -26,41 +39,15 @@
   </a>
 </div>
 
-{% if failed_logins %}
-<a href="{% url 'panel:log' %}?kind=security" class="mt-3 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 hover:bg-rose-100">
-  {% icon "alert" "h-4 w-4" %} Охирги 24 соатда <b class="num">{{ failed_logins }}</b> та муваффақиятсиз кириш уриниши — журналда кўринг</a>
-{% endif %}
-
-<div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-  {# ================= фондаги жараёнлар ================= #}
-  <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
-    <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-      <h2 class="font-semibold">Ҳозир ишланаётганлар</h2>
-      <a href="{% url 'panel:processes' %}" class="text-xs text-slate-500 hover:text-slate-900">Барча жараёнлар →</a>
-    </div>
-    {% if processes %}
-    <ul class="divide-y divide-slate-100">
-      {% for pr in processes %}
-      <li class="px-4 py-3">
-        <div class="flex items-center gap-3">
-          <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg {% if pr.stalled %}bg-amber-50 text-amber-600{% else %}bg-sky-50 text-sky-600{% endif %}">{% if pr.stalled %}{% icon "alert" "h-4 w-4" %}{% else %}{% icon "loader" "h-4 w-4 animate-spin" "2.5" %}{% endif %}</span>
-          <div class="min-w-0 flex-1">
-            <a href="{% url 'panel:work' 'folder' pr.project.id %}" class="block truncate text-sm font-medium hover:underline">{{ pr.project.name }}</a>
-            <div class="truncate text-xs text-slate-500"><a href="{% url 'panel:user' pr.owner.pk %}" class="hover:underline">{{ pr.owner.get_full_name|default:pr.owner.email }}</a>
-              · {{ pr.finished }}/{{ pr.parts }} қисм{% if pr.current %} · {{ pr.current.get_stage_display }}: {{ pr.current.folder|default:pr.current.name }}{% endif %}</div>
-          </div>
-          <span class="num text-sm font-semibold text-slate-700">{{ pr.percent }}%</span>
-        </div>
-        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full {% if pr.stalled %}bg-amber-400{% else %}bg-sky-500{% endif %}" style="width: {{ pr.percent }}%"></div></div>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="px-4 py-10 text-center text-sm text-slate-400">Фонда ҳеч қандай иш йўқ</p>
-    {% endif %}
+<div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex items-baseline justify-between"><h2 class="font-semibold">Юклашлар</h2><span class="text-xs text-slate-400">14 кун</span></div>
+    {% include "panel/_days.html" with days=upload_days color="bg-emerald-500" %}
   </section>
-
-  {# ================= энг фаол фойдаланувчилар ================= #}
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex items-baseline justify-between"><h2 class="font-semibold">Рўйхатдан ўтганлар</h2><span class="text-xs text-slate-400">14 кун</span></div>
+    {% include "panel/_days.html" with days=reg_days color="bg-violet-500" %}
+  </section>
   <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
     <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Энг фаол смета­чилар</h2></div>
     <ul class="divide-y divide-slate-100">
@@ -71,25 +58,11 @@
           <span class="block truncate text-xs text-slate-500">{{ t.folder }} папка · {{ t.object }} объект · {{ t.smeta }} смета</span></span>
         <span class="text-right"><span class="num block text-sm font-semibold">{{ t.jobs }}</span><span class="block text-[11px] text-slate-400">смета</span></span>
       </a></li>
-      {% empty %}
-      <li class="px-4 py-10 text-center text-sm text-slate-400">Ҳали иш йўқ</li>
-      {% endfor %}
+      {% empty %}<li class="px-4 py-10 text-center text-sm text-slate-400">Ҳали иш йўқ</li>{% endfor %}
     </ul>
   </section>
 </div>
 
-<div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="flex items-baseline justify-between"><h2 class="font-semibold">Рўйхатдан ўтганлар</h2><span class="text-xs text-slate-400">охирги 14 кун</span></div>
-    {% include "panel/_days.html" with days=reg_days color="bg-violet-500" %}
-  </section>
-  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="flex items-baseline justify-between"><h2 class="font-semibold">Юклашлар</h2><span class="text-xs text-slate-400">охирги 14 кун</span></div>
-    {% include "panel/_days.html" with days=upload_days color="bg-emerald-500" %}
-  </section>
-</div>
-
-{# ================= сўнгги ҳаракатлар ================= #}
 <section class="mt-3 rounded-xl border border-slate-200 bg-white shadow-sm">
   <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
     <h2 class="font-semibold">Сўнгги ҳаракатлар</h2>
@@ -99,5 +72,23 @@
     {% for ev in events %}{% include "panel/_event.html" %}{% empty %}<li class="px-4 py-10 text-center text-sm text-slate-400">Журнал бўш</li>{% endfor %}
   </ul>
 </section>
-{% if processes %}<script>setInterval(function () { if (!document.hidden) location.reload(); }, 10000);</script>{% endif %}
+
+<script>
+  // «Ҳозир» блоки: ҳар 3 сонияда сервердан янги ҳолат (саҳифа қайта юкланмайди)
+  (function () {
+    var box = document.getElementById("live");
+    function tick() {
+      if (document.hidden) return;
+      fetch(box.dataset.url, {credentials: "same-origin", headers: {"X-Requested-With": "fetch"}})
+        .then(function (r) {
+          if (r.redirected) { location.reload(); throw r; }  // сессия тугаган — кириш саҳифасига
+          if (!r.ok) throw r;
+          return r.text();
+        })
+        .then(function (html) { box.innerHTML = html; })
+        .catch(function () {});
+    }
+    setInterval(tick, 3000);
+  })();
+</script>
 {% endblock %}

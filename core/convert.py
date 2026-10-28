@@ -57,6 +57,18 @@ def excel_available() -> bool:
     return sys.platform == "win32" and importlib.util.find_spec("win32com") is not None
 
 
+def converter_name(soffice: Optional[str] = None, converter: Optional[str] = None) -> str:
+    """.xls ni qaysi dastur o'giradi: «libreoffice», «excel» yoki «» (hech biri yo'q) — panel statistikasi uchun."""
+    mode = (converter or os.environ.get(CONVERTER_ENV) or "auto").lower()
+    if mode in ("excel", "libreoffice"):
+        return mode
+    try:
+        find_soffice(soffice)
+        return "libreoffice"
+    except ConversionError:
+        return "excel" if excel_available() else ""
+
+
 def ensure_xlsx(path: Path, out_dir: Path, soffice: Optional[str] = None, timeout: int = 180,
                 converter: Optional[str] = None) -> Path:
     """``.xlsx``/``.xlsm`` ni o'zini qaytaradi, ``.xls`` ni ``out_dir`` ga konvertatsiya qiladi."""

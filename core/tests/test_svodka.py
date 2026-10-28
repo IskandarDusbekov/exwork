@@ -77,3 +77,19 @@ def test_compute_totals_numbers():
     assert t["prochie"] == pytest.approx(prochie)
     assert t["bez_nds"] == pytest.approx(bez)
     assert t["s_nds"] == pytest.approx(bez * 1.12)
+
+
+def test_safe_amount_formula_text_quantity_is_zero_not_error():
+    """Миқдор «--» (матн) бўлса H = 0: хато SUM орқали бутун сметага (сводкага) тарқалмасин."""
+    from core.svodka import Evaluator
+    from core.writer import safe_amount_formula
+
+    def h(e, f, g):
+        cells = {"E1": e, "F1": f, "G1": g, "H1": safe_amount_formula(1), "H2": "=SUM(H1:H1)"}
+        return Evaluator(cells.get).value("H2")
+
+    assert h("--", "--", 0) == 0
+    assert h(2, "--", 100) == 0
+    assert h(2, 3, 100) == 300
+    assert h(2, None, 100) == 200     # F бўш — E × G (олдингидек)
+    assert h(2, 3, "нарх йўқ") == 0   # G сон эмас — олдингидек 0

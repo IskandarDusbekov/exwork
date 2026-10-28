@@ -1,0 +1,33 @@
+# PostgreSQL ва Redis (сервер ёки ўз компьютерингизда Docker билан):
+#   cd deploy && copy .env.example .env   (паролни ўзгартиринг)
+#   docker compose up -d
+# Портлар фақат 127.0.0.1 да очиқ — ташқаридан уланиб бўлмайди.
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: narxlash
+      POSTGRES_USER: narxlash
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env da POSTGRES_PASSWORD ни ёзинг}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U narxlash -d narxlash"]
+      interval: 10s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?.env да REDIS_PASSWORD ни ёзинг}", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:

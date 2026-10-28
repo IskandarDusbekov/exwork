@@ -26,7 +26,7 @@
 
 {# ================= охирги иккита иш ================= #}
 <div class="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400">Охирги ишлар</div>
-<div class="mb-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+<div data-guide="latest" class="mb-3 grid grid-cols-1 gap-3 md:grid-cols-2">
   {% for it in latest %}
   <a href="{{ it.url }}" class="group flex min-w-0 items-center gap-3 rounded-xl {% if forloop.first %}bg-slate-900 text-white hover:bg-slate-800{% else %}border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50{% endif %} px-4 py-4 shadow-sm">
     <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg {% if forloop.first %}bg-white/10{% elif it.kind == 'folder' %}bg-amber-50 text-amber-600{% elif it.kind == 'object' %}bg-slate-100 text-slate-500{% else %}bg-emerald-50 text-emerald-600{% endif %}">
@@ -45,7 +45,7 @@
 </div>
 
 {# ================= асосий кўрсаткичлар ================= #}
-<div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+<div data-guide="kpi" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
   <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
     <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">{% icon "sheet" "h-4 w-4" %} Жами сметалар</div>
     <div class="num mt-2 text-3xl font-semibold">{{ count_smetas }}</div>
@@ -70,7 +70,7 @@
 
 <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
   {# ================= сметалар босқичлари ================= #}
-  <section class="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+  <section data-guide="pipeline" class="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
     <div class="flex flex-wrap items-baseline justify-between gap-x-3">
       <h2 class="font-semibold">Сметалар босқичлари</h2>
       <span class="text-xs text-slate-400">ҳар бир папка қисми — алоҳида смета</span>
@@ -114,7 +114,7 @@
 </div>
 
 {# ================= барча ишлар ================= #}
-<section class="mt-8" data-work-section>
+<section class="mt-8" data-work-section data-guide="all">
   <div class="mb-3 flex flex-wrap items-center gap-2">
     <h2 class="mr-2 font-semibold">Барча ишлар <span class="num text-sm font-normal text-slate-400">{{ items|length }}</span></h2>
     <label class="relative ml-auto block w-full sm:w-64">
@@ -183,3 +183,13 @@
   {% endif %}
 </script>
 {% endblock %}
+{% block guide %}{page: "dashboard", steps: [
+  {sel: '[data-guide="latest"]', title: "Охирги ишлар",
+   text: "Энг охирги иккита ишингиз — бир босишда давом эттиринг. Ҳолати рангли белгида: <b class='text-violet-700'>ҳисоблашга тайёр</b>, <b class='text-sky-700'>ишланяпти</b>, <b class='text-rose-700'>нархланмаган бор</b>, <b class='text-emerald-700'>тайёр</b>."},
+  {sel: '[data-guide="kpi"]', title: "Асосий кўрсаткичлар",
+   text: "Жами сметалар, нечтаси ҳисобланди, нечтаси ҳозир жараёнда ва нечтасида иш қолган."},
+  {sel: '[data-guide="pipeline"]', title: "Сметалар қайси босқичда",
+   text: "Ҳар бир смета юклашдан тайёр бўлгунча қайси босқичда тургани."},
+  {sel: '[data-guide="all"]', title: "Барча ишлар",
+   text: "Ҳамма папка, объект ва сметалар. Номи бўйича қидиринг ёки ҳолат бўйича фильтрланг."}
+]}{% endblock %}

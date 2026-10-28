@@ -4,6 +4,8 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+from urllib.parse import parse_qsl, unquote, urlsplit
+
 from django.core.exceptions import ImproperlyConfigured
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
@@ -28,12 +30,14 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "panel.middleware.BlockedIPMiddleware",  # блокланган IP — ҳеч нарса очилмайди
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     # Hamma sahifa sukut bo'yicha yopiq: ochiqlari (kirish, ro'yxat, «Тизим ҳақида») @login_not_required
     "django.contrib.auth.middleware.LoginRequiredMiddleware",
+    "panel.middleware.SessionTrackMiddleware",  # IP, қурилма, охирги фаоллик
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -55,13 +59,56 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "web.wsgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-        "OPTIONS": {"timeout": 30},  # papka fonda narxlanayotganda sahifa so'rovlari kutib turadi
+# ===================== baza, kesh, fondagi ishlar =====================
+# DATABASE_URL=postgres://user:parol@host:5432/narxlash  — PostgreSQL (production'da majburiy)
+# bo'lmasa — SQLite (faqat ishlab chiqish uchun: bir vaqtda ko'p yozishni ko'tarmaydi)
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+if DATABASE_URL:
+    _db = urlsplit(DATABASE_URL)
+    if _db.scheme not in ("postgres", "postgresql"):
+        raise ImproperlyConfigured("DATABASE_URL: faqat postgres://… qo'llanadi")
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": unquote(_db.path.lstrip("/")),
+            "USER": unquote(_db.username or ""),
+            "PASSWORD": unquote(_db.password or ""),
+            "HOST": _db.hostname or "localhost",
+            "PORT": _db.port or 5432,
+            "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "60")),  # ulanish qayta ishlatiladi
+            "CONN_HEALTH_CHECKS": True,
+            # ?sslmode=require kabi parametrlar to'g'ridan-to'g'ri psycopg'ga
+            "OPTIONS": dict(parse_qsl(_db.query)),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+            "OPTIONS": {"timeout": 30},  # papka fonda narxlanayotganda sahifa so'rovlari kutib turadi
+        }
+    }
+
+# REDIS_URL=redis://localhost:6379/0 — umumiy kesh: barcha sayt jarayonlari va worker'lar bir xil ko'radi
+# (IP bloklar, onlayn holat, statistika keshi). Bo'lmasa — har jarayonning o'z xotirasi (faqat bitta jarayon uchun).
+REDIS_URL = os.environ.get("REDIS_URL", "")
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+            "KEY_PREFIX": "narxlash",
+            "TIMEOUT": 300,
+        }
+    }
+# Sessiyalar bazada qoladi (kesh emas): admin sessiyani tugatsa yoki IP bloklasa — darhol kuchga kiradi.
+
+# Fondagi ishlar (papka ochish/narxlash): "worker" — alohida ``manage.py run_worker`` jarayoni (production);
+# "thread" — saytning o'zida oqim (ishlab chiqish). Production'da standart — worker.
+NARXLASH_TASKS = os.environ.get("NARXLASH_TASKS", "thread" if DEBUG else "worker")
+if NARXLASH_TASKS not in ("thread", "worker"):
+    raise ImproperlyConfigured("NARXLASH_TASKS: thread yoki worker")
 
 LANGUAGE_CODE = "ru"
 TIME_ZONE = "Asia/Tashkent"

@@ -76,3 +76,69 @@ def test_not_found_keeps_nearest_for_suggestion():
     assert (m.near_name, m.near_unit, m.near_price) == (norm_name("ГАЙКА М20 ОЦИНКОВАННАЯ"), norm_unit("ШТ"), 1500)
     assert 0.5 <= m.near_score < 0.95
     assert _match(idx, "ПЕСОК КАРЬЕРНЫЙ", "М3").near_name is None
+
+
+def test_fast_best_two_equals_reference():
+    """Тезлаштирилган қидирув (тайёр SequenceMatcher + юқори чегара) — эталон билан айнан бир хил натижа."""
+    import random
+    from difflib import SequenceMatcher
+
+    from core.matcher import _best_two_prepared
+
+    rnd = random.Random(7)
+    alphabet = "АБВГДЕЖЗИКЛМНОПРСТУФ 0123-.,/"
+    words = ["".join(rnd.choice(alphabet) for _ in range(rnd.randint(2, 40))) for _ in range(300)]
+    words += ["ТРУБА СТАЛЬНАЯ 57Х3", "ТРУБА СТАЛЬНАЯ 57Х3,5", "ТРУБЫ СТАЛЬНЫЕ 57Х3", "БЕТОН В15", "БЕТОН В20", "А" * 250]
+    prepared = [(c, SequenceMatcher(None, "", c)) for c in words]
+    for key in words[:120] + ["ТРУБА СТАЛЬНАЯ 57Х4", "БЕТОН", "", "А" * 249]:
+        assert _best_two_prepared(key, prepared) == best_two_matches(key, words), key
+
+
+def test_match_cache_returns_independent_copies():
+    idx = _index([("ВОДА", "М3", 1000)])
+    a = _match(idx, "ВОДА", "М3")
+    a.price = 0
+    assert _match(idx, "ВОДА", "М3").price == 1000
+
+
+def test_fast_best_two_ties_keep_original_order():
+    """Тенг баллда асл тартиб (олдин келгани) — тез қидирув номзодларни бошқа тартибда кўрса ҳам."""
+    import itertools
+    from difflib import SequenceMatcher
+
+    from core.matcher import _best_two_prepared
+
+    words = ["".join(p) for p in itertools.permutations("АБВГ")] + ["АБ", "БА", "АБВГДЕ", "ГВБА", "ЖЖЖ"]
+    words = list(dict.fromkeys(words))
+    prepared = [(c, SequenceMatcher(None, "", c)) for c in words]
+    for key in ["АБВГ", "АБ", "ВГ", "Ж", "АБВГД", "БАГВ", ""]:
+        assert _best_two_prepared(key, prepared) == best_two_matches(key, words), key
+        rev = list(reversed(words))
+        assert _best_two_prepared(key, [(c, SequenceMatcher(None, "", c)) for c in rev]) == best_two_matches(key, rev)
+
+
+def test_floor_pruning_gives_reference_matches():
+    """Паст ўхшашликни ҳисобламаслик (NEAR_MIN_SCORE) — ҳар қандай чегарада эталон билан бир хил Match."""
+    import random
+    from unittest import mock
+
+    import core.matcher as m
+
+    rnd = random.Random(3)
+    alphabet = "АБВГДЕЖЗИКЛМН 0123"
+    rows = [("".join(rnd.choice(alphabet) for _ in range(rnd.randint(3, 30))), rnd.choice(["ШТ", "М", "Т"]), i)
+            for i in range(250)]
+    rows += [("ТРУБА СТАЛЬНАЯ 57Х3", "М", 1), ("ТРУБА СТАЛЬНАЯ 57Х3,5", "М", 2), ("ТРУБЫ СТАЛЬНЫЕ 57Х3", "Т", 3)]
+    keys = [r[0] for r in rows[:60]] + ["ТРУБА СТАЛЬНАЯ 57Х4", "ТРУБА СТАЛ", "БЕТОН", "ЖЖЖЖ"]
+
+    def reference(self, name, unit, threshold, delta=0.01):
+        with mock.patch.object(m, "_best_two_prepared", lambda k, prepared, floor=0.0: m.best_two_matches(
+                k, [c for c, _ in prepared])):
+            return self._match(name, unit, threshold, delta)
+
+    for threshold in (0.3, 0.6, 0.8, 0.95):
+        fast, ref = _index(rows), _index(rows)
+        for key in keys:
+            for unit in ("ШТ", "М", "Т", "КГ"):
+                k = norm_name(key)
+                assert fast.match(k, unit, threshold) == reference(ref, k, unit, threshold), (key, unit, threshold)

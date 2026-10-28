@@ -18,6 +18,9 @@
       <form method="post" action="{% url 'panel:work_stop' w.id %}" onsubmit="return confirm('Фондаги иш тўхтатилсинми? Очилганлари сақланади, смета­чи кейин давом эттириши мумкин.')">{% csrf_token %}
         <button class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100">{% icon "stop" %} Тўхтатиш</button></form>
       {% endif %}
+      {% if can_act %}
+      <a href="{% if kind == 'folder' %}{% url 'project' w.id %}{% elif kind == 'object' %}{% url 'batch' w.id %}{% else %}{% url 'job' w.id %}{% endif %}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50" title="Смета­чи кўрадиган саҳифа — фақат кўриш">{% icon "external" %} Смета­чи кўринишида очиш</a>
+      {% endif %}
       {% if has_result and can_act %}
       <a href="{% url 'panel:work_result' kind w.id %}" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700" title="Журналга ёзилади">{% icon "download" %} Натижани юклаб олиш</a>
       {% endif %}

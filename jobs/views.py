@@ -2,6 +2,9 @@ import json
 from datetime import timedelta
 
 from django.contrib.auth.decorators import login_not_required
+from django.core.cache import cache
+from django.db.models import Prefetch
+from django.db.models.fields.json import KeyTransform
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -19,14 +22,15 @@ from panel.models import Event
 
 from . import xlview
 from .archives import is_archive
+from .guide import FLOW, GUIDE_PAGES, help_groups
 from .folders import (
-    build_project_zip, build_tree, create_project, delete_project, ensure_running, is_shown, price_part,
+    build_project_zip, build_tree, create_project, delete_project, ensure_running, is_shown, queue_part,
     ready_stage, resume_project, settle, start_pricing, stop_project,
 )
 from .models import Batch, Job, Project
 from .services import (
     UploadError, analyze_batch, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job, parse_percents,
-    remember_percents, remembered_percents, run_job,
+    remember_percents, remembered_percents, run_job, unpriced_res,
 )
 from .templatetags.narx import file_title, pct as pct_text, pct_input, readable, som
 
@@ -55,6 +59,29 @@ STAT_CARDS = {
 MODE_LABELS = {"smart": "Smart (тавсия)", "compat": "Эски дастур каби (compat)"}
 CATEGORY_LABELS = {"I": "Иш ҳақи", "J": "Машина", "K": "Материал", "L": "Кабель", "M": "Ускуна"}
 LAST_EXTRA_COLUMN = "Z"
+
+
+_KIND_OF = {Project: "folder", Batch: "object", Job: "smeta"}
+
+
+def _get_work(request, model, **kw):
+    """Ўз иши. Суперфойдаланувчи текширув учун бошқанинг ишини ҳам очади — фақат GET (кўриш ва юклаб олиш);
+    ўзгартирадиган (POST) сўровлар фақат эгасига. Бошқанинг иши очилса — журналга ёзилади."""
+    if request.method in ("GET", "HEAD") and request.user.is_superuser:
+        obj = get_object_or_404(model, **kw)
+        if obj.owner_id != request.user.pk:
+            request.viewing_owner = obj.owner
+            # саҳифа ўзи янгиланиб туради — журналга 10 дақиқада бир марта
+            if cache.add(f"panel:viewed:{request.user.pk}:{obj.pk}", 1, 600):
+                audit(request, Event.Kind.ADMIN_VIEW, target=obj.owner, work=obj, work_kind=_KIND_OF[model],
+                      detail=str(getattr(obj, "name", "") or getattr(obj, "local_name", "")))
+        return obj
+    return get_object_or_404(model, owner=request.user, **kw)
+
+
+def _audit_download(request, obj, kind, name):
+    if getattr(request, "viewing_owner", None):
+        audit(request, Event.Kind.ADMIN_DOWNLOAD, target=obj.owner, work=obj, work_kind=kind, detail=f"натижа: {name}")
 
 
 def column_labels(job) -> dict:
@@ -95,9 +122,28 @@ def index(request):
                                                "nav": "upload"})
 
 
+# Рўйхатлар учун сметанинг фақат жами суммаси ва ҳолати керак: тўлиқ ``result`` (минглаб қатор) юкланмайди
+_SUMMARY = {
+    "r_total": KeyTransform("s_nds", KeyTransform("totals", "result")),
+    "r_not_priced": KeyTransform("NOT_PRICED", KeyTransform("stats", "result")),
+    "r_checks": KeyTransform("checks", "result"),
+}
+
+
+def light_jobs(qs):
+    return qs.defer("result").annotate(**_SUMMARY)
+
+
+def _summary(j) -> dict:
+    """``result``дан керакли қисм — ``light_jobs`` билан олинган бўлса, тўлиқ натижани юкламасдан."""
+    if hasattr(j, "r_total"):
+        return {"totals": {"s_nds": j.r_total}, "stats": {"NOT_PRICED": j.r_not_priced or 0}, "checks": j.r_checks}
+    return j.result
+
+
 def _job_sums(jobs):
-    total = sum(t for j in jobs for t in [j.result.get("totals", {}).get("s_nds")] if isinstance(t, (int, float)))
-    return total, sum(j.result.get("stats", {}).get("NOT_PRICED", 0) for j in jobs if j.status == Job.Status.DONE)
+    total = sum(t for j in jobs for t in [_summary(j).get("totals", {}).get("s_nds")] if isinstance(t, (int, float)))
+    return total, sum(_summary(j).get("stats", {}).get("NOT_PRICED", 0) or 0 for j in jobs if j.status == Job.Status.DONE)
 
 
 # Ишнинг умумий ҳолати (тарих ва дашборд): номи, ранги, белгиси
@@ -140,10 +186,10 @@ _STAGE_PIPE = {"queued": "opening", "converting": "opening", "pricing": "pricing
 
 
 def _pipe_of_jobs(jobs, fallback):
-    if any(j.result.get("checks") for j in jobs if j.status == Job.Status.DONE):
+    if any(_summary(j).get("checks") for j in jobs if j.status == Job.Status.DONE):
         return "review"
     if any(j.status == Job.Status.DONE for j in jobs):
-        return "warn" if any(j.result.get("stats", {}).get("NOT_PRICED") for j in jobs) else "done"
+        return "warn" if any(_summary(j).get("stats", {}).get("NOT_PRICED") for j in jobs) else "done"
     return fallback
 
 
@@ -151,7 +197,7 @@ def work_items(user, limit=None):
     """Ишлар (папка, объект, алоҳида смета) — энг янгиси биринчи; ҳолати ва суммаси билан.
     ``pipes`` — ҳар бир смета (папка қисми) қайси босқичда: дашборд статистикаси шундан йиғилади."""
     items = []
-    for pr in Project.objects.filter(owner=user).prefetch_related("parts__jobs")[:limit]:
+    for pr in Project.objects.filter(owner=user).prefetch_related(Prefetch("parts__jobs", light_jobs(Job.objects)))[:limit]:
         parts = [p for p in pr.parts.all() if p.stage != Batch.Stage.EMPTY]
         jobs = [j for p in parts for j in p.jobs.all()]
         total, not_priced = _job_sums(jobs)
@@ -175,7 +221,8 @@ def work_items(user, limit=None):
                       "total": total, "not_priced": not_priced, "review": review, "stopped": stopped, "awaiting": awaiting,
                       "state": state, "pipes": [_STAGE_PIPE.get(p.stage) or _pipe_of_jobs(list(p.jobs.all()), "done")
                                                 for p in parts]})
-    for b in Batch.objects.filter(owner=user, project__isnull=True).prefetch_related("jobs")[:limit]:
+    for b in Batch.objects.filter(owner=user, project__isnull=True).prefetch_related(
+            Prefetch("jobs", light_jobs(Job.objects)))[:limit]:
         jobs = list(b.jobs.all())
         total, not_priced = _job_sums(jobs)
         state = _pipe_of_jobs(jobs, "review") if b.status == Batch.Status.DONE else "review" if b.pairs else "empty"
@@ -184,7 +231,7 @@ def work_items(user, limit=None):
                       "meta": f"{len(b.pairs)} та жуфтлик", "working": False,
                       "reason": _skip_reason(b.sheets) if state == "empty" else "", "total": total, "not_priced": not_priced,
                       "review": 0 if b.status == Batch.Status.DONE else 1, "state": state, "pipes": [state]})
-    for j in Job.objects.filter(owner=user, batch__isnull=True)[:limit]:
+    for j in light_jobs(Job.objects.filter(owner=user, batch__isnull=True))[:limit]:
         total, not_priced = _job_sums([j]) if j.status == Job.Status.DONE else (0, 0)
         state = ("failed" if j.status == Job.Status.FAILED else "review" if j.status != Job.Status.DONE
                  else "warn" if not_priced else "done")
@@ -238,7 +285,7 @@ def dashboard(request):
 @require_POST
 def project_stop(request, project_id):
     """«Тўхтатиш»: фондаги иш кейинги файлдан олдин тўхтайди (очилганлари сақланади)."""
-    project = get_object_or_404(Project, owner=request.user, id=project_id)
+    project = _get_work(request, Project, id=project_id)
     stop_project(project)
     audit(request, Event.Kind.STOP, work=project, work_kind="folder", detail=project.name)
     if request.headers.get("x-requested-with") == "fetch":
@@ -249,7 +296,7 @@ def project_stop(request, project_id):
 @require_POST
 def project_resume(request, project_id):
     """«Давом эттириш»: тўхтатилган қисмлар қайта очилади."""
-    project = get_object_or_404(Project, owner=request.user, id=project_id)
+    project = _get_work(request, Project, id=project_id)
     resume_project(project)
     return redirect("project", project_id=project.id)
 
@@ -259,15 +306,15 @@ def work_delete(request, kind, work_id):
     """Тарихдан ўчириш: папка, объект ёки алоҳида смета — базадан ҳам, дискдан ҳам (қайтариб бўлмайди)."""
     try:
         if kind == "folder":
-            work = get_object_or_404(Project, owner=request.user, id=work_id)
+            work = _get_work(request, Project, id=work_id)
             name = work.name
             delete_project(work, force=True)  # ишлаётган бўлса — аввал тўхтатилади
         elif kind == "object":
-            work = get_object_or_404(Batch, owner=request.user, id=work_id, project__isnull=True)
+            work = _get_work(request, Batch, id=work_id, project__isnull=True)
             name = work.name
             delete_batch(work)
         elif kind == "smeta":
-            work = get_object_or_404(Job, owner=request.user, id=work_id, batch__isnull=True)
+            work = _get_work(request, Job, id=work_id, batch__isnull=True)
             name = work.local_name
             delete_job(work)
         else:
@@ -336,7 +383,7 @@ def _part_nodes(node, out):
 
 
 def project_detail(request, project_id):
-    project = get_object_or_404(Project, owner=request.user, id=project_id)
+    project = _get_work(request, Project, id=project_id)
     ensure_running(project)
     parts = list(project.parts.prefetch_related("jobs").order_by("folder"))
     tree = build_tree(project, parts)
@@ -382,17 +429,18 @@ def project_detail(request, project_id):
 @require_POST
 def project_price(request, project_id):
     """«Ҳисоблашни бошлаш»: смета­чи файлларни текширди — тайёр қисмлар фонда нархланади."""
-    project = get_object_or_404(Project, owner=request.user, id=project_id)
+    project = _get_work(request, Project, id=project_id)
     start_pricing(project)
     return redirect("project", project_id=project.id)
 
 
 def project_download(request, project_id):
-    project = get_object_or_404(Project, owner=request.user, id=project_id)
+    project = _get_work(request, Project, id=project_id)
     try:
         path = build_project_zip(project)
     except UploadError as e:
         raise Http404(str(e))
+    _audit_download(request, project, "folder", path.name)
     return FileResponse(open(path, "rb"), as_attachment=True, filename=path.name)
 
 
@@ -591,7 +639,7 @@ PREVIEW_ROWS = 80
 
 def batch_sheet(request, batch_id):
     """Объект листи Excel кўринишида (бошидан ``n`` қатор): ``k`` — лист калити «файл:лист»."""
-    batch = get_object_or_404(Batch, owner=request.user, id=batch_id)
+    batch = _get_work(request, Batch, id=batch_id)
     key = request.GET.get("k", "")
     info = batch.sheet(key)
     if info is None:
@@ -622,7 +670,7 @@ def _sheets_js(batch):
 
 
 def batch_detail(request, batch_id):
-    batch = get_object_or_404(Batch, owner=request.user, id=batch_id)
+    batch = _get_work(request, Batch, id=batch_id)
     sheets = batch.sheets
     used_res = {p["res"] for p in batch.pairs if p.get("res")}
     jobs = list(batch.jobs.order_by("batch_order"))
@@ -652,13 +700,16 @@ def batch_detail(request, batch_id):
         "grand_total": sum(j.result.get("totals", {}).get("s_nds") or 0 for j in jobs
                            if isinstance(j.result.get("totals", {}).get("s_nds"), (int, float))),
         "not_priced_total": sum(j.result.get("stats", {}).get("NOT_PRICED", 0) for j in jobs),
+        # танланган RES'да нарх йўқ — нархлашдан олдин огоҳлантириш
+        "unpriced": [readable(p.get("label")) or p["local"] for p in batch.pairs
+                     if p.get("include") and p.get("res") in unpriced_res(batch)],
     }
     return render(request, "jobs/batch.html", ctx)
 
 
 @require_POST
 def batch_replan(request, batch_id):
-    batch = get_object_or_404(Batch, owner=request.user, id=batch_id)
+    batch = _get_work(request, Batch, id=batch_id)
     roles, columns = {}, {}
     for i, s in enumerate(batch.sheets):
         role = request.POST.get(f"role_{i}")
@@ -681,7 +732,7 @@ def batch_replan(request, batch_id):
 
 @require_POST
 def batch_confirm(request, batch_id):
-    batch = get_object_or_404(Batch, owner=request.user, id=batch_id)
+    batch = _get_work(request, Batch, id=batch_id)
     decisions = {}
     for n in range(len(batch.pairs)):
         decisions[n] = {
@@ -690,24 +741,25 @@ def batch_confirm(request, batch_id):
             "label": request.POST.get(f"label_{n}", ""),
         }
     if batch.project_id:
-        price_part(batch, decisions)  # папка қисми: ҳолати ҳам (тайёр / текширинг / хато)
-        settle(batch.project)
+        queue_part(batch, decisions)  # папка қисми: фонда нархланади, жараён папка саҳифасида жонли
+        return redirect("project", project_id=batch.project_id)
     else:
         confirm_batch(batch, decisions)
     return redirect("batch", batch_id=batch.id)
 
 
 def batch_download(request, batch_id):
-    batch = get_object_or_404(Batch, owner=request.user, id=batch_id)
+    batch = _get_work(request, Batch, id=batch_id)
     try:
         path = build_combined(batch)
     except UploadError as e:
         raise Http404(str(e))
+    _audit_download(request, batch, "object", path.name)
     return FileResponse(open(path, "rb"), as_attachment=True, filename=path.name)
 
 
 def job_detail(request, job_id):
-    job = get_object_or_404(Job, owner=request.user, id=job_id)
+    job = _get_work(request, Job, id=job_id)
     ctx = {"job": job, "modes": MODE_LABELS.items(), "crumbs": crumbs_for(job=job),
            "siblings": list(job.batch.jobs.order_by("batch_order")) if job.batch_id else []}
     if job.status == Job.Status.DONE:
@@ -869,7 +921,7 @@ def _category_suggestions(rows):
 @require_POST
 def job_categories(request, job_id):
     """JSON: ``{"rows": [183, 281], "category": "M"}``; ``category: ""`` — asl holiga qaytarish."""
-    job = get_object_or_404(Job, owner=request.user, id=job_id)
+    job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE or job.mode != "smart":
         return JsonResponse({"ok": False, "error": "Устунни фақат Smart режимдаги натижада ўзгартириш мумкин"}, status=400)
     try:
@@ -909,7 +961,7 @@ def _as_price(v):
 def job_prices(request, job_id):
     """JSON: ``{"rows": [...], "action": "accept" | "set" | "clear", "price": "4 600 000"}``.
     accept — taklif narxini qabul qilish; set — bitta narxni hammasiga; clear — qo'lda narxni bekor qilish."""
-    job = get_object_or_404(Job, owner=request.user, id=job_id)
+    job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE or job.mode != "smart":
         return JsonResponse({"ok": False, "error": "Нархни фақат Smart режимдаги натижада ўзгартириш мумкин"}, status=400)
     try:
@@ -1014,7 +1066,7 @@ def _not_found_stage(rows):
 def job_not_found(request, job_id):
     """JSON: ``{"rows": [...], "action": "clear" | "restore"}``. clear — «ТОПИЛМАДИ» сўзини олиб ташлаш:
     бирлиги бор қаторда G бўш, қизил қолади; бирлиги йўқда G ва H бўш. restore — қайтариш."""
-    job = get_object_or_404(Job, owner=request.user, id=job_id)
+    job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE or job.mode != "smart":
         return JsonResponse({"ok": False, "error": "Фақат Smart режимдаги натижада"}, status=400)
     try:
@@ -1066,7 +1118,7 @@ def _lm_stage(rows, res_groups, labels):
 @require_POST
 def job_table_checked(request, job_id):
     """2-босқични якунлаш (``done=1``) ёки қайта очиш (``done=0``)."""
-    job = get_object_or_404(Job, owner=request.user, id=job_id)
+    job = _get_work(request, Job, id=job_id)
     job.table_checked = request.POST.get("done") == "1"
     job.save(update_fields=["table_checked"])
     return redirect(reverse("job", args=[job.id]) + ("#t-3" if job.table_checked else "#t-2"))
@@ -1116,7 +1168,7 @@ def job_columns(request, job_id):
     """JSON: ``{"action": "add", "name": "Монтаж"}`` — кейинги бўш устун (N, O, …);
     ``{"action": "rename", "col": "K", "name": "…"}`` (бўш ном — асл номига қайтади);
     ``{"action": "remove", "col": "N"}`` — қўшилган устун, ундаги қаторлар асл устунига қайтади."""
-    job = get_object_or_404(Job, owner=request.user, id=job_id)
+    job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE or job.mode != "smart":
         return JsonResponse({"ok": False, "error": "Устунлар фақат Smart режимда"}, status=400)
     try:
@@ -1153,7 +1205,7 @@ def job_columns(request, job_id):
 
 @require_POST
 def job_run(request, job_id):
-    job = get_object_or_404(Job, owner=request.user, id=job_id)
+    job = _get_work(request, Job, id=job_id)
     if "reset_percents" in request.POST:
         percents = dict(DEFAULT_PERCENTS)  # аниқ «стандарт» (бўш = эслаб қолинган фоизлар)
     elif any(k.startswith("pct_") for k in request.POST):
@@ -1172,7 +1224,7 @@ def job_percents(request, job_id):
     """JSON: ``{"pct": {"transport_mat": "5", ...}}`` | ``{"reset": true}`` | ``{"remembered": true}``.
     Фоиз ўзгариши билан қайта ҳисоблайди (тугма шарт эмас) ва уни эслаб қолади — кейинги сметалар
     шу фоизлар билан бошланади. Жавобда янги сводка (саҳифа қайта юкланмайди)."""
-    job = get_object_or_404(Job, owner=request.user, id=job_id)
+    job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE or job.mode != "smart":
         return JsonResponse({"ok": False, "error": "Фоизлар фақат Smart режимда"}, status=400)
     try:
@@ -1211,7 +1263,7 @@ XL_FILES = {
 
 def job_sheet(request, job_id):
     """Excel листи HTML жадвал бўлиб (``f`` — out | local | res, ``s`` — лист номи)."""
-    job = get_object_or_404(Job, owner=request.user, id=job_id)
+    job = _get_work(request, Job, id=job_id)
     kind = request.GET.get("f")
     sheet = request.GET.get("s") or None
     res = job.result or {}
@@ -1243,10 +1295,35 @@ def job_sheet(request, job_id):
 
 
 def job_download(request, job_id):
-    job = get_object_or_404(Job, owner=request.user, id=job_id)
+    job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE or not job.output_path:
         raise Http404("Натижа ҳали тайёр эмас")
     path = job.abs(job.output_path)
     if not path.is_file():
         raise Http404("Файл топилмади")
+    _audit_download(request, job, "smeta", job.download_name)
     return FileResponse(open(path, "rb"), as_attachment=True, filename=job.download_name)
+
+
+# ===================== йўриқнома =====================
+def help_page(request):
+    """Йўриқнома: иш тартиби қадамма-қадам ва ҳар бир ҳолат / огоҳлантириш нимани билдиради."""
+    return render(request, "jobs/help.html", {"nav": "help", "groups": help_groups(), "flow": FLOW})
+
+
+@require_POST
+def guide_seen(request):
+    """Саҳифа қўлланмаси кўрилди (ёки ёпилди) — кейин ўзи очилмайди. ``reset`` — ҳаммасини қайта кўрсатиш."""
+    user = request.user
+    if request.POST.get("reset"):
+        user.guides_seen = []
+    else:
+        page = request.POST.get("page", "")
+        if page not in GUIDE_PAGES:
+            raise Http404
+        if page not in user.guides_seen:
+            user.guides_seen = [*user.guides_seen, page]
+    user.save(update_fields=["guides_seen"])
+    if request.POST.get("reset"):
+        return redirect("index")
+    return JsonResponse({"ok": True})

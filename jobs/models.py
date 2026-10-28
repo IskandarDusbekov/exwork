@@ -38,6 +38,9 @@ class Project(models.Model):
     files = models.JSONField(default=list)
     heartbeat = models.DateTimeField(null=True, blank=True)  # fondagi ishning oxirgi belgisi
     stop_requested = models.BooleanField(default=False)  # smetachi «Тўхтатиш»ni bosdi — fondagi ish keyingi faylda to'xtaydi
+    run_started = models.DateTimeField(null=True, blank=True)   # fondagi ishning oxirgi boshlanishi
+    run_finished = models.DateTimeField(null=True, blank=True)  # … va tugashi (ishlayotganda bo'sh)
+    worker = models.CharField(max_length=120, blank=True, db_index=True)  # qaysi worker egallagan ("" — navbatda)
 
     class Meta:
         ordering = ["-created"]
@@ -88,6 +91,10 @@ class Batch(models.Model):
     folder = models.CharField(max_length=500, blank=True)  # loyiha ichidagi yo'l, "" — ildiz
     stage = models.CharField(max_length=16, choices=Stage.choices, blank=True)
     message = models.TextField(blank=True)
+    step = models.CharField(max_length=300, blank=True)  # fonda hozir nima qilinyapti: «2/5 файл очиляпти: …»
+    step_since = models.DateTimeField(null=True, blank=True)  # joriy qadam (masalan, shu fayl) qachon boshlangan
+    stage_since = models.DateTimeField(null=True, blank=True)  # joriy bosqich qachon boshlangan
+    durations = models.JSONField(default=dict, blank=True)  # bosqichlarga ketgan vaqt, soniya {"converting": 12.5, "pricing": 40}
 
     class Meta:
         ordering = ["-created"]
@@ -147,6 +154,8 @@ class Job(models.Model):
     output_path = models.CharField(max_length=500, blank=True)
     result = models.JSONField(default=dict, blank=True)
     error = models.TextField(blank=True)
+    duration = models.FloatField(null=True, blank=True)  # oxirgi narxlash necha soniya davom etdi
+    rows = models.PositiveIntegerField(null=True, blank=True)  # nechta qator ko'rib chiqildi (100/1000 qator tezligi)
 
     class Meta:
         ordering = ["-created"]
@@ -164,8 +173,50 @@ class Job(models.Model):
     @property
     def download_name(self) -> str:
         if self.batch_label:
-            stem = re.sub(r'[\\/:*?"<>|]+', " ", self.batch_label).strip()[:80] or "smeta"
+            # \x00-\x1f: лист номидаги қатор ташланиши ва ҳ.к. — Windows бундай файл номини рад этади
+            stem = " ".join(re.sub(r'[\\/:*?"<>|\x00-\x1f]+', " ", self.batch_label).split())[:80] or "smeta"
             return f"{stem}_narxlandi.xlsx"
         stem = Path(self.local_name).stem
         ext = ".xlsm" if self.local_name.lower().endswith(".xlsm") else ".xlsx"
         return f"{stem}_narxlandi{ext}"
+
+
+class Worker(models.Model):
+    """Fondagi ishchi jarayon (``manage.py run_worker``): panel uni ko'radi — tirikmi, nechta ish olgan."""
+    name = models.CharField(max_length=120, unique=True)  # «host:pid»
+    started = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField()
+    threads = models.PositiveSmallIntegerField(default=1)
+    busy = models.PositiveSmallIntegerField(default=0)  # hozir nechta loyiha ustida
+    done = models.PositiveIntegerField(default=0)  # ishga tushgandan beri nechta loyiha
+
+    class Meta:
+        ordering = ["-last_seen"]
+
+    def __str__(self):
+        return self.name
+
+
+class FileTiming(models.Model):
+    """Bitta faylni ochish vaqti: .xls → .xlsx o'girish, listlar ro'yxatini o'qish va listlar tahlili.
+    Panel statistikasi uchun — ish o'chirilsa ham tarix qoladi."""
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    project = models.ForeignKey(Project, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    batch = models.ForeignKey(Batch, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    job = models.ForeignKey(Job, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    name = models.CharField(max_length=255)
+    ext = models.CharField(max_length=8)
+    size = models.BigIntegerField(null=True, blank=True)
+    method = models.CharField(max_length=16, blank=True)  # libreoffice | excel | "" (.xlsx — o'girilmaydi)
+    convert_s = models.FloatField(null=True, blank=True)  # .xls → .xlsx
+    read_s = models.FloatField(null=True, blank=True)     # listlar ro'yxatini o'qish
+    analyze_s = models.FloatField(null=True, blank=True)  # listlar tahlili (turi, ustunlar, narxlar)
+    error = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        ordering = ["-created"]
+
+    @property
+    def total_s(self):
+        return sum(v for v in (self.convert_s, self.read_s, self.analyze_s) if v)

@@ -182,7 +182,7 @@ def to_number(v):
 
 
 class Evaluator:
-    """Faqat biz yozadigan formulalar uchun: + - * /, qavslar, IF(x="",a,b), ISNUMBER(x), SUM(diapazon)."""
+    """Faqat biz yozadigan formulalar uchun: + - * /, qavslar, IF(x="",a,b), ISNUMBER(x), IFERROR(x,y), SUM(diapazon)."""
 
     def __init__(self, raw: Callable[[str], object]):
         self.raw = raw  # manzil -> formula ("=...") yoki qiymat
@@ -314,6 +314,12 @@ class Evaluator:
                 if as_error(cond):
                     return cond
             return a if cond else b
+        if name == "IFERROR":
+            v = self._comparison()
+            self._expect(",")
+            fallback = self._comparison()
+            self._expect(")")
+            return fallback if as_error(v) else v
         if name == "ISNUMBER":
             v = self._comparison()
             self._expect(")")

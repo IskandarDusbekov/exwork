@@ -1,6 +1,7 @@
 """Yuklash -> konvertatsiya -> narxlash. Django view'lari faqat shu funksiyalarni chaqiradi."""
 import datetime as dt
 import shutil
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -14,7 +15,9 @@ from core.detect import pair_sheets
 from core.pipeline import MODES, Options, run
 from core.svodka import DEFAULT_PERCENTS, parse_text_number
 
-from .models import Batch, Job, Setting
+from django.utils import timezone
+
+from .models import Batch, Job, Project, Setting
 
 ALLOWED_EXT = (".xls", ".xlsx", ".xlsm")
 
@@ -65,18 +68,21 @@ def create_job(owner, local_file, res_file=None) -> Job:
 
     job = Job(owner=owner, local_name=Path(local_file.name).name, res_name=Path((res_file or local_file).name).name,
               percents=remembered_percents(owner))
+    clock = FileClock()
     try:
         _save(local_file, job.abs(f"upload/local{local_ext}"))
-        local_xlsx = convert.ensure_xlsx(job.abs(f"upload/local{local_ext}"), job.abs("conv"))
+        local_xlsx = clock.open(job.abs(f"upload/local{local_ext}"), job.abs("conv"), job.local_name, 0)
         if res_file:
             _save(res_file, job.abs(f"upload/res{res_ext}"))
-            res_xlsx = convert.ensure_xlsx(job.abs(f"upload/res{res_ext}"), job.abs("conv"))
+            res_xlsx = clock.open(job.abs(f"upload/res{res_ext}"), job.abs("conv"), job.res_name, 1)
+        job.local_sheets = clock.read(local_xlsx, 0)
+        if res_file:
+            job.res_sheets = clock.read(res_xlsx, 1)
         else:
-            res_xlsx = local_xlsx
-        job.local_sheets = sheet_names(local_xlsx)
-        job.res_sheets = sheet_names(res_xlsx)
+            res_xlsx, job.res_sheets = local_xlsx, job.local_sheets
     except convert.ConversionError as e:
         shutil.rmtree(job.dir, ignore_errors=True)
+        save_timings(clock, getattr(owner, "pk", owner))
         raise UploadError(str(e)) from e
     except Exception as e:
         shutil.rmtree(job.dir, ignore_errors=True)
@@ -86,6 +92,7 @@ def create_job(owner, local_file, res_file=None) -> Job:
     job.res_path = str(res_xlsx.relative_to(job.dir))
     job.local_sheet, job.res_sheet = pair_sheets(job.local_sheets, job.res_sheets)
     job.save()
+    save_timings(clock, job.owner_id, job=job)
     return job
 
 
@@ -149,6 +156,7 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
         # смета ўз фоизини олмаган — смета­чининг охирги танлови (у ҳеч қачон ўчмайди)
         job.percents = remembered_percents(job.owner_id)
     out = job.abs("out") / job.download_name
+    t0 = time.monotonic()
     try:
         result = run(job.abs(job.local_path), job.abs(job.res_path), Options(
             fuzzy_percent=job.fuzzy, mode=job.mode, local_sheet=job.local_sheet, res_sheet=job.res_sheet,
@@ -161,11 +169,14 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
     except Exception as e:  # foydalanuvchiga ko'rsatamiz, server yiqilmasin
         job.status = Job.Status.FAILED
         job.error = str(e) if isinstance(e, LayoutError) else f"{type(e).__name__}: {e}"  # жадвал тузилиши — тушунарли сабаб
+        job.duration = round(time.monotonic() - t0, 2)
         job.save()
         return job
 
     job.status = Job.Status.DONE
     job.error = ""
+    job.duration = round(time.monotonic() - t0, 2)
+    job.rows = len(result.rows)
     job.output_path = str(out.relative_to(job.dir))
     job.result = {
         "stats": result.stats,
@@ -204,15 +215,18 @@ def create_batch(owner, files) -> "Batch":
         raise UploadError(f"Бир марта кўпи билан {MAX_FILES} та файл юкланг")
     names = [Path(f.name).name for f in files]
     batch = Batch(owner=owner, name=names[0] if len(names) == 1 else f"{names[0]} + {len(names) - 1} та файл")
+    clock, seconds = FileClock(), {}
     try:
         for i, f in enumerate(files):
             ext = _check_upload(f, f.name)
             _save(f, batch.abs(f"upload/{i}{ext}"))
-            xlsx = convert.ensure_xlsx(batch.abs(f"upload/{i}{ext}"), batch.abs(f"conv/{i}"))
-            batch.files.append({"name": names[i], "path": str(xlsx.relative_to(batch.dir)), "sheets": sheet_names(xlsx)})
-        analyze_batch(batch)
+            xlsx = clock.open(batch.abs(f"upload/{i}{ext}"), batch.abs(f"conv/{i}"), names[i], i)
+            batch.files.append({"name": names[i], "path": str(xlsx.relative_to(batch.dir)), "sheets": clock.read(xlsx, i)})
+        analyze_batch(batch, timings=seconds)
+        clock.analyzed(seconds)
     except convert.ConversionError as e:
         shutil.rmtree(batch.dir, ignore_errors=True)
+        save_timings(clock, getattr(owner, "pk", owner))
         raise UploadError(str(e)) from e
     except UploadError:
         shutil.rmtree(batch.dir, ignore_errors=True)
@@ -221,38 +235,114 @@ def create_batch(owner, files) -> "Batch":
         shutil.rmtree(batch.dir, ignore_errors=True)
         raise UploadError(f"Файлни очиб бўлмади: {e}") from e
     batch.save()
+    save_timings(clock, batch.owner_id, batch=batch)
     return batch
 
 
-def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optional[dict] = None) -> "Batch":
+class FileClock:
+    """Bitta faylni ochish vaqtini o'lchaydi: ``convert`` (.xls → .xlsx) va ``read`` (listlar ro'yxati).
+    ``rows`` ga yig'iladi, keyin ``save_timings`` bilan bazaga."""
+
+    def __init__(self):
+        self.rows = []
+
+    def open(self, src: Path, out_dir: Path, name: str, index: int):
+        src = Path(src)
+        row = {"index": index, "name": name[:255], "ext": src.suffix.lower()[:8],
+               "size": src.stat().st_size if src.exists() else None,
+               "method": convert.converter_name() if src.suffix.lower() == ".xls" else ""}
+        self.rows.append(row)
+        try:
+            t = time.monotonic()
+            xlsx = convert.ensure_xlsx(src, out_dir)
+            if xlsx != src:
+                row["convert_s"] = round(time.monotonic() - t, 3)
+            return xlsx
+        except Exception as e:
+            row["error"] = f"{type(e).__name__}: {e}"[:300]
+            raise
+
+    def read(self, xlsx: Path, index: int):
+        row = next(r for r in self.rows if r["index"] == index)
+        t = time.monotonic()
+        try:
+            return sheet_names(xlsx)
+        except Exception as e:
+            row["error"] = f"{type(e).__name__}: {e}"[:300]
+            raise
+        finally:
+            row["read_s"] = round(time.monotonic() - t, 3)
+
+    def analyzed(self, seconds: dict):
+        for r in self.rows:
+            if r["index"] in seconds:
+                r["analyze_s"] = round(seconds[r["index"]], 3)
+
+
+def save_timings(clock: FileClock, owner_id, project_id=None, batch=None, job=None):
+    """Panel uchun — yozilmasa ham asosiy ish to'xtamaydi."""
+    from .models import FileTiming
+    try:
+        FileTiming.objects.bulk_create([FileTiming(
+            owner_id=owner_id, project_id=project_id, batch=batch if batch and batch.pk else None,
+            job=job if job and job.pk else None, **{k: v for k, v in r.items() if k != "index"})
+            for r in clock.rows])
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optional[dict] = None,
+                  timings: Optional[dict] = None) -> "Batch":
     """Listlar turini aniqlaydi (``roles`` / ``columns`` — smetachining qo'lda tuzatishlari: list turi
     va ustunlar), nusxalarni ajratadi va juftliklarni taklif qiladi."""
     if roles is not None:
         batch.roles = roles
     if columns is not None:
         batch.columns = columns
-    infos = []
+    infos, prices = [], {}
     for i, f in enumerate(batch.files):
+        t = time.monotonic()
         wb = load_workbook(batch.abs(f["path"]))
         try:
-            infos += inspect_workbook(wb, i, f["name"], batch.roles, batch.columns)
+            found = inspect_workbook(wb, i, f["name"], batch.roles, batch.columns)
+            for info in found:
+                prices[info.key] = count_prices(wb[info.sheet], info.columns or {})
+            infos += found
         finally:
             wb.close()
+            if timings is not None:
+                timings[i] = time.monotonic() - t
     apply_roles(infos, batch.roles or {})
     mark_duplicates(infos)
     pairs, _unused = plan_pairs(infos)
-    batch.sheets = [i.to_dict() for i in infos]
+    batch.sheets = [dict(i.to_dict(), prices=prices.get(i.key)) for i in infos]
     batch.pairs = [dict(p.to_dict(), include=p.res is not None) for p in pairs]
     return batch
 
 
-def confirm_batch(batch: "Batch", decisions: dict) -> list:
-    """``decisions``: ``{juftlik_raqami: {"include": bool, "res": kalit|"", "label": str}}``.
-    Har bir tanlangan juftlik uchun Job yaratib, darhol narxlaydi. Avvalgi natijalar o'chiriladi."""
+def count_prices(ws, columns: dict):
+    """Ресурс листида нечта қаторда нарх бор (0 дан катта сон). ``None`` — нарх устуни аниқланмаган.
+    Нархланмаган RES (ЦЕНА ҳамма жойда 0) билан нархлаш бефойда — смета­чи олдиндан огоҳлантирилади."""
+    col, start, end = columns.get("price"), columns.get("start"), columns.get("end")
+    if not col or not start:
+        return None
+    n = 0
+    for (v,) in ws.iter_rows(min_row=start, max_row=end or ws.max_row, min_col=col, max_col=col, values_only=True):
+        if isinstance(v, str):
+            v = parse_text_number(v)
+        if isinstance(v, (int, float)) and v > 0:
+            n += 1
+    return n
+
+
+def unpriced_res(batch: "Batch") -> set:
+    """Нархи йўқ RES листлари (калитлари)."""
+    return {s["key"] for s in batch.sheets if s.get("role") == "resource" and s.get("prices") == 0}
+
+
+def apply_decisions(batch: "Batch", decisions: dict):
+    """Смета­чи танлови (қайси локал нархлансин, қайси RES билан, номи) жуфтликларга ёзилади."""
     resources = {s["key"] for s in batch.sheets if s["role"] == "resource" and not s.get("duplicate_of")}
-    for job in batch.jobs.all():
-        shutil.rmtree(job.dir, ignore_errors=True)
-        job.delete()
     for n, p in enumerate(batch.pairs):
         d = decisions.get(n, {})
         p["include"] = bool(d.get("include", p.get("include")))
@@ -261,10 +351,23 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
         if d.get("label", "").strip():
             p["label"] = d["label"].strip()[:200]
 
+
+def confirm_batch(batch: "Batch", decisions: dict) -> list:
+    """``decisions``: ``{juftlik_raqami: {"include": bool, "res": kalit|"", "label": str}}``.
+    Har bir tanlangan juftlik uchun Job yaratib, darhol narxlaydi. Avvalgi natijalar o'chiriladi."""
+    for job in batch.jobs.all():
+        shutil.rmtree(job.dir, ignore_errors=True)
+        job.delete()
+    apply_decisions(batch, decisions)
+
     jobs = []
+    todo = sum(1 for p in batch.pairs if p["include"] and p["res"])
     for n, p in enumerate(batch.pairs):
         if not p["include"] or not p["res"]:
             continue
+        if batch.project_id:  # papka qismi: panel va sahifada jonli jarayon
+            Batch.objects.filter(pk=batch.pk).update(step=f"{len(jobs) + 1}/{todo} смета нархланяпти: {p['label']}"[:300])
+            Project.objects.filter(pk=batch.project_id).update(heartbeat=timezone.now())
         loc, res = batch.sheet(p["local"]), batch.sheet(p["res"])
         lf, rf = batch.files[loc["file"]], batch.files[res["file"]]
         job = Job(owner_id=batch.owner_id, batch=batch, batch_label=p["label"], batch_file=loc["file"], batch_order=n,

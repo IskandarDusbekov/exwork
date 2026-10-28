@@ -38,12 +38,12 @@
         {% if not_priced_total %}
         <div class="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
           {% icon "alert-circle" "mt-px h-4 w-4 shrink-0 text-rose-600" %}
-          <span><b>{{ not_priced_total }} та қатор нархланмади</b> — қисмларни очиб тўғирланг</span></div>
+          <span><b>{{ not_priced_total }} та қатор нархланмади</b> — қисмларни очиб тўғирланг {% help "warn" %}</span></div>
         {% else %}
         <div class="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
           {% icon "check-circle" "h-4 w-4 shrink-0 text-emerald-600" %} Ҳамма қаторлар нархланган</div>
         {% endif %}
-        <a href="{% url 'batch_download' batch.id %}" class="flex items-center gap-3 rounded-lg bg-emerald-600 px-3 py-2.5 text-white shadow-sm ring-1 ring-inset ring-emerald-700/30 transition hover:bg-emerald-700">
+        <a href="{% url 'batch_download' batch.id %}" data-guide="download" class="flex items-center gap-3 rounded-lg bg-emerald-600 px-3 py-2.5 text-white shadow-sm ring-1 ring-inset ring-emerald-700/30 transition hover:bg-emerald-700">
           <span class="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white/15">{% icon "download" "h-5 w-5" %}</span>
           <span class="min-w-0"><span class="block text-sm font-semibold">Ҳаммасини битта файлда</span>
             <span class="block text-xs text-emerald-100">{{ jobs|length }} та қисм · Excel</span></span>
@@ -64,9 +64,17 @@
 </aside>
 
 <div class="min-w-0 space-y-6">
+{% if unpriced %}
+<div class="flex gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">
+  {% icon "alert" "mt-0.5 h-5 w-5 shrink-0" %}
+  <div><b>RES файлда нарх йўқ.</b> {% help "res_no_price" %} {{ unpriced|length }} та смета учун танланган RES листида «ЦЕНА» устуни ҳамма жойда 0 — нархласа ҳам сумма 0 чиқади.
+    Нархланган RES файлни қўшинг ёки қуйида бошқа RES танланг.
+    <div class="mt-1 text-xs text-rose-700">{{ unpriced|slice:":6"|join:" · " }}{% if unpriced|length > 6 %} · …{% endif %}</div></div>
+</div>
+{% endif %}
 
 {# ---- босқичлар ---- #}
-<ol class="flex flex-wrap items-center gap-2 text-sm">
+<ol data-guide="steps" class="flex flex-wrap items-center gap-2 text-sm">
   {% with done=jobs %}
   <li class="flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-emerald-800"><b>1</b> Юклаш {% icon "check" "h-3.5 w-3.5" "2.5" %}</li>
   <li class="text-slate-300">—</li>
@@ -79,7 +87,7 @@
 </ol>
 
 {% if not jobs %}
-<div class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-800">
+<div data-guide="todo" class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-800">
   <div class="text-xs font-semibold uppercase tracking-wide text-sky-700">Ҳозир нима қилиш керак</div>
   Тизим {{ batch.files|length }} та файлдаги листларни ўқиб, ҳар бир <b>локал</b> (иш ҳажмлари) учун мос <b>ресурс</b> (нархлар) листини топди
   — <span class="tag tag-loc">Л1</span> → <span class="tag tag-res">Р1</span> каби. Лист номини босинг — ичини Excel'дагидек кўрасиз;
@@ -91,13 +99,13 @@
   Тўғри бўлса — пастдаги <b>«Тасдиқлаш ва нархлаш»</b>.
 </div>
 {% elif not_priced_total %}
-<div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-slate-800">
-  <div class="text-xs font-semibold uppercase tracking-wide text-rose-700">Ҳозир нима қилиш керак</div>
+<div data-guide="todo" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-slate-800">
+  <div class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-rose-700">Ҳозир нима қилиш керак {% help "warn" %}</div>
   Ҳамма қисмлар нархланди, лекин <b>{{ not_priced_total }} та қатор</b> аниқ топилмади. Қизил рақамли қисмни <b>«Очиш»</b> орқали очинг,
   таклифни қабул қилинг ёки нархни ёзинг. Кейин бу ерга қайтиб <b>«Ҳаммасини битта файлда»</b>.
 </div>
 {% else %}
-<div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-slate-800">
+<div data-guide="todo" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-slate-800">
   <div class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Тайёр</div>
   Ҳамма қисмлар тўлиқ нархланган. Чапдаги <b>«Ҳаммасини битта файлда»</b> ни босинг ёки ҳар бир қисмни алоҳида юклаб олинг.
 </div>
@@ -149,13 +157,13 @@
   {% csrf_token %}
 
   <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-100 bg-slate-50 px-4 py-2.5 text-xs text-slate-600">
+    <div data-guide="pairs-legend" class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-100 bg-slate-50 px-4 py-2.5 text-xs text-slate-600">
       <span class="flex items-center gap-1.5"><span class="side-dot bg-emerald-500"></span><b class="text-slate-800">Локал</b> — иш ҳажмлари</span>
       <span class="text-slate-300">→</span>
       <span class="flex items-center gap-1.5"><span class="side-dot bg-sky-500"></span><b class="text-slate-800">Ресурс</b> — нархлар</span>
       <span class="ml-auto flex flex-wrap items-center gap-x-3 text-slate-500">
         <span>{% icon "table" "inline h-3.5 w-3.5" %} лист номини босинг — Excel кўриниши</span>
-        <span><span class="rounded bg-emerald-100 px-1 font-semibold text-emerald-800">86%</span> ни босинг — иккаласи ёнма-ён</span>
+        <span class="inline-flex items-center gap-1"><span class="rounded bg-emerald-100 px-1 font-semibold text-emerald-800">86%</span> ни босинг — иккаласи ёнма-ён {% help "overlap" %}</span>
       </span>
     </div>
 
@@ -223,7 +231,7 @@
     </div>
     {% endfor %}
     {% endfor %}{% empty %}
-    <div class="px-4 py-6 text-rose-800">Локал (ресурслар рўйхати) лист топилмади. Пастда «Листлар тури»ни текширинг.</div>
+    <div class="px-4 py-6 text-rose-800">Локал (ресурслар рўйхати) лист топилмади. Пастда «Листлар тури»ни текширинг. {% help "empty" %}</div>
     {% endfor %}
   </section>
 
@@ -232,7 +240,7 @@
   <section class="rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-sm">
     <div class="grid gap-4 md:grid-cols-3">
       {% if unused %}<div id="unused" class="scroll-mt-4 md:col-span-3">
-        <div class="mb-1.5 flex flex-wrap items-baseline gap-x-2"><span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Ишлатилмаган ресурслар ({{ unused|length }})</span>
+        <div class="mb-1.5 flex flex-wrap items-baseline gap-x-2"><span class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Ишлатилмаган ресурслар ({{ unused|length }}) {% help "unused_res" %}</span>
           <span class="text-xs text-slate-400">ҳеч бир локалга бириктирилмаган — ичини кўринг ва керак бўлса локалга бириктиринг</span></div>
         <div class="grid gap-1.5 md:grid-cols-2">
         {% for s in unused %}<div class="unused-res flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5" data-k="{{ s.key }}">
@@ -262,7 +270,7 @@
   </section>
   {% endif %}
 
-  <div class="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-white shadow-2xl">
+  <div data-guide="confirm" class="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-white shadow-2xl">
     <button type="submit" class="rounded-lg bg-emerald-500 px-5 py-2.5 font-semibold text-white hover:bg-emerald-600 disabled:opacity-60">
       <span class="when-idle">{% if jobs %}Қайта тасдиқлаш ва нархлаш{% else %}Тасдиқлаш ва нархлаш{% endif %}</span>
       <span class="when-busy">Нархланяпти…</span>
@@ -669,3 +677,26 @@
 })();
 </script>
 {% endblock %}
+{% block guide %}{page: "object", steps: [
+  {sel: '[data-guide="steps"]', title: "Объект саҳифаси: 4 қадам",
+   text: "<b>1. Юклаш</b> — бажарилди. <b>2. Тузилишни текшириш</b> — қайси локал қайси ресурс билан ҳисобланишини кўрасиз. <b>3. Қисмларни тўғирлаш</b> — нархланмаган қаторлар. <b>4. Юклаб олиш</b>.<br>Қора — ҳозирги қадам, яшил ✓ — бажарилган."},
+  {sel: '[data-guide="todo"]', title: "Ҳозир нима қилиш керак",
+   text: "Бу блок ҳар доим кейинги ишни айтади. Ранги: <b class='text-sky-700'>кўк</b> — текширинг, <b class='text-rose-700'>қизил</b> — тўғирлаш керак, <b class='text-emerald-700'>яшил</b> — тайёр."},
+  {sel: "#results", title: "Натижалар",
+   text: "Ҳар бир қисмнинг суммаси ва ҳолати. <span class='rounded bg-rose-100 px-1 font-semibold text-rose-700'>қизил рақам</span> — нархланмаган қаторлар сони: «Очиш» орқали сметага кириб тўғирланг."},
+  {sel: '[data-guide="pairs-legend"]', before: function () { var d = document.getElementById("structure"); if (d) d.open = true; },
+   title: "Жуфтликлар: локал → ресурс",
+   text: "Ҳар бир қаторда чапда <span class='tour-dot bg-emerald-500'></span> <b>локал</b> (нархланадиган смета), ўнгда <span class='tour-dot bg-sky-500'></span> <b>ресурс</b> (нархлар). Лист номини боссангиз — ичини Excel'дагидек кўрасиз."},
+  {sel: ".pair-compare", title: "Мослик фоизи",
+   text: "Локалдаги ресурсларнинг неча фоизи шу ресурс листида топилгани. <span class='rounded bg-emerald-100 px-1 text-emerald-800'>70%+</span> яхши · <span class='rounded bg-amber-100 px-1 text-amber-800'>40–70%</span> текширинг · <span class='rounded bg-rose-100 px-1 text-rose-800'>кам</span> — эҳтимол бошқа ресурс керак.<br>Фоизни боссангиз — иккаласи ёнма-ён очилади."},
+  {sel: ".pair-change", title: "Ресурс нотўғри бўлса — «алмаштириш»",
+   text: "Рўйхатдан бошқа ресурс листини танланг. <b>★</b> — тизим энг мос деб ҳисоблагани. Ресурс умуман топилмаган бўлса — «Ресурс қидириш»."},
+  {sel: ".pair-include", title: "Нархланадиганларни белгиланг",
+   text: "Белгиланган жуфтликлар нархланади. Кераксизини (масалан, нусха ёки эски вариант) белгидан чиқаринг."},
+  {sel: '[data-guide="confirm"]', title: "«Тасдиқлаш ва нархлаш»",
+   text: "Ҳаммаси тўғри бўлса — шуни босинг. Ҳар бир белгиланган локал нархланади ва натижалар шу саҳифада чиқади."},
+  {sel: "#sheets > summary", title: "Листлар тури — тизим нимани таниди",
+   text: "Ҳар бир лист: <b class='text-emerald-700'>локал</b>, <b class='text-sky-700'>ресурс</b> ёки <b>ўтказилди</b> (сводка, акт…). Тизим нотўғри таниган ёки «устун топилмади» десадагина керак — <b class='text-violet-700'>«Қандай тўғирлайман?»</b> тугмаси қадамма-қадам кўрсатади."},
+  {sel: '[data-guide="download"]', title: "Юклаб олиш",
+   text: "Ҳамма қисмлар битта Excel файлда, ҳар бирига ўз «LOG» листи. Қисмларда қилган қўлда ўзгаришларингиз ҳам киради."}
+]}{% endblock %}

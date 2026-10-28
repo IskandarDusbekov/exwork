@@ -42,6 +42,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField("Фаол", default=True)
     is_staff = models.BooleanField("Админ панелга киради", default=False)
     date_joined = models.DateTimeField("Рўйхатдан ўтган", default=timezone.now)
+    # кўрилган саҳифа қўлланмалари (jobs.guide.GUIDE_PAGES): янги фойдаланувчига ҳар бири бир марта ўзи очилади
+    guides_seen = models.JSONField("Кўрилган қўлланмалар", default=list, blank=True)
 
     objects = UserManager()
 

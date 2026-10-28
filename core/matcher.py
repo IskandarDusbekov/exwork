@@ -2,7 +2,7 @@
 
 Moslik rejimida faqat ``difflib.SequenceMatcher`` ishlatiladi.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional, Union
 
@@ -50,6 +50,48 @@ def best_two_matches(key: str, candidates: List[str]):
     return best, best_score, second, second_score
 
 
+def _best_two_prepared(key: str, matchers, floor: float = 0.0) -> tuple:
+    """``best_two_matches`` bilan aynan bir xil natija, lekin tez (katta RES: 5 000 resurs × 15 000 qator):
+
+    * har bir resurs uchun ``SequenceMatcher`` bir marta tayyorlanadi (``seq2`` = resurs nomi — uning indeksi
+      qayta hisoblanmaydi), har bir qatorda faqat ``seq1`` (qidirilayotgan nom) almashadi;
+    * ``real_quick_ratio`` / ``quick_ratio`` — ``ratio`` ning yuqori chegarasi: ular joriy 2-o'rindan
+      oshmasa, nomzod hech narsani o'zgartira olmaydi (qat'iy ``>`` taqqoslash) — aniq hisob o'tkazib yuboriladi.
+    """
+    # Asl tartibdagi natija = ball bo'yicha eng yaxshi ikkitasi, teng ballda ro'yxatda oldin kelgani
+    # (``best_two_matches`` dagi qat'iy «>» shuni beradi). Shu qoida saqlanib, nomzodlar uzunligi yaqinlari
+    # birinchi ko'riladi: 2-o'rin tez ko'tariladi va qolganlarining yuqori chegarasi undan past — to'xtaymiz.
+    la = len(key)
+    bounds = sorted(((2.0 * min(la, len(c)) / (la + len(c)) if la + len(c) else 1.0, i)
+                     for i, (c, _sm) in enumerate(matchers)), key=lambda t: (-t[0], t[1]))
+    # ``floor`` — bundan past ball qiziq emas (aniq hisoblanmaydi va qaytarilmaydi)
+    best, second = None, ((floor, float("inf")) if floor > 0 else None)  # (ball, indeks)
+
+    def beats(score, i, rival):
+        return rival is None or score > rival[0] or (score == rival[0] and i < rival[1])
+
+    for bound, i in bounds:
+        if bound <= 0 or not beats(bound, i, second):
+            if second is not None and bound < second[0]:
+                break  # tartiblangan: qolganlarining chegarasi bundan ham past
+            continue
+        c, sm = matchers[i]
+        sm.set_seq1(key)
+        if not beats(sm.quick_ratio(), i, second):
+            continue
+        score = sm.ratio()
+        if score <= 0:
+            continue
+        if beats(score, i, best):
+            best, second = (score, i), best
+        elif beats(score, i, second):
+            second = (score, i)
+    if second is not None and second[1] == float("inf"):
+        second = None  # «floor» belgisi — haqiqiy nomzod emas
+    name = lambda t: matchers[t[1]][0] if t else None  # noqa: E731
+    return name(best), best[0] if best else 0.0, name(second), second[0] if second else 0.0
+
+
 def _col(c: Union[str, int]) -> int:
     return c if isinstance(c, int) else column_index_from_string(c)
 
@@ -66,6 +108,14 @@ class ResourceIndex:
         self.section_list = section_list or []  # RES dagi tartibda: [(kategoriya, sarlavha), ...]
         self.positions = positions or {}  # (birlik, nom) -> (bo'lim tartib raqami yoki -1, RES qatori)
         self.raw = {}  # (birlik, nom) -> (RES dagi asl nom, asl birlik) — smetachiga ko'rsatish uchun
+        self._matchers = {}  # birlik -> [(nom, SequenceMatcher(seq2=nom))] — birinchi kerak bo'lganda
+        self._cache = {}  # (nom, birlik, chegara, delta) -> Match: smetada bir xil nom ko'p takrorlanadi
+
+    def _prepared(self, unit: str):
+        m = self._matchers.get(unit)
+        if m is None:
+            m = self._matchers[unit] = [(c, SequenceMatcher(None, "", c)) for c in self._names[unit]]
+        return m
 
     def raw_of(self, unit: str, name: str) -> tuple:
         return self.raw.get((unit, name), (name, unit))
@@ -119,6 +169,13 @@ class ResourceIndex:
 
     def match(self, local_name: str, local_unit: str, threshold: float, ambiguity_delta: float = 0.01) -> Match:
         """``local_name``/``local_unit`` allaqachon normallashtirilgan bo'lishi kerak."""
+        key = (local_name, local_unit, threshold, ambiguity_delta)
+        hit = self._cache.get(key)
+        if hit is None:
+            hit = self._cache[key] = self._match(local_name, local_unit, threshold, ambiguity_delta)
+        return replace(hit)  # nusxa: chaqiruvchi o'zgartirsa ham kesh buzilmaydi
+
+    def _match(self, local_name: str, local_unit: str, threshold: float, ambiguity_delta: float) -> Match:
         best_fuzzy = None
         best_ambig = None
         near_same = near_any = None  # (o'xshashlik, birlik, nom): birligi bir xili ustun
@@ -135,7 +192,16 @@ class ResourceIndex:
             if local_name in udict:
                 return Match(EXACT, u, local_name, udict[local_name], 1.0)
 
-            b, bs, s, ss = best_two_matches(local_name, self._names[u])
+            # NEAR_MIN_SCORE dan past o'xshashlik natijaga ta'sir qilmaydi (taklif ham qilinmaydi) — hisoblanmaydi;
+            # faqat chegaradan o'tgan (FUZZY/ШАБҲАЛИ) bo'lsa, 2-nomzod har qanday ball bilan aniq kerak
+            # boshqa birlikda: avval topilgan eng yaqindan (near_any) past o'xshashlik ham ta'sir qilmaydi —
+            # lekin chegaradan (threshold) o'tganlari doim aniq ko'riladi (FUZZY bo'lishi mumkin)
+            floor = min(NEAR_MIN_SCORE, threshold)
+            if near_any is not None:
+                floor = min(max(floor, near_any[0]), threshold)
+            b, bs, s, ss = _best_two_prepared(local_name, self._prepared(u), floor)
+            if b and bs >= threshold and (s is None or ss < floor):
+                b, bs, s, ss = _best_two_prepared(local_name, self._prepared(u))
             if not b:
                 continue
             if local_unit and u == local_unit:

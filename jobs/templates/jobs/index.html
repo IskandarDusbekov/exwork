@@ -8,7 +8,7 @@
   <p class="text-slate-500 mb-5">Бутун папкани ёки алоҳида файлларни юкланг — қайси файл локал, қайсиси ресурс эканини тизим
     мазмунидан ўзи аниқлайди, жуфтлайди ва нархлайди.</p>
 
-  <ol class="mb-6 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+  <ol data-guide="steps" class="mb-6 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
     <li class="flex items-center gap-2 rounded-lg border border-slate-900 bg-white px-3 py-2 font-medium text-slate-900"><span class="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-slate-900 text-[11px] text-white">1</span>Юклаш</li>
     <li class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-500"><span class="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-slate-100 text-[11px] text-slate-600">2</span>Жуфтликни текшириш</li>
     <li class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-500"><span class="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-slate-100 text-[11px] text-slate-600">3</span>Ҳисоблаш</li>
@@ -26,7 +26,7 @@
   <section id="panel-folder" class="mode-panel rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
     <p class="mb-4 text-sm text-slate-500">Объектнинг бутун папкасини ёки <b>ZIP / RAR архивини</b> ташланг — ичидаги ҳар бир папка алоҳида смета бўлади.
       Аввал файллар очилиб, жуфтланади — текширгач, «Ҳисоблашни бошлаш»ни ўзингиз босасиз. Натижа битта ZIP да, папкалар тузилиши сақланган ҳолда.</p>
-    <details class="mb-4 rounded-lg border border-slate-200 bg-slate-50 text-sm">
+    <details data-guide="folder-rules" class="mb-4 rounded-lg border border-slate-200 bg-slate-50 text-sm">
       <summary class="flex cursor-pointer select-none items-center gap-2 px-3 py-2 font-medium text-slate-700">
         {% icon "alert-circle" "h-4 w-4 text-slate-400" %} Папка қандай бўлиши керак? <span class="ml-auto text-xs font-normal text-slate-400">очиш</span></summary>
       <div class="grid gap-4 border-t border-slate-200 px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
@@ -92,7 +92,7 @@
       <div class="rounded-lg bg-slate-50 p-3"><b>Бир нечта файл</b><div class="text-slate-500">Бир хил листлар бир неча файлда бўлса — бир марта олинади</div></div>
     </div>
 
-    <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-3 font-medium text-white hover:bg-slate-700 disabled:opacity-60">
+    <button type="submit" data-guide="files-submit" class="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-3 font-medium text-white hover:bg-slate-700 disabled:opacity-60">
       <span class="when-idle inline-flex items-center gap-2">{% icon "upload" %} Юклаш ва таҳлил қилиш</span>
       <span class="when-busy items-center gap-2">{% icon "loader" "h-4 w-4 animate-spin" "2.5" %} Юкланяпти, листлар таҳлил қилиняпти…</span>
     </button>
@@ -116,7 +116,7 @@
   {% endif %}
 
   {% if recent %}
-  <section data-work-section>
+  <section data-work-section data-guide="recent">
     <div class="mb-2 flex items-center gap-2">
       <h2 class="flex items-center gap-2 text-sm font-semibold text-slate-800">{% icon "clock" "h-4 w-4 text-slate-500" %} Охирги ишлар</h2>
       <a href="{% url 'dashboard' %}" class="ml-auto inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-900">Ҳаммаси — дашборд {% icon "arrow-right" "h-3.5 w-3.5" %}</a>
@@ -124,7 +124,7 @@
     {% include "jobs/_work_list.html" with items=recent compact=True %}
   </section>
   {% else %}
-  <div class="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">
+  <div data-guide="recent" class="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">
     Ҳали иш йўқ — юклаганингиздан кейин шу ерда ва <a href="{% url 'dashboard' %}" class="font-medium underline">дашбордда</a> кўринади.</div>
   {% endif %}
 
@@ -362,3 +362,25 @@
   })();
 </script>
 {% endblock %}
+{% block guide %}{page: "upload", steps: [
+  {sel: '[data-guide="steps"]', title: "Хуш келибсиз! Иш 4 қадамда бажарилади",
+   text: "<b>1. Юклаш</b> — файл ёки папкани танлайсиз.<br><b>2. Текшириш</b> — тизим қайси локал қайси ресурс билан ҳисобланишини кўрсатади, сиз тасдиқлайсиз.<br>" +
+         "<b>3. Ҳисоблаш</b> — нарх ва суммалар ёзилади.<br><b>4. Натижа</b> — тайёр Excel'ни юклаб оласиз.<br>Шу қўлланма ҳар бир қадамни кўрсатиб боради."},
+  {sel: "#mode-tabs", title: "Қандай юклайсиз?",
+   text: "<b>Бутун папка / архив</b> — бутун объект: кўп смета, ичма-ич папкалар, ZIP ёки RAR. Ҳар бир ички папка — алоҳида смета.<br>" +
+         "<b>Алоҳида файллар</b> — битта смета: локал ва ресурс файллари (ёки иккаласи битта файлда)."},
+  {sel: '[data-guide="folder-rules"]', title: "Папка қандай тузилган бўлиши керак",
+   text: "Шуни босиб, мисолни кўринг. Асосийси: ҳар бир смета ўз папкасида — битта <b>локал</b> (иш ҳажмлари) ва битта <b>ресурс</b> (нархлар). Файл номи аҳамиятсиз — тизим ичига қараб ажратади."},
+  {sel: "#fdrop", title: "Папкани шу ерга ташланг",
+   text: "Компьютердаги папкани сичқонча билан шу ерга судраб ташланг ёки босиб танланг. Архив бўлса — «архив танлаш». Фақат Excel файллар олинади; PDF, расм ва олдинги натижалар ўтказилади."},
+  {sel: "#drop", title: "Файлларни шу ерга ташланг",
+   text: "Локал ва ресурс файлларини танланг — қайси бирини биринчи танлаганингиз фарқи йўқ. Кетма-кет танласангиз, рўйхатга қўшилиб боради."},
+  {sel: "#fsubmit", title: "«Юклаш ва текшириш»",
+   text: "Файллар серверга юкланади ва очилади. <b>Ҳисоблаш дарҳол бошланмайди</b> — аввал папка саҳифасида жуфтликларни кўриб, ўзингиз «Ҳисоблашни бошлаш»ни босасиз."},
+  {sel: '[data-guide="files-submit"]', title: "«Юклаш ва таҳлил қилиш»",
+   text: "Файллар очилади ва листлар таҳлил қилинади. Кейинги саҳифада қайси локал қайси ресурс билан ҳисобланишини текширасиз."},
+  {sel: '[data-guide="recent"]', title: "Охирги ишларингиз",
+   text: "Юклаган ишларингиз шу ерда ва <b>Дашборд</b>да сақланади — исталган пайт қайтиб, давом эттиришингиз мумкин."},
+  {sel: '[data-guide="help-btn"]', title: "Йўриқнома ҳар доим шу ерда",
+   text: "Ҳар бир саҳифада бу тугма шу саҳифанинг қўлланмасини қайта очади. Огоҳлантиришлар ёнидаги <span class='help-q text-slate-500'>?</span> белгисини боссангиз — у нимани билдириши ва нима қилиш кераклиги чиқади."}
+]}{% endblock %}
