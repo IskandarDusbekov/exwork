@@ -714,6 +714,12 @@ def _smart_log_row(r, name_raw, unit_raw, m: Match, status: str, written, note: 
             round(m.second_score, 4) if m.second_name else "", written, note]
 
 
+def _real_unit(ws, r: int, ln: int, lu: int) -> bool:
+    """Qatorda haqiqiy birlik bor: bo'sh emas va nom bilan bir xil emas (C:D birlashgan katak emas)."""
+    name_raw, unit_raw = _peek(ws, r, ln), _peek(ws, r, lu)
+    return bool(norm_unit(unit_raw)) and str(unit_raw).strip() != str(name_raw).strip()
+
+
 def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warnings: List[str],
                  prices: Optional[Dict[int, float]] = None, cleared=None, layout=None,
                  base: Optional[Dict[str, dict]] = None, base_label: str = ""):
@@ -732,6 +738,11 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
             warnings.append(f"Lokalda nom {get_column_letter(ln)}, birlik {get_column_letter(lu)} ustunida; "
                             "H formulasi baribir E/F miqdorlardan foydalanadi")
 
+    # Oxirgi birligi bor qatordan keyingi birliksiz qatorlar — imzolar («ГИП», «СОСТАВИЛ», «Составил: ____»),
+    # izohlar: resurs emas, narxlanmaydi (aks holda «ТОПИЛМАДИ» bo'lib, natijada qizil chiqadi)
+    last_unit = max((r for r in range(start, stop) if norm_name(_peek(ws, r, ln)) and _real_unit(ws, r, ln, lu)), default=None)
+    if last_unit is not None:
+        stop = last_unit + 1
     headers = _work_headers(ws, start, stop, ln, lu)
     g: Dict[int, object] = {}
     status: Dict[int, str] = {}

@@ -120,7 +120,12 @@ def test_cleared_not_found(sample_files, tmp_path):
     assert r.stats["NOT_PRICED"] == before and row in [p["row"] for p in r.problems]
 
     wb = load_workbook(local)
-    wb["202611450_БВ"][f"D{row}"] = None  # бирлиги йўқ (бўлим номи каби)
+    ws = wb["202611450_БВ"]
+    ws[f"D{row}"] = None  # бирлиги йўқ (бўлим номи каби)
+    # охирги эмас: ундан кейин ресурс бор (охиридаги бирликсиз қаторлар — имзолар, нархланмайди)
+    for col in "ABCDEF":
+        ws[f"{col}{row + 1}"] = ws[f"{col}{FIRST_DATA_ROW + 5}"].value  # «ВОДА»
+    ws[f"A{row + 1}"] = "1.8"
     wb.save(tmp_path / "nounit.xlsx")
     r = _run(tmp_path / "nounit.xlsx", res, tmp_path, cleared=[row])
     ws = load_workbook(r.output_path)["202611450_БВ"]
@@ -681,3 +686,23 @@ def test_without_res_only_base(tmp_path):
     assert wb.sheetnames == ["БВ", LOG_TITLE]  # RES листи қўшилмайди
     with pytest.raises(ValueError):
         run(local, None, Options(output_path=tmp_path / "o2.xlsx", mode="compat"))
+
+
+def test_signature_rows_after_last_resource_not_priced(tmp_path):
+    """Smeta oxiridagi imzolar («ГИП», «СОСТАВИЛ») birliksiz — narxlanmaydi, «ТОПИЛМАДИ» yozilmaydi;
+    o'rtadagi birliksiz bo'lim nomi esa avvalgidek qoladi."""
+    r = _mini(tmp_path, [
+        ("", "РАЗДЕЛ 1. ЗЕМЛЯНЫЕ РАБОТЫ", None, None),
+        ("1", "ЭЛЕКТРОДЫ", "Т", 1),
+        (None, None, None, None),
+        (None, "ГИП                     Ш. Жумаев", None, None),
+        (None, "СОСТАВИЛ                К. Карабеков", None, None),
+    ], [("ЭЛЕКТРОДЫ", "Т", 10)])
+    st = {row["row"]: row for row in r.rows}
+    assert r.end_row == 4 and set(st) == {3, 4}
+    assert st[4]["status"] == "EXACT"
+    assert st[3]["status"] == "NOT_FOUND"  # бўлим номи — смета­чи 1-босқичда тозалайди
+    assert r.sum_row == 5
+    wb = load_workbook(tmp_path / "out.xlsx")
+    assert wb["БВ"]["G6"].value is None and wb["БВ"]["G7"].value is None
+    assert wb["БВ"]["C6"].value.startswith("ГИП")
