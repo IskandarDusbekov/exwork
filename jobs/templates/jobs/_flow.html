@@ -1,0 +1,16 @@
+{% load narx %}{% comment %} Умумий йўл — ҳамма саҳифада бир хил: 1 Юклаш → 2 Текшириш → 3 Тўғирлаш → 4 Юклаб олиш.
+   at — ҳозирги қадам (ундан олдингилари тайёр); finished — ҳаммаси тайёр (4-қадам ҳам ✓). {% endcomment %}
+<ol data-guide="steps" class="flow flex items-center text-sm" aria-label="Иш тартиби">
+  {% for n, title, note in flow_steps %}
+  <li class="flex items-center {% if not forloop.last %}flex-1{% endif %}">
+    <span class="flex shrink-0 items-center gap-2 {% if n == at and not finished %}font-semibold text-slate-900{% elif n < at or finished %}text-emerald-800{% else %}text-slate-400{% endif %}"
+          title="{{ note }}"{% if n == at and not finished %} aria-current="step"{% endif %}>
+      <span class="grid h-6 w-6 place-items-center rounded-full text-xs font-bold
+          {% if n < at or finished %}bg-emerald-600 text-white{% elif n == at %}bg-slate-900 text-white ring-4 ring-slate-900/10{% else %}bg-white text-slate-400 ring-1 ring-slate-300{% endif %}">
+        {% if n < at or finished %}{% icon "check" "h-3.5 w-3.5" "3" %}{% else %}{{ n }}{% endif %}</span>
+      <span class="whitespace-nowrap">{{ title }}</span>
+    </span>
+    {% if not forloop.last %}<span class="mx-3 h-0.5 min-w-[1.5rem] flex-1 rounded-full {% if n < at or finished %}bg-emerald-500{% else %}bg-slate-200{% endif %}" aria-hidden="true"></span>{% endif %}
+  </li>
+  {% endfor %}
+</ol>

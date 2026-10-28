@@ -327,6 +327,21 @@ def work_delete(request, kind, work_id):
     return redirect("index")
 
 
+@require_POST
+def work_rename(request, kind, work_id):
+    """Папка ёки объектни қайта номлаш (фақат эгаси)."""
+    model = {"folder": Project, "object": Batch}.get(kind)
+    if model is None:
+        raise Http404("Нотўғри тур")
+    work = _get_work(request, model, id=work_id)
+    name = " ".join(request.POST.get("name", "").split())[:255]
+    if name and name != work.name:
+        old, work.name = work.name, name
+        work.save(update_fields=["name"])
+        audit(request, Event.Kind.RENAME, work=work, work_kind=kind, detail=f"{old} → {name}")
+    return redirect("project" if kind == "folder" else "batch", work.id)
+
+
 # ===================== sahifa yo'li (breadcrumb) =====================
 def crumbs_for(project=None, batch=None, job=None):
     """Папка › ички папка › смета: ҳар бир саҳифадан орқага қайтиш учун."""
@@ -415,15 +430,18 @@ def project_detail(request, project_id):
         "not_priced_total": sum(n["part"]["not_priced"] for n in nodes),
         "can_download": any(s in ("done", "warn", "review") and n["part"]["jobs"] for s, n in zip(states, nodes)),
     }
-    # ko'rish oynasi (Excel kabi): har bir qismning listlari va juftliklardagi nomzod resurslar
-    ctx["viewer"] = {str(n["part"]["batch"].id): {
-        "url": reverse("batch_sheet", args=[n["part"]["batch"].id]),
-        "sheets": _sheets_js(n["part"]["batch"]),
-        "cands": _cands_js(n["part"]["batch"]),
-    } for n in nodes if n["part"]["batch"].sheets}
     if request.GET.get("partial"):
         return render(request, "jobs/_project_body.html", ctx)
     return render(request, "jobs/project.html", ctx)
+
+
+def project_viewer(request, project_id, batch_id):
+    """Ko'rish oynasi (Excel kabi) uchun bitta qism: listlari va juftliklardagi nomzod resurslar.
+    Sahifaga oldindan joylanmaydi — papkada 60 qism bo'lsa, sahifa har yangilanishda yuzlab KB bo'lib ketardi."""
+    project = _get_work(request, Project, id=project_id)
+    batch = get_object_or_404(Batch, id=batch_id, project=project)
+    return JsonResponse({"url": reverse("batch_sheet", args=[batch.id]),
+                         "sheets": _sheets_js(batch), "cands": _cands_js(batch)})
 
 
 @require_POST
@@ -1125,15 +1143,16 @@ def job_table_checked(request, job_id):
 
 
 def _stages(job, nf, lm):
-    """Смета­чи йўли: 1 — топилмаганлар, 2 — L/M ва жадвал, 3 — сводка ва фоизлар (кейин юклаб олиш)."""
+    """Смета­чи йўли: 1 — топилмаганлар, 2 — жадвал (кабель/ускунани ажратиш), 3 — сводка ва фоизлар (кейин юклаб олиш)."""
     s1 = not nf["pending"]
     s2 = s1 and job.table_checked
     return [
         {"n": 1, "anchor": "stage-nf", "title": "Топилмаганлар", "state": "done" if s1 else "current",
          "note": "тайёр" if s1 else f"{nf['pending']} та нархланмаган"},
-        {"n": 2, "anchor": "stage-table", "title": "L/M ва жадвал",
+        {"n": 2, "anchor": "stage-table", "title": "Жадвал",
          "state": "done" if s2 else ("current" if s1 else "locked"),
-         "note": "текширилди" if s2 else (f"{lm['pending']} та таклиф" if lm["pending"] else "жадвални кўриш")},
+         "note": "текширилди" if s2 else (f"{lm['pending']} та кабель/ускуна таклифи" if lm["pending"]
+                                          else "жадвални кўриш")},
         {"n": 3, "anchor": "svodka", "title": "Сводка ва фоизлар", "state": "current" if s2 else "locked",
          "note": "фоизлар, юклаб олиш"},
     ]

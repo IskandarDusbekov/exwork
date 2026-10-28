@@ -41,21 +41,23 @@
       s.disabled = true;
       fetch(s.dataset.url, {method: "POST", credentials: "same-origin", headers: {"X-CSRFToken": csrf(), "X-Requested-With": "fetch"}})
         .then(function () { setTimeout(function () { location.reload(); }, 1500); })
-        .catch(function () { alert("Тармоқ хатоси"); s.disabled = false; });
+        .catch(function () { narxDialog.alert("Интернет ёки сервер билан алоқа узилди. Қайта уриниб кўринг.", {title: "Тармоқ хатоси", danger: true}); s.disabled = false; });
     });
     list.addEventListener("click", function (e) {
       var b = e.target.closest(".work-delete");
       if (!b || b.disabled) return;
-      var msg = "«" + b.dataset.name + "» (" + b.dataset.kind + ") тарихдан ўчирилсинми?\n\n" +
+      var msg = "«" + b.dataset.name + "» (" + b.dataset.kind + ") тарихдан ўчирилади.\n\n" +
                 (b.dataset.working ? "Ҳозир ишланяпти — аввал тўхтатилади.\n" : "") +
                 "Юкланган файллар ва натижалар бутунлай ўчади — қайтариб бўлмайди.";
-      if (!confirm(msg)) return;
+      narxDialog.confirm(msg, {title: "Ўчирилсинми?", ok: "Ўчириш", danger: true}).then(function (yes) { if (yes) remove(b); });
+    });
+    function remove(b) {
       b.disabled = true;
       if (b.dataset.working) b.innerHTML = '{% icon "loader" "h-4 w-4 animate-spin" "2.5" %}';
       fetch(b.dataset.url, {method: "POST", credentials: "same-origin", headers: {"X-CSRFToken": csrf(), "X-Requested-With": "fetch"}})
         .then(function (r) { return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; }); })
         .then(function (d) {
-          if (!d.ok) { alert(d.error || "Ўчириб бўлмади"); b.disabled = false; return; }
+          if (!d.ok) { narxDialog.alert(d.error || "Ўчириб бўлмади", {title: "Ўчирилмади", danger: true}); b.disabled = false; return; }
           var li = b.closest("li"), href = li.querySelector("a").getAttribute("href");
           // «давом эттириш» картаси ҳам шу иш бўлса — олиб ташланади
           document.querySelectorAll('a[href="' + href + '"]').forEach(function (a) { if (!list.contains(a)) a.remove(); });
@@ -66,7 +68,7 @@
             if (!list.children.length) { var sec = list.closest("[data-work-section]"); if (sec) sec.remove(); }
           }, 250);
         })
-        .catch(function () { alert("Тармоқ хатоси"); b.disabled = false; });
-    });
+        .catch(function () { narxDialog.alert("Интернет ёки сервер билан алоқа узилди. Қайта уриниб кўринг.", {title: "Тармоқ хатоси", danger: true}); b.disabled = false; });
+    }
   })();
 </script>

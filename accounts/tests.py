@@ -3,14 +3,15 @@ import tempfile
 from pathlib import Path
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.core import mail
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from core.tests.conftest import build_local, build_res
 from jobs.models import Job
 
 from .models import AuthAttempt, User
-from .throttle import LOGIN_PER_EMAIL
+from .throttle import LOGIN_PER_EMAIL, client_ip
 
 PASSWORD = "Kuchli-parol-2026"
 
@@ -139,3 +140,91 @@ class IsolationTests(TestCase):
         self.assertEqual(self.client.post(reverse("work_delete", args=["smeta", job.id])).status_code, 404)
         self.assertNotContains(self.client.get(reverse("dashboard")), job.local_name)
         self.assertTrue(Job.objects.filter(id=job.id).exists())
+
+
+class ClientIPTests(SimpleTestCase):
+    def _ip(self, xff=None, remote="10.0.0.1"):
+        meta = {"REMOTE_ADDR": remote}
+        if xff is not None:
+            meta["HTTP_X_FORWARDED_FOR"] = xff
+        return client_ip(RequestFactory().get("/", **meta))
+
+    @override_settings(NARXLASH_TRUST_PROXY=0)
+    def test_header_ignored_without_proxy(self):
+        self.assertEqual(self._ip("1.2.3.4"), "10.0.0.1")
+
+    @override_settings(NARXLASH_TRUST_PROXY=1)
+    def test_one_proxy_takes_last(self):
+        self.assertEqual(self._ip("6.6.6.6, 1.2.3.4"), "1.2.3.4")  # бошидагини мижоз ўзи ёзган
+        self.assertEqual(self._ip(), "10.0.0.1")
+
+    @override_settings(NARXLASH_TRUST_PROXY=2)
+    def test_two_proxies(self):
+        self.assertEqual(self._ip("6.6.6.6, 1.2.3.4, 104.16.0.1"), "1.2.3.4")  # Cloudflare + nginx
+        self.assertEqual(self._ip("1.2.3.4"), "10.0.0.1")  # прокси айланиб ўтилган
+
+    @override_settings(NARXLASH_TRUST_PROXY=1)
+    def test_garbage_falls_back(self):
+        self.assertEqual(self._ip("not-an-ip"), "10.0.0.1")
+        self.assertEqual(self._ip("2001:db8::1"), "2001:db8::1")
+
+
+class PasswordResetTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("ali@mail.uz", PASSWORD, first_name="Ali", last_name="Valiyev")
+
+    def _link(self):
+        self.assertEqual(len(mail.outbox), 1)
+        return next(w for w in mail.outbox[0].body.split() if "/password/reset/" in w)
+
+    def test_login_page_links_to_reset(self):
+        self.assertContains(self.client.get(reverse("login")), reverse("reset_request"))
+
+    def test_unknown_email_same_answer_no_mail(self):
+        known = self.client.post(reverse("reset_request"), {"email": "ALI@mail.uz"})
+        unknown = self.client.post(reverse("reset_request"), {"email": "yoq@mail.uz"})
+        self.assertContains(known, "ҳаволаси юборилди")
+        self.assertContains(unknown, "ҳаволаси юборилди")  # ҳисоб бор-йўқлиги ошкор бўлмайди
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["ali@mail.uz"])
+
+    def test_reset_sets_password_once(self):
+        other = self.client_class()
+        other.force_login(self.user)  # бошқа қурилма
+        self.client.post(reverse("reset_request"), {"email": "ali@mail.uz"})
+        link = self._link()
+        r = self.client.get(link)
+        self.assertNotIn(link.rsplit("/", 2)[-2], r["Location"])  # токен манзилда қолмайди (сессияга олинди)
+        page = self.client.get(r["Location"])
+        self.assertContains(page, "Янги пароль")
+        r = self.client.post(r["Location"], {"password1": "Yangi-kuchli-parol-7", "password2": "Yangi-kuchli-parol-7"})
+        self.assertRedirects(r, reverse("login"), fetch_redirect_response=False)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("Yangi-kuchli-parol-7"))
+        self.assertEqual(other.get(reverse("index")).status_code, 302)  # бошқа қурилмадан чиқарилди
+        self.assertContains(self.client.get(link), "Ҳавола эскирган")  # иккинчи марта ишламайди
+
+    def test_weak_or_mismatched_password_rejected(self):
+        self.client.post(reverse("reset_request"), {"email": "ali@mail.uz"})
+        url = self.client.get(self._link())["Location"]
+        r = self.client.post(url, {"password1": "12345678901", "password2": "12345678901"})
+        self.assertContains(r, "рақамлардан")
+        r = self.client.post(url, {"password1": "Yangi-kuchli-parol-7", "password2": "boshqa-parol-77"})
+        self.assertContains(r, "бир хил эмас")
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(PASSWORD))
+
+    def test_bad_token(self):
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        self.assertContains(self.client.get(reverse("reset_confirm", args=[uid, "set-password"])), "Ҳавола эскирган")
+        self.assertContains(self.client.get(reverse("reset_confirm", args=[uid, "abc-123"])), "Ҳавола эскирган")
+
+    def test_reset_requests_throttled(self):
+        from .throttle import RESET_PER_EMAIL
+        for _ in range(RESET_PER_EMAIL):
+            self.client.post(reverse("reset_request"), {"email": "ali@mail.uz"})
+        r = self.client.post(reverse("reset_request"), {"email": "ali@mail.uz"})
+        self.assertContains(r, "Жуда кўп уриниш")
+        self.assertEqual(len(mail.outbox), RESET_PER_EMAIL)

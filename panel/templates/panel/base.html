@@ -24,6 +24,7 @@
       <div class="hidden px-3 pb-1 pt-4 text-[11px] font-medium uppercase tracking-wider text-slate-500 lg:block">Маълумот</div>
       {% include "panel/_side_link.html" with key="files" url="panel:files" ic="database" label="Файллар" %}
       {% include "panel/_side_link.html" with key="log" url="panel:log" ic="lock" label="Журнал ва хавфсизлик" %}
+      {% include "panel/_side_link.html" with key="errors" url="panel:errors" ic="alert" label="Хатолар" alarm=error_count %}
     </nav>
     <div class="hidden border-t border-white/10 p-3 lg:block">
       <a href="{% url 'dashboard' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white">{% icon "arrow-left" %} Ишчи қисмга қайтиш</a>

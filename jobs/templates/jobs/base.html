@@ -1,11 +1,11 @@
-{% load narx %}<!doctype html>
+{% load narx static %}<!doctype html>
 <html lang="uz">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   {% if user.is_authenticated %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
   <title>{% block title %}Нархлаш{% endblock %}</title>
-  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">{# frontend/: npm run build #}
   <style>
     .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
     .busy .when-idle { display: none; }
@@ -14,33 +14,37 @@
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen"{% if request.viewing_owner %} data-inspect="1"{% endif %}>
+  {% icon_sprite %}
   <header class="bg-white border-b border-slate-200">
-    <div class="{% block header_class %}max-w-6xl mx-auto px-4{% endblock %} py-3 flex items-center gap-3">
+    <div class="{% block header_class %}max-w-6xl mx-auto px-4{% endblock %} py-3 flex flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap">
       <a href="{% url 'index' %}" class="flex items-center gap-2 text-slate-900">
         <span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-900 text-white">{% icon "logo" "h-5 w-5" %}</span>
         <span class="hidden text-lg font-semibold tracking-tight sm:inline">Нархлаш</span></a>
       {% if user.is_authenticated %}
-      <nav class="ml-2 flex shrink-0 items-center gap-1 rounded-lg bg-slate-100 p-1 text-sm" aria-label="Бўлимлар">
-        <a href="{% url 'dashboard' %}" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'dashboard' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'dashboard' %} aria-current="page"{% endif %}>
-          {% icon "chart" "h-4 w-4" %}<span class="hidden sm:inline">Дашборд</span></a>
-        <a href="{% url 'index' %}" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'upload' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'upload' %} aria-current="page"{% endif %}>
-          {% icon "upload" "h-4 w-4" %}<span class="hidden sm:inline">Юклаш</span></a>
-        <a href="{% url 'landing' %}" class="hidden items-center gap-1.5 rounded-md px-3 py-1 font-medium text-slate-500 hover:text-slate-900 sm:inline-flex">
-          {% icon "help" "h-4 w-4" %}<span class="hidden sm:inline">Тизим ҳақида</span></a>
-        {% if user.is_staff %}<a href="{% url 'panel:overview' %}" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'panel' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'panel' %} aria-current="page"{% endif %}>
-          {% icon "shield" "h-4 w-4" %}<span class="hidden sm:inline">Панел</span></a>{% endif %}
-      </nav>
       {% if crumbs %}{% include "jobs/_crumbs.html" %}{% endif %}
       {% block header_extra %}{% endblock %}
-      {% if nav != "upload" %}<a href="{% url 'index' %}" class="ml-auto hidden shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 md:block"><span class="inline-flex items-center gap-1.5">{% icon "plus" %} Янги юклаш</span></a>{% endif %}
-      <div class="ml-auto {% if nav != 'upload' %}md:ml-0 {% endif %}flex shrink-0 items-center gap-2 text-sm">
+      {# бўлимлар ўнгда: чапдаги папка йўлига жой қолсин; йўл бор саҳифада катта экрангача фақат белгилар #}
+      {% with lbl=crumbs|yesno:"hidden 2xl:inline,hidden sm:inline" %}
+      <nav class="ml-auto flex shrink-0 items-center gap-1 rounded-lg bg-slate-100 p-1 text-sm" aria-label="Бўлимлар">
+        <a href="{% url 'dashboard' %}" title="Дашборд" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'dashboard' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'dashboard' %} aria-current="page"{% endif %}>
+          {% icon "chart" "h-4 w-4" %}<span class="{{ lbl }}">Дашборд</span></a>
+        <a href="{% url 'index' %}" title="Юклаш" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'upload' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'upload' %} aria-current="page"{% endif %}>
+          {% icon "upload" "h-4 w-4" %}<span class="{{ lbl }}">Юклаш</span></a>
+        <a href="{% url 'landing' %}" title="Тизим ҳақида" class="hidden items-center gap-1.5 rounded-md px-3 py-1 font-medium text-slate-500 hover:text-slate-900 sm:inline-flex">
+          {% icon "help" "h-4 w-4" %}<span class="{{ lbl }}">Тизим ҳақида</span></a>
+        {% if user.is_staff %}<a href="{% url 'panel:overview' %}" title="Панел" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'panel' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'panel' %} aria-current="page"{% endif %}>
+          {% icon "shield" "h-4 w-4" %}<span class="{{ lbl }}">Панел</span></a>{% endif %}
+      </nav>
+      {% if nav != "upload" %}<a href="{% url 'index' %}" title="Янги юклаш" class="hidden shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 md:block"><span class="inline-flex items-center gap-1.5">{% icon "plus" %}<span class="{% if crumbs %}hidden 2xl:inline{% endif %}">Янги юклаш</span></span></a>{% endif %}
+      <div class="flex shrink-0 items-center gap-2 text-sm">
         <a href="{% url 'help' %}" id="guide-btn" data-guide="help-btn" class="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 font-medium text-violet-700 hover:bg-violet-100" title="Йўриқнома: иш тартиби ва огоҳлантиришлар">
-          {% icon "help" "h-4 w-4" %}<span class="hidden sm:inline">Йўриқнома</span></a>
-        <span class="hidden max-w-[12rem] truncate text-slate-600 lg:inline" title="{{ user.email }}">{{ user.get_full_name|default:user.email }}</span>
+          {% icon "help" "h-4 w-4" %}<span class="{{ lbl }}">Йўриқнома</span></a>
+        <span class="hidden max-w-[12rem] truncate text-slate-600 {% if crumbs %}2xl:inline{% else %}lg:inline{% endif %}" title="{{ user.email }}">{{ user.get_full_name|default:user.email }}</span>
         <form method="post" action="{% url 'logout' %}">{% csrf_token %}
           <button type="submit" class="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900">Чиқиш</button>
         </form>
       </div>
+      {% endwith %}
       {% else %}
       <div class="ml-auto flex items-center gap-2 text-sm">
         <a href="{% url 'landing' %}" class="hidden rounded-lg px-3 py-1.5 font-medium text-slate-500 hover:text-slate-900 sm:block">Тизим ҳақида</a>
@@ -89,6 +93,7 @@
   {% if user.is_authenticated %}
   <script>window.narxGuide = {% block guide %}null{% endblock %};</script>
   {% include "jobs/_guide.html" %}
+  {% include "jobs/_dialog.html" %}
   {% endif %}
 </body>
 </html>

@@ -1,5 +1,5 @@
 {% load narx %}{# саҳифа йўли: Папка › ички папка › смета — ҳар бирига қайтиш мумкин #}
-<nav class="flex min-w-0 items-center gap-1 text-sm" aria-label="Йўл">
+<nav class="order-last flex min-w-0 basis-full items-center gap-1 text-sm md:order-none md:basis-auto md:flex-1" aria-label="Йўл">
   {% for c in crumbs %}
   <span class="shrink-0 text-slate-300">{% icon "chevron-right" "h-4 w-4" %}</span>
   {% if c.url and not forloop.last %}
@@ -7,7 +7,7 @@
     {% if c.icon %}<span class="{{ c.color|default:'text-slate-400' }}">{% icon c.icon "h-4 w-4 shrink-0" %}</span>{% endif %}<span class="max-w-[16rem] truncate">{{ c.label }}</span></a>
   {% else %}
   <span class="flex min-w-0 items-center gap-1.5 px-1.5 py-1 font-medium text-slate-900" title="{{ c.label }}">
-    {% if c.icon %}<span class="{{ c.color|default:'text-slate-400' }}">{% icon c.icon "h-4 w-4 shrink-0" %}</span>{% endif %}<span class="max-w-[22rem] truncate">{{ c.label }}</span></span>
+    {% if c.icon %}<span class="{{ c.color|default:'text-slate-400' }}">{% icon c.icon "h-4 w-4 shrink-0" %}</span>{% endif %}<span class="truncate">{{ c.label }}</span></span>
   {% endif %}
   {% endfor %}
 </nav>

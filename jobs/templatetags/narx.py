@@ -202,9 +202,21 @@ _SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
 
 @register.simple_tag
 def icon(name, cls="h-4 w-4 shrink-0", width="2"):
-    """``{% icon "download" "h-5 w-5" %}`` — чизиқли SVG белги (emoji ўрнига)."""
+    """``{% icon "download" "h-5 w-5" %}`` — чизиқли SVG белги (emoji ўрнига). Шаклнинг ўзи саҳифада бир марта
+    (``icon_sprite``), бу ерда фақат ҳавола: папкада юзлаб белги бўлса ҳам саҳифа енгил қолади."""
     from django.utils.safestring import mark_safe
-    return mark_safe(_SVG.format(w=width, cls=cls, body=_ICONS[name]))
+    if name not in _ICONS:
+        raise KeyError(name)
+    return mark_safe(_SVG.format(w=width, cls=cls, body=f'<use href="#i-{name}"/>'))
+
+
+@register.simple_tag
+def icon_sprite():
+    """Ҳамма белгиларнинг шакли — ``<body>`` бошида бир марта (base.html, landing.html)."""
+    from django.utils.safestring import mark_safe
+    symbols = "".join(f'<symbol id="i-{k}" viewBox="0 0 24 24">{v}</symbol>' for k, v in _ICONS.items())
+    return mark_safe(f'<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" '
+                     f'aria-hidden="true"><defs>{symbols}</defs></svg>')
 
 
 @register.filter
@@ -262,3 +274,17 @@ def help_data():
 
     from jobs.guide import HELP
     return json_script(HELP, "help-data")
+
+
+FLOW_STEPS = [
+    (1, "Юклаш", "Папка, архив ёки файлларни юклаш"),
+    (2, "Текшириш", "Қайси локал қайси ресурс билан ҳисобланишини кўриш"),
+    (3, "Тўғирлаш", "Ҳисоблангач: нархланмаган қаторлар, кабель/ускуна, сводка фоизлари"),
+    (4, "Юклаб олиш", "Тайёр Excel ёки ZIP"),
+]
+
+
+@register.inclusion_tag("jobs/_flow.html")
+def flow(at, finished=False):
+    """``{% flow 2 %}`` — умумий йўл (ҳамма саҳифада бир хил): 1 Юклаш → 2 Текшириш → 3 Тўғирлаш → 4 Юклаб олиш."""
+    return {"flow_steps": FLOW_STEPS, "at": at, "finished": finished}

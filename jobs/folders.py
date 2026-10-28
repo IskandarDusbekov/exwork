@@ -6,6 +6,7 @@ Smetachi papkasida odatda har bir ichki papka bitta qism: ``…_lokal.xls`` + ``
 listlar turi mazmunidan aniqlanadi, juftlanadi va tasdiqlashsiz narxlanadi. Juftlik topilmasa —
 qism «Текширинг» bo'lib qoladi, smetachi obyekt sahifasida o'zi tanlaydi.
 """
+import logging
 import os
 import shutil
 import threading
@@ -29,6 +30,8 @@ from .services import (
     ALLOWED_EXT, FileClock, UploadError, _save, analyze_batch, apply_decisions, batch_outputs, confirm_batch,
     save_timings, sheet_names, unpriced_res,
 )
+
+log = logging.getLogger(__name__)
 
 MAX_PROJECT_FILES = 400
 WORKING = (Batch.Stage.QUEUED, Batch.Stage.CONVERTING, Batch.Stage.PRICING)
@@ -273,6 +276,14 @@ def _check_stop(project_id):
         raise Stopped
 
 
+class LeaseLost(Exception):
+    """Ish boshqa worker'ga o'tdi (bu worker uzoq javob bermagan) — qolganini o'sha davom ettiradi."""
+
+
+def _owns(project_id, worker: str) -> bool:
+    return not worker or Project.objects.filter(id=project_id, worker=worker).exists()
+
+
 def _run(project_id, worker: str = ""):
     """Fondagi ish: yangi qismlar ochiladi va juftlanadi (narxlanmaydi — smetachi avval tekshiradi);
     «Ҳисоблашни бошлаш» bosilgan (PRICING) qismlar narxlanadi. «Тўхтатиш» — har bir fayldan oldin tekshiriladi.
@@ -281,7 +292,11 @@ def _run(project_id, worker: str = ""):
     try:
         project = Project.objects.get(id=project_id)
         now = timezone.now()
-        Project.objects.filter(id=project_id).update(heartbeat=now, run_started=now, run_finished=None)
+        mine = Project.objects.filter(id=project_id)
+        if worker:
+            mine = mine.filter(worker=worker)  # lease boshqasida bo'lsa — uning vaqtlariga tegilmaydi
+        if not mine.update(heartbeat=now, run_started=now, run_finished=None):
+            return
         done = set()
         with _KeepAlive(project_id, worker):
             try:
@@ -290,6 +305,8 @@ def _run(project_id, worker: str = ""):
                             .order_by("folder").first())
                     if part is None:
                         break
+                    if not _owns(project_id, worker):
+                        raise LeaseLost
                     done.add(part.id)  # bitta qism bir marta (holati o'zgarmay qolsa ham aylanib qolmaydi)
                     _check_stop(project_id)
                     if part.stage == Batch.Stage.PRICING:
@@ -298,6 +315,10 @@ def _run(project_id, worker: str = ""):
                         analyze_part(part)
             except Stopped:
                 pass
+            except LeaseLost:
+                return  # yakuniy holatni yangi egasi qo'yadi (aks holda uning ishi ustidan yoziladi)
+        if not _owns(project_id, worker):
+            return
         project.refresh_from_db()
         if not project.stop_requested:
             # ishlangan qism navbatda qolib ketmasin (aks holda keyingi aylanishda yana olinadi — cheksiz)
@@ -320,12 +341,18 @@ def settle(project: Project):
     «текширинг», aks holda «тайёр». Navbatda qism qolgan bo'lsa (ish tugayotganda qo'shilgan) — ishlanyapti."""
     parts = project.parts.all()
     if parts.filter(stage__in=WORKING).exists() and not project.stop_requested:
-        project.status = Project.Status.PROCESSING
+        status = Project.Status.PROCESSING
     else:
         waiting = parts.filter(stage=Batch.Stage.READY).exists()
         priced = Job.objects.filter(batch__project=project).exists()
-        project.status = Project.Status.READY if waiting or not priced else Project.Status.DONE
-    project.save(update_fields=["status"])
+        status = Project.Status.READY if waiting or not priced else Project.Status.DONE
+    row = Project.objects.filter(id=project.id)
+    if status != Project.Status.PROCESSING:
+        # shu orada smetachi qismni navbatga qo'ygan bo'lsa («Ҳисоблашни бошлаш») — loyiha navbatda qoladi.
+        # Tekshiruv va yozuv bitta UPDATE'da: alohida bo'lsa, oradagi bosish yo'qolib, qism osilib qolardi
+        row = row.exclude(parts__stage__in=WORKING)
+    if row.update(status=status):
+        project.status = status
 
 
 def queue_part(part: Batch, decisions: dict):
@@ -502,6 +529,7 @@ def analyze_part(part: Batch):
         _set(part, Batch.Stage.STOPPED, "тўхтатилди — «Давом эттириш» билан қайта бошланади")
         raise
     except Exception as e:  # bitta papka xatosi butun loyihani to'xtatmasin
+        log.exception("qism ochilmadi: %s (loyiha %s)", part.folder, part.project_id)
         _set(part, Batch.Stage.FAILED, f"{type(e).__name__}: {e}")
     finally:
         save_timings(clock, part.owner_id, project_id=part.project_id, batch=part)
@@ -524,6 +552,7 @@ def price_part(part: Batch, decisions=None):
         else:
             _set(part, Batch.Stage.DONE)
     except Exception as e:
+        log.exception("qism narxlanmadi: %s (loyiha %s)", part.folder, part.project_id)
         _set(part, Batch.Stage.FAILED, f"{type(e).__name__}: {e}")
 
 

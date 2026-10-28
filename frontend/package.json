@@ -1,0 +1,12 @@
+{
+  "name": "narxlash-frontend",
+  "private": true,
+  "description": "Tailwind CSS йиғиш: natija web/static/css/app.css (repoda — serverga Node kerak emas)",
+  "scripts": {
+    "build": "tailwindcss -c tailwind.config.js -i app.css -o ../web/static/css/app.css --minify",
+    "watch": "tailwindcss -c tailwind.config.js -i app.css -o ../web/static/css/app.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.16"
+  }
+}

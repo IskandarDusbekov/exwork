@@ -46,7 +46,7 @@
   {% endfor %}
 
   {% if can_act and not pr.stop_requested and stop_button %}
-  <form method="post" action="{% url 'panel:work_stop' pr.project.id %}" class="mt-3 text-right" onsubmit="return confirm('«{{ pr.project.name|escapejs }}» тўхтатилсинми? Очилганлари сақланади.')">{% csrf_token %}<input type="hidden" name="back" value="processes">
+  <form method="post" action="{% url 'panel:work_stop' pr.project.id %}" class="mt-3 text-right" data-confirm="«{{ pr.project.name }}» тўхтатилсинми? Очилганлари сақланади." data-confirm-title="Ишни тўхтатиш" data-confirm-ok="Тўхтатиш" data-danger>{% csrf_token %}<input type="hidden" name="back" value="processes">
     <button class="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100">{% icon "stop" "h-3.5 w-3.5" %} Тўхтатиш</button></form>
   {% endif %}
 </div>

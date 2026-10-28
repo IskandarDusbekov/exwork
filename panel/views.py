@@ -1,5 +1,6 @@
 """Бошқарув панели (Django admin'дан алоҳида). Кўриш — ``is_staff``; ўзгартириш ва файл юклаб олиш — фақат
 ``is_superuser``. Панелдаги ҳар бир ўзгартириш ва юклаб олиш журналга ёзилади."""
+import logging
 from datetime import timedelta
 from functools import wraps
 
@@ -23,7 +24,8 @@ from jobs.views import PART_STATES, STAT_CARDS, _job_sums, work_items
 
 from . import data, sessions
 from .audit import log as audit
-from .models import BlockedIP, Event, LoginSession
+from .logs import KEEP_DAYS
+from .models import BlockedIP, Event, LoginSession, ServerLog
 
 User = get_user_model()
 
@@ -50,8 +52,10 @@ def superuser_required(view):
 
 
 def _ctx(request, tab, **kw):
+    day = timezone.now() - timedelta(days=1)
     return {"nav": "panel", "tab": tab, "can_act": request.user.is_superuser,
-            "running_count": Project.objects.filter(status=Project.Status.PROCESSING).count(), **kw}
+            "running_count": Project.objects.filter(status=Project.Status.PROCESSING).count(),
+            "error_count": ServerLog.objects.filter(level__gte=logging.ERROR, created__gte=day).count(), **kw}
 
 
 def _panel_items(user):
@@ -416,6 +420,49 @@ def log(request):
         locked_ips=locked_ips, top_ips=top_ips, window_minutes=int(WINDOW.total_seconds() // 60),
         blocked=BlockedIP.objects.select_related("created_by"), my_ip=client_ip(request),
         here=request.get_full_path()))
+
+
+ERROR_LEVELS = [("", "Ҳаммаси"), ("error", "Хатолар"), ("warning", "Огоҳлантиришлар")]
+
+
+@staff_required
+def errors(request):
+    """Сервер хатолари (logging → ServerLog): сайт ва worker; traceback билан."""
+    level = request.GET.get("level", "")
+    q = request.GET.get("q", "").strip()
+    qs = ServerLog.objects.select_related("user")
+    if level == "error":
+        qs = qs.filter(level__gte=logging.ERROR)
+    elif level == "warning":
+        qs = qs.filter(level=logging.WARNING)
+    if q:
+        qs = qs.filter(Q(message__icontains=q) | Q(logger__icontains=q) | Q(path__icontains=q) | Q(traceback__icontains=q))
+    day = timezone.now() - timedelta(days=1)
+    recent = ServerLog.objects.filter(created__gte=day)
+    from django.conf import settings
+    return render(request, "panel/errors.html", _ctx(
+        request, "errors", page=Paginator(qs, 50).get_page(request.GET.get("page")), level=level, q=q,
+        levels=ERROR_LEVELS, keep_days=KEEP_DAYS, total=ServerLog.objects.count(),
+        day_errors=recent.filter(level__gte=logging.ERROR).count(),
+        day_warnings=recent.filter(level=logging.WARNING).count(),
+        log_file=str(settings.LOG_DIR / "narxlash.log")))
+
+
+@require_POST
+@superuser_required
+def errors_test(request):
+    """Logging ishlayotganini tekshirish: bitta «Хато» yozuvi (panel va faylga)."""
+    logging.getLogger("panel").error("Синов хатоси: %s панелдан текширди", request.user.email)
+    audit(request, Event.Kind.ADMIN_LOGS, detail="синов хатоси ёзилди")
+    return redirect("panel:errors")
+
+
+@require_POST
+@superuser_required
+def errors_clear(request):
+    n, _ = ServerLog.objects.all().delete()
+    audit(request, Event.Kind.ADMIN_LOGS, detail=f"хатолар тозаланди ({n} та)")
+    return redirect("panel:errors")
 
 
 def _group(qs, field):

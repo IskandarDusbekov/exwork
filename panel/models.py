@@ -13,12 +13,15 @@ class Event(models.Model):
         UPLOAD = "upload", "Юклади"
         DELETE = "delete", "Ўчирди"
         STOP = "stop", "Тўхтатди"
+        RENAME = "rename", "Номини ўзгартирди"
+        PASSWORD_RESET = "password_reset", "Паролни тиклади"
         ADMIN_USER = "admin_user", "Админ: фойдаланувчи ўзгартирилди"
         ADMIN_STOP = "admin_stop", "Админ: жараён тўхтатилди"
         ADMIN_DOWNLOAD = "admin_download", "Админ: файл юклаб олинди"
         ADMIN_VIEW = "admin_view", "Админ: иш кўрилди"
         ADMIN_SESSION = "admin_session", "Админ: сессия тугатилди"
         ADMIN_IP = "admin_ip", "Админ: IP блоки"
+        ADMIN_LOGS = "admin_logs", "Админ: хатолар журнали"
         BLOCKED_IP = "blocked_ip", "Блокланган IP'дан сўров"
 
     created = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -87,3 +90,34 @@ class BlockedIP(models.Model):
 
     def __str__(self):
         return self.ip
+
+
+class ServerLog(models.Model):
+    """Сервер хатолари ва огоҳлантиришлари (``logging`` → panel.logs.DBLogHandler) — панелдаги «Хатолар»."""
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
+    level = models.PositiveSmallIntegerField(db_index=True)  # logging.WARNING=30, ERROR=40, CRITICAL=50
+    logger = models.CharField(max_length=100)
+    message = models.TextField()
+    traceback = models.TextField(blank=True)
+    path = models.CharField(max_length=500, blank=True)
+    method = models.CharField(max_length=10, blank=True)
+    status = models.PositiveSmallIntegerField(null=True, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                             related_name="+")
+    ip = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created"]
+
+    @property
+    def level_name(self):
+        return {30: "Огоҳлантириш", 40: "Хато", 50: "Жиддий"}.get(self.level, str(self.level))
+
+    @property
+    def title(self):
+        """Рўйхат учун: биринчи қатор (traceback бўлса — охирги қатори, яъни хатонинг ўзи)."""
+        if self.traceback:
+            last = [ln for ln in self.traceback.strip().splitlines() if ln.strip()]
+            if last:
+                return last[-1][:300]
+        return self.message.splitlines()[0][:300] if self.message else ""
