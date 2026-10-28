@@ -248,6 +248,18 @@ class FlowTests(LoggedInTestCase):
         self.assertEqual((row["pct"], row["changed"]), ("5", True))
         self.assertEqual(Setting.objects.get(key="percents").value["transport_mat"], 0.05)
 
+        # катак бўшатилди — 0 (стандарт 2% эмас): сайт ва Excel бир хил
+        d = post({"pct": {"transport_kabel": "", "transport_mat": "5", "prochie": "19"}})
+        job.refresh_from_db()
+        self.assertEqual(job.percents["transport_kabel"], 0)
+        self.assertEqual(next(r for r in d["rows"] if r["key"] == "transport_kabel")["pct"], "0")
+        from openpyxl import load_workbook
+        ws = load_workbook(job.abs(job.output_path))[job.local_sheet]
+        start = job.result["svodka_start"]
+        kab = next(r for r in range(start, start + 13) if "кабельн" in str(ws[f"C{r}"].value))
+        self.assertEqual(ws[f"D{kab}"].value, 0)
+        post({"pct": {"transport_kabel": "2", "transport_mat": "5", "prochie": "19"}})
+
         self._upload(local=self.local, res=self.res)  # янги смета — эслаб қолинган фоиз билан
         new = Job.objects.exclude(id=job.id).get()
         self.assertEqual(new.percents["transport_mat"], 0.05)

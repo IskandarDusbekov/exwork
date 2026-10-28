@@ -1291,7 +1291,8 @@ def job_percents(request, job_id):
     elif data.get("remembered"):
         percents = remembered_percents(job.owner_id)
     elif isinstance(data.get("pct"), dict):
-        percents = parse_percents({f"pct_{k}": str(v) for k, v in data["pct"].items()}, job.percents)
+        # бўш катак — 0 (смета­чи ўчириб қўйди): «стандарт» эмас, акс ҳолда саҳифада бўш, Excel'да 2% бўлиб қолади
+        percents = parse_percents({f"pct_{k}": str(v).strip() or "0" for k, v in data["pct"].items()}, job.percents)
     else:
         return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
     run_job(job, None, None, job.fuzzy, job.mode, percents)

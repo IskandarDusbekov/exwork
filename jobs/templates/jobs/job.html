@@ -1239,7 +1239,7 @@
     var form = document.getElementById("pct-form"), st = document.getElementById("pct-status");
     var inputs = Array.prototype.slice.call(form.querySelectorAll(".pct-input"));
     var timer = null, busy = false, queued = null, lastSent = snapshot();
-    function snapshot() { var o = {}; inputs.forEach(function (i) { o[i.name.slice(4)] = i.value.trim(); }); return o; }
+    function snapshot() { var o = {}; inputs.forEach(function (i) { o[i.name.slice(4)] = i.value.trim() || "0"; }); return o; }
     function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
     function setStatus(text, cls) { st.textContent = text; st.className = "text-xs " + (cls || "text-slate-500"); }
     function send(payload) {
@@ -1285,7 +1285,7 @@
     }
     inputs.forEach(function (i) {
       i.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(changed, 700); setStatus("ўзгартириляпти…"); });
-      i.addEventListener("change", changed);
+      i.addEventListener("change", function () { if (!i.value.trim()) i.value = "0"; changed(); });  // бўш — 0
       i.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); changed(); } });
     });
     form.addEventListener("submit", function (e) { e.preventDefault(); changed(); });
