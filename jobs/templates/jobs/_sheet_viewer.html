@@ -1,0 +1,351 @@
+{% load narx %}{% comment %} Лист кўриниши (Excel каби) модали: файлнинг ҳамма листлари ёрлиқда, излаш, «Ҳаммаси» — тўлиқ жадвал.
+   Фойдаланиш: window.narxViewer.open(сарлавҳа, [панел, …], белги). Панел: {url, k, tabs: [{k, html}], pick}.
+   url — ``batch_sheet`` манзили (?k=лист калити&n=қатор), pick — ресурсни шу ердан танлаш (ихтиёрий),
+   markFor(k) — листнинг тури ва устунларини шу ерда тузатиш (ранг, босиб танлаш, сақлаш); листга тегишли бўлмаса null.{% endcomment %}
+<div id="xv" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="xv-title">
+  <div class="absolute inset-0 bg-slate-900/50" data-xv-close></div>
+  <div class="absolute inset-3 flex flex-col overflow-hidden rounded-xl bg-white shadow-2xl md:inset-6">
+    <div class="flex items-center gap-3 border-b border-slate-200 px-4 py-2.5">
+      <h3 id="xv-title" class="min-w-0 flex-1 truncate font-semibold"></h3>
+      <span id="xv-ov"></span>
+      <button type="button" class="grid h-8 w-8 place-items-center rounded-md text-slate-500 hover:bg-slate-100" data-xv-close title="Ёпиш (Esc)">{% icon "x" "h-5 w-5" %}</button>
+    </div>
+    <div id="xv-panes" class="grid min-h-0 flex-1 gap-px bg-slate-200"></div>
+  </div>
+</div>
+<style>
+  .tag { display: inline-grid; min-width: 1.9rem; place-items: center; border-radius: 6px; padding: 0 5px; font-size: 11px; font-weight: 700; line-height: 1.35rem; flex-shrink: 0; }
+  .tag-loc { background: #dcfce7; color: #166534; }
+  .tag-res { background: #e0f2fe; color: #075985; }
+  .tag-off { background: #f1f5f9; color: #94a3b8; }
+  .xs thead th.xs-mk { color: #fff; font-weight: 700; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .xs tbody tr.xs-out > td { opacity: .4; }
+  .xs tbody tr.xs-edge > th { background: #7c3aed; color: #fff; font-weight: 700; }
+  .xv-picking .xs td, .xv-picking .xs th { cursor: crosshair; }
+  .xv-picking .xs tbody tr:hover > th { background: #ddd6fe; }
+  {% include "jobs/_xs_css.html" %}
+</style>
+<script>
+(function () {
+  var modal = document.getElementById("xv"), box = document.getElementById("xv-panes");
+  var cache = {}, FIRST = 80, ALL = 3000;
+  function esc(t) { var d = document.createElement("div"); d.textContent = t == null ? "" : t; return d.innerHTML; }
+  function norm(t) { return (t || "").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, ""); }
+  function tone(v) { return v >= 0.7 ? "bg-emerald-100 text-emerald-800" : v >= 0.4 ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"; }
+  function tagHtml(s) {
+    if (!s) return "";
+    var cls = s.role === "local" ? "tag-loc" : s.role === "resource" ? "tag-res" : "tag-off";
+    return '<span class="tag ' + cls + '">' + esc(s.dup ? "=" : s.tag || "—") + "</span>";
+  }
+  // ёрлиқлар: шу файлнинг ҳамма листлари
+  function fileTabs(sheets, k) {
+    var me = sheets.filter(function (s) { return s.k === k; })[0] || {};
+    return sheets.filter(function (s) { return s.file === me.file; }).map(function (s) {
+      return {k: s.k, sheet: s, html: tagHtml(s) + " " + esc(s.sheet) + (s.kind ? ' <span class="text-slate-400">· ' + esc(s.kind) + "</span>" : "") +
+        (s.hidden ? ' <span class="text-slate-400">· яширин</span>' : "")};
+    });
+  }
+  // номзод ресурслар — чапдаги рўйхат: аввал локалнинг ўз файлидагилари (мос тушмаса ҳам), кейин бошқалари
+  // мослик бўйича; ★ — энг мос. localKey — қайси локал учун (ўз файлини билиш учун)
+  function candTabs(cands, byKey, localKey) {
+    var lf = localKey && byKey[localKey] ? byKey[localKey].file : null, best = null, out = [];
+    cands.forEach(function (c) { if (c.ov != null && c.ov > 0 && (!best || c.ov > best.ov)) best = c; });
+    function same(c) { return c.same != null ? !!c.same : lf != null && !!byKey[c.k] && byKey[c.k].file === lf; }
+    function item(c) {
+      var s = byKey[c.k] || {k: c.k, sheet: c.k, role: "resource"};
+      var ov = c.ov == null ? "" : '<span class="shrink-0 rounded-full px-1.5 text-[11px] font-bold ' + tone(c.ov) + '">' + Math.round(c.ov * 100) + "%</span>";
+      return {k: c.k, sheet: s, ov: c.ov, find: norm([s.sheet, s.title, s.file_name].join(" ")),
+        rich: '<span class="flex items-center gap-1.5">' + tagHtml(s) + '<b class="min-w-0 flex-1 truncate">' + (c === best ? "★ " : "") +
+              esc(s.sheet) + "</b>" + ov + "</span>" +
+              '<span class="mt-0.5 block truncate text-[11px] text-slate-500" title="' + esc(s.file_name) + '">' + esc(s.title || s.file_name || "") +
+              (s.rows ? " · " + s.rows + " нарх" : "") + (s.hidden ? " · яширин" : "") + "</span>"};
+    }
+    var mine = cands.filter(same), other = cands.filter(function (c) { return !same(c); });
+    if (mine.length) out.push({group: "Локалнинг ўз файлида · " + mine.length});
+    mine.forEach(function (c) { out.push(item(c)); });
+    if (other.length) out.push({group: (mine.length ? "Бошқа файллар" : "Ресурс листлари") + " · " + other.length});
+    other.forEach(function (c) { out.push(item(c)); });
+    out.side = true;
+    return out;
+  }
+
+  function pane(cfg) {
+    var el = document.createElement("div");
+    el.className = "flex min-h-0 min-w-0 flex-col bg-white";
+    el.innerHTML =
+      '<div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2 text-sm">' +
+        '<span class="xv-tag"></span><b class="xv-sheet min-w-0 truncate"></b><span class="xv-file min-w-0 truncate text-xs text-slate-500"></span>' +
+        '<span class="ml-auto flex items-center gap-1">' +
+          '<input type="search" class="xv-q w-44 rounded-md border border-slate-300 px-2 py-1 text-xs" placeholder="Листда излаш…">' +
+          '<span class="xv-count w-14 text-center text-[11px] text-slate-500"></span>' +
+          '<button type="button" class="xv-all rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100"></button>' +
+          '<button type="button" class="xv-pick hidden rounded-md px-2.5 py-1 text-xs font-semibold"></button>' +
+        "</span></div>" +
+      '<div class="xv-mark hidden flex-wrap items-center gap-1.5 border-b border-violet-100 bg-violet-50 px-3 py-1.5 text-xs"></div>' +
+      '<div class="flex min-h-0 flex-1">' +
+        '<aside class="xv-side hidden w-56 shrink-0 xl:w-72 flex-col border-r border-slate-200 bg-slate-50">' +
+          '<div class="border-b border-slate-200 p-2"><div class="mb-1.5 flex items-baseline justify-between px-1 text-xs font-semibold text-slate-600">Ресурс листлари' +
+            '<span class="font-normal text-slate-400">босинг — ичини кўринг</span></div>' +
+            '<input type="search" class="xv-sq w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs" placeholder="Лист ёки файл номи…"></div>' +
+          '<div class="xv-list min-h-0 flex-1 overflow-auto p-1.5"></div></aside>' +
+        '<div class="xv-scroll xs-wrap relative min-h-0 min-w-0 flex-1 overflow-auto"></div>' +
+      "</div>" +
+      '<div class="xv-tabs xs-tabs overflow-x-auto whitespace-nowrap"></div>';
+    var scroll = el.querySelector(".xv-scroll"), q = el.querySelector(".xv-q"), count = el.querySelector(".xv-count");
+    var allBtn = el.querySelector(".xv-all"), pickBtn = el.querySelector(".xv-pick"), tabs = el.querySelector(".xv-tabs");
+    var cur = {k: cfg.k, n: FIRST, cells: [], hits: [], i: -1};
+    var list = cfg.tabs || [], side = !!list.side;
+    var sideBox = el.querySelector(".xv-side"), sideList = el.querySelector(".xv-list"), sideQ = el.querySelector(".xv-sq");
+    if (side) { sideBox.classList.remove("hidden"); sideBox.classList.add("flex"); tabs.classList.add("hidden"); }
+    sideQ.addEventListener("input", function () { drawTabs(); });
+
+    function drawSide() {
+      sideList.innerHTML = "";
+      var f = norm(sideQ.value), shown = 0;
+      list.forEach(function (t) {
+        if (t.group) {
+          var h = document.createElement("div");
+          h.className = "px-2 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400";
+          h.textContent = t.group; sideList.appendChild(h); return;
+        }
+        if (f && t.find.indexOf(f) < 0) return;
+        shown++;
+        var p = cfg.pick && cfg.pick.label(t.k, t.sheet), b = document.createElement("button");
+        b.type = "button";
+        b.className = "mb-0.5 block w-full rounded-md border px-2 py-1.5 text-left text-xs " +
+          (t.k === cur.k ? "border-sky-300 bg-white shadow-sm ring-1 ring-sky-200" : "border-transparent hover:bg-white");
+        b.innerHTML = t.rich + (p && p.chosen ? '<span class="mt-1 inline-flex rounded bg-emerald-100 px-1.5 text-[10px] font-semibold text-emerald-800">✓ танланган</span>' : "");
+        b.addEventListener("click", function () { if (t.k !== cur.k) { cur.k = t.k; cur.n = FIRST; load(); } });
+        sideList.appendChild(b);
+      });
+      if (!shown) sideList.insertAdjacentHTML("beforeend", '<div class="px-2 py-4 text-center text-xs text-slate-400">топилмади</div>');
+    }
+    function drawTabs() {
+      if (side) { drawSide(); return; }
+      tabs.innerHTML = "";
+      list.forEach(function (t) {
+        var b = document.createElement("button");
+        b.type = "button"; b.innerHTML = t.html;
+        if (t.k === cur.k) b.className = "is-on";
+        b.addEventListener("click", function () { if (t.k !== cur.k) { cur.k = t.k; cur.n = FIRST; load(); } });
+        tabs.appendChild(b);
+      });
+      tabs.classList.toggle("hidden", list.length < 2);
+    }
+    // ---- устунлар белгиси: тури, ранг, сарлавҳада ном, маълумот қаторларидан ташқариси хира; босиб танлаш, сақлаш ----
+    var COLORS = {name: "#0284c7", unit: "#d97706", qty_unit: "#0d9488", qty_total: "#059669", price: "#7c3aed"};
+    var ROLES = [["local", "Локал — нархланадиган смета"], ["resource", "Ресурс — нархлар рўйхати (RES)"], ["unknown", "Ўтказиш"]];
+    var markBar = el.querySelector(".xv-mark"), picking = null, marks = {};
+    function mk() {
+      if (!cfg.markFor) return null;
+      if (!(cur.k in marks)) marks[cur.k] = cfg.markFor(cur.k);
+      return marks[cur.k];
+    }
+    function fieldOf(key) { var m = mk(); return (m && m.fields.filter(function (f) { return f.key === key; })[0]) || {}; }
+    function drawMarks() {
+      var m = mk();
+      markBar.classList.toggle("hidden", !m); markBar.classList.toggle("flex", !!m);
+      scroll.classList.toggle("xv-picking", !!m && !!picking);
+      if (!m) return;
+      markBar.innerHTML = "";
+      var role = document.createElement("label");
+      role.className = "inline-flex items-center gap-1 font-semibold text-violet-900";
+      role.innerHTML = "Лист тури: <select class='rounded border border-violet-300 bg-white px-1 py-0.5 text-xs font-normal'>" +
+        ROLES.map(function (r) { return "<option value='" + r[0] + "'" + (r[0] === m.role() ? " selected" : "") + ">" + r[1] + "</option>"; }).join("") + "</select>";
+      role.querySelector("select").addEventListener("change", function () { m.setRole(this.value); picking = null; drawMarks(); });
+      markBar.appendChild(role);
+      var group = document.createElement("span");
+      group.className = "xv-fields inline-flex flex-wrap items-center gap-1.5";
+      if (m.fields.length) group.innerHTML = '<span class="ml-1 font-semibold text-violet-900">Устунлар:</span>';
+      markBar.appendChild(group);
+      m.fields.forEach(function (f) {
+        var b = document.createElement("button"), c = COLORS[f.key] || "#7c3aed", act = picking === f.key;
+        b.type = "button";
+        b.className = "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 " +
+          (act ? "border-violet-600 bg-violet-600 text-white" : f.value || f.kind === "row" ? "border-slate-300 bg-white hover:bg-violet-100" : "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100");
+        b.innerHTML = (f.kind === "col" ? '<span class="h-2.5 w-2.5 rounded-sm" style="background:' + c + '"></span>' : "") +
+          esc(f.label) + ": <b>" + esc(f.value || (f.kind === "row" ? "автомат" : "?")) + "</b>";
+        b.title = f.hint || "";
+        b.addEventListener("click", function () { picking = act ? null : f.key; drawMarks(); });
+        group.appendChild(b);
+      });
+      var guide = document.createElement("button");
+      guide.type = "button";
+      guide.className = "ml-auto inline-flex items-center gap-1 rounded-md border border-violet-300 bg-white px-2.5 py-1 font-semibold text-violet-700 hover:bg-violet-100";
+      guide.textContent = "? Қандай тўғирлайман";
+      guide.addEventListener("click", function () { picking = null; drawMarks(); window.narxTour(tourSteps()); });
+      markBar.appendChild(guide);
+      var save = document.createElement("button");
+      save.type = "button";
+      save.className = "xv-save rounded-md px-3 py-1 font-semibold " + (m.changed ? "bg-violet-600 text-white hover:bg-violet-700" : "border border-slate-300 bg-white text-slate-500");
+      save.textContent = m.changed ? "Сақлаш ва қайта жуфтлаш ✓" : "Сақлаш";
+      save.title = "Ўзгаришларни сақлайди ва листларни қайта таҳлил қилади («Қайта жуфтлаш»)";
+      save.addEventListener("click", function () { m.save(); });
+      markBar.appendChild(save);
+      var help = document.createElement("div"), pf = picking && fieldOf(picking);
+      help.className = "w-full text-[12px] leading-snug " + (pf ? "rounded bg-white px-2 py-1 text-slate-800 ring-1 ring-violet-300" : "text-slate-600");
+      help.innerHTML = m.role() === "unknown"
+        ? "Бу лист <b>ўтказилади</b> — нархланмайди ва ундан нарх олинмайди. Керак бўлса — турини «Локал» ёки «Ресурс» қилинг."
+        : pf ? "<b>" + esc(pf.label) + "</b> — " + esc(pf.hint) + "<br><b class='text-violet-700'>Энди жадвалда " +
+               (pf.kind === "col" ? "шу маълумот турган устуннинг исталган катагини" : "керакли қаторни") + " босинг.</b> (Esc — бекор)"
+        : "Тугмани босинг (устига олиб борсангиз — нима экани ёзилади), кейин жадвалда керакли устун ёки қаторни босинг. " +
+          "Қизил <b>?</b> — топилмаган. Тугагач — <b>«Сақлаш»</b>.";
+      markBar.appendChild(help);
+      var table = scroll.querySelector("table.xs");
+      if (!table) return;
+      var ths = table.querySelectorAll("thead th"), cols = table.querySelectorAll("col"), at = {};
+      Array.prototype.forEach.call(ths, function (th, i) {
+        if (th.dataset.l === undefined) th.dataset.l = th.textContent;
+        th.classList.remove("xs-mk"); th.style.background = ""; th.textContent = th.dataset.l; th.title = "";
+        if (cols[i]) cols[i].style.background = "";
+        if (th.dataset.l) at[th.dataset.l] = i;
+      });
+      m.fields.forEach(function (f) {
+        var i = f.kind === "col" && f.value ? at[f.value] : undefined, c = COLORS[f.key] || "#7c3aed";
+        if (i === undefined) return;
+        ths[i].classList.add("xs-mk"); ths[i].style.background = c;
+        ths[i].textContent = f.value + " · " + f.label; ths[i].title = f.label + " — " + (f.hint || "");
+        if (cols[i]) cols[i].style.background = c + "1f";
+      });
+      var start = +(fieldOf("start").value || 0), end = +(fieldOf("end").value || 0);
+      Array.prototype.forEach.call(table.querySelectorAll("tbody tr"), function (tr) {
+        var n = +tr.firstElementChild.textContent;
+        tr.classList.toggle("xs-out", !!((start && n < start) || (end && n > end)));
+        tr.classList.toggle("xs-edge", !!m.fields.length && (n === start || n === end));
+      });
+    }
+    // Excel ойнасидаги қўлланма: тури → устунлар (ҳар бири нима) → жадвалдан босиш → қаторлар → сақлаш
+    function tourSteps() {
+      var m = mk(), table = scroll.querySelector("table.xs"), C = COLORS;
+      var sw = function (k) { return '<span class="tour-dot" style="border-radius:2px;background:' + (C[k] || "#7c3aed") + '"></span> '; };
+      var cols = m.fields.filter(function (f) { return f.kind === "col"; });
+      var th = table && (table.querySelector("thead th.xs-mk") || table.querySelectorAll("thead th")[1]);
+      var rowTh = table && ((table.querySelector("tbody tr.xs-edge") || table.querySelector("tbody tr")) || {}).firstElementChild;
+      return [
+        {el: markBar.querySelector("label"), title: "1. Бу лист нима?",
+         text: "<b>Локал</b> — нархланадиган смета: ишлар ва уларнинг ресурслари, нархи йўқ.<br><b>Ресурс</b> — нархлар олинадиган рўйхат (RES).<br>" +
+               "<b>Ўтказиш</b> — свод, акт, бошқа жадвал: эътиборга олинмайди.<br>Тизим нотўғри аниқлаган бўлса — шу ердан ўзгартиринг."},
+        m.role() === "unknown" ? null : {el: markBar.querySelector(".xv-fields"), title: "2. Устунлар — ҳар бири нима?",
+         text: cols.map(function (f) { return sw(f.key) + "<b>" + esc(f.label) + "</b> — " + esc(f.hint); }).join("<br>") +
+               "<br>Ҳар бир тугмада — тизим топган устун ҳарфи. Қизил <b>?</b> — топилмаган, кўрсатиш керак."},
+        m.role() === "unknown" || !th ? null : {el: th, title: "3. Устунни жадвалдан танлаш",
+         text: "Тепадаги ҳарфлар — Excel устунлари. Тизим топгани рангга бўялган ва номи ёзилган, масалан <b>«G · Ном»</b>.<br>" +
+               "Нотўғри бўлса: юқоридаги тугмани (масалан «Ном») босинг, кейин жадвалда <b>шу маълумот турган устуннинг исталган катагини</b> босинг. Устун янги рангга бўялади."},
+        m.role() === "unknown" || !rowTh ? null : {el: rowTh, title: "4. Биринчи ва охирги қатор",
+         text: "Чапдаги рақамлар — қатор рақамлари. Тизим фақат <b>биринчи</b> ва <b>охирги</b> қатор орасини ресурс деб ўқийди (улар бинафша рангда).<br>" +
+               "• Биринчи — сарлавҳа ва «1 2 3 4…» дан кейинги, биринчи иш ёки ресурс қатори.<br>• Охирги — охирги ресурс; пасти («Итого», имзолар) нархланмайди.<br>" +
+               "Оралиқдан ташқари қаторлар <b>хира</b> кўринади. Тўғри бўлса — тегманг («автомат»). Нотўғри бўлса: «Биринчи қатор» тугмасини босиб, жадвалда қаторни босинг."},
+        {el: markBar.querySelector(".xv-save"), title: "5. Сақланг",
+         text: "Тугагач — <b>«Сақлаш»</b>ни босинг: тизим листларни сиз кўрсатганингиз бўйича қайта ўқийди ва жуфтлайди. Кейин «Листлар тури»да ҳолат " +
+               "<span class='tour-dot bg-emerald-500'></span> «Нархланади» ёки <span class='tour-dot bg-sky-500'></span> «Нарх манбаи» бўлиши керак."},
+      ];
+    }
+    scroll.addEventListener("click", function (e) {
+      var m = mk();
+      if (!picking || !m) return;
+      var f = fieldOf(picking), v = null, table = scroll.querySelector("table.xs");
+      if (!table) return;
+      if (f.kind === "col") {
+        Array.prototype.forEach.call(table.querySelectorAll("thead th"), function (th) {
+          var r = th.getBoundingClientRect();
+          if (th.dataset.l && e.clientX >= r.left && e.clientX < r.right) v = th.dataset.l;
+        });
+      } else {
+        var tr = e.target.closest("tbody tr");
+        if (tr) v = tr.firstElementChild.textContent;
+      }
+      if (!v) return;
+      m.set(f.key, v); f.value = v; picking = null; drawMarks();
+    });
+    el.addEventListener("keydown", function (e) { if (e.key === "Escape" && picking) { e.stopPropagation(); picking = null; drawMarks(); } }, true);
+
+    function search(jump) {
+      cur.hits.forEach(function (td) { td.classList.remove("xs-hit", "xs-cur"); });
+      cur.hits = []; cur.i = -1;
+      var v = norm(q.value);
+      if (v) cur.cells.forEach(function (td) {
+        if (td._t === undefined) td._t = norm(td.textContent);
+        if (td._t.indexOf(v) >= 0) { cur.hits.push(td); td.classList.add("xs-hit"); }
+      });
+      if (jump && cur.hits.length) step(1); else count.textContent = v ? (cur.hits.length ? cur.hits.length + " та" : "йўқ") : "";
+    }
+    function step(d) {
+      if (!cur.hits.length) return;
+      if (cur.hits[cur.i]) cur.hits[cur.i].classList.remove("xs-cur");
+      cur.i = (cur.i + d + cur.hits.length) % cur.hits.length;
+      var td = cur.hits[cur.i];
+      td.classList.add("xs-cur");
+      scroll.scrollTop = Math.max(0, td.parentElement.offsetTop - scroll.clientHeight / 3);
+      count.textContent = (cur.i + 1) + "/" + cur.hits.length;
+    }
+    var timer;
+    q.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(function () { search(true); }, 150); });
+    q.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); step(e.shiftKey ? -1 : 1); } });
+
+    function load() {
+      var t = list.filter(function (x) { return x.k === cur.k; })[0] || {}, s = t.sheet || cfg.sheet || {};
+      el.querySelector(".xv-tag").innerHTML = tagHtml(s);
+      // ўқиладиган ном (қисм ёки файл номи) катта, лист ва файл номи — ёнида кичик
+      el.querySelector(".xv-sheet").textContent = s.title || s.sheet || "";
+      el.querySelector(".xv-file").textContent = (s.title ? "лист " + s.sheet + " · " : "") + (s.file_name || "");
+      el.querySelector(".xv-file").title = s.file_name || "";
+      scroll.innerHTML = '<div class="p-6 text-sm text-slate-500">Очиляпти…</div>';
+      var p = cfg.pick && cfg.pick.label(cur.k, s);
+      pickBtn.classList.toggle("hidden", !p);
+      if (p) {
+        pickBtn.textContent = p.text;
+        pickBtn.disabled = !!p.chosen;
+        pickBtn.className = "xv-pick rounded-md px-2.5 py-1 text-xs font-semibold " +
+          (p.chosen ? "bg-emerald-100 text-emerald-800" : "bg-sky-600 text-white hover:bg-sky-700");
+      }
+      drawTabs();
+      picking = null;
+      drawMarks();
+      var key = cfg.url + "|" + cur.k + "|" + cur.n;
+      if (!cache[key]) {
+        cache[key] = fetch(cfg.url + "?k=" + encodeURIComponent(cur.k) + "&n=" + cur.n, {credentials: "same-origin"})
+          .then(function (r) { return r.json().catch(function () { return {error: "сервер хатоси (" + r.status + ")"}; }); })
+          .then(function (d) { if (d.error) { delete cache[key]; throw new Error(d.error); } return d; });
+      }
+      cache[key].then(function (d) {
+        scroll.innerHTML = d.html;
+        cur.cells = Array.prototype.slice.call(scroll.querySelectorAll("tbody td"));
+        allBtn.textContent = d.truncated ? "Тўлиқ кўриш (" + d.total_rows + " қатор)" : "тўлиқ · " + d.rows + " қатор";
+        allBtn.disabled = !d.truncated;
+        allBtn.title = d.truncated ? "Ҳозир биринчи " + d.rows + " қатор кўрсатиляпти" : "Жадвал тўлиқ кўрсатилган";
+        if (q.value) search(true);
+        drawMarks();
+      }).catch(function (e) {
+        scroll.innerHTML = '<div class="p-6 text-sm text-rose-700">Очиб бўлмади: ' + esc(e.message || e) + "</div>";
+      });
+    }
+    allBtn.addEventListener("click", function () { cur.n = ALL; load(); });
+    pickBtn.addEventListener("click", function () { cfg.pick.choose(cur.k); load(); });
+    load();
+    return el;
+  }
+
+  function open(title, panes, badge) {
+    document.getElementById("xv-title").textContent = title;
+    document.getElementById("xv-ov").innerHTML = badge || "";
+    box.innerHTML = "";
+    // ресурс рўйхати бор панел кенгроқ
+    var wide = panes.length > 1 && panes.some(function (p) { return p.tabs && p.tabs.side; }) && window.innerWidth >= 1100;
+    box.style.gridTemplateColumns = wide ? panes.map(function (p) { return p.tabs && p.tabs.side ? "minmax(0, 1.45fr)" : "minmax(0, 1fr)"; }).join(" ")
+      : panes.length > 1 ? "repeat(auto-fit, minmax(420px, 1fr))" : "1fr";
+    panes.forEach(function (p) { box.appendChild(pane(p)); });
+    modal.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+  }
+  function close() { modal.classList.add("hidden"); document.body.style.overflow = ""; box.innerHTML = ""; }
+  modal.querySelectorAll("[data-xv-close]").forEach(function (b) { b.addEventListener("click", close); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape" || modal.classList.contains("hidden")) return;
+    if (box.querySelector(".xv-picking")) { box.querySelectorAll(".xv-mark button.bg-violet-600").forEach(function (b) { b.click(); }); return; }
+    close();
+  });
+
+  window.narxViewer = {open: open, close: close, fileTabs: fileTabs, candTabs: candTabs, tagHtml: tagHtml, tone: tone, esc: esc,
+    setBadge: function (html) { document.getElementById("xv-ov").innerHTML = html || ""; }};
+})();
+</script>

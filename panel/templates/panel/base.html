@@ -1,0 +1,38 @@
+{% extends "jobs/base.html" %}
+{% load narx %}
+{% block header_class %}w-full px-4 lg:px-6{% endblock %}
+{% block main_class %}w-full{% endblock %}
+{% block content %}
+{% csrf_token %}
+<div class="lg:flex lg:min-h-[calc(100vh-57px)]">
+  {# ================= чап меню ================= #}
+  <aside class="bg-slate-900 text-slate-300 lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-60 lg:shrink-0 lg:flex-col">
+    <div class="hidden items-center gap-3 border-b border-white/10 px-5 py-5 lg:flex">
+      <span class="grid h-9 w-9 place-items-center rounded-lg bg-white/10 text-white">{% icon "shield" "h-5 w-5" %}</span>
+      <div class="min-w-0">
+        <div class="truncate text-sm font-semibold text-white">Бошқарув панели</div>
+        <div class="truncate text-[11px] text-slate-400">{% if can_act %}Суперфойдаланувчи{% else %}Фақат кўриш{% endif %}</div>
+      </div>
+    </div>
+    <nav class="flex gap-1 overflow-x-auto px-3 py-2 text-sm lg:flex-1 lg:flex-col lg:overflow-visible lg:py-4" aria-label="Панел бўлимлари">
+      <div class="hidden px-3 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wider text-slate-500 lg:block">Асосий</div>
+      {% include "panel/_side_link.html" with key="overview" url="panel:overview" ic="grid" label="Умумий" %}
+      {% include "panel/_side_link.html" with key="processes" url="panel:processes" ic="activity" label="Жараёнлар" badge=running_count %}
+      {% include "panel/_side_link.html" with key="users" url="panel:users" ic="users" label="Фойдаланувчилар" %}
+      {% include "panel/_side_link.html" with key="stats" url="panel:stats" ic="chart" label="Статистика" %}
+      {% include "panel/_side_link.html" with key="speed" url="panel:speed" ic="clock" label="Тезлик" %}
+      <div class="hidden px-3 pb-1 pt-4 text-[11px] font-medium uppercase tracking-wider text-slate-500 lg:block">Маълумот</div>
+      {% include "panel/_side_link.html" with key="files" url="panel:files" ic="database" label="Файллар" %}
+      {% include "panel/_side_link.html" with key="log" url="panel:log" ic="lock" label="Журнал ва хавфсизлик" %}
+    </nav>
+    <div class="hidden border-t border-white/10 p-3 lg:block">
+      <a href="{% url 'dashboard' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white">{% icon "arrow-left" %} Ишчи қисмга қайтиш</a>
+    </div>
+  </aside>
+
+  {# ================= контент ================= #}
+  <div class="min-w-0 flex-1 px-4 py-6 lg:px-8">
+    {% block panel %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

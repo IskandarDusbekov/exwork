@@ -1,0 +1,52 @@
+{% load narx %}{# фондаги битта папка: pr (data.processes) #}
+<div class="rounded-xl border {% if pr.stalled %}border-amber-200 bg-amber-50/40{% else %}border-slate-200 bg-white{% endif %} p-4">
+  <div class="flex flex-wrap items-start gap-3">
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg {% if pr.stalled %}bg-amber-100 text-amber-700{% else %}bg-sky-50 text-sky-600{% endif %}">
+      {% if pr.stalled %}{% icon "alert" "h-5 w-5" %}{% else %}{% icon "loader" "h-5 w-5 animate-spin" "2.5" %}{% endif %}</span>
+    <div class="min-w-0 flex-1">
+      <a href="{% url 'panel:work' 'folder' pr.project.id %}" class="block truncate font-semibold hover:underline" title="{{ pr.project.name }}">{{ pr.project.name }}</a>
+      <div class="truncate text-xs text-slate-500">
+        <a href="{% url 'panel:user' pr.owner.pk %}" class="hover:underline">{{ pr.owner.get_full_name|default:pr.owner.email }}</a>
+        · бошланди {{ pr.project.run_started|default:pr.project.created|date:"H:i" }}
+        {% if pr.stalled %}· <b class="text-amber-700">тўхтаб қолган ({% if pr.beat_age %}{{ pr.beat_age|dur }} белги йўқ{% else %}белги йўқ{% endif %})</b>{% endif %}
+        {% if pr.stop_requested %}· <b class="text-amber-700">тўхтатиш сўралган</b>{% endif %}
+      </div>
+    </div>
+    <div class="grid shrink-0 grid-cols-3 gap-4 text-right">
+      <div><div class="text-[10px] uppercase tracking-wider text-slate-400">Ўтди</div><div class="num text-sm font-semibold">{{ pr.elapsed|dur }}</div></div>
+      <div><div class="text-[10px] uppercase tracking-wider text-slate-400">Қолди ~</div><div class="num text-sm font-semibold">{% if pr.eta is not None %}{{ pr.eta|dur }}{% else %}—{% endif %}</div></div>
+      <div><div class="text-[10px] uppercase tracking-wider text-slate-400">Тайёр</div><div class="num text-sm font-semibold">{{ pr.percent }}%</div></div>
+    </div>
+  </div>
+
+  {# қисмлар бўйича сегментли прогресс #}
+  <div class="mt-3 flex h-2.5 overflow-hidden rounded-full bg-slate-100" title="{{ pr.finished }} тайёр · {{ pr.counts.pricing }} нархланяпти · {{ pr.counts.converting }} очиляпти · {{ pr.counts.queued }} навбатда">
+    {% if pr.finished %}<div class="h-full bg-emerald-500" style="width: {% widthratio pr.finished pr.parts 100 %}%"></div>{% endif %}
+    {% if pr.counts.pricing %}<div class="h-full animate-pulse bg-indigo-500" style="width: {% widthratio pr.counts.pricing pr.parts 100 %}%"></div>{% endif %}
+    {% if pr.counts.converting %}<div class="h-full animate-pulse bg-sky-500" style="width: {% widthratio pr.counts.converting pr.parts 100 %}%"></div>{% endif %}
+  </div>
+  <div class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+    <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Тайёр <b class="num text-slate-700">{{ pr.finished }}</b>/{{ pr.parts }}</span>
+    {% if pr.counts.pricing %}<span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-indigo-500"></span>Нархланяпти <b class="num text-slate-700">{{ pr.counts.pricing }}</b></span>{% endif %}
+    {% if pr.counts.converting %}<span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-sky-500"></span>Очиляпти <b class="num text-slate-700">{{ pr.counts.converting }}</b></span>{% endif %}
+    {% if pr.counts.queued %}<span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-slate-300"></span>Навбатда <b class="num text-slate-700">{{ pr.counts.queued }}</b></span>{% endif %}
+  </div>
+
+  {% for c in pr.current %}
+  <div class="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+    <div class="flex flex-wrap items-baseline justify-between gap-x-3">
+      <span class="font-medium {% if c.part.stage == 'pricing' %}text-indigo-700{% else %}text-sky-700{% endif %}">{{ c.label }}: {{ c.part.folder|default:c.part.name }}</span>
+      {% if c.since is not None %}<span class="num text-xs text-slate-500">{{ c.since|dur }} давомида</span>{% endif %}
+    </div>
+    {% if c.part.step %}<div class="flex items-baseline justify-between gap-3 text-xs text-slate-600">
+      <span class="truncate" title="{{ c.part.step }}">{{ c.part.step }}</span>
+      {% if c.step_for is not None %}<span class="num shrink-0 {% if c.step_for > 60 %}font-semibold text-amber-700{% else %}text-slate-500{% endif %}" title="шу қадам бошланганидан бери">⏱ {{ c.step_for|dur }}</span>{% endif %}
+    </div>{% endif %}
+  </div>
+  {% endfor %}
+
+  {% if can_act and not pr.stop_requested and stop_button %}
+  <form method="post" action="{% url 'panel:work_stop' pr.project.id %}" class="mt-3 text-right" onsubmit="return confirm('«{{ pr.project.name|escapejs }}» тўхтатилсинми? Очилганлари сақланади.')">{% csrf_token %}<input type="hidden" name="back" value="processes">
+    <button class="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100">{% icon "stop" "h-3.5 w-3.5" %} Тўхтатиш</button></form>
+  {% endif %}
+</div>

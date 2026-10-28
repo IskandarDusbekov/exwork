@@ -1,0 +1,48 @@
+{% load narx %}{# VS Code «Explorer» каби: папка (йиғилади), ичидаги файллар ва натижа файллари #}
+<details class="tree-folder" data-path="{{ node.path }}" open>
+  <summary class="tree-row group" style="padding-left: calc({% widthratio node.depth 1 18 %}px + 8px)" title="{{ node.path|default:node.name }}">
+    <span class="tree-chevron">{% icon "chevron-right" "h-4 w-4" "2.5" %}</span>
+    <span class="tree-ico-closed text-amber-500">{% icon "folder" "h-[18px] w-[18px]" "1.75" %}</span>
+    <span class="tree-ico-open text-amber-500">{% icon "folder-open" "h-[18px] w-[18px]" "1.75" %}</span>
+    <span class="tree-name {% if node.depth == 0 %}font-semibold uppercase tracking-wide text-xs{% endif %}">{{ node.name }}</span>
+    {% include "jobs/_tree_state.html" with state=node.state count=node.not_priced message=node.part.batch.message %}
+    {% if node.part.jobs|length == 1 %}<a href="{% url 'job' node.part.jobs.0.id %}" class="tree-open" title="Сметани очиш">{% icon "external" "h-3.5 w-3.5" %} очиш</a>
+    {% elif node.part and node.state != "queued" and node.state != "converting" and node.state != "empty" %}<a href="{% url 'batch' node.part.batch.id %}" class="tree-open" title="Қисмни очиш">{% icon "external" "h-3.5 w-3.5" %} очиш</a>{% endif %}
+  </summary>
+  <div class="tree-children" style="--guide: {% widthratio node.depth 1 18 %}px">
+    {% for child in node.folders %}{% include "jobs/_tree_node.html" with node=child %}{% endfor %}
+    {% for f in node.files %}
+    {% with depth=node.depth|add:1 %}
+    {% if f.skip %}
+    <div class="tree-row tree-file text-slate-400" style="padding-left: calc({% widthratio depth 1 18 %}px + 8px)" title="{{ f.name }} — {{ f.skip }}">
+      <span class="tree-chevron"></span>{% icon "file" "h-[18px] w-[18px] shrink-0" "1.75" %}
+      <span class="tree-name italic">{{ f.name }}</span><span class="tree-deco text-[10px] text-slate-400">{{ f.skip }}</span>
+    </div>
+    {% else %}
+    {% if f.role == "local" and f.jobs|length == 1 %}<a href="{% url 'job' f.jobs.0.id %}"{% elif node.part.jobs|length == 1 %}<a href="{% url 'job' node.part.jobs.0.id %}"{% elif node.part %}<a href="{% url 'batch' node.part.batch.id %}"{% else %}<div{% endif %}
+       class="tree-row tree-file" style="padding-left: calc({% widthratio depth 1 18 %}px + 8px)"
+       title="{{ f.name }}{% if f.role == 'local' %} — локал (иш ҳажмлари), очиш{% elif f.role == 'resource' %} — ресурс (нархлар){% endif %}">
+      <span class="tree-chevron"></span>
+      <span class="{% if f.role == 'local' %}text-emerald-600{% elif f.role == 'resource' %}text-sky-600{% elif f.role == 'summary' %}text-violet-500{% else %}text-slate-400{% endif %}">{% icon "sheet" "h-[18px] w-[18px] shrink-0" "1.75" %}</span>
+      <span class="tree-name">{{ f.name }}</span>
+      {% if f.role == "local" %}<span class="tree-deco font-semibold text-emerald-700" title="Локал">Л</span>
+      {% elif f.role == "resource" %}<span class="tree-deco font-semibold text-sky-700" title="Ресурс">Р</span>
+      {% elif f.role == "summary" %}<span class="tree-deco text-[11px] text-slate-400" title="Умумий ҳисоб файли — смета эмас, нархланмайди">умумий</span>
+      {% elif f.role == "unknown" %}<span class="tree-deco text-slate-400" title="Локал ҳам, ресурс ҳам эмас">—</span>{% endif %}
+    {% if f.role == "local" and f.jobs|length == 1 or node.part %}</a>{% else %}</div>{% endif %}
+    {% endif %}
+    {% endwith %}
+    {% endfor %}
+    {% for r in node.results %}
+    {% with depth=node.depth|add:1 %}
+    <a href="{% url 'job_download' r.job.id %}" class="tree-row tree-file tree-result" style="padding-left: calc({% widthratio depth 1 18 %}px + 8px)" title="Натижани юклаб олиш: {{ r.name }}">
+      <span class="tree-chevron"></span>
+      <span class="text-emerald-600">{% icon "download" "h-[18px] w-[18px] shrink-0" "1.75" %}</span>
+      <span class="tree-name font-medium text-emerald-800">{{ r.name }}</span>
+      {% if r.job.result.stats.NOT_PRICED %}<span class="tree-deco rounded bg-rose-100 px-1 font-semibold text-rose-700" title="нархланмаган қатор">{{ r.job.result.stats.NOT_PRICED }}</span>
+      {% else %}<span class="tree-deco font-semibold text-emerald-700" title="Натижа">Н</span>{% endif %}
+    </a>
+    {% endwith %}
+    {% endfor %}
+  </div>
+</details>

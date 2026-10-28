@@ -1,0 +1,94 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Панел — Нархлаш{% endblock %}
+{% block panel %}
+<div class="mb-5 flex flex-wrap items-end justify-between gap-2">
+  <div>
+    <h1 class="text-2xl font-semibold">Умумий</h1>
+    <p class="text-sm text-slate-500">Тизимда ҳозир нима бўляпти ва жами кўрсаткичлар</p>
+  </div>
+  <a href="{% url 'panel:stats' %}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">{% icon "chart" %} Батафсил статистика</a>
+</div>
+
+{# ================= ҳозир (жонли) ================= #}
+<div id="live" data-url="{% url 'panel:live' %}">{% include "panel/_live.html" %}</div>
+
+{# ================= жами ================= #}
+<h2 class="mb-2 mt-8 text-sm font-semibold uppercase tracking-wider text-slate-500">Жами</h2>
+<div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+  <a href="{% url 'panel:users' %}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300">
+    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">{% icon "users" "h-4 w-4" %} Фойдаланувчилар</div>
+    <div class="num mt-2 text-3xl font-semibold">{{ users_total }}</div>
+    <div class="mt-1 text-xs text-slate-500">+{{ users_new }} шу ҳафта · {{ users_online }} та 24 соатда кирган{% if users_inactive %} · <span class="text-rose-600">{{ users_inactive }} блокда</span>{% endif %}</div>
+  </a>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">{% icon "layers" "h-4 w-4" %} Ишлар</div>
+    <div class="num mt-2 text-3xl font-semibold">{{ works.folder|add:works.object|add:works.smeta }}</div>
+    <div class="mt-1 text-xs text-slate-500">{{ works.folder }} папка · {{ works.object }} объект · {{ works.smeta }} смета</div>
+  </div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-emerald-600">{% icon "check-circle" "h-4 w-4" %} Нархланган сметалар</div>
+    <div class="mt-2 flex items-baseline gap-2"><span class="num text-3xl font-semibold">{{ jobs_priced }}</span><span class="text-sm text-slate-400">/ {{ jobs_total }}</span></div>
+    <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width: {% widthratio jobs_priced jobs_total 100 %}%"></div></div>
+    <div class="mt-1 text-xs {% if jobs_failed %}text-rose-600{% else %}text-slate-500{% endif %}">{{ jobs_failed }} та хато билан</div>
+  </div>
+  <a href="{% url 'panel:files' %}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300">
+    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">{% icon "database" "h-4 w-4" %} Дискда</div>
+    <div class="num mt-2 text-3xl font-semibold">{{ disk|hsize }}</div>
+    <div class="mt-1 text-xs text-slate-500">юкланган ва натижа файллари</div>
+  </a>
+</div>
+
+<div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex items-baseline justify-between"><h2 class="font-semibold">Юклашлар</h2><span class="text-xs text-slate-400">14 кун</span></div>
+    {% include "panel/_days.html" with days=upload_days color="bg-emerald-500" %}
+  </section>
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex items-baseline justify-between"><h2 class="font-semibold">Рўйхатдан ўтганлар</h2><span class="text-xs text-slate-400">14 кун</span></div>
+    {% include "panel/_days.html" with days=reg_days color="bg-violet-500" %}
+  </section>
+  <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Энг фаол смета­чилар</h2></div>
+    <ul class="divide-y divide-slate-100">
+      {% for t in top %}
+      <li><a href="{% url 'panel:user' t.user.pk %}" class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50">
+        <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">{{ t.user.first_name|first|upper }}{{ t.user.last_name|first|upper }}</span>
+        <span class="min-w-0 flex-1"><span class="block truncate text-sm font-medium">{{ t.user.get_full_name|default:t.user.email }}</span>
+          <span class="block truncate text-xs text-slate-500">{{ t.folder }} папка · {{ t.object }} объект · {{ t.smeta }} смета</span></span>
+        <span class="text-right"><span class="num block text-sm font-semibold">{{ t.jobs }}</span><span class="block text-[11px] text-slate-400">смета</span></span>
+      </a></li>
+      {% empty %}<li class="px-4 py-10 text-center text-sm text-slate-400">Ҳали иш йўқ</li>{% endfor %}
+    </ul>
+  </section>
+</div>
+
+<section class="mt-3 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+    <h2 class="font-semibold">Сўнгги ҳаракатлар</h2>
+    <a href="{% url 'panel:log' %}" class="text-xs text-slate-500 hover:text-slate-900">Тўлиқ журнал →</a>
+  </div>
+  <ul class="divide-y divide-slate-100">
+    {% for ev in events %}{% include "panel/_event.html" %}{% empty %}<li class="px-4 py-10 text-center text-sm text-slate-400">Журнал бўш</li>{% endfor %}
+  </ul>
+</section>
+
+<script>
+  // «Ҳозир» блоки: ҳар 3 сонияда сервердан янги ҳолат (саҳифа қайта юкланмайди)
+  (function () {
+    var box = document.getElementById("live");
+    function tick() {
+      if (document.hidden) return;
+      fetch(box.dataset.url, {credentials: "same-origin", headers: {"X-Requested-With": "fetch"}})
+        .then(function (r) {
+          if (r.redirected) { location.reload(); throw r; }  // сессия тугаган — кириш саҳифасига
+          if (!r.ok) throw r;
+          return r.text();
+        })
+        .then(function (html) { box.innerHTML = html; })
+        .catch(function () {});
+    }
+    setInterval(tick, 3000);
+  })();
+</script>
+{% endblock %}

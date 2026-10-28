@@ -1,0 +1,36 @@
+{% load narx %}{# асл файллар жадвали: files = [{name, path, size, abs, skip, i, kind, work, created}], show_owner #}
+<div class="overflow-x-auto">
+  <table class="w-full min-w-[44rem] text-sm">
+    <thead class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
+      <tr>
+        <th class="px-4 py-2 font-medium">Файл</th>
+        {% if show_owner %}<th class="px-3 py-2 font-medium">Эгаси</th>{% endif %}
+        <th class="px-3 py-2 font-medium">Иш</th>
+        <th class="px-3 py-2 text-right font-medium">Ҳажми</th>
+        <th class="px-3 py-2 font-medium">Санаси</th>
+        <th class="w-10 px-3 py-2"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for f in files %}
+      <tr class="hover:bg-slate-50">
+        <td class="max-w-md px-4 py-2">
+          <span class="flex items-center gap-2"><span class="{% if f.skip %}text-slate-300{% else %}text-emerald-600{% endif %}">{% icon "sheet" "h-4 w-4" %}</span>
+            <span class="min-w-0"><span class="block truncate {% if f.skip %}text-slate-400{% else %}text-slate-800{% endif %}" title="{{ f.path }}">{{ f.path }}</span>
+              {% if f.skip %}<span class="block truncate text-xs text-slate-400">олинмади: {{ f.skip }}</span>{% endif %}</span></span>
+        </td>
+        {% if show_owner %}<td class="px-3 py-2"><a href="{% url 'panel:user' f.work.owner_id %}" class="truncate text-slate-600 hover:underline">{{ f.work.owner.email }}</a></td>{% endif %}
+        <td class="max-w-[14rem] px-3 py-2"><a href="{% url 'panel:work' f.kind f.work.id %}" class="block truncate text-slate-600 hover:underline" title="{% if f.kind == 'smeta' %}{{ f.work.local_name }}{% else %}{{ f.work.name }}{% endif %}">
+          <span class="text-xs text-slate-400">{% if f.kind == "folder" %}Папка{% elif f.kind == "object" %}Объект{% else %}Смета{% endif %} ·</span> {% if f.kind == 'smeta' %}{{ f.work.local_name }}{% else %}{{ f.work.name }}{% endif %}</a></td>
+        <td class="num px-3 py-2 text-right text-slate-600">{{ f.size|hsize }}</td>
+        <td class="num px-3 py-2 text-slate-500">{{ f.created|date:"d.m.Y H:i" }}</td>
+        <td class="px-3 py-2 text-right">
+          {% if can_act and f.abs %}<a href="{% url 'panel:work_file' f.kind f.work.id f.i %}" class="inline-grid h-7 w-7 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900" title="Юклаб олиш (журналга ёзилади)" aria-label="Юклаб олиш: {{ f.name }}">{% icon "download" "h-4 w-4" %}</a>{% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">Файл йўқ</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

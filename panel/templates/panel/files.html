@@ -1,0 +1,39 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Файллар — Панел{% endblock %}
+{% block panel %}
+<div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)]">
+  <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3">
+      <h2 class="font-semibold">Диск</h2>
+      <p class="num text-2xl font-semibold">{{ disk|hsize }}</p>
+      <p class="text-xs text-slate-500">асл файллар, очилган нусхалар ва натижалар</p>
+    </div>
+    <ul class="divide-y divide-slate-100">
+      {% for r in by_user %}
+      <li><a href="?user={{ r.user.pk }}" class="block px-4 py-2 text-sm hover:bg-slate-50 {% if owner == r.user.pk|stringformat:'s' %}bg-slate-50{% endif %}">
+        <div class="flex items-baseline justify-between gap-2"><span class="truncate">{{ r.user.get_full_name|default:r.user.email }}</span><span class="num shrink-0 font-medium">{{ r.size|hsize }}</span></div>
+        {% widthratio r.size disk 100 as w %}<div class="mt-1 h-1 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-slate-500" style="width: {{ w }}%"></div></div>
+      </a></li>
+      {% empty %}<li class="px-4 py-6 text-center text-sm text-slate-400">Бўш</li>{% endfor %}
+    </ul>
+  </section>
+
+  <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
+    <form method="get" class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
+      <label class="relative block w-full sm:w-64">
+        <span class="pointer-events-none absolute inset-y-0 left-2.5 grid place-items-center text-slate-400">{% icon "search" "h-4 w-4" %}</span>
+        <input name="q" value="{{ q }}" type="search" placeholder="Файл номи ёки йўли" class="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-sm outline-none focus:border-slate-400">
+      </label>
+      <select name="user" onchange="this.form.submit()" class="max-w-[16rem] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-slate-400" aria-label="Фойдаланувчи">
+        <option value="">Барча фойдаланувчилар</option>
+        {% for u in all_users %}<option value="{{ u.pk }}" {% if owner == u.pk|stringformat:'s' %}selected{% endif %}>{{ u.email }}</option>{% endfor %}
+      </select>
+      <button class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">Қидириш</button>
+      <span class="ml-auto text-xs text-slate-500">{{ total }} та · {{ total_size|hsize }}</span>
+    </form>
+    {% include "panel/_files_table.html" with files=page show_owner=True %}
+  </section>
+</div>
+{% include "panel/_pager.html" %}
+{% endblock %}

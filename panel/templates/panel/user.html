@@ -1,0 +1,158 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}{{ u.get_full_name|default:u.email }} — Панел{% endblock %}
+{% block panel %}
+<a href="{% url 'panel:users' %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" %} Фойдаланувчилар</a>
+
+<div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+  {# ================= профил ================= #}
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex items-center gap-3">
+      <span class="grid h-12 w-12 shrink-0 place-items-center rounded-full {% if u.is_superuser %}bg-slate-900 text-white{% else %}bg-slate-100 text-slate-600{% endif %} font-semibold">{{ u.first_name|first|upper }}{{ u.last_name|first|upper }}</span>
+      <div class="min-w-0">
+        <h2 class="truncate text-lg font-semibold">{{ u.get_full_name|default:"—" }}</h2>
+        <p class="truncate text-sm text-slate-500">{{ u.email }}</p>
+      </div>
+    </div>
+    <div class="mt-3 flex flex-wrap gap-1.5 text-xs">
+      {% if u.is_active %}<span class="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">Фаол</span>{% else %}<span class="rounded-full bg-rose-100 px-2 py-0.5 font-medium text-rose-700">Блокланган</span>{% endif %}
+      {% if u.is_superuser %}<span class="rounded-full bg-slate-900 px-2 py-0.5 font-medium text-white">Суперфойдаланувчи</span>{% elif u.is_staff %}<span class="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-700">Панелга рухсат</span>{% endif %}
+      {% if u.email_verified %}<span class="rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700">Email тасдиқланган</span>{% else %}<span class="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-500">Email тасдиқланмаган</span>{% endif %}
+      {% if locked %}<span class="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">Кириш вақтинча блокда</span>{% endif %}
+    </div>
+    <dl class="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+      <dt class="text-slate-500">Рўйхатдан</dt><dd class="num text-right">{{ u.date_joined|date:"d.m.Y H:i" }}</dd>
+      <dt class="text-slate-500">Охирги кириш</dt><dd class="num text-right">{{ u.last_login|date:"d.m.Y H:i"|default:"—" }}</dd>
+      <dt class="text-slate-500">Папка / объект / смета</dt><dd class="num text-right">{{ c.folder|default:0 }} / {{ c.object|default:0 }} / {{ c.smeta|default:0 }}</dd>
+      <dt class="text-slate-500">Нархланган сметалар</dt><dd class="num text-right">{{ c.priced|default:0 }} / {{ c.jobs|default:0 }}</dd>
+      <dt class="text-slate-500">Хато билан</dt><dd class="num text-right {% if c.failed %}text-rose-600{% endif %}">{{ c.failed|default:0 }}</dd>
+      <dt class="text-slate-500">Юклаган файллар</dt><dd class="num text-right">{{ files_total }} · {{ files_size|hsize }}</dd>
+      <dt class="text-slate-500">Дискда жами</dt><dd class="num text-right">{{ disk|hsize }}</dd>
+    </dl>
+
+    {% if can_act and u.pk != user.pk and not u.is_superuser %}
+    <div class="mt-5 space-y-2 border-t border-slate-100 pt-4">
+      <form method="post" action="{% url 'panel:user_toggle' u.pk 'is_active' %}" onsubmit="return confirm('{% if u.is_active %}Блокланса — дарҳол тизимдан чиқарилади ва кира олмайди. Давом этилсинми?{% else %}Блокдан чиқарилсинми?{% endif %}')">{% csrf_token %}
+        <button class="w-full rounded-lg {% if u.is_active %}border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100{% else %}bg-emerald-600 text-white hover:bg-emerald-700{% endif %} px-3 py-2 text-sm font-medium">{% if u.is_active %}Блоклаш{% else %}Блокдан чиқариш{% endif %}</button>
+      </form>
+      <form method="post" action="{% url 'panel:user_toggle' u.pk 'is_staff' %}" onsubmit="return confirm('{% if u.is_staff %}Панел рухсати олинсинми?{% else %}Панелни кўриш рухсати берилсинми? (фақат кўриш, ўзгартира олмайди){% endif %}')">{% csrf_token %}
+        <button class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">{% if u.is_staff %}Панел рухсатини олиш{% else %}Панелни кўришга рухсат бериш{% endif %}</button>
+      </form>
+      <form method="post" action="{% url 'panel:sessions_revoke' u.pk %}" onsubmit="return confirm('Барча қурилмалардан тизимдан чиқарилсинми? (блокланмайди — қайта кира олади)')">{% csrf_token %}
+        <button class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Барча қурилмалардан чиқариш</button>
+      </form>
+      {% if locked %}
+      <form method="post" action="{% url 'panel:user_unlock' u.pk %}">{% csrf_token %}
+        <button class="w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100">Кириш блокини олиб ташлаш</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
+
+  {# ================= ишлари ================= #}
+  <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+      <h2 class="font-semibold">Ишлари</h2><span class="text-xs text-slate-400">{{ items|length }} та</span>
+    </div>
+    <ul class="max-h-[32rem] divide-y divide-slate-100 overflow-y-auto">
+      {% for it in items %}
+      <li class="flex items-stretch"><a href="{{ it.url }}" class="flex min-w-0 flex-1 items-center gap-3 px-4 py-2.5 hover:bg-slate-50" title="Панелда тафсилот">
+        <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg {% if it.kind == 'folder' %}bg-amber-50 text-amber-600{% elif it.kind == 'object' %}bg-slate-100 text-slate-500{% else %}bg-emerald-50 text-emerald-600{% endif %}">
+          {% if it.kind == "folder" %}{% icon "folder" "h-4 w-4" %}{% elif it.kind == "object" %}{% icon "layers" "h-4 w-4" %}{% else %}{% icon "sheet" "h-4 w-4" %}{% endif %}</span>
+        <span class="min-w-0 flex-1"><span class="block truncate text-sm font-medium" title="{{ it.name }}">{{ it.name }}</span>
+          <span class="block truncate text-xs text-slate-500">{% if it.kind == "folder" %}Папка{% elif it.kind == "object" %}Объект{% else %}Смета{% endif %}{% if it.meta %} · {{ it.meta }}{% endif %} · {{ it.created|date:"d.m.Y H:i" }}</span></span>
+        {% include "jobs/_work_badge.html" %}
+        <span class="num hidden w-36 text-right text-sm font-semibold text-slate-700 sm:block">{% if it.total %}{{ it.total|som }}{% else %}<span class="text-slate-300">—</span>{% endif %}</span>
+      </a>
+      {% if can_act %}
+      <a href="{{ it.view_url }}" class="grid w-10 shrink-0 place-items-center border-l border-slate-100 text-slate-400 hover:bg-slate-50 hover:text-slate-900" title="Смета­чи кўринишида очиш (текширув режими)" aria-label="Очиш: {{ it.name }}">{% icon "external" "h-4 w-4" %}</a>
+      {% if it.download_url %}<a href="{{ it.download_url }}" class="grid w-10 shrink-0 place-items-center border-l border-slate-100 text-slate-400 hover:bg-slate-50 hover:text-slate-900" title="Натижани юклаб олиш" aria-label="Юклаб олиш: {{ it.name }}">{% icon "download" "h-4 w-4" %}</a>
+      {% else %}<span class="w-10 shrink-0 border-l border-slate-100"></span>{% endif %}
+      {% endif %}
+      </li>
+      {% empty %}
+      <li class="px-4 py-10 text-center text-sm text-slate-400">Ҳали ҳеч нарса юкламаган</li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+
+<div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+  <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+      <h2 class="font-semibold">Киришлар (қурилма ва IP)</h2><span class="text-xs text-slate-400">охирги 30 та</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[44rem] text-sm">
+        <thead class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
+          <tr><th class="px-4 py-2 font-medium">Қурилма</th><th class="px-3 py-2 font-medium">IP</th><th class="px-3 py-2 font-medium">Кирди</th><th class="px-3 py-2 font-medium">Охирги фаоллик</th><th class="px-3 py-2"></th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for s in sessions %}
+          <tr class="{% if s.ended %}text-slate-400{% endif %}">
+            <td class="px-4 py-2"><span class="flex items-center gap-2">
+              <span class="{% if not s.ended and s.last_seen >= online_since %}text-emerald-600{% else %}text-slate-400{% endif %}">{% if s.device == 'phone' or s.device == 'tablet' %}{% icon "phone" "h-4 w-4" %}{% else %}{% icon "monitor" "h-4 w-4" %}{% endif %}</span>
+              <span class="min-w-0" title="{{ s.user_agent }}"><span class="block truncate {% if not s.ended %}text-slate-800{% endif %}">{{ s.browser }} · {{ s.os }}</span><span class="block text-xs">{{ s.device_label }}</span></span></span></td>
+            <td class="num px-3 py-2">{{ s.ip|default:"—" }}{% if s.ip in blocked_ips %} <span class="rounded bg-rose-100 px-1 text-[10px] font-medium text-rose-700">блокда</span>{% endif %}</td>
+            <td class="num px-3 py-2 text-xs">{{ s.created|date:"d.m.Y H:i" }}</td>
+            <td class="px-3 py-2 text-xs">
+              {% if s.ended %}<span>{{ s.ended|date:"d.m H:i" }} · {% if s.end_reason == 'logout' %}чиқди{% elif s.end_reason == 'blocked' %}блокланди{% else %}админ тугатди{% endif %}</span>
+              {% elif s.last_seen >= online_since %}<span class="font-medium text-emerald-600">Онлайн</span>
+              {% else %}<span class="num text-slate-600">{{ s.last_seen|date:"d.m H:i" }}</span>{% endif %}
+            </td>
+            <td class="px-3 py-2 text-right">
+              {% if can_act %}<div class="inline-flex gap-1">
+                {% if not s.ended %}<form method="post" action="{% url 'panel:session_revoke' u.pk s.pk %}" onsubmit="return confirm('Шу қурилмадан тизимдан чиқарилсинми?')">{% csrf_token %}
+                  <button class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Чиқариш</button></form>{% endif %}
+                {% if s.ip and s.ip not in blocked_ips and s.ip != my_ip %}<form method="post" action="{% url 'panel:ip_block' %}" onsubmit="return confirm('{{ s.ip }} блоклансинми? Шу манзилдан ҳеч ким кира олмайди.')">{% csrf_token %}
+                  <input type="hidden" name="ip" value="{{ s.ip }}"><input type="hidden" name="user" value="{{ u.pk }}"><input type="hidden" name="next" value="{{ request.path }}"><input type="hidden" name="reason" value="{{ u.email }} сессиясидан">
+                  <button class="rounded-md border border-rose-200 px-2 py-0.5 text-xs font-medium text-rose-700 hover:bg-rose-50">IP блок</button></form>{% endif %}
+              </div>{% endif %}
+            </td>
+          </tr>
+          {% empty %}<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Кириш ёзилмаган (кузатув шу янгиланишдан бошланди)</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">IP манзиллари</h2></div>
+    <ul class="divide-y divide-slate-100 text-sm">
+      {% for ip, n in ips %}
+      <li class="flex items-center gap-2 px-4 py-2">
+        <a href="{% url 'panel:log' %}?q={{ ip|urlencode }}" class="num flex-1 truncate hover:underline">{{ ip|default:"—" }}</a>
+        <span class="num text-xs text-slate-400">{{ n }} марта</span>
+        {% if can_act and ip %}
+          {% if ip in blocked_ips %}
+          <form method="post" action="{% url 'panel:ip_block' %}">{% csrf_token %}<input type="hidden" name="ip" value="{{ ip }}"><input type="hidden" name="action" value="unblock"><input type="hidden" name="user" value="{{ u.pk }}"><input type="hidden" name="next" value="{{ request.path }}">
+            <button class="rounded-md bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 hover:bg-rose-200" title="Блокдан чиқариш">Блокда ✕</button></form>
+          {% elif ip != my_ip %}
+          <form method="post" action="{% url 'panel:ip_block' %}" onsubmit="return confirm('{{ ip }} блоклансинми?')">{% csrf_token %}<input type="hidden" name="ip" value="{{ ip }}"><input type="hidden" name="user" value="{{ u.pk }}"><input type="hidden" name="next" value="{{ request.path }}"><input type="hidden" name="reason" value="{{ u.email }}">
+            <button class="rounded-md border border-rose-200 px-2 py-0.5 text-xs font-medium text-rose-700 hover:bg-rose-50">Блоклаш</button></form>
+          {% else %}<span class="text-[11px] text-slate-400">сизнинг IP</span>{% endif %}
+        {% endif %}
+      </li>
+      {% empty %}<li class="px-4 py-8 text-center text-slate-400">Йўқ</li>{% endfor %}
+    </ul>
+  </section>
+</div>
+
+<section class="mt-3 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+    <h2 class="font-semibold">Юклаган файллари</h2>
+    <span class="text-xs text-slate-400">{{ files_total }} та{% if files_total > 200 %} · охирги 200 таси{% endif %} · <a href="{% url 'panel:files' %}?user={{ u.pk }}" class="hover:underline">ҳаммаси →</a></span>
+  </div>
+  {% include "panel/_files_table.html" %}
+</section>
+
+<section class="mt-3 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+    <h2 class="font-semibold">Ҳаракатлари</h2>
+    <a href="{% url 'panel:log' %}?q={{ u.email|urlencode }}" class="text-xs text-slate-500 hover:text-slate-900">Журналда →</a>
+  </div>
+  <ul class="divide-y divide-slate-100">
+    {% for ev in events %}{% include "panel/_event.html" %}{% empty %}<li class="px-4 py-10 text-center text-sm text-slate-400">Ҳаракат ёзилмаган</li>{% endfor %}
+  </ul>
+</section>
+{% endblock %}

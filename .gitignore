@@ -218,3 +218,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Нархлаш: yuklangan va natija fayllar
+media/
+
+# IDE sozlamalari
+.idea/
+
+# deploy sirlari
+deploy/.env

@@ -1,0 +1,136 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Тезлик — Панел{% endblock %}
+{% block panel %}
+<div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="text-2xl font-semibold">Тезлик</h1>
+    <p class="text-sm text-slate-500">Файлларни очиш (.xls → .xlsx, ўқиш, таҳлил) ва нархлаш — охирги {{ days }} кун</p>
+  </div>
+  <div class="inline-flex rounded-lg bg-slate-100 p-1 text-sm" aria-label="Давр">
+    {% for d in periods %}<a href="?days={{ d }}" class="rounded-md px-3 py-1 font-medium {% if d == days %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}">{{ d }} кун</a>{% endfor %}
+  </div>
+</div>
+
+{# ================= ҳозир очилаётган / нархланаётган ================= #}
+{% if live.procs %}
+<section class="mb-4 rounded-xl border border-sky-200 bg-sky-50/50 shadow-sm">
+  <div class="flex items-center gap-2 border-b border-sky-100 px-4 py-3">
+    <span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-sky-500"></span></span>
+    <h2 class="font-semibold">Ҳозир фонда</h2><span class="text-xs text-slate-500">саҳифа ҳар 5 сонияда янгиланади</span>
+  </div>
+  <ul class="divide-y divide-sky-100 text-sm">
+    {% for pr in live.procs %}{% for c in pr.current %}
+    <li class="flex flex-wrap items-center gap-3 px-4 py-2.5">
+      <span class="{% if c.part.stage == 'pricing' %}text-indigo-600{% else %}text-sky-600{% endif %}">{% icon "loader" "h-4 w-4 animate-spin" "2.5" %}</span>
+      <span class="min-w-0 flex-1"><span class="block truncate font-medium">{{ c.part.step|default:c.label }}</span>
+        <span class="block truncate text-xs text-slate-500">{{ c.label }} · {{ pr.project.name }} › {{ c.part.folder|default:c.part.name }} · {{ pr.owner.email }}</span></span>
+      <span class="num shrink-0 text-right"><span class="block font-semibold {% if c.step_for > 60 %}text-amber-700{% endif %}">{{ c.step_for|dur }}</span><span class="block text-[11px] text-slate-400">шу файл</span></span>
+      <span class="num w-20 shrink-0 text-right"><span class="block">{{ c.since|dur }}</span><span class="block text-[11px] text-slate-400">босқич</span></span>
+    </li>
+    {% empty %}<li class="px-4 py-2.5 text-slate-500">{{ pr.project.name }} — навбатда</li>{% endfor %}{% endfor %}
+  </ul>
+</section>
+<script>setInterval(function () { if (!document.hidden) location.reload(); }, 5000);</script>
+{% endif %}
+
+{# ================= файл очиш ================= #}
+<h2 class="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-500">Файл очиш</h2>
+<div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Очилган файл</div><div class="num mt-1 text-2xl font-semibold">{{ sp.files }}</div><div class="text-[11px] text-slate-400">{{ sp.size_total|hsize }} · {{ sp.converted }} та .xls</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider text-sky-600">.xls → .xlsx</div><div class="num mt-1 text-2xl font-semibold">{{ sp.convert_avg|dur }}</div><div class="text-[11px] text-slate-400">ўртача · энг узоғи {{ sp.convert_max|dur }}</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider text-sky-600">Ўгириш, 1 МБ</div><div class="num mt-1 text-2xl font-semibold">{{ sp.convert_per_mb|dur }}</div><div class="text-[11px] text-slate-400">1 МБ .xls га</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider text-slate-500">Листларни ўқиш</div><div class="num mt-1 text-2xl font-semibold">{{ sp.read_avg|dur }}</div><div class="text-[11px] text-slate-400">ўртача, файлга</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider text-slate-500">Таҳлил</div><div class="num mt-1 text-2xl font-semibold">{{ sp.analyze_avg|dur }}</div><div class="text-[11px] text-slate-400">тури, устунлар, нархлар</div></div>
+  <div class="rounded-xl border {% if sp.n_errors %}border-rose-200 bg-rose-50{% else %}border-slate-200 bg-white{% endif %} p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider {% if sp.n_errors %}text-rose-600{% else %}text-slate-400{% endif %}">Битта файл жами</div><div class="num mt-1 text-2xl font-semibold">{{ sp.open_avg|dur }}</div><div class="text-[11px] {% if sp.n_errors %}text-rose-600{% else %}text-slate-400{% endif %}">ўртача · {{ sp.n_errors }} та очилмади</div></div>
+</div>
+
+<div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex items-baseline justify-between"><h3 class="font-semibold">Очилган файллар</h3><span class="text-xs text-slate-400">кунлар бўйича</span></div>
+    {% include "panel/_days.html" with days=sp.per_day color="bg-sky-500" %}
+  </section>
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h3 class="font-semibold">Формат бўйича</h3>
+    <table class="mt-3 w-full text-sm">
+      <thead class="text-left text-xs uppercase tracking-wider text-slate-400"><tr><th class="py-1 font-medium">Формат</th><th class="py-1 text-right font-medium">Сони</th><th class="py-1 text-right font-medium">Ўрт. ҳажм</th><th class="py-1 text-right font-medium">Ўрт. вақт</th><th class="py-1 text-right font-medium">1 МБ</th></tr></thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for r in sp.by_ext %}<tr><td class="py-1.5 font-medium">{{ r.ext }}</td><td class="num py-1.5 text-right">{{ r.n }}</td><td class="num py-1.5 text-right">{{ r.size|hsize }}</td><td class="num py-1.5 text-right">{{ r.avg|dur }}</td><td class="num py-1.5 text-right">{{ r.per_mb|dur }}</td></tr>
+        {% empty %}<tr><td colspan="5" class="py-4 text-center text-slate-400">Ҳали маълумот йўқ</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    {% if sp.by_method %}
+    <h4 class="mt-4 text-xs font-medium uppercase tracking-wider text-slate-400">.xls ни ким ўгиради</h4>
+    <ul class="mt-1 space-y-1 text-sm">{% for m in sp.by_method %}<li class="flex justify-between gap-2"><span>{% if m.method == 'libreoffice' %}LibreOffice{% else %}Microsoft Excel{% endif %} <span class="text-slate-400">· {{ m.n }} та</span></span><span class="num">{{ m.avg|dur }} · {{ m.per_mb|dur }}/МБ</span></li>{% endfor %}</ul>
+    {% endif %}
+  </section>
+  <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3"><h3 class="font-semibold">Энг секин очилган файллар</h3></div>
+    <ul class="divide-y divide-slate-100 text-sm">
+      {% for f in sp.slow_files %}<li class="flex items-center gap-2 px-4 py-2"><span class="min-w-0 flex-1"><span class="block truncate" title="{{ f.name }}">{{ f.name }}</span><span class="block text-xs text-slate-400">{{ f.size|hsize }}{% if f.convert_s %} · ўгириш {{ f.convert_s|dur }}{% endif %} · ўқиш {{ f.read_s|dur }}{% if f.analyze_s %} · таҳлил {{ f.analyze_s|dur }}{% endif %}</span></span><span class="num shrink-0 font-semibold">{{ f.total_s|dur }}</span></li>
+      {% empty %}<li class="px-4 py-6 text-center text-slate-400">Ҳали маълумот йўқ</li>{% endfor %}
+    </ul>
+  </section>
+</div>
+
+{# ================= нархлаш ================= #}
+<h2 class="mb-2 mt-8 text-sm font-semibold uppercase tracking-wider text-slate-500">Нархлаш</h2>
+<div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Нархланган смета</div><div class="num mt-1 text-2xl font-semibold">{{ sp.jobs }}</div><div class="text-[11px] text-slate-400">{{ sp.rows_total }} қатор</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider text-indigo-600">Битта смета</div><div class="num mt-1 text-2xl font-semibold">{{ sp.price_avg|dur }}</div><div class="text-[11px] text-slate-400">ўртача</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider text-indigo-600">1 000 қатор</div><div class="num mt-1 text-2xl font-semibold">{{ sp.per_1000|dur }}</div><div class="text-[11px] text-slate-400">ўртача тезлик</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-[11px] font-medium uppercase tracking-wider text-indigo-600">100 қатор</div><div class="num mt-1 text-2xl font-semibold">{{ sp.per_100|dur }}</div><div class="text-[11px] text-slate-400">ўртача тезлик</div></div>
+</div>
+
+<div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
+  <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h3 class="font-semibold">Смета ҳажми бўйича</h3>
+    <table class="mt-3 w-full text-sm">
+      <thead class="text-left text-xs uppercase tracking-wider text-slate-400"><tr><th class="py-1 font-medium">Қатор</th><th class="py-1 text-right font-medium">Сони</th><th class="py-1 text-right font-medium">Ўрт. вақт</th><th class="py-1 text-right font-medium">1 000 қатор</th></tr></thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for b in sp.buckets %}<tr><td class="py-1.5">{{ b.label }}</td><td class="num py-1.5 text-right">{{ b.n }}</td><td class="num py-1.5 text-right">{{ b.avg|dur }}</td><td class="num py-1.5 text-right">{{ b.per_1000|dur }}</td></tr>
+        {% empty %}<tr><td colspan="4" class="py-4 text-center text-slate-400">Ҳали маълумот йўқ</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3"><h3 class="font-semibold">Энг узоқ нархланган сметалар</h3></div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <tbody class="divide-y divide-slate-100">
+          {% for j in sp.slow_jobs %}<tr class="hover:bg-slate-50">
+            <td class="max-w-xs px-4 py-2"><span class="block truncate" title="{{ j.batch_label|default:j.local_name }}">{{ j.batch_label|default:j.local_name }}</span><span class="block truncate text-xs text-slate-400">{{ j.owner.email }} · {{ j.created|date:"d.m H:i" }}</span></td>
+            <td class="num px-3 py-2 text-right text-slate-500">{{ j.rows|default:"—" }} қатор</td>
+            <td class="num px-4 py-2 text-right font-semibold">{{ j.duration|dur }}</td>
+          </tr>
+          {% empty %}<tr><td class="px-4 py-6 text-center text-slate-400">Ҳали маълумот йўқ</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+{# ================= охирги файллар ================= #}
+<section class="mt-3 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Охирги очилган файллар</h2><span class="text-xs text-slate-400">60 та</span></div>
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[52rem] text-sm">
+      <thead class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
+        <tr><th class="px-4 py-2 font-medium">Файл</th><th class="px-3 py-2 font-medium">Ким</th><th class="px-3 py-2 text-right font-medium">Ҳажм</th><th class="px-3 py-2 text-right font-medium">.xls→.xlsx</th><th class="px-3 py-2 text-right font-medium">Ўқиш</th><th class="px-3 py-2 text-right font-medium">Таҳлил</th><th class="px-3 py-2 text-right font-medium">Жами</th><th class="px-3 py-2 font-medium">Вақт</th></tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for f in sp.recent %}<tr class="{% if f.error %}bg-rose-50/60{% endif %}">
+          <td class="max-w-sm px-4 py-1.5"><span class="block truncate" title="{{ f.name }}">{{ f.name }}</span>{% if f.error %}<span class="block truncate text-xs text-rose-600" title="{{ f.error }}">{{ f.error }}</span>{% endif %}</td>
+          <td class="max-w-[12rem] truncate px-3 py-1.5 text-slate-500">{{ f.owner.email|default:"—" }}</td>
+          <td class="num px-3 py-1.5 text-right text-slate-600">{{ f.size|hsize }}</td>
+          <td class="num px-3 py-1.5 text-right">{% if f.convert_s is not None %}{{ f.convert_s|dur }}{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+          <td class="num px-3 py-1.5 text-right">{{ f.read_s|dur }}</td>
+          <td class="num px-3 py-1.5 text-right">{{ f.analyze_s|dur }}</td>
+          <td class="num px-3 py-1.5 text-right font-semibold">{{ f.total_s|dur }}</td>
+          <td class="num px-3 py-1.5 text-xs text-slate-500">{{ f.created|date:"d.m H:i:s" }}</td>
+        </tr>{% empty %}<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">Ҳали файл очилмаган — бу ўлчов шу янгиланишдан бошланди</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

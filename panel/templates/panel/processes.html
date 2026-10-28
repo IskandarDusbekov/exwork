@@ -1,0 +1,75 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Жараёнлар — Панел{% endblock %}
+{% block panel %}
+<div class="mb-5">
+  <h1 class="text-2xl font-semibold">Жараёнлар</h1>
+  <p class="text-sm text-slate-500">Фонда очилаётган ва нархланаётган папкалар. {{ stale_minutes }} дақиқа белги бўлмаса — «тўхтаб қолган».{% if procs %} Саҳифа ҳар 5 сонияда янгиланади.{% endif %}</p>
+</div>
+<section class="mb-4 rounded-xl border {% if workers.mode == 'worker' and not workers.alive %}border-rose-200 bg-rose-50{% else %}border-slate-200 bg-white{% endif %} shadow-sm">
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+    <h2 class="font-semibold">Фондаги ишчилар (worker)</h2>
+    <span class="text-xs text-slate-500">{% if workers.mode == 'worker' %}Режим: алоҳида жараён · {{ workers.alive }} та тирик{% else %}Режим: сайт ичида (ишлаб чиқиш) — алоҳида worker шарт эмас{% endif %}{% if workers.queued %} · {{ workers.queued }} та навбатда{% endif %}</span>
+  </div>
+  <ul class="divide-y divide-slate-100 text-sm">
+    {% for w in workers.list %}
+    <li class="flex flex-wrap items-center gap-3 px-4 py-2">
+      <span class="h-2 w-2 shrink-0 rounded-full {% if w.alive %}bg-emerald-500{% else %}bg-slate-300{% endif %}"></span>
+      <span class="num font-medium">{{ w.name }}</span>
+      <span class="text-xs text-slate-500">{{ w.threads }} оқим · ҳозир {{ w.busy }} та иш · жами {{ w.done }} та · {{ w.started|date:"d.m H:i" }} дан</span>
+      <span class="num ml-auto text-xs {% if w.alive %}text-emerald-600{% else %}text-rose-600{% endif %}">{% if w.alive %}тирик{% else %}жавоб йўқ · {{ w.last_seen|date:"H:i:s" }}{% endif %}</span>
+    </li>
+    {% empty %}
+    <li class="px-4 py-4 text-sm {% if workers.mode == 'worker' %}text-rose-700{% else %}text-slate-400{% endif %}">{% if workers.mode == 'worker' %}Битта ҳам worker йўқ — серверда <code>python manage.py run_worker</code> ни ишга туширинг{% else %}Worker йўқ (бу режимда керак эмас){% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% for pr in procs %}
+  <div class="{% if not forloop.first %}mt-3{% endif %}">{% include "panel/_proc.html" with stop_button=True %}</div>
+{% empty %}
+  <div class="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-12 text-center text-sm text-slate-400">Ҳозир фонда ҳеч қандай иш йўқ</div>
+{% endfor %}
+
+<div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+  <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Хато билан тугаган сметалар <span class="text-xs font-normal text-slate-400">· 7 кун</span></h2></div>
+    <ul class="divide-y divide-slate-100">
+      {% for j in recent_failed %}
+      <li class="px-4 py-2.5 text-sm">
+        <div class="flex items-baseline justify-between gap-2"><span class="truncate font-medium">{{ j.batch_label|default:j.local_name }}</span><span class="num shrink-0 text-xs text-slate-400">{{ j.created|date:"d.m H:i" }}</span></div>
+        <div class="truncate text-xs text-rose-600" title="{{ j.error }}">{{ j.error|default:"сабаби ёзилмаган" }}</div>
+        <div class="truncate text-xs text-slate-500"><a href="{% url 'panel:user' j.owner_id %}" class="hover:underline">{{ j.owner.email }}</a></div>
+      </li>
+      {% empty %}<li class="px-4 py-8 text-center text-sm text-slate-400">Хато йўқ</li>{% endfor %}
+    </ul>
+  </section>
+  <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Хато берган папка қисмлари</h2></div>
+    <ul class="divide-y divide-slate-100">
+      {% for b in failed_parts %}
+      <li class="px-4 py-2.5 text-sm">
+        <div class="flex items-baseline justify-between gap-2"><a href="{% url 'panel:work' 'folder' b.project_id %}" class="truncate font-medium hover:underline">{{ b.project.name }} › {{ b.folder|default:b.name }}</a><span class="num shrink-0 text-xs text-slate-400">{{ b.created|date:"d.m H:i" }}</span></div>
+        <div class="truncate text-xs text-rose-600" title="{{ b.message }}">{{ b.message|default:"сабаби ёзилмаган" }}</div>
+        <div class="truncate text-xs text-slate-500"><a href="{% url 'panel:user' b.owner_id %}" class="hover:underline">{{ b.owner.email }}</a></div>
+      </li>
+      {% empty %}<li class="px-4 py-8 text-center text-sm text-slate-400">Хато йўқ</li>{% endfor %}
+    </ul>
+  </section>
+</div>
+
+<section class="mt-3 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Охирги 24 соатда тугаганлар</h2></div>
+  <ul class="divide-y divide-slate-100">
+    {% for p in finished %}
+    <li><a href="{% url 'panel:work' 'folder' p.id %}" class="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50">
+      <span class="text-amber-500">{% icon "folder" "h-4 w-4" %}</span>
+      <span class="min-w-0 flex-1 truncate font-medium">{{ p.name }}</span>
+      <span class="hidden truncate text-xs text-slate-500 sm:inline">{{ p.owner.email }}</span>
+      <span class="shrink-0 rounded-full {% if p.status == 'done' %}bg-emerald-50 text-emerald-700{% else %}bg-violet-50 text-violet-700{% endif %} px-2 py-0.5 text-xs font-medium">{{ p.get_status_display }}</span>
+      <span class="num shrink-0 text-xs text-slate-400">{{ p.created|date:"d.m H:i" }}</span>
+    </a></li>
+    {% empty %}<li class="px-4 py-8 text-center text-sm text-slate-400">Йўқ</li>{% endfor %}
+  </ul>
+</section>
+{% if procs %}<script>setInterval(function () { if (!document.hidden) location.reload(); }, 5000);</script>{% endif %}
+{% endblock %}

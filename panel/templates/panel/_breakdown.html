@@ -1,0 +1,12 @@
+{# улушлар рўйхати: title, rows=[{key, n, pct}], device — калит қурилма тури #}
+<div class="min-w-0">
+  <h3 class="text-xs font-medium uppercase tracking-wider text-slate-400">{{ title }}</h3>
+  <ul class="mt-2 space-y-1.5 text-sm">
+    {% for r in rows %}
+    <li>
+      <div class="flex justify-between gap-2"><span class="truncate">{% if device %}{% if r.key == 'phone' %}Телефон{% elif r.key == 'tablet' %}Планшет{% elif r.key == 'bot' %}Бот{% else %}Компьютер{% endif %}{% else %}{{ r.key }}{% endif %}</span><span class="num shrink-0 text-slate-500">{{ r.pct }}%</span></div>
+      <div class="mt-1 h-1 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-slate-500" style="width: {{ r.pct }}%"></div></div>
+    </li>
+    {% empty %}<li class="text-slate-400">Йўқ</li>{% endfor %}
+  </ul>
+</div>

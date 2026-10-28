@@ -1,0 +1,16 @@
+{# Excel ko'rinishi (jobs/xlview.py jadvali) uslublari — <style> ichiga include qilinadi #}
+  .xs-wrap { background: #fff; }
+  .xs { table-layout: fixed; border-collapse: separate; border-spacing: 0; font: 11pt/1.2 Calibri, "Segoe UI", Arial, sans-serif; color: #000; }
+  .xs td { border-right: 1px solid #e1e1e1; border-bottom: 1px solid #e1e1e1; padding: 1px 3px; white-space: pre; overflow: visible; vertical-align: bottom; background-clip: padding-box; }
+  .xs td[data-clip] { overflow: hidden; }
+  .xs td.xs-hit { background: #fef08a !important; }
+  .xs td.xs-cur { background: #fb923c !important; color: #fff !important; outline: 2px solid #c2410c; outline-offset: -2px; }
+  .xs tr.xs-target > td { box-shadow: inset 0 0 0 9999px rgba(37, 99, 235, .14); }
+  .xs tbody tr.xs-target > th { background: #2563eb; color: #fff; font-weight: 600; }
+  .xs thead th { position: sticky; top: 0; z-index: 3; height: 20px; background: #f3f3f3; color: #555; font: 500 11px "Segoe UI", Arial, sans-serif; text-align: center; border-right: 1px solid #d0d0d0; border-bottom: 1px solid #c0c0c0; }
+  .xs tbody th { position: sticky; left: 0; z-index: 2; background: #f3f3f3; color: #555; font: 11px "Segoe UI", Arial, sans-serif; text-align: center; vertical-align: middle; border-right: 1px solid #c0c0c0; border-bottom: 1px solid #d0d0d0; }
+  .xs thead th.xs-corner { left: 0; z-index: 4; }
+  .xs-tabs { display: flex; flex-wrap: wrap; gap: 2px; border-top: 1px solid #d0d0d0; background: #f3f3f3; padding: 0 8px; }
+  .xs-tabs button { border: 1px solid transparent; border-top: 0; padding: 4px 12px; font-size: 12px; color: #444; }
+  .xs-tabs button:hover { background: #e5e7eb; }
+  .xs-tabs button.is-on { background: #fff; border-color: #d0d0d0; color: #166534; font-weight: 600; border-bottom: 2px solid #16a34a; }
