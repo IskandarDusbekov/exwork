@@ -32,13 +32,13 @@
 
     {% if can_act and u.pk != user.pk and not u.is_superuser %}
     <div class="mt-5 space-y-2 border-t border-slate-100 pt-4">
-      <form method="post" action="{% url 'panel:user_toggle' u.pk 'is_active' %}" onsubmit="return confirm('{% if u.is_active %}Блокланса — дарҳол тизимдан чиқарилади ва кира олмайди. Давом этилсинми?{% else %}Блокдан чиқарилсинми?{% endif %}')">{% csrf_token %}
+      <form method="post" action="{% url 'panel:user_toggle' u.pk 'is_active' %}" data-confirm="{% if u.is_active %}Блокланса — дарҳол тизимдан чиқарилади ва кира олмайди. Давом этилсинми?{% else %}Блокдан чиқарилсинми?{% endif %}" data-confirm-title="{% if u.is_active %}Фойдаланувчини блоклаш{% else %}Блокдан чиқариш{% endif %}" data-confirm-ok="{% if u.is_active %}Блоклаш{% else %}Блокдан чиқариш{% endif %}"{% if u.is_active %} data-danger{% endif %}>{% csrf_token %}
         <button class="w-full rounded-lg {% if u.is_active %}border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100{% else %}bg-emerald-600 text-white hover:bg-emerald-700{% endif %} px-3 py-2 text-sm font-medium">{% if u.is_active %}Блоклаш{% else %}Блокдан чиқариш{% endif %}</button>
       </form>
-      <form method="post" action="{% url 'panel:user_toggle' u.pk 'is_staff' %}" onsubmit="return confirm('{% if u.is_staff %}Панел рухсати олинсинми?{% else %}Панелни кўриш рухсати берилсинми? (фақат кўриш, ўзгартира олмайди){% endif %}')">{% csrf_token %}
+      <form method="post" action="{% url 'panel:user_toggle' u.pk 'is_staff' %}" data-confirm="{% if u.is_staff %}Панел рухсати олинсинми?{% else %}Панелни кўриш рухсати берилсинми? (фақат кўриш, ўзгартира олмайди){% endif %}" data-confirm-title="Панел рухсати" data-confirm-ok="{% if u.is_staff %}Рухсатни олиш{% else %}Рухсат бериш{% endif %}"{% if u.is_staff %} data-danger{% endif %}>{% csrf_token %}
         <button class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">{% if u.is_staff %}Панел рухсатини олиш{% else %}Панелни кўришга рухсат бериш{% endif %}</button>
       </form>
-      <form method="post" action="{% url 'panel:sessions_revoke' u.pk %}" onsubmit="return confirm('Барча қурилмалардан тизимдан чиқарилсинми? (блокланмайди — қайта кира олади)')">{% csrf_token %}
+      <form method="post" action="{% url 'panel:sessions_revoke' u.pk %}" data-confirm="Барча қурилмалардан тизимдан чиқарилсинми? (блокланмайди — қайта кира олади)" data-confirm-title="Тизимдан чиқариш" data-confirm-ok="Чиқариш" data-danger>{% csrf_token %}
         <button class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Барча қурилмалардан чиқариш</button>
       </form>
       {% if locked %}
@@ -103,9 +103,9 @@
             </td>
             <td class="px-3 py-2 text-right">
               {% if can_act %}<div class="inline-flex gap-1">
-                {% if not s.ended %}<form method="post" action="{% url 'panel:session_revoke' u.pk s.pk %}" onsubmit="return confirm('Шу қурилмадан тизимдан чиқарилсинми?')">{% csrf_token %}
+                {% if not s.ended %}<form method="post" action="{% url 'panel:session_revoke' u.pk s.pk %}" data-confirm="Шу қурилмадан тизимдан чиқарилсинми?" data-confirm-title="Тизимдан чиқариш" data-confirm-ok="Чиқариш" data-danger>{% csrf_token %}
                   <button class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Чиқариш</button></form>{% endif %}
-                {% if s.ip and s.ip not in blocked_ips and s.ip != my_ip %}<form method="post" action="{% url 'panel:ip_block' %}" onsubmit="return confirm('{{ s.ip }} блоклансинми? Шу манзилдан ҳеч ким кира олмайди.')">{% csrf_token %}
+                {% if s.ip and s.ip not in blocked_ips and s.ip != my_ip %}<form method="post" action="{% url 'panel:ip_block' %}" data-confirm="{{ s.ip }} блоклансинми? Шу манзилдан ҳеч ким кира олмайди." data-confirm-title="IP блоклаш" data-confirm-ok="Блоклаш" data-danger>{% csrf_token %}
                   <input type="hidden" name="ip" value="{{ s.ip }}"><input type="hidden" name="user" value="{{ u.pk }}"><input type="hidden" name="next" value="{{ request.path }}"><input type="hidden" name="reason" value="{{ u.email }} сессиясидан">
                   <button class="rounded-md border border-rose-200 px-2 py-0.5 text-xs font-medium text-rose-700 hover:bg-rose-50">IP блок</button></form>{% endif %}
               </div>{% endif %}
@@ -128,7 +128,7 @@
           <form method="post" action="{% url 'panel:ip_block' %}">{% csrf_token %}<input type="hidden" name="ip" value="{{ ip }}"><input type="hidden" name="action" value="unblock"><input type="hidden" name="user" value="{{ u.pk }}"><input type="hidden" name="next" value="{{ request.path }}">
             <button class="rounded-md bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 hover:bg-rose-200" title="Блокдан чиқариш">Блокда ✕</button></form>
           {% elif ip != my_ip %}
-          <form method="post" action="{% url 'panel:ip_block' %}" onsubmit="return confirm('{{ ip }} блоклансинми?')">{% csrf_token %}<input type="hidden" name="ip" value="{{ ip }}"><input type="hidden" name="user" value="{{ u.pk }}"><input type="hidden" name="next" value="{{ request.path }}"><input type="hidden" name="reason" value="{{ u.email }}">
+          <form method="post" action="{% url 'panel:ip_block' %}" data-confirm="{{ ip }} блоклансинми?" data-confirm-title="IP блоклаш" data-confirm-ok="Блоклаш" data-danger>{% csrf_token %}<input type="hidden" name="ip" value="{{ ip }}"><input type="hidden" name="user" value="{{ u.pk }}"><input type="hidden" name="next" value="{{ request.path }}"><input type="hidden" name="reason" value="{{ u.email }}">
             <button class="rounded-md border border-rose-200 px-2 py-0.5 text-xs font-medium text-rose-700 hover:bg-rose-50">Блоклаш</button></form>
           {% else %}<span class="text-[11px] text-slate-400">сизнинг IP</span>{% endif %}
         {% endif %}

@@ -15,7 +15,7 @@
     </div>
     <div class="flex flex-wrap gap-2">
       {% if kind == 'folder' and working and can_act %}
-      <form method="post" action="{% url 'panel:work_stop' w.id %}" onsubmit="return confirm('Фондаги иш тўхтатилсинми? Очилганлари сақланади, смета­чи кейин давом эттириши мумкин.')">{% csrf_token %}
+      <form method="post" action="{% url 'panel:work_stop' w.id %}" data-confirm="Фондаги иш тўхтатилсинми? Очилганлари сақланади, смета­чи кейин давом эттириши мумкин." data-confirm-title="Ишни тўхтатиш" data-confirm-ok="Тўхтатиш" data-danger>{% csrf_token %}
         <button class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100">{% icon "stop" %} Тўхтатиш</button></form>
       {% endif %}
       {% if can_act %}

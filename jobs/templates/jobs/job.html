@@ -358,7 +358,7 @@
       }).then(function (d) {
         if (!d.ok) throw new Error(d.error || "хато");
         location.reload();
-      }).catch(function (e) { btn.disabled = false; alert("Хато: " + e.message); });
+      }).catch(function (e) { btn.disabled = false; narxDialog.alert(e.message, {title: "Сақланмади", danger: true}); });
     }
     // яқин ресурс нархини қабул қилиш: нарх RES дан айнан ёзилади (қўлда нарх сифатида сақланади)
     var PRICE_URL = "{% url 'job_prices' job.id %}";
@@ -375,7 +375,7 @@
       }).then(function (d) {
         if (!d.ok) throw new Error(d.error || "хато");
         location.reload();
-      }).catch(function (e) { btn.disabled = false; alert("Хато: " + e.message); });
+      }).catch(function (e) { btn.disabled = false; narxDialog.alert(e.message, {title: "Сақланмади", danger: true}); });
     }
     document.querySelectorAll(".nf-near-accept").forEach(function (b) {
       b.addEventListener("click", function () { acceptNear([Number(b.dataset.row)], b); });
@@ -1743,23 +1743,28 @@
           if (!data.ok) throw new Error(data.error || "хато");
           store(KEY + "-scroll", String(window.scrollY) + "|" + String(wrap.scrollTop));
           location.reload();
-        }).catch(function (err) { alert("Хато: " + err.message); });
+        }).catch(function (err) { narxDialog.alert(err.message, {title: "Сақланмади", danger: true}); });
       }
       var addBtn = document.getElementById("col-add");
       if (addBtn) addBtn.addEventListener("click", function () {
-        var name = prompt("Янги устун номи (масалан «Монтаж ишлари»).\nКейин қаторларни белгилаб, пастки панелдан шу устунга ўтказасиз.", "");
-        if (name !== null) columnAction({action: "add", name: name});
+        narxDialog.prompt("Кейин қаторларни белгилаб, пастки панелдан шу устунга ўтказасиз.", "",
+                          {title: "Янги устун", ok: "Қўшиш", placeholder: "масалан «Монтаж ишлари»"}).then(function (name) {
+          if (name !== null) columnAction({action: "add", name: name});
+        });
       });
       document.querySelectorAll(".col-rename").forEach(function (b) {
         b.addEventListener("click", function () {
-          var name = prompt("«" + b.dataset.col + "» устун номи:", b.dataset.name);
-          if (name !== null && name.trim() !== b.dataset.name) columnAction({action: "rename", col: b.dataset.col, name: name});
+          narxDialog.prompt("", b.dataset.name, {title: "«" + b.dataset.col + "» устун номи"}).then(function (name) {
+            if (name !== null && name.trim() !== b.dataset.name) columnAction({action: "rename", col: b.dataset.col, name: name});
+          });
         });
       });
       document.querySelectorAll(".col-remove").forEach(function (b) {
         b.addEventListener("click", function () {
-          if (confirm("«" + b.dataset.name + "» (" + b.dataset.col + ") устуни ўчирилсинми? Ундаги қаторлар асл устунига қайтади."))
-            columnAction({action: "remove", col: b.dataset.col});
+          narxDialog.confirm("Ундаги қаторлар асл устунига қайтади.", {title: "«" + b.dataset.name + "» (" + b.dataset.col + ") устуни ўчирилсинми?",
+                                                                     ok: "Ўчириш", danger: true}).then(function (yes) {
+            if (yes) columnAction({action: "remove", col: b.dataset.col});
+          });
         });
       });
 
@@ -1775,12 +1780,14 @@
           return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; });
         }).then(function (data) {
           if (!data.ok) throw new Error(data.error || "хато");
-          if (payload.action === "accept" && data.skipped) alert(data.skipped + " та қаторда нарх таклифи йўқ — улар ўзгармади");
           sel.clear();
           render();
           store(KEY + "-flash", JSON.stringify(rowsChanged));
           store(KEY + "-scroll", String(window.scrollY) + "|" + String(wrap.scrollTop));
-          location.reload();
+          // хабар ёпилгач янгиланади (акс ҳолда кўринмай қолади)
+          (payload.action === "accept" && data.skipped
+            ? narxDialog.alert(data.skipped + " та қаторда нарх таклифи йўқ — улар ўзгармади.", {title: "Баъзи қаторлар ўзгармади"})
+            : Promise.resolve()).then(function () { location.reload(); });
         }).catch(function (err) {
           status.textContent = "Хато: " + err.message;
           bar.classList.remove("hidden");
@@ -1800,8 +1807,12 @@
           var t = body.querySelector('tr[data-row="' + r + '"]');
           return t && flags(t).indexOf(" NOT_PRICED ") < 0 && flags(t).indexOf(" MANUAL ") < 0;
         });
-        if (priced.length && !confirm(priced.length + " та қаторда нарх аниқ топилган эди. Устидан ёзилсинми?")) return;
-        send(PRICE_URL, {action: "set", rows: rows, price: value}, rows.map(String));
+        (priced.length
+          ? narxDialog.confirm(priced.length + " та қаторда нарх RES'дан аниқ топилган эди. Улар ҳам сиз ёзган нарх билан алмаштирилади.",
+                               {title: "Устидан ёзилсинми?", ok: "Ҳа, алмаштириш", danger: true})
+          : Promise.resolve(true)).then(function (yes) {
+          if (yes) send(PRICE_URL, {action: "set", rows: rows, price: value}, rows.map(String));
+        });
       }
       document.getElementById("price-set").addEventListener("click", function () {
         setPrice(selectedRows(), document.getElementById("price-input").value);
@@ -1845,7 +1856,7 @@
           location.reload();
         }).catch(function (err) {
           status.textContent = "Хато: " + err.message;
-          alert("Хато: " + err.message);
+          narxDialog.alert(err.message, {title: "Сақланмади", danger: true});
           document.querySelectorAll(".move-btn, .grp-move").forEach(function (m) { m.disabled = false; });
         });
       }
@@ -1875,11 +1886,12 @@
       document.querySelectorAll(".lm-move").forEach(function (btn) {
         btn.addEventListener("click", function () {
           var list = btn.dataset.rows.split(",");
-          if (confirm(list.length + " та қатор " + btn.dataset.what + " сифатида ажратилади (" + btn.dataset.col +
-                      " устуни), сумма ва сводка қайта ҳисобланади. Давом этамизми?")) {
+          narxDialog.confirm(list.length + " та қатор " + btn.dataset.col + " устунига ўтади. Сумма ва сводка қайта ҳисобланади.",
+                             {title: btn.textContent.trim() + "?", ok: "Ҳа, ажратиш"}).then(function (yes) {
+            if (!yes) return;
             btn.disabled = true;
             moveRows(list, btn.dataset.col);
-          }
+          });
         });
       });
       // бўлим сарлавҳаси: «белгилаш» — бўлимдаги қаторларни танлайди; «M га ўтказамизми?» — бир босишда
@@ -1891,10 +1903,11 @@
           });
           render();
         }
-        if (m && confirm(m.dataset.rows.split(",").length + " та қатор " + m.dataset.moveTo +
-                         " устунига ўтказилади, сумма ва сводка қайта ҳисобланади. Давом этамизми?")) {
-          moveRows(m.dataset.rows.split(","), m.dataset.moveTo);
-        }
+        if (m) narxDialog.confirm(m.dataset.rows.split(",").length + " та қатор " + m.dataset.moveTo +
+                                  " устунига ўтказилади. Сумма ва сводка қайта ҳисобланади.",
+                                  {title: m.dataset.moveTo + " устунига ўтказилсинми?", ok: "Ҳа, ўтказиш"}).then(function (yes) {
+          if (yes) moveRows(m.dataset.rows.split(","), m.dataset.moveTo);
+        });
       });
     }
 

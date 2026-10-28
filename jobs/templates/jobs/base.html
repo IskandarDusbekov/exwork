@@ -92,6 +92,7 @@
   {% if user.is_authenticated %}
   <script>window.narxGuide = {% block guide %}null{% endblock %};</script>
   {% include "jobs/_guide.html" %}
+  {% include "jobs/_dialog.html" %}
   {% endif %}
 </body>
 </html>

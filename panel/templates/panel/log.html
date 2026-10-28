@@ -33,7 +33,7 @@
   <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
     <h2 class="flex items-center gap-2 font-semibold">{% icon "shield" %} Блокланган IP'лар <span class="num text-xs font-normal text-slate-400">{{ blocked|length }}</span></h2>
     {% if can_act %}
-    <form method="post" action="{% url 'panel:ip_block' %}" class="flex flex-wrap items-center gap-2" onsubmit="return confirm('Шу IP блоклансинми? Ундан ҳеч ким кира олмайди.')">{% csrf_token %}
+    <form method="post" action="{% url 'panel:ip_block' %}" class="flex flex-wrap items-center gap-2" data-confirm="Шу IP блоклансинми? Ундан ҳеч ким кира олмайди." data-confirm-title="IP блоклаш" data-confirm-ok="Блоклаш" data-danger>{% csrf_token %}
       <input type="hidden" name="next" value="{{ here }}">
       <input name="ip" required placeholder="IP манзил" class="num w-40 rounded-lg border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400" aria-label="IP">
       <input name="reason" placeholder="Сабаби (ихтиёрий)" class="w-48 rounded-lg border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400" aria-label="Сабаби">

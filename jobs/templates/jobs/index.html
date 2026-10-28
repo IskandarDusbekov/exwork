@@ -307,7 +307,7 @@
         if (have.indexOf(key(f)) < 0) { selected.push(f); have.push(key(f)); }
       });
       sync();
-      if (skipped.length) alert("Фақат .xls, .xlsx, .xlsm: " + skipped.join(", "));
+      if (skipped.length) narxDialog.alert("Фақат .xls, .xlsx ва .xlsm файллар олинади. Қуйидагилар қўшилмади:\n" + skipped.join("\n"), {title: "Баъзи файллар олинмади"});
     }
     function render() {
       list.innerHTML = "";

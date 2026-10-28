@@ -61,7 +61,7 @@
         <td class="num px-3 py-2.5 text-slate-500">{{ u.date_joined|date:"d.m.Y" }}</td>
         {% if can_act %}<td class="px-3 py-2.5 text-right">
           {% if u.pk != user.pk and not u.is_superuser %}
-          <form method="post" action="{% url 'panel:user_toggle' u.pk 'is_active' %}" onsubmit="return confirm('{% if u.is_active %}{{ u.email|escapejs }} блоклансинми? Дарҳол тизимдан чиқарилади.{% else %}{{ u.email|escapejs }} блокдан чиқарилсинми?{% endif %}')">{% csrf_token %}
+          <form method="post" action="{% url 'panel:user_toggle' u.pk 'is_active' %}" data-confirm="{% if u.is_active %}{{ u.email }} блоклансинми? Дарҳол тизимдан чиқарилади.{% else %}{{ u.email }} блокдан чиқарилсинми?{% endif %}" data-confirm-title="{% if u.is_active %}Фойдаланувчини блоклаш{% else %}Блокдан чиқариш{% endif %}" data-confirm-ok="{% if u.is_active %}Блоклаш{% else %}Блокдан чиқариш{% endif %}"{% if u.is_active %} data-danger{% endif %}>{% csrf_token %}
             <input type="hidden" name="next" value="{{ here }}">
             <button class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium {% if u.is_active %}border border-rose-200 text-rose-700 hover:bg-rose-50{% else %}bg-emerald-600 text-white hover:bg-emerald-700{% endif %}">{% icon "lock" "h-3.5 w-3.5" %} {% if u.is_active %}Блоклаш{% else %}Очиш{% endif %}</button>
           </form>
