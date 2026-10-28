@@ -23,6 +23,7 @@ from typing import Optional
 SUPPORTED = (".xls", ".xlsx", ".xlsm")
 ENV_VAR = "NARXLASH_SOFFICE"
 CONVERTER_ENV = "NARXLASH_CONVERTER"
+MSO_AUTOMATION_FORCE_DISABLE = 3  # Excel: makroslar hech qachon ishlamaydi
 _WINDOWS_PATHS = (
     r"C:\Program Files\LibreOffice\program\soffice.exe",
     r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
@@ -181,7 +182,12 @@ def _convert_excel(path: Path, out_dir: Path) -> Path:
         pid = _excel_pid(excel)
         _com_retry(lambda: setattr(excel, "Visible", False))
         _com_retry(lambda: setattr(excel, "DisplayAlerts", False))
-        wb = _com_retry(lambda: excel.Workbooks.Open(str(path.resolve()), ReadOnly=True))
+        # yuklangan fayl begona: ochishdan OLDIN makroslar (Workbook_Open va h.k.) va hodisalar o'chiriladi —
+        # COM orqali ochilganda Excel sukut bo'yicha makrosga ruxsat beradi (msoAutomationSecurityLow)
+        _com_retry(lambda: setattr(excel, "AutomationSecurity", MSO_AUTOMATION_FORCE_DISABLE))
+        _com_retry(lambda: setattr(excel, "EnableEvents", False))
+        _com_retry(lambda: setattr(excel, "AskToUpdateLinks", False))
+        wb = _com_retry(lambda: excel.Workbooks.Open(str(path.resolve()), UpdateLinks=0, ReadOnly=True))
         _com_retry(lambda: wb.SaveAs(str(out), FileFormat=51))  # xlOpenXMLWorkbook
         _com_retry(lambda: wb.Close(SaveChanges=False))
     except Exception as e:
