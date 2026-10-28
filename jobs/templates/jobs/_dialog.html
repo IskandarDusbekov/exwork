@@ -90,6 +90,22 @@
     prompt: function (msg, value, o) { o = o || {}; return open({kind: "prompt", text: msg, value: value, title: o.title, ok: o.ok, placeholder: o.placeholder}); }
   };
 
+  // [data-rename-url] — янги ном сўралади ва POST қилинади (папка, объект)
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-rename-url]");
+    if (!b) return;
+    var token = document.querySelector('meta[name="csrf-token"]');
+    window.narxDialog.prompt("", b.dataset.renameName, {title: "Номини ўзгартириш", ok: "Сақлаш"}).then(function (name) {
+      if (name === null || !name.trim() || name.trim() === b.dataset.renameName) return;
+      var f = document.createElement("form");
+      f.method = "post"; f.action = b.dataset.renameUrl; f.style.display = "none";
+      [["csrfmiddlewaretoken", token ? token.content : ""], ["name", name.trim()]].forEach(function (kv) {
+        var i = document.createElement("input"); i.type = "hidden"; i.name = kv[0]; i.value = kv[1]; f.appendChild(i);
+      });
+      document.body.appendChild(f); f.submit();
+    });
+  });
+
   // <form data-confirm="…"> — юборишдан олдин сўралади
   document.addEventListener("submit", function (e) {
     var form = e.target;

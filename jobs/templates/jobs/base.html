@@ -14,6 +14,7 @@
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen"{% if request.viewing_owner %} data-inspect="1"{% endif %}>
+  {% icon_sprite %}
   <header class="bg-white border-b border-slate-200">
     <div class="{% block header_class %}max-w-6xl mx-auto px-4{% endblock %} py-3 flex flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap">
       <a href="{% url 'index' %}" class="flex items-center gap-2 text-slate-900">

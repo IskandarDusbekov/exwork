@@ -4,7 +4,7 @@
 {% block header_class %}px-4 lg:px-6{% endblock %}
 {% block main_class %}{% endblock %}
 {% block content %}
-<div id="project-body">{% include "jobs/_project_body.html" %}</div>
+<div id="project-body" data-viewer-url="{% url 'project_viewer' project.id '00000000-0000-0000-0000-000000000000' %}">{% include "jobs/_project_body.html" %}</div>
 {% include "jobs/_sheet_viewer.html" %}
 
 <style>
@@ -112,13 +112,27 @@
     wire();
     applyPartFilter(false);
 
-    // локал / ресурс номини босиш — Excel кўриниши (файлнинг ҳамма листлари); фоиз — ёнма-ён
+    // локал / ресурс номини босиш — Excel кўриниши (файлнинг ҳамма листлари); фоиз — ёнма-ён.
+    // Қисм маълумоти биринчи босилганда сўралади ва эслаб қолинади
+    var viewerCache = {};
+    function viewerData(part) {
+      if (!viewerCache[part]) {
+        viewerCache[part] = fetch(body.dataset.viewerUrl.replace("00000000-0000-0000-0000-000000000000", part), {credentials: "same-origin"})
+          .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+          .catch(function (err) { delete viewerCache[part]; throw err; });
+      }
+      return viewerCache[part];
+    }
     body.addEventListener("click", function (e) {
       var o = e.target.closest(".pv-open, .pv-compare");
       if (!o || !o.dataset.k) return;
       e.stopPropagation();
-      var data = JSON.parse(document.getElementById("pv-data").textContent)[o.dataset.part];
-      if (!data || !window.narxViewer) return;
+      if (!window.narxViewer) return;
+      viewerData(o.dataset.part).then(function (data) { openViewer(o, data); }, function () {
+        narxDialog.alert("Файлни очиб бўлмади. Саҳифани янгилаб, қайта уриниб кўринг.", {title: "Хато", danger: true});
+      });
+    }, true);
+    function openViewer(o, data) {
       var V = window.narxViewer, by = {};
       data.sheets.forEach(function (s) { by[s.k] = s; });
       if (o.classList.contains("pv-open")) {
@@ -130,7 +144,7 @@
       var c = cands.filter(function (x) { return x.k === o.dataset.r; })[0];
       V.open("Локал ва таклиф қилинган ресурс — ёнма-ён (ресурсни ўзгартириш — қисмни очинг)", panes,
              c && c.ov != null ? '<span class="rounded-full px-2.5 py-0.5 text-sm font-bold ' + V.tone(c.ov) + '">мослик ' + Math.round(c.ov * 100) + "%</span>" : "");
-    }, true);
+    }
 
     // қисм қатори: исталган жойини босиш — очиш (Ctrl/ўрта тугма — янги вкладкада); ички ҳаволалар ўзича ишлайди.
     // body ичидагиси ҳар янгиланишда алмашади, шунинг учун делегат.
@@ -143,6 +157,48 @@
       var tr = e.target.closest(".part-row[data-href]");
       if (tr && e.button === 1 && !e.target.closest("a, button")) go(tr.dataset.href, e);
     });
+    // ---- тугаганда хабар: вкладка номи, саҳифадаги хабар ва (рухсат берилса) браузер билдиришномаси ----
+    var baseTitle = document.title, wasWorking = false;
+    function canNotify() { return "Notification" in window; }
+    function showToast(text) {
+      var t = document.createElement("div");
+      t.className = "fixed bottom-5 right-5 z-[60] flex max-w-sm items-start gap-3 rounded-xl bg-emerald-700 px-4 py-3 text-sm text-white shadow-2xl";
+      t.setAttribute("role", "status");
+      t.innerHTML = '<span class="mt-0.5 text-lg leading-none">✓</span><div class="min-w-0 flex-1"><b>Папка ишлов берилди</b><div class="text-emerald-100"></div></div>' +
+                    '<button type="button" class="-mr-1 rounded px-1 text-emerald-100 hover:text-white" aria-label="Ёпиш">×</button>';
+      t.querySelector("div div").textContent = text;
+      t.querySelector("button").addEventListener("click", function () { t.remove(); });
+      document.body.appendChild(t);
+      setTimeout(function () { t.remove(); }, 15000);
+    }
+    function trackState() {
+      var st = document.getElementById("project-state");
+      if (!st) return;
+      var working = st.dataset.working === "1";
+      if (working) {
+        document.title = "⏳ " + st.dataset.finished + "/" + st.dataset.total + " · " + baseTitle;
+        var ask = document.getElementById("notify-ask");
+        if (ask && canNotify() && Notification.permission === "default") {
+          ask.classList.remove("hidden");
+          ask.addEventListener("click", function () {
+            Notification.requestPermission().then(function () { ask.classList.add("hidden"); });
+          });
+        }
+      } else if (wasWorking) {
+        var text = st.dataset.result || "";
+        document.title = "✓ Тайёр · " + baseTitle;
+        showToast(text);
+        if (document.hidden && canNotify() && Notification.permission === "granted") {
+          try { new Notification("Нархлаш: папка тайёр", {body: baseTitle.split(" · ")[0] + " — " + text, tag: "narx-{{ project.id }}"}); } catch (e) {}
+        }
+      }
+      wasWorking = working;
+    }
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden && document.title.indexOf("✓ ") === 0) setTimeout(function () { document.title = baseTitle; }, 4000);
+    });
+    trackState();
+
     // фонда ишланаётган бўлса — ҳар 2.5 сонияда янгилаймиз (скролл жойида қолади)
     function poll() {
       var st = document.getElementById("project-state");
@@ -153,6 +209,7 @@
           body.innerHTML = html;
           wire();
           applyPartFilter(false);
+          trackState();
           var t2 = body.querySelector(".tree");
           if (t2) t2.scrollTop = top;
           poll();

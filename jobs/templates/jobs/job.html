@@ -4,6 +4,7 @@
 {% block header_class %}px-4 lg:px-6{% endblock %}
 {% block main_class %}px-4 lg:px-6 py-4{% endblock %}
 {% block content %}
+<script>try { if (localStorage.getItem("narx-job-mode") === "simple") document.documentElement.classList.add("simple-mode"); } catch (e) {}</script>
 
 {% if job.status == "failed" %}
 <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">
@@ -128,6 +129,8 @@
 {# ================= босқичлар (таблар): доим тепада, бир-бирига чизиқ билан уланган; бирини босиш — ўша босқич очилади ================= #}
 <nav id="tabs" class="sticky top-0 z-30 -mx-4 mb-4 border-b border-slate-200 bg-slate-50/95 px-4 py-2 backdrop-blur lg:-mx-6 lg:px-6" aria-label="Босқичлар">
   <div class="flex items-center gap-3 overflow-x-auto" role="tablist">
+    {% if stages %}<span class="hidden shrink-0 rounded-md bg-slate-200/70 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600 lg:inline"
+          title="Умумий йўлнинг 3-қадами (Юклаш → Текшириш → Тўғирлаш → Юклаб олиш): сметани шу 3 босқичда тўғирлайсиз">Тўғирлаш</span>{% endif %}
     <ol class="flex flex-1 items-center">
     {% for st in stages %}
       <li class="flex items-center {% if not forloop.last %}flex-1{% endif %}">
@@ -151,8 +154,13 @@
       <li><button type="button" role="tab" data-tab-btn="3" class="tab-btn rounded-xl px-3 py-2 text-sm font-semibold">Сводка</button></li>
     {% endfor %}
     </ol>
+    <span class="inline-flex shrink-0 overflow-hidden rounded-lg border border-slate-300 bg-white text-xs" role="group" aria-label="Кўриниш режими"
+          title="Оддий — фақат асосий иш: нархланмаганлар, таклифлар, жадвал. Тўлиқ — ҳамма имконият (файл кўриниши, устун филтрлари, қўшимча устунлар)">
+      <button type="button" data-job-mode="simple" class="mode-btn px-2.5 py-1.5">Оддий</button>
+      <button type="button" data-job-mode="full" class="mode-btn border-l border-slate-300 px-2.5 py-1.5">Тўлиқ</button>
+    </span>
     <button type="button" role="tab" data-tab-btn="more"
-            class="tab-btn flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-600">
+            class="tab-btn adv flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-600">
       {% icon "chart" "h-4 w-4 text-slate-400" %}<span class="hidden sm:inline">Қўшимча</span> <span class="hidden text-xs text-slate-400 xl:inline">статистика · муаммолар · созламалар</span></button>
   </div>
 </nav>
@@ -448,7 +456,7 @@
       {% if c.rows %}
       <span class="text-slate-600"><b class="num text-fuchsia-700">{{ c.rows|length }}</b> та таклиф · <span class="num">{{ c.sum|som }}</span></span>
       <button type="button" class="lm-review rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium hover:bg-slate-100" data-col="{{ c.col }}" data-label="{% if c.col == 'L' %}Кабелга{% else %}Ускунага{% endif %} ажратиладиганлар">Кўриб чиқиш</button>
-      <button type="button" class="sugg-xl rounded-md border border-fuchsia-300 bg-white px-2.5 py-1 text-xs font-medium text-fuchsia-800 hover:bg-fuchsia-50" data-to="{{ c.col }}"
+      <button type="button" class="sugg-xl adv rounded-md border border-fuchsia-300 bg-white px-2.5 py-1 text-xs font-medium text-fuchsia-800 hover:bg-fuchsia-50" data-to="{{ c.col }}"
               title="Нархланган смета (Excel кўриниши)да таклиф қилинган қаторларни бирма-бир кўрсатиш">Натижада кўриш</button>
       <button type="button" class="lm-move rounded-md bg-fuchsia-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-fuchsia-800 disabled:opacity-50" data-col="{{ c.col }}" data-what="{% if c.col == 'L' %}кабель{% else %}ускуна{% endif %}" data-rows="{% for r in c.rows %}{{ r.row }}{% if not forloop.last %},{% endif %}{% endfor %}"
               title="{{ c.col }} устунига ўтади">Ҳаммасини {% if c.col == 'L' %}кабелга{% else %}ускунага{% endif %} ажратиш</button>
@@ -479,7 +487,7 @@
         <a href="?view=local#t-2" data-view="local" title="Сметадаги асл тартиб — нарх ва устунлар билан ишлаш"
            class="view-btn {% if res_groups %}border-l border-slate-300 {% endif %}px-3 py-1.5 {% if view == 'local' %}is-on{% endif %}">Смета тартиби</a>
       </span>
-      <span class="inline-flex overflow-hidden rounded-lg border border-emerald-300 text-sm" role="group" aria-label="Файл кўриниши">
+      <span class="{% if not xl_file %}adv {% endif %}inline-flex overflow-hidden rounded-lg border border-emerald-300 text-sm" role="group" aria-label="Файл кўриниши">
         <span class="flex items-center gap-1 bg-emerald-50 px-2 text-xs font-medium text-emerald-800" title="Файлнинг ўзи — Excel'даги каби: ҳамма устун ва қаторлар, бирлаштирилган катаклар, ранглар">{% icon "file" "h-3.5 w-3.5" %}Файл</span>
         {% for v, label in xl_files %}
         <a href="?view={{ v }}#t-2" data-view="{{ v }}"
@@ -516,18 +524,18 @@
         <span class="dot bg-rose-500"></span>Нархланмади <span class="num cnt">{{ not_priced }}</span></button>{% help "warn" "text-slate-400" %}
       <button type="button" data-filter="HAS_SUGG" data-label="Нарх таклифи бор" {% if not sugg_price_count %}disabled{% endif %} class="chip cat-chip">
         <span class="dot bg-amber-400"></span>Нарх таклифи бор <span class="num cnt">{{ sugg_price_count }}</span></button>
-      <button type="button" data-filter="MANUAL" data-label="Қўлда нархланган" {% if not manual_count %}disabled{% endif %} class="chip cat-chip">
-        <span class="dot bg-sky-500"></span>Қўлда нархланган <span class="num cnt">{{ manual_count }}</span></button>{% help "manual" "text-slate-400" %}
+      <button type="button" data-filter="MANUAL" data-label="Қўлда нархланган" {% if not manual_count %}disabled{% endif %} class="chip cat-chip adv">
+        <span class="dot bg-sky-500"></span>Қўлда нархланган <span class="num cnt">{{ manual_count }}</span></button>{% help "manual" "adv text-slate-400" %}
       <button type="button" data-filter="SUGG_ANY" data-label="Устун таклифи" {% if not sugg_cat_count %}disabled{% endif %} class="chip cat-chip">
         <span class="dot bg-fuchsia-500"></span>Устун таклифи <span class="num cnt">{{ sugg_cat_count }}</span></button>
-      <button type="button" data-filter="OVERRIDE" data-label="Қўлда ўтказилган устун" {% if not override_count %}disabled{% endif %} class="chip cat-chip">
+      <button type="button" data-filter="OVERRIDE" data-label="Қўлда ўтказилган устун" {% if not override_count %}disabled{% endif %} class="chip cat-chip adv">
         {% icon "swap" "h-3.5 w-3.5" %}Қўлда ўтказилган <span class="num cnt">{{ override_count }}</span></button>
       {% endif %}
-      <span class="mx-1.5 h-5 w-px bg-slate-200" aria-hidden="true"></span>
-      <span class="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Устун</span>
+      <span class="adv mx-1.5 h-5 w-px bg-slate-200" aria-hidden="true"></span>
+      <span class="adv mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Устун</span>
       {% for c, label, count in category_counts %}
       <button type="button" data-filter="CAT_{{ c }}" data-label="Устун {{ c }} · {{ label }}" {% if not count %}disabled{% endif %}
-              title="Фақат «{{ c }} · {{ label }}» устунидаги қаторлар" class="chip cat-chip">
+              title="Фақат «{{ c }} · {{ label }}» устунидаги қаторлар" class="chip cat-chip adv">
         <span class="rounded px-1 text-xs font-bold {{ c|cat_class }}">{{ c }}</span>{{ label }} <span class="num cnt">{{ count }}</span></button>
       {% endfor %}
       <span id="row-filter" class="hidden inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1 text-sm text-white">
@@ -1040,7 +1048,7 @@
         <th>C</th><th>D</th><th>F</th><th>G</th><th>H</th>
         {% for c, label in grid_columns %}<th class="xl-cat-head">{{ c }}</th>{% endfor %}
         <th class="xl-extra text-left">
-          {% if can_add_column %}<button type="button" id="col-add" class="rounded border border-slate-300 bg-white px-1.5 font-semibold text-slate-700 hover:bg-slate-100"
+          {% if can_add_column %}<button type="button" id="col-add" class="adv rounded border border-slate-300 bg-white px-1.5 font-semibold text-slate-700 hover:bg-slate-100"
                   title="Янги устун қўшиш (кейинги ҳарф) — номини ўзингиз берасиз, қаторларни унга ўтказасиз"><span class="inline-flex items-center gap-1">{% icon "plus" "h-3.5 w-3.5" "2.5" %}устун</span></button>{% endif %}
         </th>
       </tr>
@@ -1380,6 +1388,11 @@
   .tab-btn.is-active { color: #0f172a; background: #fff; border-color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
   .step-btn[data-state="done"].is-active { border-color: #059669; }
   .step-btn[data-state="locked"]:not(.is-active) { color: #94a3b8; }
+  /* оддий режим: камдан-кам керак бўладиган тугмалар яширин */
+  html.simple-mode .adv { display: none !important; }
+  .mode-btn { color: #475569; }
+  .mode-btn:hover { background: #f1f5f9; }
+  .mode-btn.is-on { background: #0f172a; color: #fff; font-weight: 600; }
   @media (max-width: 639px) { .step-btn:not(.is-active) .step-text { display: none; } .step-btn:not(.is-active) { padding: .375rem; } }
   /* фильтр тугмалари: аниқ кўринадиган, босиладиган */
   .chip { display: inline-flex; align-items: center; gap: .375rem; height: 2rem; padding: 0 .75rem; border: 1px solid #cbd5e1;
@@ -1583,6 +1596,15 @@
       for (var d = el && el.closest("details"); d; d = d.parentElement.closest("details")) d.open = true;
     }
     document.querySelectorAll(".tab-btn").forEach(function (b) { b.addEventListener("click", function () { showTab(b.dataset.tabBtn, true); }); });
+    // Оддий / Тўлиқ режим (браузерда эслаб қолинади)
+    function setMode(mode) {
+      document.documentElement.classList.toggle("simple-mode", mode === "simple");
+      document.querySelectorAll(".mode-btn").forEach(function (b) { b.classList.toggle("is-on", b.dataset.jobMode === mode); });
+      try { localStorage.setItem("narx-job-mode", mode); } catch (e) {}
+      var more = document.querySelector('.tab-btn[data-tab-btn="more"]');
+      if (mode === "simple" && more && more.classList.contains("is-active")) showTab(DEFAULT_TAB);
+    }
+    document.querySelectorAll(".mode-btn").forEach(function (b) { b.addEventListener("click", function () { setMode(b.dataset.jobMode); }); });
     document.querySelectorAll("[data-goto]").forEach(function (b) { b.addEventListener("click", function () { showTab(b.dataset.goto, true); }); });
     document.querySelectorAll('a[href^="#"]').forEach(function (a) {
       a.addEventListener("click", function () { openUp(document.querySelector(a.getAttribute("href"))); });
@@ -1596,6 +1618,7 @@
     else if (hashEl && hashEl.closest(".tab-panel")) openUp(hashEl);
     else showTab(savedTab && hasTab(savedTab) ? savedTab : DEFAULT_TAB);
     store(TAB_KEY + "-default", DEFAULT_TAB);
+    setMode(document.documentElement.classList.contains("simple-mode") ? "simple" : "full");
 
     // 1-босқичдаги «↗»: 2-босқич жадвалида шу қаторни (атрофи билан) кўрсатиш
     window.narxShowTab = showTab;

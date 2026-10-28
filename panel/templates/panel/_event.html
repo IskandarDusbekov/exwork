@@ -2,7 +2,7 @@
 <li class="flex items-start gap-3 px-4 py-2.5 text-sm">
   <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full
     {% if ev.is_alarm %}bg-rose-50 text-rose-600{% elif ev.is_admin %}bg-violet-50 text-violet-600{% elif ev.kind == 'upload' %}bg-emerald-50 text-emerald-600{% elif ev.kind == 'delete' or ev.kind == 'stop' %}bg-amber-50 text-amber-600{% else %}bg-slate-100 text-slate-500{% endif %}">
-    {% if ev.is_alarm %}{% icon "alert" "h-3.5 w-3.5" %}{% elif ev.is_admin %}{% icon "shield" "h-3.5 w-3.5" %}{% elif ev.kind == 'upload' %}{% icon "upload" "h-3.5 w-3.5" %}{% elif ev.kind == 'delete' %}{% icon "trash" "h-3.5 w-3.5" %}{% elif ev.kind == 'stop' %}{% icon "stop" "h-3.5 w-3.5" %}{% else %}{% icon "user" "h-3.5 w-3.5" %}{% endif %}
+    {% if ev.is_alarm %}{% icon "alert" "h-3.5 w-3.5" %}{% elif ev.is_admin %}{% icon "shield" "h-3.5 w-3.5" %}{% elif ev.kind == 'upload' %}{% icon "upload" "h-3.5 w-3.5" %}{% elif ev.kind == 'delete' %}{% icon "trash" "h-3.5 w-3.5" %}{% elif ev.kind == 'stop' %}{% icon "stop" "h-3.5 w-3.5" %}{% elif ev.kind == 'rename' %}{% icon "pencil" "h-3.5 w-3.5" %}{% else %}{% icon "user" "h-3.5 w-3.5" %}{% endif %}
   </span>
   <div class="min-w-0 flex-1">
     <div class="flex flex-wrap items-baseline gap-x-2">

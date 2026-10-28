@@ -75,6 +75,7 @@ class AuthAttempt(models.Model):
     class Kind(models.TextChoices):
         LOGIN = "login", "Кириш (хато)"
         REGISTER = "register", "Рўйхатдан ўтиш"
+        RESET = "reset", "Паролни тиклаш сўрови"
 
     kind = models.CharField(max_length=16, choices=Kind.choices)
     email = models.CharField(max_length=254, blank=True, db_index=True)

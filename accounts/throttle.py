@@ -11,6 +11,8 @@ WINDOW = timedelta(minutes=15)
 LOGIN_PER_EMAIL = 5     # 15 дақиқада битта ҳисобга 5 та хато пароль
 LOGIN_PER_IP = 20       # битта IP'дан турли ҳисобларга
 REGISTER_PER_IP = 5     # битта IP'дан 15 дақиқада нечта рўйхат
+RESET_PER_IP = 5        # паролни тиклаш хати: битта IP'дан
+RESET_PER_EMAIL = 3     # битта email'га (бировнинг почтасини хат билан тўлдириб бўлмасин)
 
 
 def _valid_ip(value):
@@ -47,6 +49,13 @@ def login_blocked(request, email) -> bool:
 def register_blocked(request) -> bool:
     ip = client_ip(request)
     return ip is not None and _recent(AuthAttempt.Kind.REGISTER).filter(ip=ip).count() >= REGISTER_PER_IP
+
+
+def reset_blocked(request, email) -> bool:
+    recent = _recent(AuthAttempt.Kind.RESET)
+    ip = client_ip(request)
+    return (recent.filter(email=normalize_email(email)).count() >= RESET_PER_EMAIL
+            or (ip is not None and recent.filter(ip=ip).count() >= RESET_PER_IP))
 
 
 def record(request, kind, email=""):

@@ -40,6 +40,39 @@ class LoginForm(forms.Form):
                                widget=forms.PasswordInput(attrs=_attrs(autocomplete="current-password")))
 
 
+class ResetRequestForm(forms.Form):
+    email = forms.EmailField(label="Email", max_length=254,
+                             widget=forms.EmailInput(attrs=_attrs(autocomplete="email", autofocus=True,
+                                                                  placeholder="name@mail.uz")))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"].error_messages.update(required="Email'ни киритинг.", invalid="Email нотўғри ёзилган.")
+
+
+class SetPasswordForm(forms.Form):
+    password1 = forms.CharField(label="Янги пароль", max_length=128, strip=False,
+                                widget=forms.PasswordInput(attrs=_attrs(autocomplete="new-password", autofocus=True)))
+    password2 = forms.CharField(label="Паролни такрорланг", max_length=128, strip=False,
+                                widget=forms.PasswordInput(attrs=_attrs(autocomplete="new-password")))
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+        for f in self.fields.values():
+            f.error_messages["required"] = "Тўлдиринг."
+
+    def clean(self):
+        data = super().clean()
+        p1, p2 = data.get("password1"), data.get("password2")
+        if p1 and p2 and p1 != p2:
+            self.add_error("password2", "Пароллар бир хил эмас.")
+        elif p1:
+            for msg in password_errors(p1, self.user):
+                self.add_error("password1", msg)
+        return data
+
+
 class RegisterForm(forms.Form):
     first_name = forms.CharField(label="Исм", max_length=150,
                                  widget=forms.TextInput(attrs=_attrs(autocomplete="given-name", autofocus=True)))

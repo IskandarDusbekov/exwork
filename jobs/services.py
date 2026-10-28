@@ -207,6 +207,23 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
 MAX_FILES = 10
 
 
+def object_name(batch: "Batch", names: list) -> str:
+    """Объект номи — локал файл номидан (ресурс файли эмас): «Намуна локал» ёки «Намуна локал + 1 та локал».
+    Локал аниқланмаган бўлса — биринчи файл номи."""
+    count = {}  # файл → [локал листлар, ресурс листлар]
+    for sh in batch.sheets:
+        role = sh.get("role")
+        if role in ("local", "resource"):
+            count.setdefault(int(sh["key"].split(":", 1)[0]), [0, 0])[role == "resource"] += 1
+    # асосан локалдан иборат файллар (битта файлда ҳар иккаласи бўлиши мумкин); бўлмаса — локали борлари
+    local_files = (sorted(i for i, (lo, re_) in count.items() if lo > re_)
+                   or sorted(i for i, (lo, _) in count.items() if lo))
+    if not local_files:
+        return names[0] if len(names) == 1 else f"{names[0]} + {len(names) - 1} та файл"
+    first = Path(names[local_files[0]]).stem
+    return first if len(local_files) == 1 else f"{first} + {len(local_files) - 1} та локал"
+
+
 def create_batch(owner, files) -> "Batch":
     """Fayllarni saqlaydi, .xlsx ga o'giradi, har bir listni tahlil qilib juftliklarni taklif qiladi."""
     if not files:
@@ -223,6 +240,7 @@ def create_batch(owner, files) -> "Batch":
             xlsx = clock.open(batch.abs(f"upload/{i}{ext}"), batch.abs(f"conv/{i}"), names[i], i)
             batch.files.append({"name": names[i], "path": str(xlsx.relative_to(batch.dir)), "sheets": clock.read(xlsx, i)})
         analyze_batch(batch, timings=seconds)
+        batch.name = object_name(batch, names)
         clock.analyzed(seconds)
     except convert.ConversionError as e:
         shutil.rmtree(batch.dir, ignore_errors=True)

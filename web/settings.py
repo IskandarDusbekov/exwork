@@ -161,6 +161,23 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 
+# ===================== email (паролни тиклаш) =====================
+# EMAIL_HOST берилса — SMTP; бўлмаса хатлар консолга чиқади (фақат ишлаб чиқиш учун). Django 6.1+: MAILERS
+_email_host = os.environ.get("EMAIL_HOST", "")
+MAILERS = {"default": {
+    "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+    "OPTIONS": {
+        "host": _email_host,
+        "port": int(os.environ.get("EMAIL_PORT", "587")),
+        "username": os.environ.get("EMAIL_HOST_USER", ""),
+        "password": os.environ.get("EMAIL_HOST_PASSWORD", ""),
+        "use_tls": os.environ.get("EMAIL_USE_TLS", "1") == "1",
+        "timeout": 15,
+    },
+} if _email_host else {"BACKEND": "django.core.mail.backends.console.EmailBackend"}}
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Нархлаш <noreply@localhost>")
+PASSWORD_RESET_TIMEOUT = 2 * 3600  # ҳавола 2 соат амал қилади
+
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

@@ -57,6 +57,22 @@ class FlowTests(LoggedInTestCase):
         files = [SimpleUploadedFile(Path(p).name, Path(p).read_bytes()) for p in paths]
         return self.client.post(reverse("index"), {"files": files})
 
+    def test_object_named_after_local_and_renamed(self):
+        from core.tests.test_batch import OBJ_LOCAL, OBJ_RES
+        self._upload_files(OBJ_RES, OBJ_LOCAL)  # ресурс файли биринчи бўлса ҳам — ном локалдан
+        batch = Batch.objects.get()
+        self.assertEqual(batch.name, "obekt_lokal_7list")
+        page = self.client.get(reverse("batch", args=[batch.id]))
+        self.assertContains(page, reverse("work_rename", args=["object", batch.id]))
+        r = self.client.post(reverse("work_rename", args=["object", batch.id]), {"name": "  Мактаб   №5  "})
+        self.assertRedirects(r, reverse("batch", args=[batch.id]), fetch_redirect_response=False)
+        batch.refresh_from_db()
+        self.assertEqual(batch.name, "Мактаб №5")
+        other = User.objects.create_user("boshqa@test.uz", "Kuchli-parol-2026")
+        self.client.force_login(other)
+        r = self.client.post(reverse("work_rename", args=["object", batch.id]), {"name": "X"})
+        self.assertEqual(r.status_code, 404)  # бошқанинг ишини ўзгартириб бўлмайди
+
     def test_object_two_files_review_confirm_and_combined_download(self):
         from core.tests.test_batch import OBJ_LOCAL, OBJ_RES
         r = self._upload_files(OBJ_LOCAL, OBJ_RES)
@@ -611,7 +627,11 @@ class FolderTests(LoggedInTestCase):
         self.assertContains(page, "A_lokal.xlsx")         # режа: қайси локал → қайси ресурс
         self.assertContains(page, "A_res.xlsx")
         self.assertContains(page, 'class="pv-open')              # локал/ресурс — Excel кўриниши
-        self.assertContains(page, 'id="pv-data"')                # қисмлар листлари ва номзодлар
+        self.assertContains(page, 'data-viewer-url="')           # листлар ва номзодлар — босилганда сўралади
+        part = next(iter(parts.values()))
+        viewer = self.client.get(reverse("project_viewer", args=[project.id, part.id])).json()
+        self.assertEqual(viewer["url"], reverse("batch_sheet", args=[part.id]))
+        self.assertTrue(viewer["sheets"])
 
         with mock.patch.object(folders, "start", lambda project: folders._run(project.id)):
             r = self.client.post(reverse("project_price", args=[project.id]))
