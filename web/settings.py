@@ -30,6 +30,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # static файллар (CSS, admin) — nginx'сиз ҳам
     "panel.middleware.BlockedIPMiddleware",  # блокланган IP — ҳеч нарса очилмайди
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -161,6 +162,31 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 
+# ===================== loglar =====================
+# Konsol + fayl (logs/narxlash.log, 10 MB × 5 ta, aylanib turadi) + panel («Хатолар»: WARNING va undan yuqori).
+LOG_DIR = Path(os.environ.get("NARXLASH_LOG_DIR", BASE_DIR / "logs"))
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {"format": "%(asctime)s %(levelname)s %(name)s [%(process)d %(threadName)s] %(message)s"},
+    },
+    "filters": {"skip_noise": {"()": "panel.logs.SkipNoise"}},
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
+        "file": {"class": "logging.handlers.RotatingFileHandler", "filename": LOG_DIR / "narxlash.log",
+                 "maxBytes": 10 * 1024 * 1024, "backupCount": 5, "encoding": "utf-8", "formatter": "verbose",
+                 "delay": True},
+        "panel": {"class": "panel.logs.DBLogHandler", "level": "WARNING", "filters": ["skip_noise"]},
+    },
+    "root": {"level": "INFO", "handlers": ["console", "file", "panel"]},
+    "loggers": {
+        "django.server": {"level": "INFO", "handlers": ["console"], "propagate": False},  # runserver сўровлари
+        "django.db.backends": {"level": "WARNING"},
+    },
+}
+
 # ===================== email (паролни тиклаш) =====================
 # EMAIL_HOST берилса — SMTP; бўлмаса хатлар консолга чиқади (фақат ишлаб чиқиш учун). Django 6.1+: MAILERS
 _email_host = os.environ.get("EMAIL_HOST", "")
@@ -179,6 +205,15 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Нархлаш <norep
 PASSWORD_RESET_TIMEOUT = 2 * 3600  # ҳавола 2 соат амал қилади
 
 STATIC_URL = "static/"
+STATICFILES_DIRS = [BASE_DIR / "web" / "static"]  # css/app.css — frontend/ да йиғилади (npm run build)
+STATIC_ROOT = Path(os.environ.get("NARXLASH_STATIC_ROOT", BASE_DIR / "staticfiles"))  # manage.py collectstatic
+STATIC_ROOT.mkdir(parents=True, exist_ok=True)  # WhiteNoise бўш бўлса ҳам кутади (ишлаб чиқишда огоҳлантирмасин)
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    # production: номида хеш (браузер кеши янгиланишда бузилмайди) ва gzip/brotli; collectstatic шарт
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage" if DEBUG
+                    else "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Yuklangan va natija fayllar: media/jobs/<uuid>/

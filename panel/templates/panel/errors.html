@@ -1,0 +1,76 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Хатолар — Панел{% endblock %}
+{% block panel %}
+<div class="mb-4 flex flex-wrap items-end gap-3">
+  <div class="min-w-0 flex-1">
+    <h1 class="text-xl font-semibold text-slate-900">Сервер хатолари</h1>
+    <p class="text-sm text-slate-500">Сайт ва фон иши (worker) хатолари ва огоҳлантиришлари. 404 ва бегона сўровлар ёзилмайди. {{ keep_days }} кундан эскилари ўзи ўчади.</p>
+  </div>
+  {% if can_act %}
+  <form method="post" action="{% url 'panel:errors_test' %}" data-confirm="Синов учун битта «Хато» ёзуви қўшилади — логлар панелга тушаётганини текширасиз."
+        data-confirm-title="Синов хатоси" data-confirm-ok="Ёзиш">{% csrf_token %}
+    <button type="submit" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Синов хатоси</button></form>
+  <form method="post" action="{% url 'panel:errors_clear' %}" data-confirm="Ҳамма ёзувлар ўчирилади (файлдаги логлар қолади)."
+        data-confirm-title="Хатоларни тозалаш" data-confirm-ok="Тозалаш" data-danger>{% csrf_token %}
+    <button type="submit" class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-100">Тозалаш</button></form>
+  {% endif %}
+</div>
+
+<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+  <div class="rounded-xl border {% if day_errors %}border-rose-200 bg-rose-50{% else %}border-slate-200 bg-white{% endif %} p-4 shadow-sm">
+    <div class="text-xs {% if day_errors %}text-rose-800{% else %}text-slate-500{% endif %}">Хатолар · 24 соат</div>
+    <div class="num text-2xl font-semibold {% if day_errors %}text-rose-700{% else %}text-slate-300{% endif %}">{{ day_errors }}</div>
+  </div>
+  <div class="rounded-xl border {% if day_warnings %}border-amber-200 bg-amber-50{% else %}border-slate-200 bg-white{% endif %} p-4 shadow-sm">
+    <div class="text-xs {% if day_warnings %}text-amber-800{% else %}text-slate-500{% endif %}">Огоҳлантиришлар · 24 соат</div>
+    <div class="num text-2xl font-semibold {% if day_warnings %}text-amber-700{% else %}text-slate-300{% endif %}">{{ day_warnings }}</div>
+  </div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="text-xs text-slate-500">Ҳаммаси · {{ keep_days }} кун</div>
+    <div class="num text-2xl font-semibold text-slate-800">{{ total }}</div>
+  </div>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="text-xs text-slate-500">Файлдаги лог</div>
+    <div class="truncate text-sm font-medium text-slate-700" title="{{ log_file }}">{{ log_file }}</div>
+  </div>
+</div>
+
+<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <form method="get" class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
+    <span class="inline-flex overflow-hidden rounded-lg border border-slate-300 text-sm" role="group" aria-label="Даража">
+      {% for v, label in levels %}
+      <a href="?level={{ v }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="px-3 py-1.5 {% if not forloop.first %}border-l border-slate-300{% endif %} {% if level == v %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}">{{ label }}</a>
+      {% endfor %}
+    </span>
+    <input type="hidden" name="level" value="{{ level }}">
+    <input type="search" name="q" value="{{ q }}" placeholder="Матн, манзил ёки модул бўйича…" class="min-w-[240px] flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm sm:max-w-sm">
+    <button type="submit" class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">Излаш</button>
+  </form>
+  <ul class="divide-y divide-slate-100">
+    {% for e in page %}
+    <li>
+      <details class="group">
+        <summary class="flex cursor-pointer list-none items-start gap-3 px-4 py-2.5 hover:bg-slate-50">
+          <span class="mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold {% if e.level >= 50 %}bg-rose-600 text-white{% elif e.level >= 40 %}bg-rose-100 text-rose-700{% else %}bg-amber-100 text-amber-800{% endif %}">{{ e.level_name }}</span>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate font-medium text-slate-900">{{ e.title }}</span>
+            <span class="block truncate text-xs text-slate-500">{{ e.logger }}{% if e.path %} · {{ e.method }} {{ e.path }}{% endif %}{% if e.status %} · {{ e.status }}{% endif %}{% if e.user %} · {{ e.user.email }}{% endif %}</span>
+          </span>
+          <span class="num shrink-0 text-xs text-slate-400" title="{{ e.created|date:'d.m.Y H:i:s' }}">{{ e.created|date:"d.m H:i" }}</span>
+          <span class="shrink-0 text-slate-400 transition-transform group-open:rotate-90">{% icon "chevron-right" "h-4 w-4" %}</span>
+        </summary>
+        <div class="space-y-2 bg-slate-50 px-4 pb-4 pt-2 text-sm">
+          <div class="whitespace-pre-wrap break-words text-slate-800">{{ e.message }}</div>
+          <div class="text-xs text-slate-500">{{ e.created|date:"d.m.Y H:i:s" }}{% if e.ip %} · IP {{ e.ip }}{% endif %}</div>
+          {% if e.traceback %}<pre class="max-h-96 overflow-auto rounded-lg bg-slate-900 p-3 text-xs leading-relaxed text-slate-100">{{ e.traceback }}</pre>{% endif %}
+        </div>
+      </details>
+    </li>
+    {% empty %}
+    <li class="px-4 py-10 text-center text-sm text-slate-500">{% icon "check-circle" "mx-auto mb-2 h-6 w-6 text-emerald-500" %}Хато йўқ.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% include "panel/_pager.html" %}
+{% endblock %}

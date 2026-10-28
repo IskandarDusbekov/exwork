@@ -6,6 +6,7 @@ Smetachi papkasida odatda har bir ichki papka bitta qism: ``…_lokal.xls`` + ``
 listlar turi mazmunidan aniqlanadi, juftlanadi va tasdiqlashsiz narxlanadi. Juftlik topilmasa —
 qism «Текширинг» bo'lib qoladi, smetachi obyekt sahifasida o'zi tanlaydi.
 """
+import logging
 import os
 import shutil
 import threading
@@ -29,6 +30,8 @@ from .services import (
     ALLOWED_EXT, FileClock, UploadError, _save, analyze_batch, apply_decisions, batch_outputs, confirm_batch,
     save_timings, sheet_names, unpriced_res,
 )
+
+log = logging.getLogger(__name__)
 
 MAX_PROJECT_FILES = 400
 WORKING = (Batch.Stage.QUEUED, Batch.Stage.CONVERTING, Batch.Stage.PRICING)
@@ -526,6 +529,7 @@ def analyze_part(part: Batch):
         _set(part, Batch.Stage.STOPPED, "тўхтатилди — «Давом эттириш» билан қайта бошланади")
         raise
     except Exception as e:  # bitta papka xatosi butun loyihani to'xtatmasin
+        log.exception("qism ochilmadi: %s (loyiha %s)", part.folder, part.project_id)
         _set(part, Batch.Stage.FAILED, f"{type(e).__name__}: {e}")
     finally:
         save_timings(clock, part.owner_id, project_id=part.project_id, batch=part)
@@ -548,6 +552,7 @@ def price_part(part: Batch, decisions=None):
         else:
             _set(part, Batch.Stage.DONE)
     except Exception as e:
+        log.exception("qism narxlanmadi: %s (loyiha %s)", part.folder, part.project_id)
         _set(part, Batch.Stage.FAILED, f"{type(e).__name__}: {e}")
 
 

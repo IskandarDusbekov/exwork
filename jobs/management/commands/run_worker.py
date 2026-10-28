@@ -8,6 +8,7 @@ Bir nechta worker (bir nechta serverda ham) bir vaqtda ishlashi mumkin — har b
 Sayt ``NARXLASH_TASKS=worker`` bilan ishga tushirilishi kerak (aks holda sayt o'zi oqimda ishlaydi).
 Ctrl+C — yangi ish olinmaydi, boshlanganlari tugatiladi; ikkinchi Ctrl+C — darhol chiqish
 (tugallanmagan ish 5 daqiqadan keyin boshqa worker tomonidan davom ettiriladi)."""
+import logging
 import os
 import signal
 import socket
@@ -21,6 +22,8 @@ from django.utils import timezone
 
 from jobs import folders
 from jobs.models import Worker
+
+log = logging.getLogger("jobs.worker")
 
 
 class Command(BaseCommand):
@@ -71,8 +74,8 @@ class Command(BaseCommand):
             while not self.stopping.is_set():
                 try:
                     pid = folders.claim_next(me)
-                except Exception as e:  # noqa: BLE001 — база вақтинча банд/узилган: оқим ўлмасин, кейинроқ
-                    self.stderr.write(f"[{me}] навбатни олиб бўлмади: {type(e).__name__}: {e}")
+                except Exception:  # noqa: BLE001 — база вақтинча банд/узилган: оқим ўлмасин, кейинроқ
+                    log.exception("[%s] навбатни олиб бўлмади", me)
                     close_old_connections()
                     self.stopping.wait(max(poll, 1.0))
                     continue
@@ -88,8 +91,8 @@ class Command(BaseCommand):
                 self.stdout.write(f"[{me}] {pid} — бошланди")
                 try:
                     folders._run(pid, worker=me)
-                except Exception as e:  # noqa: BLE001 — битта иш хатоси worker'ни тўхтатмасин
-                    self.stderr.write(f"[{me}] {pid} — хато: {type(e).__name__}: {e}")
+                except Exception:  # noqa: BLE001 — битта иш хатоси worker'ни тўхтатмасин
+                    log.exception("[%s] %s — хато", me, pid)
                 finally:
                     self._count(busy=F("busy") - 1, done=F("done") + 1)
                 self.stdout.write(f"[{me}] {pid} — тугади ({time.monotonic() - started:.1f} с)")

@@ -1,6 +1,6 @@
 # PostgreSQL ва Redis (сервер ёки ўз компьютерингизда Docker билан):
-#   cd deploy && copy .env.example .env   (паролни ўзгартиринг)
-#   docker compose up -d
+#   /srv/narxlash/.env тайёр бўлсин (deploy/.env.example), кейин:
+#   cd deploy && docker compose --env-file /srv/narxlash/.env up -d
 # Портлар фақат 127.0.0.1 да очиқ — ташқаридан уланиб бўлмайди.
 services:
   postgres:

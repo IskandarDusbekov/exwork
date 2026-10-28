@@ -23,4 +23,7 @@ urlpatterns = [
     path("processes/", views.processes, name="processes"),
     path("files/", views.files, name="files"),
     path("log/", views.log, name="log"),
+    path("errors/", views.errors, name="errors"),
+    path("errors/test/", views.errors_test, name="errors_test"),
+    path("errors/clear/", views.errors_clear, name="errors_clear"),
 ]

@@ -1,0 +1,18 @@
+[Unit]
+Description=Narxlash — sayt (gunicorn)
+After=network.target postgresql.service redis-server.service docker.service
+
+[Service]
+User=narxlash
+Group=narxlash
+WorkingDirectory=/srv/narxlash/app
+EnvironmentFile=/srv/narxlash/.env
+Environment=HOME=/srv/narxlash
+ExecStart=/srv/narxlash/venv/bin/gunicorn web.wsgi:application -c /srv/narxlash/app/deploy/gunicorn.conf.py
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=5
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

@@ -227,3 +227,10 @@ media/
 
 # deploy sirlari
 deploy/.env
+
+# Нархлаш: Tailwind йиғиш (natija web/static/css/app.css — repoda)
+frontend/node_modules/
+# collectstatic
+staticfiles/
+# loglar
+logs/

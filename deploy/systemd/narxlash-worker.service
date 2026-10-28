@@ -1,0 +1,21 @@
+[Unit]
+Description=Narxlash — fon ishchisi (papka ochish va narxlash)
+After=network.target postgresql.service redis-server.service docker.service
+
+[Service]
+User=narxlash
+Group=narxlash
+WorkingDirectory=/srv/narxlash/app
+EnvironmentFile=/srv/narxlash/.env
+# LibreOffice o'z profilini shu yerga yozadi
+Environment=HOME=/srv/narxlash
+ExecStart=/srv/narxlash/venv/bin/python manage.py run_worker --threads 2
+# SIGTERM — yangi ish olinmaydi, boshlanganlari tugatiladi (5 daqiqagacha kutiladi)
+KillSignal=SIGTERM
+TimeoutStopSec=300
+Restart=always
+RestartSec=5
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
