@@ -21,7 +21,7 @@ from openpyxl.utils import get_column_letter
 from .templatetags.narx import _EXCEL_ERRORS_RU
 
 MAX_ROWS = 3000  # bundan ko'p qator — kesiladi (sahifa og'irlashmasin)
-CACHE_VERSION = 1
+CACHE_VERSION = 2  # 2: shrift nomi va rang tozalanadi (eski keshda XSS qolmasin)
 GUTTER_PX = 46
 _RED_FILL, _RED_FONT = "#FFC7CE", "#9C0006"  # writer.mark_unpriced bilan bir xil
 
@@ -122,6 +122,17 @@ def display(v, fmt: str = "General") -> str:
     return _EXCEL_ERRORS_RU.get(s, s)
 
 
+_HEX6 = re.compile(r"[0-9A-Fa-f]{6}")
+_FONT_BAD = re.compile(r"[^\w .\-]")
+
+
+def _safe_font(name) -> str:
+    """Shrift nomi fayldan keladi va <style> ichiga yoziladi: «'», «}», «<» kabi belgilar bilan CSS'dan chiqib
+    HTML/skript qo'shib bo'lardi (XSS — admin boshqaning faylini ochganda uning sessiyasida). Faqat harf, raqam,
+    bo'shliq, nuqta, chiziqcha qoladi."""
+    return _FONT_BAD.sub("", str(name or ""))[:64].strip()
+
+
 class _Styles:
     """Katak uslubi -> CSS sinfi (bir xil uslubli kataklar bitta sinfni bo'lishadi)."""
 
@@ -140,8 +151,8 @@ class _Styles:
             v = COLOR_INDEX[c.indexed][-6:]
         elif c.type == "theme" and isinstance(c.theme, int) and c.theme < len(self.theme):
             v = self.theme[c.theme]
-        if v is None:
-            return None
+        if v is None or not _HEX6.fullmatch(v):
+            return None  # fayldan kelgan qiymat CSS'ga tushadi — faqat 6 xonali hex
         if c.tint:
             v = _tint(v, c.tint)
         return "#" + v
@@ -170,8 +181,9 @@ class _Styles:
                 p.append("text-decoration:" + " ".join(deco))
             if f.sz and float(f.sz) != 11:
                 p.append(f"font-size:{float(f.sz):g}pt")
-            if f.name and f.name not in ("Calibri", "Arial"):
-                p.append(f"font-family:'{f.name}',Calibri,Arial,sans-serif")
+            font = _safe_font(f.name)
+            if font and font not in ("Calibri", "Arial"):
+                p.append(f"font-family:'{font}',Calibri,Arial,sans-serif")
             col = self.color(f.color)
             if col and col != "#000000":
                 p.append(f"color:{col}")

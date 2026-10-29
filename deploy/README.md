@@ -211,6 +211,28 @@ Domen faollashgach — 7-qadam, va `.env` ni qaytaring (`DJANGO_ALLOWED_HOSTS=DO
 > Saytni IP orqali oddiy `http://` da ochmang: parol va cookie'lar shifrlanmasdan yuboriladi, xavfsizlik
 > sozlamalari (faqat HTTPS cookie) tufayli kirish baribir ishlamaydi.
 
+## Xavfsizlik
+
+Sayt begona Excel va arxiv fayllarni ochadi. Himoya qatlamlari (testlari — `jobs/tests_security.py`):
+
+| Xavf | Himoya |
+|---|---|
+| Excel ichidagi kod (XSS) admin sessiyasida | fayldan kelgan shrift nomi va ranglar tozalanadi, katak matni escape qilinadi |
+| «Arxiv bombasi» (kichik fayl gigabaytga ochiladi) | arxivdagi Excel ≤ 100 MB, ichki arxiv ≤ 700 MB, jami ≤ 1 GB; `.xlsx` ochilganda ≤ 200 MB |
+| XML hujumlari (XXE) | `defusedxml` (openpyxl o'zi ishlatadi) |
+| LibreOffice/unrar zaifligi orqali sirlarni o'qish | dasturga saytning muhiti (parollar) berilmaydi; systemd: `NoNewPrivileges`, `ProtectSystem`, `ProtectHome` |
+| Bitta foydalanuvchi serverni to'ldirishi | soatiga 30 yuklash, diskda 5 GB (`.env`); ro'yxatdan o'tishni yopish — `NARXLASH_SIGNUP=closed` |
+
+systemd fayllari o'zgarganda (`update.sh` ularni nusxalamaydi):
+
+```bash
+sudo cp /srv/narxlash/app/deploy/systemd/narxlash-*.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl restart narxlash-web narxlash-worker
+```
+
+**Server:** `root` ga parol bilan kirishni o'chirib, SSH kalitdan foydalaning (`/etc/ssh/sshd_config`:
+`PasswordAuthentication no`, `PermitRootLogin prohibit-password`) — avval kalit bilan kirish ishlashini tekshiring.
+
 ## Yangi versiyani qo'yish
 
 ```bash

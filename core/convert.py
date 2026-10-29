@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import zipfile
 from pathlib import Path
 from typing import Optional
 
@@ -70,12 +71,30 @@ def converter_name(soffice: Optional[str] = None, converter: Optional[str] = Non
         return "excel" if excel_available() else ""
 
 
+# .xlsx — ZIP: 30 MB fayl ichida gigabaytlab XML bo'lishi mumkin («bomba») — ochishdan oldin e'lon qilingan
+# hajm tekshiriladi (o'qishda zipfile undan ortig'ini bermaydi). Haqiqiy smetalar: ochilganda ≤ 25 MB.
+MAX_XLSX_UNPACKED = 200 * 1024 * 1024
+MAX_XLSX_PARTS = 10000
+
+
+def check_xlsx(path: Path):
+    try:
+        with zipfile.ZipFile(path) as z:
+            infos = z.infolist()
+    except zipfile.BadZipFile:
+        return  # ZIP emas — openpyxl o'zi tushunarli xato beradi
+    if len(infos) > MAX_XLSX_PARTS or sum(i.file_size for i in infos) > MAX_XLSX_UNPACKED:
+        raise ConversionError(f"{path.name}: файл очилганда жуда катта ({MAX_XLSX_UNPACKED // 2**20} МБ дан ортиқ) "
+                              "— бу смета эмас ёки файл бузилган")
+
+
 def ensure_xlsx(path: Path, out_dir: Path, soffice: Optional[str] = None, timeout: int = 180,
                 converter: Optional[str] = None) -> Path:
     """``.xlsx``/``.xlsm`` ni o'zini qaytaradi, ``.xls`` ni ``out_dir`` ga konvertatsiya qiladi."""
     path = Path(path)
     ext = path.suffix.lower()
     if ext in (".xlsx", ".xlsm"):
+        check_xlsx(path)
         return path
     if ext != ".xls":
         raise ConversionError(f"Bu format qo'llanmaydi: {ext}. Faqat {', '.join(SUPPORTED)}")
@@ -108,7 +127,8 @@ def _convert_libreoffice(exe: str, path: Path, out_dir: Path, timeout: int) -> P
             str(path),
         ]
         try:
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            # begona fayl ochiladi: saytning sirlari (baza paroli, SECRET_KEY) LibreOffice'ga o'tmaydi
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=tool_env())
         except subprocess.TimeoutExpired as e:
             raise ConversionError(f"LibreOffice {timeout} soniyada javob bermadi") from e
     out = out_dir / (path.stem + ".xlsx")
@@ -116,7 +136,18 @@ def _convert_libreoffice(exe: str, path: Path, out_dir: Path, timeout: int) -> P
         raise ConversionError(
             f".xls -> .xlsx konvertatsiyada xato (kod {proc.returncode}): {proc.stderr.strip() or proc.stdout.strip()}"
         )
+    check_xlsx(out)
     return out
+
+
+_TOOL_ENV = ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "TEMP", "TMP", "SYSTEMROOT", "WINDIR", "USERPROFILE",
+             "APPDATA", "LOCALAPPDATA", "PROGRAMFILES", "PROGRAMFILES(X86)", "COMSPEC")
+
+
+def tool_env() -> dict:
+    """Begona faylni ochadigan tashqi dasturlar (LibreOffice, unrar, 7z) uchun muhit — faqat kerakli
+    o'zgaruvchilar. Dasturda zaiflik bo'lsa ham, zararli fayl saytning sirlarini (muhitdan) o'qiy olmaydi."""
+    return {k: v for k, v in os.environ.items() if k.upper() in _TOOL_ENV}
 
 
 _RPC_E_CALL_REJECTED = -2147418111
@@ -203,4 +234,5 @@ def _convert_excel(path: Path, out_dir: Path) -> Path:
         _ensure_exited(pid)
     if not out.is_file():
         raise ConversionError(".xls -> .xlsx (Excel): natija fayli yaratilmadi")
+    check_xlsx(out)
     return out

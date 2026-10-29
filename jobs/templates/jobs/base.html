@@ -49,7 +49,7 @@
       <div class="ml-auto flex items-center gap-2 text-sm">
         <a href="{% url 'landing' %}" class="hidden rounded-lg px-3 py-1.5 font-medium text-slate-500 hover:text-slate-900 sm:block">Тизим ҳақида</a>
         <a href="{% url 'login' %}" class="rounded-lg px-3 py-1.5 font-medium text-slate-700 hover:text-slate-900">Кириш</a>
-        <a href="{% url 'register' %}" class="rounded-lg bg-slate-900 px-3 py-1.5 font-medium text-white hover:bg-slate-700">Рўйхатдан ўтиш</a>
+        {% if signup_open %}<a href="{% url 'register' %}" class="rounded-lg bg-slate-900 px-3 py-1.5 font-medium text-white hover:bg-slate-700">Рўйхатдан ўтиш</a>{% endif %}
       </div>
       {% endif %}
     </div>

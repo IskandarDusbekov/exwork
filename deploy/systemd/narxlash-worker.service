@@ -20,6 +20,12 @@ TimeoutStopSec=300
 Restart=always
 RestartSec=5
 UMask=0027
+# Begona fayllar (LibreOffice, unrar) shu jarayon ichida ochiladi — zaiflik bo'lsa ham zarar cheklansin:
+# huquq oshirib bo'lmaydi, /tmp alohida, tizim fayllari va /home, /root yozib/o'qib bo'lmaydi.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
 
 [Install]
 WantedBy=multi-user.target

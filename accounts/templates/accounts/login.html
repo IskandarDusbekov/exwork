@@ -16,6 +16,8 @@
       <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Кириш</button>
     </form>
   </div>
+  {% if signup_open %}
   <p class="mt-4 text-center text-sm text-slate-500">Ҳисобингиз йўқми? <a href="{% url 'register' %}" class="font-medium text-slate-900 underline">Рўйхатдан ўтинг</a></p>
+  {% endif %}
 </div>
 {% endblock %}

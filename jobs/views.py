@@ -29,7 +29,7 @@ from .folders import (
 )
 from .models import Batch, Job, Project
 from .services import (
-    BASE_RES, UploadError, analyze_batch, base_period_of, pair_ready, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job,
+    BASE_RES, UploadError, analyze_batch, base_period_of, check_quota, pair_ready, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job,
     parse_percents, remember_base_period, remember_percents, remembered_percents, unpriced_res,
 )
 from .templatetags.narx import file_title, pct as pct_text, pct_input, readable, som
@@ -98,9 +98,10 @@ def column_labels(job) -> dict:
 def index(request):
     error = None
     if request.method == "POST":
-        files = request.FILES.getlist("files")
-        local = request.FILES.get("local")
         try:
+            check_quota(request.user)  # файллар ўқилишидан олдин
+            files = request.FILES.getlist("files")
+            local = request.FILES.get("local")
             if files and any(is_archive(f.name) for f in files):
                 # ZIP/RAR — ичида папкалар бўлади: папка каби очилади (ҳисоблаш смета­чи босгандагина)
                 project = create_project(request.user, files, [f.name for f in files])
@@ -403,6 +404,7 @@ PART_STATES = {
 def project_create(request):
     """Папка юклаш (JS): ``files`` + ``paths`` (ҳар бирининг папка ичидаги йўли) + ``skipped``."""
     try:
+        check_quota(request.user)  # файллар ўқилишидан олдин
         project = create_project(request.user, request.FILES.getlist("files"), request.POST.getlist("paths"),
                                  request.POST.getlist("skipped"))
     except UploadError as e:

@@ -67,6 +67,9 @@ def login_view(request):
 def register_view(request):
     if request.user.is_authenticated:
         return redirect("index")
+    if settings.NARXLASH_SIGNUP != "open":
+        # ҳисобни фақат админ очади — форма ҳам, POST ҳам йўқ
+        return render(request, "accounts/register.html", {"closed": True}, status=403 if request.method == "POST" else 200)
     form = RegisterForm(request.POST or None)
     error = None
     if request.method == "POST":

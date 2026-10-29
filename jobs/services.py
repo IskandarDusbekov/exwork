@@ -26,6 +26,26 @@ class UploadError(Exception):
     pass
 
 
+def check_quota(user):
+    """Bitta foydalanuvchi serverni to'ldira olmasin: soatiga yuklashlar soni va diskdagi jami hajmi.
+    Xodimlar (is_staff) — cheklovsiz. Yuklangan fayl o'qilishidan oldin chaqiriladi."""
+    if user.is_staff:
+        return
+    from panel.data import dir_size
+    from panel.models import Event
+    per_hour = settings.NARXLASH_UPLOADS_PER_HOUR
+    if per_hour and Event.objects.filter(kind=Event.Kind.UPLOAD, actor=user,
+                                         created__gte=timezone.now() - dt.timedelta(hours=1)).count() >= per_hour:
+        raise UploadError(f"Бир соатда кўпи билан {per_hour} та юклаш мумкин — бироздан кейин қайта уриниб кўринг.")
+    quota = settings.NARXLASH_USER_QUOTA_MB * 1024 * 1024
+    if quota:
+        used = sum(dir_size(o.dir) for model in (Project, Batch, Job)
+                   for o in model.objects.filter(owner=user).only("id"))
+        if used >= quota:
+            raise UploadError(f"Дискдаги жойингиз тўлди ({used // 2**20} МБ / {quota // 2**20} МБ): "
+                              "эски ишларни ўчиринг ёки администраторга мурожаат қилинг.")
+
+
 def _check_upload(f, label: str) -> str:
     ext = Path(f.name).suffix.lower()
     if ext not in ALLOWED_EXT:

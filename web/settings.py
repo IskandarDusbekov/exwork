@@ -56,6 +56,7 @@ TEMPLATES = [
             "django.template.context_processors.request",
             "django.contrib.auth.context_processors.auth",
             "django.contrib.messages.context_processors.messages",
+            "accounts.context.signup",
         ]},
     },
 ]
@@ -231,5 +232,12 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
 NARXLASH_MAX_UPLOAD = 30 * 1024 * 1024  # bitta fayl uchun
 NARXLASH_MAX_ARCHIVE = 700 * 1024 * 1024  # ZIP/RAR arxiv (ichida PDF, chizmalar ham bo'ladi)
+# Bitta foydalanuvchi serverni (disk, CPU) to'ldira olmasin. Xodimlar (is_staff) — cheklovsiz. 0 — cheklov yo'q.
+NARXLASH_UPLOADS_PER_HOUR = int(os.environ.get("NARXLASH_UPLOADS_PER_HOUR", "30"))
+NARXLASH_USER_QUOTA_MB = int(os.environ.get("NARXLASH_USER_QUOTA_MB", "5000"))
+# Ro'yxatdan o'tish: open — hamma o'zi ochadi; closed — hisobni faqat admin yaratadi (Django admin)
+NARXLASH_SIGNUP = os.environ.get("NARXLASH_SIGNUP", "open")
+if NARXLASH_SIGNUP not in ("open", "closed"):
+    raise ImproperlyConfigured("NARXLASH_SIGNUP: open yoki closed")
 DATA_UPLOAD_MAX_NUMBER_FILES = 1000  # butun papka yuklanadi
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 3000

@@ -693,7 +693,11 @@
         cur.sheet = d.sheet; cur.ready = true;
         after(opts);
       }).catch(function (e) {
-        scroll.innerHTML = '<div class="p-6 text-sm text-rose-700">Файлни кўрсатиб бўлмади: ' + (e.message || e) + "</div>";
+        // хато матнида файлдаги лист номи бўлиши мумкин — HTML эмас, матн сифатида
+        var err = document.createElement("div");
+        err.className = "p-6 text-sm text-rose-700";
+        err.textContent = "Файлни кўрсатиб бўлмади: " + (e.message || e);
+        scroll.replaceChildren(err);
       });
     }
     function render(kind, d) {
