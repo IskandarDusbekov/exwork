@@ -8,6 +8,16 @@
   <span class="tabular-nums text-sky-700" id="recalc-time"></span>
   <span class="text-xs text-sky-700">Тугагач саҳифа ўзи янгиланади. Бу вақтда бошқа саҳифаларга ўтишингиз мумкин; юклаб олинадиган файл — ҳисоб тугагач янгиси.</span>
 </div>
+<style>
+  /* Қайта ҳисоб кетаётганда смета­ни ўзгартирадиган тугмалар хира ва босилмайди (кўриш, фильтр, жадвал — ишлайди) */
+  .recalc-busy :is(#nf-near-bulk, #nf-clear, #nf-mark, #nf-restore, .nf-near-accept, .nf-alt-accept, .move-btn, .price-btn,
+    .grp-move, .lm-move, #col-add, .col-rename, .col-remove, #price-accept, #price-clear, #price-set, #price-input,
+    #xs-price-form button, #xs-price-form input, #xs-price-clear, .pct-input, #pct-reset, #pct-remembered,
+    form[action*="/run/"] button, form[action*="/base/"] button, form[action*="table-checked"] button) {
+    opacity: .4 !important; filter: grayscale(1); cursor: not-allowed !important;
+  }
+  .recalc-busy td.xs-price-cell { cursor: not-allowed !important; }
+</style>
 <script>
   // window.narxRecalc.wait() — қайта ҳисоб тугашини кутади (Promise: ҳолат). Ҳеч ким кутмаса, тугагач саҳифа янгиланади.
   window.narxRecalc = (function () {
@@ -18,7 +28,28 @@
     var typical = {% if job.duration %}{{ job.duration|stringformat:".1f" }}{% else %}null{% endif %};  // охирги ҳисоб, сония
     function fmt(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
     var np = null;
+    // ---- ҳисоб тугагунча ўзгартирадиган тугмаларни қулфлаш (иккинчи марта босиб бўлмасин) ----
+    var LOCK = '#nf-near-bulk, #nf-clear, #nf-mark, #nf-restore, .nf-near-accept, .nf-alt-accept, .move-btn, .price-btn, ' +
+      '.grp-move, .lm-move, #col-add, .col-rename, .col-remove, #price-accept, #price-clear, #price-set, #price-input, ' +
+      '#xs-price-form button, #xs-price-form input, #xs-price-clear, .pct-input, #pct-reset, #pct-remembered, ' +
+      'form[action*="/run/"] button, form[action*="/base/"] button, form[action*="table-checked"] button, td.xs-price-cell';
+    var busy = false;
+    function setBusy(on) {
+      busy = on;
+      document.documentElement.classList.toggle("recalc-busy", on);
+      document.querySelectorAll(".pct-input, #price-input, #xs-price-form input").forEach(function (i) { i.readOnly = on; });
+    }
+    function blocked(e) {
+      if (!busy || !e.target.closest || !e.target.closest(LOCK)) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (window.narxProgress) narxProgress.attention("Смета ҳали ҳисобланмоқда — тугагач босишингиз мумкин");
+    }
+    if (reloadWhenDone) setBusy(true);  // саҳифа ҳисоб пайтида очилди — дарҳол қулф
+    ["click", "submit", "keydown"].forEach(function (ev) {
+      document.addEventListener(ev, function (e) { if (ev !== "keydown" || e.key === "Enter") blocked(e); }, true);
+    });
     function show(state) {
+      setBusy(true);
       if (window.narxProgress) {  // бурчакдаги жараён ойнаси (йиғиб/ёпиб қўйиш мумкин) — юқоридаги белги ўрнига
         banner.classList.add("hidden");
         np = np || narxProgress.start({title: "Смета янгиланмоқда", typical: typical,
@@ -38,6 +69,7 @@
     function done(state) {
       polling = false; clearInterval(tick); tick = null; since = null;
       banner.classList.add("hidden");
+      setBusy(false);
       if (np) {
         if (state && state.error) np.fail(state.error);
         else np.step(2).done("Смета янгиланди");
@@ -61,11 +93,12 @@
       wait: function () { return new Promise(function (res) { waiters.push(res); start(); }); },
       // тугма босилган заҳоти ойна чиқади; саҳифа янгилангач шу ойна давом этади (сервердаги навбатдан)
       saving: function (title) {
+        setBusy(true);
         if (!window.narxProgress) return;
         np = narxProgress.start({title: title || "Смета янгиланмоқда", typical: typical,
           steps: ["Ўзгариш сақланмоқда", "Смета қайта ҳисобланмоқда", "Жадвал янгиланмоқда"]});
       },
-      failed: function (msg) { if (np) { np.fail("Сақланмади: " + msg); np = null; } },
+      failed: function (msg) { setBusy(false); if (np) { np.fail("Сақланмади: " + msg); np = null; } },
     };
   })();
 </script>

@@ -1,18 +1,25 @@
 {# Жараён ойнаси (ўнг пастда): узоқ ишда нима бўлаётгани — оддий тилда, қадамма-қадам. Йиғиб қўйиш (кичик белги)
    ва ёпиш мумкин; иш тугагач «Тайёр» дейди ва ўзи ёпилади. JS: window.narxProgress (start / track). #}
-<div id="np" class="pointer-events-none fixed bottom-4 right-4 z-50 hidden w-80 max-w-[calc(100vw-2rem)]" role="status" aria-live="polite">
-  <div id="np-card" class="pointer-events-auto overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-    <div class="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
-      <span id="np-icon" class="grid h-5 w-5 shrink-0 place-items-center text-sky-600"></span>
-      <b id="np-title" class="min-w-0 flex-1 truncate text-sm text-slate-900"></b>
-      <span id="np-time" class="text-xs tabular-nums text-slate-400"></span>
+<style>
+  #np-card { transition: box-shadow .2s, transform .2s; }
+  #np-card.np-attn { animation: np-attn .9s ease-in-out 2; }
+  @keyframes np-attn { 0%, 100% { transform: none; box-shadow: 0 20px 40px -12px rgb(2 132 199 / .45); }
+    50% { transform: translateY(-4px) scale(1.02); box-shadow: 0 0 0 6px rgb(56 189 248 / .45), 0 20px 40px -12px rgb(2 132 199 / .6); } }
+</style>
+<div id="np" class="pointer-events-none fixed bottom-5 right-5 z-50 hidden w-[25rem] max-w-[calc(100vw-2rem)]" role="status" aria-live="polite">
+  <div id="np-card" class="pointer-events-auto overflow-hidden rounded-2xl border-2 border-sky-400 bg-white shadow-2xl">
+    <div id="np-head" class="flex items-center gap-2.5 bg-sky-50 px-4 py-3">
+      <span id="np-icon" class="grid h-6 w-6 shrink-0 place-items-center text-sky-600"></span>
+      <b id="np-title" class="min-w-0 flex-1 truncate text-base text-slate-900"></b>
+      <span id="np-time" class="text-sm font-medium tabular-nums text-slate-500"></span>
       <button type="button" id="np-min" title="Йиғиб қўйиш (иш давом этади)" class="grid h-6 w-6 place-items-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700">&#8211;</button>
       <button type="button" id="np-close" title="Ёпиш (иш давом этади)" class="grid h-6 w-6 place-items-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700">&times;</button>
     </div>
-    <ol id="np-steps" class="space-y-1.5 px-3 py-2.5 text-sm"></ol>
-    <div class="h-1 bg-slate-100"><div id="np-bar" class="h-1 bg-sky-500 transition-all duration-500" style="width:0%"></div></div>
+    <ol id="np-steps" class="space-y-2 px-4 py-3 text-[15px]"></ol>
+    <p id="np-hint" class="hidden border-t border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900"></p>
+    <div class="h-1.5 bg-slate-100"><div id="np-bar" class="h-1.5 bg-sky-500 transition-all duration-500" style="width:0%"></div></div>
   </div>
-  <button type="button" id="np-pill" class="pointer-events-auto ml-auto hidden items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-lg hover:bg-slate-50">
+  <button type="button" id="np-pill" class="pointer-events-auto ml-auto hidden items-center gap-2 rounded-full border-2 border-sky-400 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-xl hover:bg-sky-50">
     <span id="np-pill-icon" class="text-sky-600"></span><span id="np-pill-text"></span>
   </button>
 </div>
@@ -32,8 +39,12 @@
       var h = cur;
       $("np-title").textContent = h.title;
       $("np-icon").innerHTML = h.state === "done" ? OK : h.state === "fail" ? BAD : SPIN;
-      $("np-icon").className = "grid h-5 w-5 shrink-0 place-items-center " +
+      $("np-icon").className = "grid h-6 w-6 shrink-0 place-items-center " +
         (h.state === "done" ? "text-emerald-600" : h.state === "fail" ? "text-rose-600" : "text-sky-600");
+      // тўлиқ класс номлари (Tailwind йиғишда кўрсин): border-sky-400 border-emerald-400 border-rose-400
+      ["border-sky-400", "border-emerald-400", "border-rose-400"].forEach(function (c) { card.classList.remove(c); });
+      card.classList.add(h.state === "done" ? "border-emerald-400" : h.state === "fail" ? "border-rose-400" : "border-sky-400");
+      $("np-head").className = "flex items-center gap-2.5 px-4 py-3 " + (h.state === "done" ? "bg-emerald-50" : h.state === "fail" ? "bg-rose-50" : "bg-sky-50");
       var ol = $("np-steps");
       ol.replaceChildren();
       h.steps.forEach(function (text, i) {
@@ -59,7 +70,7 @@
       $("np-bar").style.width = pct + "%";
       $("np-bar").className = "h-1 transition-all duration-500 " + (h.state === "fail" ? "bg-rose-500" : h.state === "done" ? "bg-emerald-500" : "bg-sky-500");
       $("np-pill-icon").innerHTML = $("np-icon").innerHTML;
-      $("np-pill-icon").className = $("np-icon").className.replace("grid h-5 w-5 shrink-0 place-items-center ", "");
+      $("np-pill-icon").className = $("np-icon").className.replace("grid h-6 w-6 shrink-0 place-items-center ", "");
       $("np-pill-text").textContent = h.state === "done" ? h.title + " — тайёр" : h.title + " · " + (h.steps[h.at] || "");
       root.classList.remove("hidden");
       card.classList.toggle("hidden", minimized);
@@ -74,8 +85,21 @@
         $("np-time").textContent = fmt(s) + (cur.typical ? " / ~" + fmt(cur.typical) : "");
       }, 500);
     }
+    // қулфланган тугма босилди: ойна очилади, ялтирайди ва нима учунлигини айтади
+    var hintTimer = null;
+    function attention(text) {
+      if (!cur) return;
+      minimized = false; draw();
+      var hint = $("np-hint");
+      hint.textContent = text || "";
+      hint.classList.toggle("hidden", !text);
+      card.classList.remove("np-attn"); void card.offsetWidth; card.classList.add("np-attn");
+      clearTimeout(hintTimer);
+      hintTimer = setTimeout(function () { hint.classList.add("hidden"); card.classList.remove("np-attn"); }, 4000);
+    }
     function start(opts) {
       clearTimeout(hideTimer);
+      $("np-hint").classList.add("hidden");
       var h = cur = {title: opts.title || "Ишланяпти", steps: opts.steps || ["Ишланяпти"], at: opts.at || 0, note: "",
                      state: "run", since: opts.since || Date.now(), typical: opts.typical || null, pct: null, timer: null};
       draw(); clock();
@@ -123,6 +147,6 @@
       minimized = false; try { sessionStorage.removeItem("np-min"); } catch (e) {} draw();
     });
     $("np-close").addEventListener("click", close);
-    return {start: start, track: track, close: close};
+    return {start: start, track: track, close: close, attention: attention};
   })();
 </script>
