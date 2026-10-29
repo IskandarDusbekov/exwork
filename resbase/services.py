@@ -77,7 +77,7 @@ def _head_texts(job, rows=14) -> list:
     """Lokal faylning hamma listlari boshidagi matn (obyekt nomi, «… туманида жойлашган»)."""
     from openpyxl import load_workbook
     try:
-        wb = load_workbook(job.abs(job.local_path), read_only=True, data_only=True)
+        wb = load_workbook(job.abs(job.local_path), read_only=True, data_only=True, keep_links=False)
     except Exception:  # noqa: BLE001 — fayl o'chirilgan bo'lishi mumkin
         return []
     out = []

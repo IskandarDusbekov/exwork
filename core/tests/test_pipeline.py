@@ -119,3 +119,40 @@ def test_cli(sample_files, tmp_path, capsys):
 ])
 def test_log_excel_value(raw, value):
     assert excel_value(raw) == value
+
+
+def _add_broken_external_link(path):
+    """LibreOffice o'girgan ayrim .xls'lardagidek: workbook boshqa faylga havola qiladi, havola XML'i buzuq."""
+    import zipfile
+    src = path.read_bytes()
+    with zipfile.ZipFile(path.with_suffix(".tmp"), "w", zipfile.ZIP_DEFLATED) as zo, \
+            zipfile.ZipFile(__import__("io").BytesIO(src)) as zi:
+        for item in zi.infolist():
+            data = zi.read(item)
+            if item.filename == "xl/workbook.xml":
+                data = data.replace(b"</sheets>", b'</sheets><externalReferences><externalReference r:id="rIdX"/>'
+                                    b"</externalReferences>")
+            elif item.filename == "xl/_rels/workbook.xml.rels":
+                data = data.replace(b"</Relationships>", b'<Relationship Id="rIdX" Type="http://schemas.openxmlformats'
+                                    b'.org/officeDocument/2006/relationships/externalLink" '
+                                    b'Target="externalLinks/externalLink1.xml"/></Relationships>')
+            elif item.filename == "[Content_Types].xml":
+                data = data.replace(b"</Types>", b'<Override PartName="/xl/externalLinks/externalLink1.xml" '
+                                    b'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.'
+                                    b'externalLink+xml"/></Types>')
+            zo.writestr(item, data)
+        zo.writestr("xl/externalLinks/externalLink1.xml", b'<?xml version="1.0"?>\n<externalLink>\x01</externalLink>')
+    path.with_suffix(".tmp").replace(path)
+
+
+def test_broken_external_link(sample_files, tmp_path):
+    import xml.etree.ElementTree as ET
+    from jobs.services import sheet_names
+    local, res = sample_files
+    for p in (local, res):
+        _add_broken_external_link(p)
+    with pytest.raises(ET.ParseError):  # openpyxl o'zi (havolalar bilan) ocholmaydi
+        load_workbook(local)
+    assert "202611450_БВ" in sheet_names(local)
+    result = run(local, res, Options(output_path=tmp_path / "out.xlsx"))
+    assert result.stats["FUZZY"] == 1

@@ -43,7 +43,7 @@ def _save(f, dest: Path):
 
 
 def sheet_names(path: Path):
-    wb = load_workbook(path, read_only=True)
+    wb = load_workbook(path, read_only=True, keep_links=False)
     try:
         return list(wb.sheetnames)
     finally:
@@ -356,7 +356,7 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
     infos, prices = [], {}
     for i, f in enumerate(batch.files):
         t = time.monotonic()
-        wb = load_workbook(batch.abs(f["path"]))
+        wb = load_workbook(batch.abs(f["path"]), keep_links=False)
         try:
             found = inspect_workbook(wb, i, f["name"], batch.roles, batch.columns)
             for info in found:

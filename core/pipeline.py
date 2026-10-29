@@ -15,6 +15,7 @@ from copy import copy
 import re
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -217,7 +218,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     columns: Dict[str, str] = {}
 
     # --- resurs indeksi (RES yo'q — bo'sh: hamma qator ресурс базасидан yoki qo'lda) ---
-    wb_res = load_workbook(res_xlsx, data_only=True) if res_xlsx else None
+    wb_res = load_workbook(res_xlsx, data_only=True, keep_links=False) if res_xlsx else None
     ws_res = _pick_sheet(wb_res, opts.res_sheet) if wb_res else None
     res_layout = override_layout(ws_res, detect_layout(ws_res, need_price=True, stop_at_total=False),
                                  opts.res_columns, need_price=True) if smart and ws_res else None
@@ -242,13 +243,18 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
 
     # --- lokal ---
     keep_vba = local_xlsx.suffix.lower() == ".xlsm"
-    wb = load_workbook(local_xlsx, keep_vba=keep_vba)
+    try:
+        wb = load_workbook(local_xlsx, keep_vba=keep_vba)
+    except ET.ParseError:
+        # boshqa fayllarga havolalar (externalLink) buzuq — LibreOffice o'girgan ayrim .xls'larda. Havolasiz ochiladi:
+        # boshqa faylga ishora qilgan formulalar (bo'lsa) natijada xato ko'rsatishi mumkin, qolgani o'zgarmaydi
+        wb = load_workbook(local_xlsx, keep_vba=keep_vba, keep_links=False)
     restore_merged_styles(wb, local_xlsx)
     ws = _pick_sheet(wb, opts.local_sheet)
     sheet_titles = list(wb.sheetnames)
     # Excel ko'rsatgan qiymatlar: lokal ustunlari shular bo'yicha aniqlanadi, miqdorlar E/F ga keltiriladi
     # (o'qilgan sarlavha boshqacha yozilgan yoki yo'q bo'lsa ham); keyin svodka hisobi ham shu varaqdan
-    wb_vals = load_workbook(local_xlsx, data_only=True)
+    wb_vals = load_workbook(local_xlsx, data_only=True, keep_links=False)
     ws_vals = wb_vals[ws.title]
     local_cols = detect_local_columns(ws_vals, opts.local_columns if smart else None)
     if local_cols is not None:

@@ -228,7 +228,7 @@ def _bounds(ws):
 def _missing_formulas(path: Path, title: str) -> set:
     """Formulasi bor, lekin saqlangan natijasi yo'q kataklar (openpyxl saqlaganda natija yo'qoladi)."""
     out = set()
-    wb = load_workbook(path, read_only=True)
+    wb = load_workbook(path, read_only=True, keep_links=False)
     try:
         for row in wb[title].iter_rows():
             for cell in row:
@@ -243,7 +243,7 @@ def _values(path: Path, title: str, cells: set) -> dict:
     out = {}
     if not cells:
         return out
-    wb = load_workbook(path, read_only=True, data_only=True)
+    wb = load_workbook(path, read_only=True, data_only=True, keep_links=False)
     try:
         if title in wb.sheetnames:
             for row in wb[title].iter_rows(max_row=max(r for r, _c in cells)):
@@ -260,7 +260,7 @@ def render(path: Path, sheet: Optional[str] = None, default: Optional[str] = Non
            max_rows: int = MAX_ROWS) -> dict:
     """``sheet`` → ``default`` → faol list. ``fallback`` — natijasi yo'q formulalar qiymati shu fayldan
     (bir xil list va katak). ``red`` — qizil kataklar (``"G15"``), ``red_sheet`` listida (None — faol list)."""
-    wb = load_workbook(path, data_only=True)
+    wb = load_workbook(path, data_only=True, keep_links=False)
     try:
         names = [ws.title for ws in wb.worksheets if ws.sheet_state == "visible"] or wb.sheetnames
         title = next((t for t in (sheet, default) if t and t in wb.sheetnames), wb.active.title)

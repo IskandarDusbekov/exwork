@@ -10,6 +10,10 @@ EnvironmentFile=/srv/narxlash/.env
 # LibreOffice o'z profilini shu yerga yozadi
 Environment=HOME=/srv/narxlash
 ExecStart=/srv/narxlash/venv/bin/python manage.py run_worker --threads 2
+# Narxlash va LibreOffice CPU'ni to'liq egallasa ham sayt (gunicorn) sekinlashmasin: worker past ustuvorlikda
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
 # SIGTERM — yangi ish olinmaydi, boshlanganlari tugatiladi (5 daqiqagacha kutiladi)
 KillSignal=SIGTERM
 TimeoutStopSec=300
