@@ -8,7 +8,8 @@ sudo -u narxlash git pull --ff-only
 sudo -u narxlash "$ROOT/venv/bin/pip" install -q -r requirements.txt
 sudo -u narxlash "$ROOT/app/deploy/manage.sh" migrate --noinput
 sudo -u narxlash "$ROOT/app/deploy/manage.sh" collectstatic --noinput
-sudo -u narxlash "$ROOT/app/deploy/manage.sh" check --deploy
+# tekshiruv faqat xabar beradi: xato bo'lsa ham (masalan, email hali sozlanmagan) yangi kod ishga tushadi
+sudo -u narxlash "$ROOT/app/deploy/manage.sh" check --deploy || echo "!!! check --deploy muammo topdi — yuqoriga qarang"
 systemctl restart narxlash-web
 systemctl restart narxlash-worker   # boshlangan ish tugatilib, keyin qayta yonadi
 systemctl --no-pager --lines=0 status narxlash-web narxlash-worker

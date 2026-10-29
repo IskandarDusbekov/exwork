@@ -34,7 +34,9 @@ sudo apt install -y python3 python3-venv python3-dev build-essential git nginx r
 ```
 
 - `libreoffice-calc-nogui` — `.xls` fayllarni `.xlsx` ga o'girish uchun (majburiy).
-- `7zip` / `unrar` — RAR va 7z arxivlarni ochish uchun. `unrar` Ubuntu'da `multiverse` omborida; topilmasa, faqat `7zip` yetadi.
+- `unrar` — RAR arxivlar uchun (**majburiy**: Ubuntu'dagi `7zip` paketi RAR modulisiz, u faqat ZIP/7z ochadi).
+  `unrar` `multiverse` omborida: `Unable to locate package` chiqsa — avval
+  `sudo add-apt-repository -y multiverse && sudo apt update`. Tekshirish: `check --deploy` da `narxlash.W007` bo'lmasin.
 - Ubuntu 22.04 da `7zip` paketi bo'lmasa, o'rniga `p7zip-full` o'rnating.
 
 ## 2. Foydalanuvchi va kod

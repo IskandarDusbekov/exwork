@@ -23,6 +23,11 @@ def production_infra(app_configs, **kwargs):
                            "bitta IP bo'lib ko'rinadi — kirish cheklovi va IP bloklash hammaga ta'sir qiladi",
                            hint="nginx ortida — NARXLASH_TRUST_PROXY=1, Cloudflare + nginx — 2; proksisiz bo'lsa "
                                 "bu ogohlantirishni e'tiborsiz qoldiring", id="narxlash.W004"))
+    from .archives import rar_support
+    if reason := rar_support():
+        out.append(Warning(f"RAR arxivlar ochilmaydi: {reason} — ZIP ichidagi RAR'lar tashlab ketiladi",
+                           hint="sudo add-apt-repository -y multiverse && sudo apt update && sudo apt install -y unrar",
+                           id="narxlash.W007"))
     for name, url, default in (("NARXLASH_ADMIN_URL", settings.ADMIN_URL, "admin/"),
                                ("NARXLASH_PANEL_URL", settings.PANEL_URL, "panel/")):
         if url == default or len(url) < 16:
