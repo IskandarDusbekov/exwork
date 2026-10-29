@@ -2,11 +2,14 @@
 
 Moslik rejimida faqat ``difflib.SequenceMatcher`` ishlatiladi.
 """
-from dataclasses import dataclass, replace
+import hashlib
+from dataclasses import asdict, dataclass, replace
 from difflib import SequenceMatcher
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from openpyxl.utils import column_index_from_string
+from rapidfuzz.distance.LCSseq import similarity as _lcs
 
 from .classify import section_kind
 from .normalize import norm_name, norm_unit
@@ -16,6 +19,8 @@ FUZZY = "FUZZY"
 AMBIGUOUS = "AMBIGUOUS"
 NOT_FOUND = "NOT_FOUND"
 NEAR_MIN_SCORE = 0.5  # bundan past o'xshashlik — taklif ham qilinmaydi (tasodifiy nom)
+# saqlangan moslashtirish natijalari shu kod bilan olingan: fayl o'zgarsa (yangi versiya) — eskilari ishlatilmaydi
+_CODE_VERSION = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 
 
 @dataclass
@@ -55,8 +60,10 @@ def _best_two_prepared(key: str, matchers, floor: float = 0.0) -> tuple:
 
     * har bir resurs uchun ``SequenceMatcher`` bir marta tayyorlanadi (``seq2`` = resurs nomi — uning indeksi
       qayta hisoblanmaydi), har bir qatorda faqat ``seq1`` (qidirilayotgan nom) almashadi;
-    * ``real_quick_ratio`` / ``quick_ratio`` — ``ratio`` ning yuqori chegarasi: ular joriy 2-o'rindan
-      oshmasa, nomzod hech narsani o'zgartira olmaydi (qat'iy ``>`` taqqoslash) — aniq hisob o'tkazib yuboriladi.
+    * ``ratio`` ning yuqori chegaralari: avval uzunliklardan, keyin eng uzun umumiy qism-ketma-ketlik (LCS,
+      rapidfuzz — C'da tez): ``ratio = 2·M/T``, M — mos bloklar yig'indisi, ular doim umumiy qism-ketma-ketlik,
+      demak M ≤ LCS. Chegara joriy 2-o'rindan oshmasa, nomzod hech narsani o'zgartira olmaydi (qat'iy ``>``
+      taqqoslash) — aniq hisob o'tkazib yuboriladi. Natija ``difflib`` bilan aynan bir xil (u o'zgarmagan).
     """
     # Asl tartibdagi natija = ball bo'yicha eng yaxshi ikkitasi, teng ballda ro'yxatda oldin kelgani
     # (``best_two_matches`` dagi qat'iy «>» shuni beradi). Shu qoida saqlanib, nomzodlar uzunligi yaqinlari
@@ -76,9 +83,9 @@ def _best_two_prepared(key: str, matchers, floor: float = 0.0) -> tuple:
                 break  # tartiblangan: qolganlarining chegarasi bundan ham past
             continue
         c, sm = matchers[i]
-        sm.set_seq1(key)
-        if not beats(sm.quick_ratio(), i, second):
+        if second is not None and not beats(2.0 * _lcs(key, c) / (la + len(c)), i, second):
             continue
+        sm.set_seq1(key)
         score = sm.ratio()
         if score <= 0:
             continue
@@ -166,6 +173,37 @@ class ResourceIndex:
         index = cls(by_unit, sections, section_list, positions)
         index.raw = raw
         return index
+
+    # ---------- moslashtirish natijalarini saqlash (smeta qayta hisoblanganda solishtirish takrorlanmaydi) ----------
+    def fingerprint(self) -> str:
+        """Natija faqat shularga bog'liq: RES nomlari, narxlari va tartibi (teng ballda oldingisi) hamda shu fayl
+        kodi. Ulardan biri o'zgarsa — boshqa barmoq izi, saqlangan natija ishlatilmaydi."""
+        h = hashlib.sha256(_CODE_VERSION.encode())
+        h.update(repr([(u, list(d.items())) for u, d in self.by_unit.items()]).encode("utf-8", "surrogatepass"))
+        return h.hexdigest()
+
+    def export_cache(self) -> dict:
+        """JSON'ga yoziladigan ko'rinish. Narxi JSON turi bo'lmagan (masalan, sana) natija yozilmaydi."""
+        items = []
+        for key, m in self._cache.items():
+            d = asdict(m)
+            if all(v is None or isinstance(v, (str, int, float, bool)) for v in d.values()):
+                items.append([*key, d])
+        return {"fingerprint": self.fingerprint(), "items": items}
+
+    def import_cache(self, data) -> int:
+        """Barmoq izi mos kelsa — saqlangan natijalar olinadi (nechtasi); mos kelmasa yoki buzuq — 0."""
+        if not isinstance(data, dict) or data.get("fingerprint") != self.fingerprint():
+            return 0
+        n = 0
+        for item in data.get("items") or []:
+            try:
+                name, unit, threshold, delta, d = item
+                self._cache[(name, unit, threshold, delta)] = Match(**d)
+                n += 1
+            except (TypeError, ValueError):
+                continue
+        return n
 
     def match(self, local_name: str, local_unit: str, threshold: float, ambiguity_delta: float = 0.01) -> Match:
         """``local_name``/``local_unit`` allaqachon normallashtirilgan bo'lishi kerak."""

@@ -11,6 +11,7 @@ Ikki rejim:
   yoziladi va Excel'da qizil bo'ladi (taklif faqat LOG'da) — smetachi narxni o'zi kiritadi.
 """
 import argparse
+import json
 from copy import copy
 import re
 import sys
@@ -89,6 +90,9 @@ class Options:
     # smart: ресурс базаси {kod: {"price", "n", "unit_key", "category"}} — RES narxlay olmagan qatorlar kod bo'yicha
     base_prices: Optional[Dict[str, dict]] = None
     base_label: str = ""  # «Тошкент ш. · 2026-4» — LOG izohi uchun
+    # moslashtirish natijalari fayli (JSON): qayta hisoblashda RES bilan solishtirish takrorlanmaydi. Natija
+    # o'zgarmaydi — RES mazmuni yoki moslashtirish kodi o'zgarsa, saqlangani ishlatilmaydi (matcher.fingerprint)
+    match_cache: Optional[Path] = None
 
 
 @dataclass
@@ -212,6 +216,31 @@ def run(local_path, res_path, opts: Optional[Options] = None) -> Result:
         return _run_xlsx(local_xlsx, res_xlsx, out_path, opts)
 
 
+def _load_match_cache(index: ResourceIndex, path: Optional[Path]) -> int:
+    """Saqlangan moslashtirish natijalari (nechtasi olindi). Fayl yo'q, buzuq yoki boshqa RES niki — 0."""
+    if not path:
+        return 0
+    try:
+        return index.import_cache(json.loads(Path(path).read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        return 0
+
+
+def _save_match_cache(index: ResourceIndex, path: Optional[Path], loaded: int):
+    """Yangi natija qo'shilgan bo'lsa yoziladi (vaqtinchalik fayl orqali — yarim yozilgan fayl qolmaydi).
+    Yozilmasa ham narxlash to'xtamaydi: keyingi safar shunchaki qayta solishtiriladi."""
+    if not path or len(index._cache) <= loaded:
+        return
+    path = Path(path)
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(json.dumps(index.export_cache(), ensure_ascii=False), encoding="utf-8")
+        tmp.replace(path)
+    except (OSError, TypeError, ValueError):
+        tmp.unlink(missing_ok=True)
+
+
 def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -> Result:
     smart = opts.mode == "smart"
     warnings: List[str] = []
@@ -261,6 +290,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         warnings += prepare_local(ws, ws_vals, local_cols)
     threshold = int(max(80, min(100, opts.fuzzy_percent))) / 100.0
 
+    loaded = _load_match_cache(index, opts.match_cache)
     if smart:
         priced, ln, lu = _price_smart(ws, index, threshold, opts.ambiguity_delta, warnings, opts.prices, opts.cleared,
                                       layout=local_cols.as_layout() if local_cols else None,
@@ -268,6 +298,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     else:
         ln, lu = LOCAL_NAME_COL, LOCAL_NAME_COL + 1
         priced = _price_compat(ws, index, threshold, opts.ambiguity_delta)
+    _save_match_cache(index, opts.match_cache, loaded)
     columns.update(local_name=get_column_letter(ln), local_unit=get_column_letter(lu))
     start_r, end_r = priced.start, priced.end
 

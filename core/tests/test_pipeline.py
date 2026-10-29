@@ -156,3 +156,38 @@ def test_broken_external_link(sample_files, tmp_path):
     assert "202611450_БВ" in sheet_names(local)
     result = run(local, res, Options(output_path=tmp_path / "out.xlsx"))
     assert result.stats["FUZZY"] == 1
+
+
+def test_match_cache_same_result_and_invalidated_by_res_change(sample_files, tmp_path):
+    """Сақланган мослаштириш: натижа кешсиз билан айнан бир хил; RES нархи ўзгарса — эскиси ишлатилмайди."""
+    import json
+    from openpyxl import load_workbook as lw
+    local, res = sample_files
+    cache = tmp_path / "match_cache.json"
+    plain = run(local, res, Options(output_path=tmp_path / "a.xlsx", mode="smart"))
+    cold = run(local, res, Options(output_path=tmp_path / "b.xlsx", mode="smart", match_cache=cache))
+    assert cache.is_file() and json.loads(cache.read_text(encoding="utf-8"))["items"]
+    warm = run(local, res, Options(output_path=tmp_path / "c.xlsx", mode="smart", match_cache=cache))
+    for r in (cold, warm):
+        assert (r.rows, r.totals, r.stats) == (plain.rows, plain.totals, plain.stats)
+
+    # RES'да нарх ўзгарди — кеш барибир эски нархни бермаслиги керак
+    wb = lw(res)
+    ws = wb.active
+    row = next(r for r in range(2, ws.max_row + 1) if isinstance(ws[f"G{r}"].value, (int, float)))
+    ws[f"G{row}"] = ws[f"G{row}"].value + 1000
+    wb.save(res)
+    fresh = run(local, res, Options(output_path=tmp_path / "d.xlsx", mode="smart"))
+    cached = run(local, res, Options(output_path=tmp_path / "e.xlsx", mode="smart", match_cache=cache))
+    assert (cached.rows, cached.totals) == (fresh.rows, fresh.totals)
+    assert fresh.totals != plain.totals  # синов маъноли: нарх ҳақиқатан натижага таъсир қилди
+
+
+def test_match_cache_broken_or_foreign_file_is_ignored(sample_files, tmp_path):
+    local, res = sample_files
+    plain = run(local, res, Options(output_path=tmp_path / "a.xlsx", mode="smart"))
+    for content in ("{бузуқ", '{"fingerprint": "boshqa", "items": [["X", "ШТ", 0.95, 0.01, {"status": "EXACT"}]]}', "[]"):
+        cache = tmp_path / "c.json"
+        cache.write_text(content, encoding="utf-8")
+        r = run(local, res, Options(output_path=tmp_path / "b.xlsx", mode="smart", match_cache=cache))
+        assert (r.rows, r.totals) == (plain.rows, plain.totals)

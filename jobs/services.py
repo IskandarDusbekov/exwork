@@ -227,6 +227,7 @@ def recompute(job: Job) -> Job:
             prices={int(r): float(p) for r, p in (job.prices or {}).items()} or None,
             column_names=job.column_names or None, cleared=job.cleared or None,
             local_columns=job.local_columns or None, res_columns=job.res_columns or None, **base_options(job),
+            match_cache=job.abs("match_cache.json"),  # qayta hisoblashda RES bilan solishtirish takrorlanmaydi
         ))
     except Exception as e:  # foydalanuvchiga ko'rsatamiz, server yiqilmasin
         job.status = Job.Status.FAILED

@@ -3,6 +3,7 @@ argon2-cffi>=23
 psycopg[binary]>=3.2  # PostgreSQL (DATABASE_URL)
 redis>=5  # umumiy kesh (REDIS_URL)
 openpyxl>=3.1
+rapidfuzz>=3.9  # moslashtirish: difflib ballining aniq yuqori chegarasi (LCS) — natija o'zgarmaydi, tezroq
 whitenoise>=6.8  # static fayllar (CSS, admin)
 gunicorn>=23; sys_platform != "win32"  # production server (Linux)
 pytest>=8

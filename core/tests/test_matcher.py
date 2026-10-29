@@ -94,6 +94,21 @@ def test_fast_best_two_equals_reference():
         assert _best_two_prepared(key, prepared) == best_two_matches(key, words), key
 
 
+def test_fast_best_two_small_alphabet_and_autojunk():
+    """LCS чегараси: ҳарфлари кам (ўхшаш номлар кўп) ва 200+ белгили (difflib «autojunk») номларда ҳам эталон."""
+    import random
+    from difflib import SequenceMatcher
+
+    from core.matcher import _best_two_prepared
+
+    rnd = random.Random(11)
+    for alphabet, lengths in (("АБВ ", (1, 12)), ("АБ1-", (180, 260)), ("АБВГДЕ 12", (5, 60))):
+        words = ["".join(rnd.choice(alphabet) for _ in range(rnd.randint(*lengths))) for _ in range(150)]
+        prepared = [(c, SequenceMatcher(None, "", c)) for c in words]
+        for key in words[:50] + ["".join(rnd.choice(alphabet) for _ in range(rnd.randint(*lengths))) for _ in range(30)]:
+            assert _best_two_prepared(key, prepared) == best_two_matches(key, words), key
+
+
 def test_match_cache_returns_independent_copies():
     idx = _index([("ВОДА", "М3", 1000)])
     a = _match(idx, "ВОДА", "М3")
