@@ -10,6 +10,7 @@ Smetalar odatda arxivda keladi: ichida PDF, chizmalar, rasm va Excel'lar. Bu yer
 
 Arxiv ichidagi yo'llar tozalanadi («..», disk, bosh «/») — arxiv tashqarisiga yozib bo'lmaydi.
 """
+import logging
 import os
 import re
 import shutil
@@ -19,6 +20,8 @@ import uuid
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Callable, Iterator, List, Optional, Tuple
+
+log = logging.getLogger(__name__)
 
 ARCHIVE_EXT = (".zip", ".rar", ".7z")
 EXCEL_EXT = (".xls", ".xlsx", ".xlsm")
@@ -73,6 +76,18 @@ def find_tool() -> Optional[Tuple[str, str]]:
     return None
 
 
+def rar_support() -> Optional[str]:
+    """RAR ocholmasa — sababi (``check --deploy`` uchun), ochsa — None. Ubuntu/Debian'dagi ``7zip`` paketi
+    RAR modulisiz yig'ilgan: 7z bor, lekin RAR ochilmaydi — ``unrar`` (yoki ``7zip-rar``) kerak."""
+    tool = find_tool()
+    if tool is None:
+        return "RAR/7z дастури топилмади"
+    kind, exe = tool
+    if kind == "7z" and b"rar" not in _run([exe, "i"], timeout=30).lower():
+        return f"{exe}: RAR модулисиз (Ubuntu/Debian'даги 7zip пакети)"
+    return None
+
+
 def _zip_name(info: zipfile.ZipInfo) -> str:
     if info.flag_bits & 0x800:
         return info.filename
@@ -96,11 +111,15 @@ def _zip_members(path: Path) -> Iterator[Member]:
                 yield _zip_name(info), (lambda i=info: zf.read(i))
 
 
-def _run(cmd: List[str], timeout: int = 300) -> bytes:
+def _run(cmd: List[str], timeout: int = 300, check: bool = False) -> bytes:
+    """``check`` — ro'yxat olishda: dastur xato qaytarsa (masalan, 7z'da RAR moduli yo'q) arxiv «bo'sh» emas, xato."""
     try:
         r = subprocess.run(cmd, capture_output=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as e:
         raise ArchiveError(f"архив дастури ишламади: {e}") from e
+    if check and r.returncode > 1:  # 1 — ikkala dasturda ham ogohlantirish (arxiv baribir o'qiladi)
+        msg = (r.stderr or r.stdout).decode("utf-8", "replace").strip().splitlines()
+        raise ArchiveError(f"архив очилмади ({Path(cmd[0]).name}: {msg[-1] if msg else r.returncode})")
     return r.stdout
 
 
@@ -111,13 +130,16 @@ def _rar_members(path: Path) -> Iterator[Member]:
         raise ArchiveError("RAR/7z очиш учун серверда WinRAR (UnRAR) ёки 7-Zip ўрнатилиши керак")
     kind, exe = tool
     if kind == "unrar":
-        names = _run([exe, "lb", "-scfr", "-p-", str(path)]).decode("utf-8", "replace").splitlines()
+        names = _run([exe, "lb", "-scfr", "-p-", str(path)], check=True).decode("utf-8", "replace").splitlines()
         read = lambda n: _run([exe, "p", "-inul", "-p-", str(path), n])  # noqa: E731
     else:
-        out = _run([exe, "l", "-slt", "-ba", "-sccUTF-8", "-p", str(path)]).decode("utf-8", "replace")
+        out = _run([exe, "l", "-slt", "-ba", "-sccUTF-8", "-p", str(path)], check=True).decode("utf-8", "replace")
         names = [line[7:] for line in out.splitlines() if line.startswith("Path = ")]
         read = lambda n: _run([exe, "e", "-so", "-p", "-sccUTF-8", str(path), n])  # noqa: E731
-    for n in [n.strip() for n in names if n.strip()][:MAX_MEMBERS]:
+    names = [n.strip() for n in names if n.strip()]
+    if not names:  # unrar buzuq/RAR bo'lmagan faylda ham 0 qaytaradi — bo'sh ro'yxat «ochilmadi» deb olinadi
+        raise ArchiveError(f"архив бўш ёки очилмади ({Path(exe).name})")
+    for n in names[:MAX_MEMBERS]:
         yield n, (lambda n=n: read(n))
 
 
@@ -165,8 +187,9 @@ def extract_excel(archive: Path, staging: Path, base: PurePosixPath = PurePosixP
         if rel.suffix.lower() in ARCHIVE_EXT:
             try:
                 extract_excel(target, staging, prefix / rel.parent, depth + 1, out, name=rel.name)
-            except ArchiveError:
-                pass  # ichki arxiv ochilmasa — qolganlari olinadi
+            except ArchiveError as e:
+                # ichki arxiv ochilmasa — qolganlari olinadi; sabab panelda (Хатолар) ko'rinadi
+                log.warning("ички архив очилмади: %s — %s", prefix / rel, e)
             target.unlink(missing_ok=True)
         else:
             out.append((prefix / rel, target))
