@@ -212,7 +212,10 @@ UNPRICED_FILL = "FFFFC7CE"
 UNPRICED_FONT = "FF9C0006"
 
 
-def mark_unpriced(ws, start: int, end: int, col: str = "G", blank_rows=()):
+MARKED_FILL = "FFFFEB9C"  # sariq: smetachi ko'rib chiqdi, narx keyin (Excel'ning «нейтральный» sariq rangi)
+
+
+def mark_unpriced(ws, start: int, end: int, col: str = "G", blank_rows=(), yellow_rows=()):
     """G da son bo'lmagan (matn) kataklar qizil. Shartli format: smetachi narx yozishi bilan
     qizil o'zi yo'qoladi; katakning o'z uslubiga tegilmaydi. ``blank_rows`` — G bo'sh bo'lsa ham
     qizil (smetachi «ТОПИЛМАДИ» so'zini olib tashlagan, narx hali yo'q)."""
@@ -226,6 +229,11 @@ def mark_unpriced(ws, start: int, end: int, col: str = "G", blank_rows=()):
         ws.conditional_formatting.add(" ".join(f"{col}{r}" for r in sorted(blank_rows)), FormulaRule(
             formula=[f"NOT(ISNUMBER({col}{first}))"], fill=PatternFill(bgColor=UNPRICED_FILL), stopIfTrue=True,
         ))
+    if yellow_rows:
+        # sariq — qizildan oldin tekshiriladi (stopIfTrue): narx yozilsa ikkalasi ham yo'qoladi
+        first = min(yellow_rows)
+        rule = FormulaRule(formula=[f"NOT(ISNUMBER({col}{first}))"], fill=PatternFill(bgColor=MARKED_FILL), stopIfTrue=True)
+        ws.conditional_formatting.add(" ".join(f"{col}{r}" for r in sorted(yellow_rows)), rule)
 
 
 # ===================== ustun kengligi (smart) =====================

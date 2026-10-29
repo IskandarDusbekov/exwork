@@ -196,22 +196,23 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
 
 
 # sozlamalar (smetachi o'zgartiradi) — qayta hisoblash ularga tegmaydi, aks holda hisob davomidagi o'zgarish yo'qoladi
-SETTING_FIELDS = ["local_sheet", "res_sheet", "fuzzy", "mode", "percents", "categories", "prices", "cleared",
+SETTING_FIELDS = ["local_sheet", "res_sheet", "fuzzy", "mode", "percents", "categories", "prices", "cleared", "marked",
                   "local_columns", "res_columns", "column_names", "base_period"]
 # natija — faqat qayta hisoblash yozadi
-RESULT_FIELDS = ["status", "error", "duration", "rows", "output_path", "result"]
+RESULT_FIELDS = ["status", "error", "duration", "rows", "output_path", "result", "preview_ready"]
 
 
 def apply_settings(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzzy,
                    mode: Optional[str] = None, percents: Optional[dict] = None,
                    categories: Optional[dict] = None, prices: Optional[dict] = None,
-                   cleared: Optional[list] = None) -> Job:
-    """``percents``/``categories``/``prices``/``cleared``: None — avvalgilari qoladi, {} / [] — tozalanadi.
+                   cleared: Optional[list] = None, marked: Optional[list] = None) -> Job:
+    """``percents``/``categories``/``prices``/``cleared``/``marked``: None — avvalgilari qoladi, {} / [] — tozalanadi.
     Lokal list almashsa, qo'lda kategoriya, narxlar va tozalashlar bekor (qator raqamlari boshqa listga tegishli)."""
     if local_sheet and local_sheet != job.local_sheet:
         job.categories = {}
         job.prices = {}
         job.cleared = []
+        job.marked = []
         job.local_columns = {}  # ustunlar boshqa listga tegishli
     if res_sheet and res_sheet != job.res_sheet:
         job.res_columns = {}
@@ -221,6 +222,8 @@ def apply_settings(job: Job, local_sheet: Optional[str], res_sheet: Optional[str
         job.prices = prices
     if cleared is not None:
         job.cleared = sorted({int(r) for r in cleared})
+    if marked is not None:
+        job.marked = sorted({int(r) for r in marked})
     job.local_sheet = local_sheet or job.local_sheet
     job.res_sheet = res_sheet or job.res_sheet
     job.fuzzy = max(80, min(100, int(fuzzy)))
@@ -245,7 +248,7 @@ def recompute(job: Job) -> Job:
             output_path=tmp, percents=job.percents or None,
             categories={int(r): c for r, c in (job.categories or {}).items()} or None,
             prices={int(r): float(p) for r, p in (job.prices or {}).items()} or None,
-            column_names=job.column_names or None, cleared=job.cleared or None,
+            column_names=job.column_names or None, cleared=job.cleared or None, marked=job.marked or None,
             local_columns=job.local_columns or None, res_columns=job.res_columns or None, **base_options(job),
             match_cache=job.abs("match_cache.json"),  # qayta hisoblashda RES bilan solishtirish takrorlanmaydi
         ))
@@ -257,6 +260,7 @@ def recompute(job: Job) -> Job:
         return job
 
     tmp.replace(out)
+    job.preview_ready = False  # yangi natija — ko'rinish qayta tayyorlanadi (jobs/preview.py)
     job.status = Job.Status.DONE
     job.error = ""
     job.duration = round(time.monotonic() - t0, 2)
@@ -282,6 +286,7 @@ def recompute(job: Job) -> Job:
         "extra_columns": [list(c) for c in result.extra_columns],
         "tail_removed": result.tail_removed,
         "cleared": result.cleared,
+        "marked": result.marked,
     }
     return job
 
@@ -549,7 +554,7 @@ def batch_outputs(batch: "Batch") -> list:
                 percents=job.percents or None,
                 categories={int(r): c for r, c in (job.categories or {}).items()} or None,
                 prices={int(r): float(v) for r, v in (job.prices or {}).items()} or None,
-                column_names=job.column_names or None, cleared=job.cleared or None,
+                column_names=job.column_names or None, cleared=job.cleared or None, marked=job.marked or None,
                 local_columns=job.local_columns or None, res_columns=job.res_columns or None, **base_options(job),
             )) for job in jobs]
             run_many(batch.abs(batch.files[f]["path"]), steps, out)

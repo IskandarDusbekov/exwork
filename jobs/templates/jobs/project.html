@@ -171,10 +171,29 @@
       document.body.appendChild(t);
       setTimeout(function () { t.remove(); }, 15000);
     }
+    // жараён ойнаси: сервердаги ҳақиқий ҳолат (нечта қисм очилди / нархланди) — оддий тилда
+    var np = null;
+    function progressState(st, working) {
+      if (!window.narxProgress) return;
+      var total = +st.dataset.total, finished = +st.dataset.finished, opening = +st.dataset.opening, pricing = +st.dataset.pricing;
+      if (working) {
+        var steps = ["Файллар қабул қилинди", "Смета файллари ўқилмоқда", "Нархлаш навбати", "Нархлар ҳисобланмоқда", "Натижа тайёрланмоқда"];
+        np = np || narxProgress.start({title: "Папкага ишлов берилмоқда", steps: steps});
+        var done = total - opening - pricing;
+        if (pricing) np.step(3, done + " / " + total + " қисм тайёр");
+        else if (opening) np.step(1, (total - opening) + " / " + total + " қисм ўқилди ва жуфтланди");
+        else np.step(4);
+        np.percent(total ? Math.round(100 * finished / total) : null);
+      } else if (np) {
+        np.done(st.dataset.result ? "Тайёр: " + st.dataset.result : "Папка тайёр");
+        np = null;
+      }
+    }
     function trackState() {
       var st = document.getElementById("project-state");
       if (!st) return;
       var working = st.dataset.working === "1";
+      progressState(st, working);
       if (working) {
         document.title = "⏳ " + st.dataset.finished + "/" + st.dataset.total + " · " + baseTitle;
         var ask = document.getElementById("notify-ask");

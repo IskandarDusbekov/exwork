@@ -20,7 +20,7 @@ from core.svodka import DEFAULT_PERCENTS, parse_text_number, percent_text, svodk
 from panel.audit import log as audit
 from panel.models import Event
 
-from . import recalc, xlview
+from . import preview, recalc, xlview
 from .archives import is_archive
 from .guide import FLOW, GUIDE_PAGES, help_groups
 from .folders import (
@@ -442,6 +442,8 @@ def project_detail(request, project_id):
         "stopping": project.stop_requested,
         "count_stopped": states.count("stopped"),
         "count_ready": states.count("ready"),
+        "count_opening": states.count("queued") + states.count("converting"),
+        "count_pricing": states.count("pricing"),
         "count_pairs_ready": sum(len(n["part"]["planned"]) for n in nodes if n["part"]["state"] == "ready"),
         "current": current,
         "finished": finished,
@@ -1099,14 +1101,19 @@ def _not_found_stage(rows):
         "rows": pending,
         "with_unit": [r for r in pending if _has_unit(r)],
         "no_unit": [r for r in pending if not _has_unit(r)],
+        # гуруҳлар (смета­чи тилида): A — бирлиги ҳам, таклифи ҳам йўқ; B — бирлиги бор, нарх йўқ (таклифли/таклифсиз)
+        "group_a": [r for r in pending if not _has_unit(r) and not r.get("near")],
+        "group_b_near": [r for r in pending if _has_unit(r) and r.get("near")],
+        "group_b_none": [r for r in pending if _has_unit(r) and not r.get("near")],
         "cleared": [r for r in rows if r.get("cleared")],
     }
 
 
 @require_POST
 def job_not_found(request, job_id):
-    """JSON: ``{"rows": [...], "action": "clear" | "restore"}``. clear — «ТОПИЛМАДИ» сўзини олиб ташлаш:
-    бирлиги бор қаторда G бўш, қизил қолади; бирлиги йўқда G ва H бўш. restore — қайтариш."""
+    """JSON: ``{"rows": [...], "action": "clear" | "mark" | "restore"}``. clear — «ТОПИЛМАДИ» сўзини олиб ташлаш:
+    бирлиги бор қаторда G бўш, қизил қолади; бирлиги йўқда G ва H бўш. mark — сўз олинади, G сариқ
+    («кўриб чиқилди», нарх кейин). restore — қайтариш."""
     job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE or job.mode != "smart":
         return JsonResponse({"ok": False, "error": "Фақат Smart режимдаги натижада"}, status=400)
@@ -1118,11 +1125,16 @@ def job_not_found(request, job_id):
         return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
     by_row = {r["row"]: r for r in job.result.get("rows", [])}
     allowed = {r for r, x in by_row.items() if x.get("status") in UNPRICED_STATUSES or x.get("cleared")}
-    if not rows or action not in ("clear", "restore") or not rows <= allowed:
+    if not rows or action not in ("clear", "mark", "restore") or not rows <= allowed:
         return JsonResponse({"ok": False, "error": f"нотўғри сўров: {sorted(rows - allowed)[:5] or action}"}, status=400)
-    cleared = set(job.cleared or [])
-    cleared = cleared | rows if action == "clear" else cleared - rows
-    recalc.request(job, cleared=sorted(cleared))
+    cleared, marked = set(job.cleared or []), set(job.marked or [])
+    if action == "clear":  # сўз олинади: бирлиги борида G қизил, йўғида G ва H бўш
+        cleared, marked = cleared | rows, marked - rows
+    elif action == "mark":  # сўз олинади, G сариқ — «кўриб чиқилди, нарх кейин»
+        cleared, marked = cleared - rows, marked | rows
+    else:
+        cleared, marked = cleared - rows, marked - rows
+    recalc.request(job, cleared=sorted(cleared), marked=sorted(marked))
     return JsonResponse({"ok": True, "queued": True, "changed": len(rows)})
 
 
@@ -1375,36 +1387,15 @@ XL_FILES = {
 def job_sheet(request, job_id):
     """Excel листи HTML жадвал бўлиб (``f`` — out | local | res, ``s`` — лист номи)."""
     job = _get_work(request, Job, id=job_id)
-    kind = request.GET.get("f")
-    sheet = request.GET.get("s") or None
-    res = job.result or {}
-    red, fallback, default = frozenset(), None, None
-    if kind == "out":
-        if job.status != Job.Status.DONE or not job.output_path:
-            raise Http404("Натижа ҳали тайёр эмас")
-        path, name = job.abs(job.output_path), job.download_name
-        # G даги нархланмаганлар Excel'да шартли формат билан қизил — шу ерда ҳам
-        red = frozenset(f"G{r['row']}" for r in res.get("rows", [])
-                        if (isinstance(r.get("g"), str) and r["g"])
-                        or (r.get("cleared") and r.get("status") == "NOT_FOUND" and r.get("g") is None))
-        fallback = job.abs(job.local_path)  # openpyxl сақлаганда асл формулалар натижаси йўқолади
-    elif kind == "local":
-        path, name, default = job.abs(job.local_path), job.local_name, job.local_sheet
-    elif kind == "res" and not job.res_path:
-        raise Http404("Бу смета RES'сиз — ресурс базасидан нархланган")
-    elif kind == "res":
-        path, name, default = job.abs(job.res_path), job.res_name, job.res_sheet
-    else:
-        raise Http404("Нотўғри файл")
-    if not path.is_file():
-        raise Http404("Файл топилмади")
-    key = f"{kind}|{sheet}|{default}|{','.join(sorted(red))}"
     try:
-        data = xlview.cached(job.dir / "preview", key, path, lambda: xlview.render(
-            path, sheet, default, fallback=fallback, red=red))
+        data = preview.sheet_data(job, request.GET.get("f"), request.GET.get("s") or None)
+    except preview.NotAvailable as e:
+        raise Http404(str(e))
     except Exception as e:  # кўриниш бузилса ҳам саҳифа ишласин
         return JsonResponse({"error": f"{type(e).__name__}: {e}"}, status=500)
-    return JsonResponse({**data, "file": name})
+    if request.GET.get("head"):
+        data = preview.head(data)  # аввал боши — дарҳол кўринади, кейин бутун жадвал
+    return JsonResponse(data)
 
 
 def job_download(request, job_id):

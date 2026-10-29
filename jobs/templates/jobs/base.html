@@ -66,11 +66,16 @@
   <main class="{% block main_class %}max-w-6xl mx-auto px-4 py-6{% endblock %}">
     {% block content %}{% endblock %}
   </main>
+  {% if user.is_authenticated %}{% include "jobs/_progress.html" %}{% endif %}
   <script>
-    // Узоқ ишлайдиган формада тугмани блоклаб, «ишланяпти…» кўрсатамиз
+    // Узоқ ишлайдиган формада тугмани блоклаб, «ишланяпти…» кўрсатамиз; data-progress бўлса — жараён ойнаси
+    // (қадамлар оддий тилда: {"title": "…", "steps": ["…", "…"]})
     document.querySelectorAll("form[data-busy]").forEach(function (f) {
       f.addEventListener("submit", function () {
         f.classList.add("busy");
+        if (f.dataset.progress && window.narxProgress) {
+          try { narxProgress.start(JSON.parse(f.dataset.progress)).auto(2); } catch (e) {}
+        }
         // Darhol o'chirilsa, bosilgan tugmaning nomi (masalan reset_percents) formaga qo'shilmay qoladi
         setTimeout(function () {
           f.querySelectorAll("button[type=submit]").forEach(function (b) { b.disabled = true; });

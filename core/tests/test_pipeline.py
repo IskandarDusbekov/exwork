@@ -191,3 +191,25 @@ def test_match_cache_broken_or_foreign_file_is_ignored(sample_files, tmp_path):
         cache.write_text(content, encoding="utf-8")
         r = run(local, res, Options(output_path=tmp_path / "b.xlsx", mode="smart", match_cache=cache))
         assert (r.rows, r.totals) == (plain.rows, plain.totals)
+
+
+def test_not_found_gets_several_suggestions(sample_files, tmp_path):
+    """Топилмаган қаторга энг ўхшаш 3 тагача таклиф (нархи билан), ўхшашлик бўйича камайиб."""
+    from openpyxl import load_workbook as lw
+    local, res = sample_files
+    first = run(local, res, Options(output_path=tmp_path / "a.xlsx", mode="smart"))
+    row = next(r for r in first.rows if r["status"] == "NOT_FOUND" and str(r.get("unit") or "").strip()
+               and len(str(r.get("name") or "")) > 8)
+    base = str(row["name"]).strip()
+    wb = lw(res)
+    ws = wb.active
+    # RES'га шу номга ўхшаш, лекин айнан эмас иккита ресурс (аниқ топилмасин, таклиф бўлсин)
+    for i, (name, price) in enumerate(((base + " ХХ", 111), (base[:-3] + " У", 222)), start=ws.max_row + 1):
+        ws[f"D{i}"], ws[f"E{i}"], ws[f"G{i}"] = name, row["unit"], price
+    wb.save(res)
+    again = run(local, res, Options(output_path=tmp_path / "b.xlsx", mode="smart"))
+    alts = next(r for r in again.rows if r["row"] == row["row"])["near"]["alts"]
+    assert len(alts) >= 2
+    assert [a["score"] for a in alts] == sorted((a["score"] for a in alts), reverse=True)
+    assert {111, 222} & {a["price"] for a in alts}
+    assert all({"name", "unit", "price", "score", "same_unit", "res_row"} <= set(a) for a in alts)

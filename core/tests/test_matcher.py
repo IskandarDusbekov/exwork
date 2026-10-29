@@ -157,3 +157,24 @@ def test_floor_pruning_gives_reference_matches():
             for unit in ("ШТ", "М", "Т", "КГ"):
                 k = norm_name(key)
                 assert fast.match(k, unit, threshold) == reference(ref, k, unit, threshold), (key, unit, threshold)
+
+
+def test_top_k_equals_brute_force():
+    """«Батафсил» таклифлари: энг ўхшаш 3 таси — ҳамма ресурсни difflib билан солиштирганда чиқадиган баллар."""
+    import random
+    from difflib import SequenceMatcher
+
+    from core.matcher import NEAR_MIN_SCORE
+
+    rnd = random.Random(5)
+    alphabet = "АБВГДЕЖЗИКЛМН 0123-"
+    rows = [("".join(rnd.choice(alphabet) for _ in range(rnd.randint(3, 30))), rnd.choice(["ШТ", "М", "Т"]), i)
+            for i in range(300)]
+    idx = _index(rows)
+    for key in [r[0] for r in rows[:40]] + ["АБВГ", "ЖЖЖЖЖ", "А"]:
+        brute = sorted((SequenceMatcher(None, key, n).ratio() for u in idx.units for n in idx._names[u]), reverse=True)
+        expect = [s for s in brute if s >= NEAR_MIN_SCORE][:3]
+        got = idx.top(key, 3)
+        assert [s for s, _u, _n in got] == expect, key
+        for s, u, n in got:
+            assert SequenceMatcher(None, key, n).ratio() == s and n in idx._names[u]

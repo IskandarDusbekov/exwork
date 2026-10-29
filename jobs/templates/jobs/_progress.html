@@ -1,0 +1,128 @@
+{# Жараён ойнаси (ўнг пастда): узоқ ишда нима бўлаётгани — оддий тилда, қадамма-қадам. Йиғиб қўйиш (кичик белги)
+   ва ёпиш мумкин; иш тугагач «Тайёр» дейди ва ўзи ёпилади. JS: window.narxProgress (start / track). #}
+<div id="np" class="pointer-events-none fixed bottom-4 right-4 z-50 hidden w-80 max-w-[calc(100vw-2rem)]" role="status" aria-live="polite">
+  <div id="np-card" class="pointer-events-auto overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+    <div class="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
+      <span id="np-icon" class="grid h-5 w-5 shrink-0 place-items-center text-sky-600"></span>
+      <b id="np-title" class="min-w-0 flex-1 truncate text-sm text-slate-900"></b>
+      <span id="np-time" class="text-xs tabular-nums text-slate-400"></span>
+      <button type="button" id="np-min" title="Йиғиб қўйиш (иш давом этади)" class="grid h-6 w-6 place-items-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700">&#8211;</button>
+      <button type="button" id="np-close" title="Ёпиш (иш давом этади)" class="grid h-6 w-6 place-items-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700">&times;</button>
+    </div>
+    <ol id="np-steps" class="space-y-1.5 px-3 py-2.5 text-sm"></ol>
+    <div class="h-1 bg-slate-100"><div id="np-bar" class="h-1 bg-sky-500 transition-all duration-500" style="width:0%"></div></div>
+  </div>
+  <button type="button" id="np-pill" class="pointer-events-auto ml-auto hidden items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-lg hover:bg-slate-50">
+    <span id="np-pill-icon" class="text-sky-600"></span><span id="np-pill-text"></span>
+  </button>
+</div>
+<script>
+  window.narxProgress = (function () {
+    var root = document.getElementById("np"), card = document.getElementById("np-card"), pill = document.getElementById("np-pill");
+    var $ = function (id) { return document.getElementById(id); };
+    var SPIN = '<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity=".25" stroke-width="3"/><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
+    var OK = '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    var BAD = '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 8v5M12 17h.01"/></svg>';
+    var cur = null, minimized = false, tick = null, hideTimer = null;
+    try { minimized = sessionStorage.getItem("np-min") === "1"; } catch (e) {}
+
+    function fmt(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
+    function draw() {
+      if (!cur) return;
+      var h = cur;
+      $("np-title").textContent = h.title;
+      $("np-icon").innerHTML = h.state === "done" ? OK : h.state === "fail" ? BAD : SPIN;
+      $("np-icon").className = "grid h-5 w-5 shrink-0 place-items-center " +
+        (h.state === "done" ? "text-emerald-600" : h.state === "fail" ? "text-rose-600" : "text-sky-600");
+      var ol = $("np-steps");
+      ol.replaceChildren();
+      h.steps.forEach(function (text, i) {
+        var li = document.createElement("li");
+        var st = h.state === "done" || i < h.at ? "done" : i === h.at ? (h.state === "fail" ? "fail" : "now") : "wait";
+        li.className = "flex items-start gap-2 " + (st === "wait" ? "text-slate-400" : st === "fail" ? "text-rose-700" : "text-slate-700");
+        var ic = document.createElement("span");
+        ic.className = "mt-0.5 grid h-4 w-4 shrink-0 place-items-center " + (st === "done" ? "text-emerald-600" : st === "now" ? "text-sky-600" : "");
+        ic.innerHTML = st === "done" ? OK : st === "now" ? SPIN : st === "fail" ? BAD : '<span class="h-1.5 w-1.5 rounded-full bg-slate-300"></span>';
+        var tx = document.createElement("span");
+        tx.className = "min-w-0 flex-1" + (st === "now" ? " font-medium" : "");
+        tx.textContent = text + (i === h.at && h.note ? " — " + h.note : "");
+        li.append(ic, tx);
+        ol.appendChild(li);
+      });
+      if (h.state === "fail" && h.error) {
+        var e = document.createElement("li");
+        e.className = "rounded bg-rose-50 px-2 py-1 text-xs text-rose-700";
+        e.textContent = h.error;
+        ol.appendChild(e);
+      }
+      var pct = h.state === "done" ? 100 : h.pct != null ? h.pct : Math.round(100 * (h.at + 0.5) / Math.max(1, h.steps.length));
+      $("np-bar").style.width = pct + "%";
+      $("np-bar").className = "h-1 transition-all duration-500 " + (h.state === "fail" ? "bg-rose-500" : h.state === "done" ? "bg-emerald-500" : "bg-sky-500");
+      $("np-pill-icon").innerHTML = $("np-icon").innerHTML;
+      $("np-pill-icon").className = $("np-icon").className.replace("grid h-5 w-5 shrink-0 place-items-center ", "");
+      $("np-pill-text").textContent = h.state === "done" ? h.title + " — тайёр" : h.title + " · " + (h.steps[h.at] || "");
+      root.classList.remove("hidden");
+      card.classList.toggle("hidden", minimized);
+      pill.classList.toggle("hidden", !minimized);
+      pill.classList.toggle("flex", minimized);
+    }
+    function clock() {
+      clearInterval(tick);
+      tick = setInterval(function () {
+        if (!cur || cur.state !== "run") { clearInterval(tick); return; }
+        var s = (Date.now() - cur.since) / 1000;
+        $("np-time").textContent = fmt(s) + (cur.typical ? " / ~" + fmt(cur.typical) : "");
+      }, 500);
+    }
+    function start(opts) {
+      clearTimeout(hideTimer);
+      var h = cur = {title: opts.title || "Ишланяпти", steps: opts.steps || ["Ишланяпти"], at: opts.at || 0, note: "",
+                     state: "run", since: opts.since || Date.now(), typical: opts.typical || null, pct: null, timer: null};
+      draw(); clock();
+      var api = {
+        step: function (i, note) { if (cur !== h || h.state !== "run") return api; h.at = Math.min(i, h.steps.length - 1); h.note = note || ""; draw(); return api; },
+        note: function (text) { if (cur === h) { h.note = text || ""; draw(); } return api; },
+        percent: function (p) { if (cur === h) { h.pct = p; draw(); } return api; },
+        // қадамлар вақт бўйича олға силжийди (охиргиси — иш тугагунча); ҳақиқий ҳолат келса step() билан
+        auto: function (seconds) {
+          clearInterval(h.timer);
+          h.timer = setInterval(function () {
+            if (cur !== h || h.state !== "run" || h.at >= h.steps.length - 1) { clearInterval(h.timer); return; }
+            h.at += 1; h.note = ""; draw();
+          }, (seconds || 1.5) * 1000);
+          return api;
+        },
+        done: function (text, keep) {
+          if (cur !== h) return api;
+          clearInterval(h.timer);
+          h.state = "done"; h.at = h.steps.length; if (text) h.title = text;
+          draw(); clearInterval(tick);
+          if (!keep) hideTimer = setTimeout(function () { if (cur === h) close(); }, 2500);
+          return api;
+        },
+        fail: function (text) {
+          if (cur !== h) return api;
+          clearInterval(h.timer);
+          h.state = "fail"; h.error = text || "Хато"; minimized = false; draw(); clearInterval(tick);
+          return api;
+        },
+        close: function () { if (cur === h) close(); },
+      };
+      return api;
+    }
+    function track(promise, opts) {
+      var p = start(opts).auto(opts && opts.every);
+      return promise.then(function (v) { p.done(opts && opts.doneText); return v; },
+                          function (e) { p.fail((e && e.message) || String(e)); throw e; });
+    }
+    function close() { clearInterval(tick); if (cur) clearInterval(cur.timer); cur = null; root.classList.add("hidden"); }
+    $("np-min").addEventListener("click", function () {
+      minimized = true; try { sessionStorage.setItem("np-min", "1"); } catch (e) {} draw();
+    });
+    pill.addEventListener("click", function () {
+      minimized = false; try { sessionStorage.removeItem("np-min"); } catch (e) {} draw();
+    });
+    $("np-close").addEventListener("click", close);
+    return {start: start, track: track, close: close};
+  })();
+</script>

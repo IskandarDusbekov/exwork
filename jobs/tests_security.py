@@ -192,3 +192,13 @@ class SignupAndQuotaTests(TestCase):
         finally:
             import shutil
             shutil.rmtree(p.dir, ignore_errors=True)
+
+
+def test_preview_head_cuts_rows_and_closes_table():
+    from .preview import head
+    rows = "".join(f"<tr><th>{i}</th><td>x</td></tr>" for i in range(1, 1001))
+    data = {"rows": 1000, "html": "<style></style><table><thead><tr><th></th></tr></thead><tbody>" + rows + "</tbody></table>"}
+    h = head(data, 400)
+    assert h["partial"] and h["shown"] == 400
+    assert h["html"].count("<tr>") == 401 and h["html"].endswith("</tr></tbody></table>")
+    assert head({"rows": 10, "html": "x"}, 400) == {"rows": 10, "html": "x"}

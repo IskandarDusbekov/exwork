@@ -205,6 +205,29 @@ class ResourceIndex:
                 continue
         return n
 
+    def top(self, local_name: str, k: int = 3, floor: float = NEAR_MIN_SCORE) -> List[tuple]:
+        """Eng o'xshash ``k`` ta resurs (barcha birliklarda): ``[(ball, birlik, nom), …]`` — ball (difflib)
+        kamayishi bo'yicha, teng ballda RES'da oldin kelgani. Smetachiga bir nechta taklif ko'rsatish uchun.
+        LCS chegarasi (C'da) bilan nomzodlar saralanadi: chegarasi k-o'rindan past nomzod hisoblanmaydi."""
+        cands = []
+        for u in self.units:
+            for i, (c, sm) in enumerate(self._prepared(u)):
+                t = len(local_name) + len(c)
+                if t:
+                    cands.append((2.0 * _lcs(local_name, c) / t, u, i, c, sm))
+        cands.sort(key=lambda x: -x[0])
+        best: List[tuple] = []
+        for bound, u, i, c, sm in cands:
+            if bound < floor or (len(best) == k and bound < best[-1][0]):
+                break
+            sm.set_seq1(local_name)
+            score = sm.ratio()
+            if score >= floor:
+                best.append((score, u, c))
+                best.sort(key=lambda x: -x[0])
+                del best[k:]
+        return best
+
     def match(self, local_name: str, local_unit: str, threshold: float, ambiguity_delta: float = 0.01) -> Match:
         """``local_name``/``local_unit`` allaqachon normallashtirilgan bo'lishi kerak."""
         key = (local_name, local_unit, threshold, ambiguity_delta)

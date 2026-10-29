@@ -85,6 +85,7 @@ class Options:
     active_sheet: Optional[str] = None           # smart: fayl qaysi listda ochilsin (standart: narxlangan lokal)
     column_names: Optional[Dict[str, str]] = None  # smart: ustun nomlari {"K": "…", "N": "Монтаж"}; N.. — qo'shilgan
     cleared: Optional[List[int]] = None  # smart: «ТОПИЛМАДИ» so'zi olib tashlangan qatorlar (birligi bor — qizil qoladi)
+    marked: Optional[List[int]] = None  # smart: sariq — so'z olinadi, G qizil emas sariq («ko'rib chiqildi»)
     local_columns: Optional[dict] = None  # smart: smetachi ko'rsatgan lokal ustun/qatorlari (detect.override_layout)
     res_columns: Optional[dict] = None    # smart: resurs listi uchun xuddi shunday
     # smart: ресурс базаси {kod: {"price", "n", "unit_key", "category"}} — RES narxlay olmagan qatorlar kod bo'yicha
@@ -119,6 +120,7 @@ class Result:
     extra_columns: List[Tuple[str, str]] = field(default_factory=list)  # smart: smetachi qo'shgan ustunlar
     tail_removed: int = 0  # smart: «ИТОГО ПО ЛОКАЛЬНОЙ…» qismidan o'chirilgan qatorlar soni
     cleared: List[int] = field(default_factory=list)  # smart: «ТОПИЛМАДИ» olib tashlangan qatorlar
+    marked: List[int] = field(default_factory=list)  # smart: ulardan sariq belgilanganlari
     checks: List[dict] = field(default_factory=list)  # narxlashdan keyingi tekshiruv: {"row", "problem"} — bo'sh bo'lishi kerak
 
 
@@ -292,7 +294,9 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
 
     loaded = _load_match_cache(index, opts.match_cache)
     if smart:
-        priced, ln, lu = _price_smart(ws, index, threshold, opts.ambiguity_delta, warnings, opts.prices, opts.cleared,
+        # sariq belgilangan qator ham «ТОПИЛМАДИ» so'zi olib tashlangan qator — faqat rangi boshqa
+        to_clear = sorted({int(r) for r in (opts.cleared or [])} | {int(r) for r in (opts.marked or [])})
+        priced, ln, lu = _price_smart(ws, index, threshold, opts.ambiguity_delta, warnings, opts.prices, to_clear,
                                       layout=local_cols.as_layout() if local_cols else None,
                                       base=opts.base_prices, base_label=opts.base_label)
     else:
@@ -354,7 +358,10 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     svodka_cells = write_svodka(w, svodka_start, sum_row, percents, smart=smart, extra=extra_columns)
     if smart:
         # «ТОПИЛМАДИ» so'zi olib tashlangan, birligi bor qatorlar: G bo'sh, lekin narx yozilguncha qizil
-        mark_unpriced(ws, start_r, end_r, blank_rows=sorted(r for r in priced.cleared if priced.status.get(r) == NOT_FOUND))
+        # sariq — smetachi «ko'rib chiqildi» deb belgilagan: narx yozilguncha sariq (qizil emas)
+        marked = {int(r) for r in (opts.marked or [])} & priced.cleared
+        mark_unpriced(ws, start_r, end_r, blank_rows=sorted(r for r in priced.cleared - marked if priced.status.get(r) == NOT_FOUND),
+                      yellow_rows=sorted(marked))
         if priced.header_row:
             names = {PRICE_COL: PRICE_HEADER, AMOUNT_COL: AMOUNT_HEADER}
             given = {col: name for col, name in (opts.column_names or {}).items()
@@ -435,6 +442,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
             "res_section": priced.positions[r][0] if r in priced.positions else None,
             "res_row": priced.positions[r][1] if r in priced.positions else None,
             "cleared": r in priced.cleared,
+            "marked": smart and r in marked,
             "near": priced.near.get(r),
         })
         hint = category_hints.get(r)
@@ -516,6 +524,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         extra_columns=extra_columns, tail_removed=tail_removed,
         prices={r: priced.g[r] for r, st in priced.status.items() if st == MANUAL},
         cleared=sorted(priced.cleared),
+        marked=sorted(marked) if smart else [],
     )
 
 
@@ -871,6 +880,16 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
             # RES listidagi qatori — saytda resurs faylini shu qatorda ochish uchun
             key = (m.near_unit, m.near_name) if st == NOT_FOUND else (m.unit, m.name)
             near[r]["res_row"] = (index.position_of(*key) or (None, None))[1]
+            # «Батафсил»: энг ўхшаш 3 та (нархи борлари) — смета­чи бошқасини танлаши мумкин
+            alts = []
+            for score, u, name in index.top(local_name, 3):
+                price = index.by_unit[u][name]
+                if _as_price(price) is None:
+                    continue
+                raw_name, raw_unit = index.raw_of(u, name)
+                alts.append({"name": raw_name, "unit": raw_unit, "price": price, "score": round(score, 3),
+                             "same_unit": u == local_unit, "res_row": (index.position_of(u, name) or (None, None))[1]})
+            near[r]["alts"] = alts
 
         # smetachi G dagi yozuvni («ТОПИЛМАДИ», «ТЕКШИРИНГ» …) olib tashlagan: birligi borida G bo'sh
         # (Excel'da qizil qoladi, narx kutadi), birligi yo'g'ida G va H bo'sh

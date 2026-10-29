@@ -363,3 +363,22 @@ class RecalcQueueTests(TransactionTestCase):
         self.assertTrue(self.job.recalc_pending)
         recalc.run(self.job.id, "new#0")
         self.assertEqual(self._category(), "M")
+
+    def test_preview_is_prepared_after_recalc_and_on_idle(self):
+        from . import preview
+        self.job.refresh_from_db()
+        self.job.preview_ready = False
+        self.job.save(update_fields=["preview_ready"])
+        self.assertTrue(preview.warm_next())  # bo'sh worker oldindan tayyorlaydi
+        self.assertFalse(preview.warm_next())  # boshqa tayyorlanmagani yo'q
+        cached = list((self.job.dir / "preview").glob("*.json"))
+        self.assertTrue(cached)
+        self._move()
+        self.job.refresh_from_db()
+        self.assertTrue(self.job.preview_ready)  # navbatdagi so'rov hali hisoblanmagan — eski ko'rinish
+        self._work()
+        self.job.refresh_from_db()
+        self.assertTrue(self.job.preview_ready)  # qayta hisobdan keyin yana tayyorlandi
+        r = self.client.get(reverse("job_sheet", args=[self.job.id]), {"f": "out", "head": "1"})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("<table", r.json()["html"])

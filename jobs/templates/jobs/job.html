@@ -232,22 +232,26 @@
   <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2.5">
     <span class="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Кўрсатиш</span>
     <button type="button" class="chip nf-pick is-active" data-kind="all">Ҳаммаси <span class="num cnt">{{ nf_pending }}</span></button>
-    <button type="button" class="chip nf-pick" data-kind="unit" {% if not nf.with_unit %}disabled{% endif %}
-            title="Ресурс, лекин RES'да йўқ: сўз олинади, G қизил қолади — нархни кейин киритасиз">
-      <span class="dot bg-rose-500"></span>Бирлиги бор (ресурс) <span class="num cnt">{{ nf.with_unit|length }}</span></button>
-    <button type="button" class="chip nf-pick" data-kind="nounit" {% if not nf.no_unit %}disabled{% endif %}
-            title="Одатда бўлим номлари: G ва H бутунлай бўш бўлади">
-      <span class="dot bg-slate-400"></span>Бирлиги йўқ (бўлим номлари) <span class="num cnt">{{ nf.no_unit|length }}</span></button>
+    <button type="button" class="chip nf-pick" data-kind="a" {% if not nf.group_a %}disabled{% endif %}
+            title="Бўлим номлари ва изоҳлар: бирлик ҳам, ўхшаш ресурс ҳам йўқ — олиб ташланса G ва H бўш бўлади">
+      <span class="dot bg-slate-400"></span>А · Бирлиги ҳам, таклифи ҳам йўқ <span class="num cnt">{{ nf.group_a|length }}</span></button>
+    <button type="button" class="chip nf-pick" data-kind="bnone" {% if not nf.group_b_none %}disabled{% endif %}
+            title="Ресурс, лекин RES'да ўхшаши йўқ: сўз олинади, G қизил қолади — нархни кейин қўлда киритасиз">
+      <span class="dot bg-rose-500"></span>Б · Бирлиги бор, нарх йўқ <span class="num cnt">{{ nf.group_b_none|length }}</span></button>
+    <button type="button" class="chip nf-pick" data-kind="bnear" {% if not nf.group_b_near %}disabled{% endif %}
+            title="Ресурс, RES'да ўхшаши бор: «нархни қўйиш» ёки «Батафсил» — бир нечта таклифдан танлаш">
+      <span class="dot bg-amber-400"></span>Б · Бирлиги бор, таклиф бор <span class="num cnt">{{ nf.group_b_near|length }}</span></button>
     <span class="mx-1 h-5 w-px bg-slate-200" aria-hidden="true"></span>
     <span class="text-sm text-slate-600"><b id="nf-count" class="num">0</b> та белгиланди</span>
     <button type="button" id="nf-near-bulk" class="rounded-lg bg-amber-300 px-3 py-1.5 text-sm font-semibold text-amber-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40" disabled
             title="Белгиланганлар ичида яқин ресурси борларига нархини қўйиш">Яқин нархни қўйиш <span id="nf-near-n" class="num"></span></button>
-    <button type="button" id="nf-clear" class="rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40" disabled title="G даги «ТОПИЛМАДИ» / «ТЕКШИРИНГ» ёзувини олиб ташлаш">Ёзувни олиб ташлаш</button>
+    <button type="button" id="nf-clear" class="rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40" disabled title="G даги «ТОПИЛМАДИ» / «ТЕКШИРИНГ» ёзувини олиб ташлаш: бирлиги борида G қизил қолади, йўғида G ва H бўш">Ёзувни олиб ташлаш</button>
+    <button type="button" id="nf-mark" class="rounded-lg bg-yellow-300 px-3 py-1.5 text-sm font-semibold text-yellow-950 hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-40" disabled title="Ёзув олинади, G сариқ бўялади — «кўриб чиқилди, нарх кейин». Нарх ёзилса сариқ ўзи йўқолади">Сариқ бўяш</button>
     <span id="nf-status" class="text-xs text-slate-500"></span>
   </div>
   <p id="nf-hint" class="border-b border-slate-100 bg-slate-50 px-4 py-1.5 text-xs text-slate-600">
-    Турини танланг — ўша қаторлар белгиланади. Кераксизини белгидан чиқаринг. Олиб ташлангач: <b class="text-rose-700">бирлиги борида</b> G бўш ва қизил қолади (нарх кутади),
-    <b>бирлиги йўғида</b> G ва H бутунлай бўш бўлади. Ресурсда ўхшаши бўлса — <b class="text-amber-700">«нархни қўйиш»</b>: нарх RES дан айнан кўчирилади, <b>миқдор эса локал сметадан</b> (F, бўш бўлса E) — ресурсдаги миқдор олинмайди. Қатор сметада қаерда эканини <b>↗</b> билан кўринг.</p>
+    Гуруҳни танланг — ўша қаторлар белгиланади. Кераксизини белгидан чиқаринг. «Ёзувни олиб ташлаш»дан кейин: <b class="text-rose-700">бирлиги борида</b> G бўш ва қизил қолади (нарх кутади),
+    <b>бирлиги йўғида</b> G ва H бутунлай бўш бўлади. <b class="text-yellow-700">«Сариқ бўяш»</b> — ёзув олинади, G сариқ бўлади (кўриб чиқилди, нарх кейин). Ресурсда ўхшаши бўлса — <b class="text-amber-700">«нархни қўйиш»</b>: нарх RES дан айнан кўчирилади, <b>миқдор эса локал сметадан</b> (F, бўш бўлса E) — ресурсдаги миқдор олинмайди. Қатор сметада қаерда эканини <b>↗</b> билан кўринг.</p>
   <div class="max-h-[60vh] overflow-auto">
     <table class="nf-table w-full text-sm">
       <thead class="sticky top-0 z-10 bg-slate-100 text-xs text-slate-600"><tr>
@@ -265,7 +269,7 @@
       </tr></thead>
       <tbody>
       {% for r in nf.rows %}
-      <tr class="nf-row border-t border-slate-100 align-top hover:bg-slate-50" data-kind="{{ r.nf_kind }}" data-row="{{ r.row }}"{% if r.near %} data-near="1"{% endif %}>
+      <tr class="nf-row border-t border-slate-100 align-top hover:bg-slate-50" data-kind="{% if r.nf_kind == 'nounit' %}{% if r.near %}bnear{% else %}a{% endif %}{% elif r.near %}bnear{% else %}bnone{% endif %}" data-row="{{ r.row }}"{% if r.near %} data-near="1"{% endif %}>
         <td class="px-3 py-1.5"><input type="checkbox" class="nf-check h-4 w-4 accent-rose-600" value="{{ r.row }}"></td>
         <td class="num px-2 py-1.5 text-right text-slate-500">{{ r.row }}</td>
         <td class="num px-2 py-1.5 text-slate-700">{{ r.num|default_if_none:"" }}</td>
@@ -304,6 +308,28 @@
             <button type="button" class="nf-near-accept shrink-0 rounded-md bg-amber-300 px-2 py-1 text-xs font-semibold text-amber-950 hover:bg-amber-400" data-row="{{ r.row }}"
                     title="G га шу нархни ёзиш: {{ r.near.price|som }} (ресурсдан айнан)">нархни қўйиш</button>
           </div>
+          {% if r.near.alts|length > 1 %}
+          <details class="nf-alts mt-1.5">
+            <summary class="cursor-pointer select-none text-xs font-medium text-sky-700 hover:underline">Батафсил — энг ўхшаш {{ r.near.alts|length }} та таклиф</summary>
+            <ol class="mt-1 space-y-1">
+              {% for a in r.near.alts %}
+              <li class="flex items-start gap-2 rounded border border-slate-100 bg-slate-50 px-2 py-1 text-xs">
+                <span class="num w-4 shrink-0 text-slate-400">{{ forloop.counter }}.</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block leading-snug text-slate-800" title="{{ a.name }}">{{ a.name|truncatechars:90 }}</span>
+                  <span class="mt-0.5 flex flex-wrap items-center gap-x-2">
+                    <span class="{% if a.same_unit %}text-slate-500{% else %}font-semibold text-amber-700{% endif %}">{{ a.unit }}{% if not a.same_unit %} ≠ {{ r.unit }}{% endif %}</span>
+                    <b class="num text-slate-900">{{ a.price|som }}</b>
+                    <span class="rounded px-1 {% if a.score >= 0.8 %}bg-emerald-100 text-emerald-800{% elif a.score >= 0.65 %}bg-amber-100 text-amber-800{% else %}bg-slate-100 text-slate-600{% endif %}" title="Номлар ўхшашлиги">{% widthratio a.score 1 100 %}%</span>
+                  </span>
+                </span>
+                <button type="button" class="nf-alt-accept shrink-0 rounded-md border border-amber-300 bg-white px-2 py-0.5 font-semibold text-amber-900 hover:bg-amber-50"
+                        data-row="{{ r.row }}" data-price="{{ a.price|stringformat:'s' }}" title="G га шу нархни ёзиш: {{ a.price|som }}">қўйиш</button>
+              </li>
+              {% endfor %}
+            </ol>
+          </details>
+          {% endif %}
           {% elif r.nf_kind == 'unit' %}<span class="text-xs text-slate-400">ресурсда ўхшаши йўқ — нархни қўлда</span>
           {% else %}<span class="text-xs text-slate-300">—</span>{% endif %}
         </td>
@@ -331,7 +357,7 @@
         {% for r in nf.cleared %}<tr class="border-t border-slate-100 first:border-0">
           <td class="w-10 px-3 py-1"><input type="checkbox" class="nf-restore-check h-4 w-4" value="{{ r.row }}"></td>
           <td class="num w-16 px-2 py-1 text-slate-500">{{ r.row }}</td><td class="px-2 py-1">{{ r.name }}</td>
-          <td class="px-2 py-1 text-xs {% if r.status == 'CLEARED' %}text-slate-500{% else %}text-rose-700{% endif %}">{% if r.status == 'CLEARED' %}бўш (бирлиги йўқ){% else %}қизил · {{ r.unit }}{% endif %}</td></tr>{% endfor %}
+          <td class="px-2 py-1 text-xs {% if r.marked %}text-yellow-700{% elif r.status == 'CLEARED' %}text-slate-500{% else %}text-rose-700{% endif %}">{% if r.marked %}<span class="rounded bg-yellow-100 px-1">сариқ</span>{% if r.unit %} · {{ r.unit }}{% endif %}{% elif r.status == 'CLEARED' %}бўш (бирлиги йўқ){% else %}қизил · {{ r.unit }}{% endif %}</td></tr>{% endfor %}
       </table>
     </div>
     <div class="flex items-center gap-2 border-t border-slate-100 px-4 py-2">
@@ -354,8 +380,7 @@
       var vis = visible(), n = checked().length;
       if (cnt) cnt.textContent = n;
       if (all) { all.checked = vis.length > 0 && n === vis.length; all.indeterminate = n > 0 && n < vis.length; }
-      var btn = document.getElementById("nf-clear");
-      if (btn) btn.disabled = n === 0;
+      ["nf-clear", "nf-mark"].forEach(function (id) { var b = document.getElementById(id); if (b) b.disabled = n === 0; });
       var nearN = checked().filter(function (c) { return c.closest("tr").dataset.near; }).length;
       var nb = document.getElementById("nf-near-bulk");
       if (nb) { nb.disabled = nearN === 0; document.getElementById("nf-near-n").textContent = nearN ? "(" + nearN + ")" : ""; }
@@ -383,7 +408,7 @@
       tr.querySelector(".nf-check").addEventListener("change", update);
       // қаторнинг исталган жойини босиш — белгилаш (↗ ва белги катагидан ташқари)
       tr.addEventListener("click", function (e) {
-        if (e.target.closest("input, button, a")) return;
+        if (e.target.closest("input, button, a, summary, details")) return;
         var c = tr.querySelector(".nf-check"); c.checked = !c.checked; update();
       });
     });
@@ -404,6 +429,7 @@
     function send(action, rows, btn) {
       btn.disabled = true;
       if (st) st.textContent = "сақланяпти, қайта ҳисобланяпти…";
+      if (window.narxRecalc) narxRecalc.saving(action === "mark" ? "Сариқ бўялмоқда" : action === "restore" ? "Ёзув қайтарилмоқда" : "«ТОПИЛМАДИ» олиб ташланмоқда");
       fetch(URL, {
         method: "POST",
         headers: {"Content-Type": "application/json", "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value},
@@ -413,27 +439,38 @@
       }).then(function (d) {
         if (!d.ok) throw new Error(d.error || "хато");
         location.reload();
-      }).catch(function (e) { btn.disabled = false; narxDialog.alert(e.message, {title: "Сақланмади", danger: true}); });
+      }).catch(function (e) {
+        if (window.narxRecalc) narxRecalc.failed(e.message || e);
+        btn.disabled = false; narxDialog.alert(e.message, {title: "Сақланмади", danger: true});
+      });
     }
     // яқин ресурс нархини қабул қилиш: нарх RES дан айнан ёзилади (қўлда нарх сифатида сақланади)
     var PRICE_URL = "{% url 'job_prices' job.id %}";
-    function acceptNear(rows, btn) {
+    function acceptNear(rows, btn, price) {
       if (!rows.length) return;
       btn.disabled = true;
       if (st) st.textContent = "нарх қўйиляпти, қайта ҳисобланяпти…";
+      if (window.narxRecalc) narxRecalc.saving("Нарх қўйилмоқда");
+      // price берилса — «Батафсил»даги бошқа таклиф (шу нарх айнан ёзилади), акс ҳолда энг яқини
       fetch(PRICE_URL, {
         method: "POST",
         headers: {"Content-Type": "application/json", "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value},
-        body: JSON.stringify({action: "accept", rows: rows}),
+        body: JSON.stringify(price != null ? {action: "set", rows: rows, price: price} : {action: "accept", rows: rows}),
       }).then(function (r) {
         return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; });
       }).then(function (d) {
         if (!d.ok) throw new Error(d.error || "хато");
         location.reload();
-      }).catch(function (e) { btn.disabled = false; narxDialog.alert(e.message, {title: "Сақланмади", danger: true}); });
+      }).catch(function (e) {
+        if (window.narxRecalc) narxRecalc.failed(e.message || e);
+        btn.disabled = false; narxDialog.alert(e.message, {title: "Сақланмади", danger: true});
+      });
     }
     document.querySelectorAll(".nf-near-accept").forEach(function (b) {
       b.addEventListener("click", function () { acceptNear([Number(b.dataset.row)], b); });
+    });
+    document.querySelectorAll(".nf-alt-accept").forEach(function (b) {
+      b.addEventListener("click", function () { acceptNear([Number(b.dataset.row)], b, b.dataset.price); });
     });
     var nearBulk = document.getElementById("nf-near-bulk");
     if (nearBulk) nearBulk.addEventListener("click", function () {
@@ -443,6 +480,10 @@
     var clearBtn = document.getElementById("nf-clear");
     if (clearBtn) clearBtn.addEventListener("click", function () {
       send("clear", checked().map(function (c) { return Number(c.value); }), clearBtn);
+    });
+    var markBtn = document.getElementById("nf-mark");
+    if (markBtn) markBtn.addEventListener("click", function () {
+      send("mark", checked().map(function (c) { return Number(c.value); }), markBtn);
     });
     var restoreBtn = document.getElementById("nf-restore");
     var restoreChecks = document.querySelectorAll(".nf-restore-check");
@@ -672,27 +713,51 @@
     });
 
     // ---- файл ва лист ----
+    function getSheet(kind, sheet, headOnly) {
+      return fetch(URL + "?f=" + kind + (sheet ? "&s=" + encodeURIComponent(sheet) : "") + (headOnly ? "&head=1" : ""),
+                   {credentials: "same-origin"})
+        .then(function (r) { return r.json().catch(function () { return {error: "сервер хатоси (" + r.status + ")"}; }); })
+        .then(function (d) { if (d.error) throw new Error(d.error); return d; });
+    }
     function fetchSheet(kind, sheet) {
       var key = kind + "|" + (sheet || "");
       if (!cache[key]) {
-        cache[key] = fetch(URL + "?f=" + kind + (sheet ? "&s=" + encodeURIComponent(sheet) : ""), {credentials: "same-origin"})
-          .then(function (r) { return r.json().catch(function () { return {error: "сервер хатоси (" + r.status + ")"}; }); })
-          .then(function (d) { if (d.error) { delete cache[key]; throw new Error(d.error); } return d; });
+        cache[key] = getSheet(kind, sheet, false).catch(function (e) { delete cache[key]; throw e; });
       }
       return cache[key];
     }
     function open(kind, opts) {
       opts = opts || {};
       if (cur.kind === kind && cur.ready && (!opts.sheet || opts.sheet === cur.sheet)) { after(opts); return; }
-      cur = {kind: kind, sheet: opts.sheet || null, ready: false};
+      var me = cur = {kind: kind, sheet: opts.sheet || null, ready: false};
       scroll.innerHTML = LOADING;
-      fetchSheet(kind, opts.sheet).then(function (d) {
-        if (cur.kind !== kind) return;
+      var key = kind + "|" + (opts.sheet || "");
+      // катта смета: аввал боши (400 қатор) дарҳол кўринади, кейин бутун жадвал (сервер кешидан) — алмашади,
+      // скролл жойида. Кетма-кет: сервер жадвални икки марта ясамайди. Кичик лист — бошининг ўзи бутун жадвал.
+      var shownHead = false, full;
+      if (cache[key]) {
+        full = cache[key];
+      } else {
+        full = getSheet(kind, opts.sheet, true).then(function (d) {
+          if (!d.partial) { cache[key] = Promise.resolve(d); return d; }
+          if (cur === me) { render(kind, d); shownHead = true; after(opts); }
+          return fetchSheet(kind, opts.sheet);
+        });
+        if (window.narxProgress) full = narxProgress.track(full, {title: "Жадвал очилмоқда", doneText: "Жадвал тайёр",
+          steps: ["Excel файл ўқилмоқда", "Жадвал чизилмоқда", "Қолган қаторлар юкланмоқда"]});
+      }
+      full.then(function (d) {
+        if (cur !== me) return;
         cache[kind + "|" + d.sheet] = cache[kind + "|" + d.sheet] || Promise.resolve(d);
-        render(kind, d);
+        var top = scroll.scrollTop, left = scroll.scrollLeft;
+        render(kind, d, shownHead);
+        if (shownHead) { scroll.scrollTop = top; scroll.scrollLeft = left; }
         cur.sheet = d.sheet; cur.ready = true;
-        after(opts);
+        if (!shownHead) after(opts);
+        // қатор ёки қидирув бошида (400 қаторда) топилмаган бўлиши мумкин — бутун жадвалда яна
+        else if (opts.row || opts.find !== undefined) after({row: opts.row, find: opts.find});
       }).catch(function (e) {
+        if (cur !== me) return;
         // хато матнида файлдаги лист номи бўлиши мумкин — HTML эмас, матн сифатида
         var err = document.createElement("div");
         err.className = "p-6 text-sm text-rose-700";
@@ -700,12 +765,13 @@
         scroll.replaceChildren(err);
       });
     }
-    function render(kind, d) {
+    function render(kind, d, keepPos) {
       fileEl.textContent = d.file;
       info.textContent = "· лист «" + d.sheet + "» · " + d.rows + " қатор · " + d.cols + " устун"
+        + (d.partial ? " · бошидан " + d.shown + " таси, қолгани юкланмоқда…" : "")
         + (d.truncated ? " · фақат биринчи " + d.rows + " қатор кўрсатилди" : "");
       scroll.innerHTML = d.html;
-      scroll.scrollTop = 0; scroll.scrollLeft = 0;
+      if (!keepPos) { scroll.scrollTop = 0; scroll.scrollLeft = 0; }
       cells = Array.prototype.slice.call(scroll.querySelectorAll("tbody td"));
       rowByNum = {}; target = null;
       scroll.querySelectorAll("tbody tr").forEach(function (tr) { rowByNum[tr.firstElementChild.textContent] = tr; });
@@ -945,6 +1011,7 @@
       priceBox.querySelectorAll("button, input").forEach(function (el) { el.disabled = true; });
       priceSt.className = "ml-auto text-xs text-slate-500";
       priceSt.textContent = "сақланяпти, қайта ҳисобланяпти…";
+      if (window.narxRecalc) narxRecalc.saving("Нарх сақланмоқда");
       fetch(PRICE_URL, {method: "POST", credentials: "same-origin",
                         headers: {"Content-Type": "application/json", "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value},
                         body: JSON.stringify(body)})
@@ -958,6 +1025,7 @@
           location.href = location.pathname + "?" + u.toString() + "#t-2";
         })
         .catch(function (e) {
+          if (window.narxRecalc) narxRecalc.failed(e.message || e);
           priceBox.querySelectorAll("button, input").forEach(function (el) { el.disabled = false; });
           priceSt.className = "ml-auto text-xs text-rose-600";
           priceSt.textContent = e.message;
@@ -1841,6 +1909,7 @@
       // устунлар: қўшиш (N, O, …), номини ўзгартириш, ўчириш
       function columnAction(payload) {
         status.textContent = "сақланяпти, қайта ҳисобланяпти…";
+        if (window.narxRecalc) narxRecalc.saving("Устунлар ўзгартирилмоқда");
         fetch(COL_URL, {
           method: "POST",
           headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
@@ -1851,7 +1920,10 @@
           if (!data.ok) throw new Error(data.error || "хато");
           store(KEY + "-scroll", String(window.scrollY) + "|" + String(wrap.scrollTop));
           location.reload();
-        }).catch(function (err) { narxDialog.alert(err.message, {title: "Сақланмади", danger: true}); });
+        }).catch(function (err) {
+          if (window.narxRecalc) narxRecalc.failed(err.message || err);
+          narxDialog.alert(err.message, {title: "Сақланмади", danger: true});
+        });
       }
       var addBtn = document.getElementById("col-add");
       if (addBtn) addBtn.addEventListener("click", function () {
@@ -1880,6 +1952,7 @@
       function send(url, payload, rowsChanged) {
         document.querySelectorAll(".move-btn, .price-btn").forEach(function (m) { m.disabled = true; });
         status.textContent = "сақланяпти, қайта ҳисобланяпти…";
+        if (window.narxRecalc) narxRecalc.saving("Ўзгариш сақланмоқда");
         return fetch(url, {
           method: "POST",
           headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
@@ -1897,6 +1970,7 @@
             ? narxDialog.alert(data.skipped + " та қаторда нарх таклифи йўқ — улар ўзгармади.", {title: "Баъзи қаторлар ўзгармади"})
             : Promise.resolve()).then(function () { location.reload(); });
         }).catch(function (err) {
+          if (window.narxRecalc) narxRecalc.failed(err.message || err);
           status.textContent = "Хато: " + err.message;
           bar.classList.remove("hidden");
           render();
@@ -1949,6 +2023,7 @@
       function moveRows(moving, category) {
         document.querySelectorAll(".move-btn, .grp-move").forEach(function (m) { m.disabled = true; });
         status.textContent = "сақланяпти, қайта ҳисобланяпти…";
+        if (window.narxRecalc) narxRecalc.saving("Кабель / ускунага ўтказилмоқда");
         fetch(MOVE_URL, {
           method: "POST",
           headers: {"Content-Type": "application/json", "X-CSRFToken": csrf},
@@ -1963,6 +2038,7 @@
           store(KEY + "-scroll", String(window.scrollY) + "|" + String(wrap.scrollTop));
           location.reload();
         }).catch(function (err) {
+          if (window.narxRecalc) narxRecalc.failed(err.message || err);
           status.textContent = "Хато: " + err.message;
           narxDialog.alert(err.message, {title: "Сақланмади", danger: true});
           document.querySelectorAll(".move-btn, .grp-move").forEach(function (m) { m.disabled = false; });

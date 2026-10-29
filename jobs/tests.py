@@ -399,6 +399,57 @@ class FlowTests(LoggedInTestCase):
         self.assertEqual(post({"rows": [exact], "action": "clear"}).status_code, 400)
         self.assertEqual(post({"rows": nf, "action": "boshqa"}).status_code, 400)
 
+    def test_not_found_mark_yellow(self):
+        """«Сариқ бўяш»: сўз олинади, G сариқ (шартли формат — нарх ёзилса йўқолади); қайтариш — иккаласидан ҳам."""
+        self._upload(local=self.local, res=self.res)
+        job = Job.objects.get()
+        self.client.post(reverse("job_run", args=[job.id]), {
+            "local_sheet": job.local_sheet, "res_sheet": job.res_sheet, "fuzzy": "95", "mode": "smart"})
+        job.refresh_from_db()
+        nf = [r["row"] for r in job.result["rows"] if r["status"] in UNPRICED_STATUSES]
+        url = reverse("job_not_found", args=[job.id])
+        post = lambda payload: self.client.post(url, json.dumps(payload), content_type="application/json")
+        post({"rows": nf, "action": "clear"})
+        self.assertEqual(post({"rows": nf[:1], "action": "mark"}).json()["ok"], True)
+        job.refresh_from_db()
+        self.assertEqual((job.marked, job.cleared), (nf[:1], nf[1:]))
+        self.assertEqual(job.result["marked"], nf[:1])
+        ws = load_workbook(job.abs(job.output_path))[job.local_sheet]
+        self.assertIsNone(ws[f"G{nf[0]}"].value)
+        fills = {str(cf.sqref): [r.dxf.fill.bgColor.rgb for r in cf.rules if r.dxf and r.dxf.fill]
+                 for cf in ws.conditional_formatting}
+        self.assertTrue(any("FFFFEB9C" in v and f"G{nf[0]}" in k.split() for k, v in fills.items()))  # сариқ
+        self.assertFalse(any("FFFFC7CE" in v and f"G{nf[0]}" in k.split() for k, v in fills.items()))  # қизил эмас
+        page = self.client.get(reverse("job", args=[job.id])).content.decode()
+        self.assertIn("сариқ", page)
+        sheet = self.client.get(reverse("job_sheet", args=[job.id]), {"f": "out"}).json()["html"]
+        self.assertIn("#FFEB9C", sheet)  # кўринишда ҳам сариқ
+        post({"rows": nf[:1], "action": "restore"})
+        job.refresh_from_db()
+        self.assertEqual((job.marked, job.cleared), ([], nf[1:]))
+
+    def test_not_found_detailed_suggestions(self):
+        """«Батафсил»: топилмаган қаторга бир нечта таклиф; иккинчисини танлаш — шу нарх айнан ёзилади."""
+        self._upload(local=self.local, res=self.res)
+        job = Job.objects.get()
+        self.client.post(reverse("job_run", args=[job.id]), {
+            "local_sheet": job.local_sheet, "res_sheet": job.res_sheet, "fuzzy": "95", "mode": "smart"})
+        job.refresh_from_db()
+        rows = [r for r in job.result["rows"] if (r.get("near") or {}).get("alts")]
+        self.assertTrue(rows)
+        row = max(rows, key=lambda r: len(r["near"]["alts"]))
+        alts = row["near"]["alts"]
+        self.assertEqual([a["score"] for a in alts], sorted((a["score"] for a in alts), reverse=True))
+        if len(alts) > 1:
+            self.assertContains(self.client.get(reverse("job", args=[job.id])), "Батафсил")
+            pick = alts[1]
+            r = self.client.post(reverse("job_prices", args=[job.id]),
+                                 json.dumps({"rows": [row["row"]], "action": "set", "price": str(pick["price"])}),
+                                 content_type="application/json")
+            self.assertTrue(r.json()["ok"])
+            job.refresh_from_db()
+            self.assertEqual(job.prices[str(row["row"])], float(pick["price"]))
+
     def test_table_checked_stage(self):
         """2-босқич якунланмагунча сводка ва қолганлари йиғилган; якунлангач очилади, қайта очиш мумкин."""
         self._upload(local=self.local, res=self.res)

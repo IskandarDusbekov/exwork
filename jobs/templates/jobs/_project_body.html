@@ -1,5 +1,6 @@
 {% load narx %}
 <div id="project-state" data-working="{{ working|yesno:'1,0' }}" data-finished="{{ finished }}" data-total="{{ nodes|length }}"
+     data-opening="{{ count_opening }}" data-pricing="{{ count_pricing }}" data-ready="{{ count_ready }}"
      data-result="{% if count_review or count_warn %}{{ count_review|add:count_warn }} та қисмни тўғирлаш керак{% else %}ҳаммаси тайёр{% endif %}" class="lg:grid lg:min-h-[calc(100vh-7.5rem)] lg:grid-cols-[420px_minmax(0,1fr)]">
 
 {# ================= Explorer (VS Code каби) ================= #}

@@ -1,5 +1,5 @@
 {# Қайта ҳисоб (фонда): смета ўзгаргач натижа янгилангунча — белги, ўтган вақт; тугагач саҳифа ўзи янгиланади. #}
-<div id="recalc-banner" class="{% if not job.recalc_pending %}hidden {% endif %}sticky top-0 z-30 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm text-sky-800 shadow-sm" role="status" aria-live="polite">
+<div id="recalc-banner" class="hidden sticky top-0 z-30 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm text-sky-800 shadow-sm" role="status" aria-live="polite">
   <svg class="h-4 w-4 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity=".25" stroke-width="3"/>
     <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
@@ -17,7 +17,16 @@
     var waiters = [], polling = false, reloadWhenDone = {{ job.recalc_pending|yesno:"true,false" }}, since = null, tick = null;
     var typical = {% if job.duration %}{{ job.duration|stringformat:".1f" }}{% else %}null{% endif %};  // охирги ҳисоб, сония
     function fmt(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
+    var np = null;
     function show(state) {
+      if (window.narxProgress) {  // бурчакдаги жараён ойнаси (йиғиб/ёпиб қўйиш мумкин) — юқоридаги белги ўрнига
+        banner.classList.add("hidden");
+        np = np || narxProgress.start({title: "Смета янгиланмоқда", typical: typical,
+          since: state && state.elapsed != null ? Date.now() - state.elapsed * 1000 : Date.now(),
+          steps: ["Ўзгариш сақланди", "Смета қайта ҳисобланмоқда", "Жадвал янгиланмоқда"]});
+        if (state && state.running === false) np.step(0, "навбатда"); else np.step(1);
+        return;
+      }
       banner.classList.remove("hidden");
       text.textContent = state && state.running === false ? "Навбатда, қайта ҳисоблаш бошланяпти…" : "Смета қайта ҳисобланмоқда…";
       if (state && state.elapsed !== null && state.elapsed !== undefined) since = Date.now() - state.elapsed * 1000;
@@ -29,6 +38,11 @@
     function done(state) {
       polling = false; clearInterval(tick); tick = null; since = null;
       banner.classList.add("hidden");
+      if (np) {
+        if (state && state.error) np.fail(state.error);
+        else np.step(2).done("Смета янгиланди");
+        np = null;
+      }
       var w = waiters; waiters = [];
       w.forEach(function (f) { f(state); });
       if (reloadWhenDone || !w.length) location.reload();
@@ -39,7 +53,19 @@
       }).catch(function () { setTimeout(poll, 3000); });  // тармоқ узилди — кейинроқ яна
     }
     function start() { if (!polling) { polling = true; show(null); poll(); } }
-    if (reloadWhenDone) start();
-    return {wait: function () { return new Promise(function (res) { waiters.push(res); start(); }); }};
+    // жараён ойнаси (base.html охирида) юклангач бошланади
+    if (reloadWhenDone) {
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
+    }
+    return {
+      wait: function () { return new Promise(function (res) { waiters.push(res); start(); }); },
+      // тугма босилган заҳоти ойна чиқади; саҳифа янгилангач шу ойна давом этади (сервердаги навбатдан)
+      saving: function (title) {
+        if (!window.narxProgress) return;
+        np = narxProgress.start({title: title || "Смета янгиланмоқда", typical: typical,
+          steps: ["Ўзгариш сақланмоқда", "Смета қайта ҳисобланмоқда", "Жадвал янгиланмоқда"]});
+      },
+      failed: function (msg) { if (np) { np.fail("Сақланмади: " + msg); np = null; } },
+    };
   })();
 </script>

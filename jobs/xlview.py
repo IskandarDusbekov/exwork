@@ -8,6 +8,7 @@ import datetime
 import hashlib
 import json
 import re
+import zipfile
 from decimal import ROUND_HALF_UP, Decimal
 from html import escape
 from pathlib import Path
@@ -16,14 +17,15 @@ from typing import Dict, Optional
 from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
 from openpyxl.styles.colors import COLOR_INDEX
-from openpyxl.utils import get_column_letter
+from openpyxl.utils import column_index_from_string, get_column_letter
 
 from .templatetags.narx import _EXCEL_ERRORS_RU
 
-MAX_ROWS = 3000  # bundan ko'p qator — kesiladi (sahifa og'irlashmasin)
+MAX_ROWS = 60000  # butun smeta (16 000+ qator); sahifa avval boshini oladi, keyin hammasini (job_sheet: n)
 CACHE_VERSION = 2  # 2: shrift nomi va rang tozalanadi (eski keshda XSS qolmasin)
 GUTTER_PX = 46
 _RED_FILL, _RED_FONT = "#FFC7CE", "#9C0006"  # writer.mark_unpriced bilan bir xil
+_YELLOW_FILL = "#FFEB9C"  # writer.MARKED_FILL — smetachi sariq belgilagan (ko'rib chiqildi)
 
 # Office mavzusi (fayl o'z mavzusini bermasa); tartib — Excel'dagi theme indeksi bo'yicha
 _DEFAULT_THEME = ["FFFFFF", "000000", "EEECE1", "1F497D", "4F81BD", "C0504D",
@@ -162,7 +164,8 @@ class _Styles:
             return ""
         return f"{_BORDERS[s.style]} {self.color(s.color) or '#000'}"
 
-    def css(self, cell, right, bottom, kind: str, red: bool) -> str:
+    def css(self, cell, right, bottom, kind: str, red) -> str:
+        """``red``: False | True (qizil) | "yellow" (sariq) — Excel'dagi shartli format kabi."""
         key = (tuple(cell._style) if cell.has_style else (), right, bottom, kind, red)
         name = self.classes.get(key)
         if name:
@@ -193,7 +196,7 @@ class _Styles:
             if col:
                 p.append(f"background:{col}")
         if red:
-            p.append(f"background:{_RED_FILL};color:{_RED_FONT};font-weight:700")
+            p.append(f"background:{_YELLOW_FILL}" if red == "yellow" else f"background:{_RED_FILL};color:{_RED_FONT};font-weight:700")
         a = cell.alignment
         h = a.horizontal if a is not None else None
         if h in (None, "general"):
@@ -237,12 +240,50 @@ def _bounds(ws):
     return last_r, last_c
 
 
-def _missing_formulas(path: Path, title: str) -> set:
-    """Formulasi bor, lekin saqlangan natijasi yo'q kataklar (openpyxl saqlaganda natija yo'qoladi)."""
+def _sheet_part(z: zipfile.ZipFile, title: str) -> Optional[str]:
+    """List nomi -> ZIP ichidagi XML yo'li (workbook.xml + uning rels)."""
+    wb = z.read("xl/workbook.xml").decode("utf-8", "replace")
+    rels = z.read("xl/_rels/workbook.xml.rels").decode("utf-8", "replace")
+    targets = {m.group(1): m.group(2) for m in re.finditer(r'<Relationship\b[^>]*?Id="([^"]+)"[^>]*?Target="([^"]+)"', rels)}
+    targets.update({m.group(2): m.group(1) for m in re.finditer(r'<Relationship\b[^>]*?Target="([^"]+)"[^>]*?Id="([^"]+)"', rels)})
+    for m in re.finditer(r"<(?:\w+:)?sheet\b([^>]*)/?>", wb):
+        attrs = m.group(1)
+        name = re.search(r'\bname="([^"]*)"', attrs)
+        rid = re.search(r'\br:id="([^"]*)"', attrs) or re.search(r'\bid="([^"]*)"', attrs)
+        if name and rid and _unxml(name.group(1)) == title and rid.group(1) in targets:
+            t = targets[rid.group(1)].lstrip("/")
+            return t if t.startswith("xl/") else "xl/" + t
+    return None
+
+
+def _unxml(s: str) -> str:
+    return s.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"').replace("&apos;", "'").replace("&amp;", "&")
+
+
+# katak ochilishi (o'zi yopiladigan «<c …/>» emas), keyin shu katak ichida (keyingi «<c» gacha) «<f»
+_CELL_WITH_F = re.compile(rb'<c\b[^>]*?\br="([A-Z]+)([0-9]+)"[^>]*(?<!/)>(?:(?!</c>|<c[\s>]).){0,200}?<f[\s>/]', re.S)
+
+
+def _missing_formulas(path: Path, title: str, max_row: Optional[int] = None) -> set:
+    """Formulasi bor kataklar (openpyxl saqlaganda natijasi yo'qoladi) — list XML'idan matn qidiruvi bilan
+    (butun kitobni ochish 16 000 qatorda ~6 s edi). Topilmasa — eski usul (openpyxl)."""
+    try:
+        with zipfile.ZipFile(path) as z:
+            part = _sheet_part(z, title)
+            data = z.read(part) if part else None
+    except (zipfile.BadZipFile, KeyError, OSError):
+        data = None
+    if data is not None:
+        out = set()
+        for m in _CELL_WITH_F.finditer(data):
+            r = int(m.group(2))
+            if max_row is None or r <= max_row:
+                out.add((r, column_index_from_string(m.group(1).decode())))
+        return out
     out = set()
     wb = load_workbook(path, read_only=True, keep_links=False)
     try:
-        for row in wb[title].iter_rows():
+        for row in wb[title].iter_rows(max_row=max_row):
             for cell in row:
                 if isinstance(cell.value, str) and cell.value.startswith("="):
                     out.add((cell.row, cell.column))
@@ -269,6 +310,7 @@ def _values(path: Path, title: str, cells: set) -> dict:
 
 def render(path: Path, sheet: Optional[str] = None, default: Optional[str] = None,
            fallback: Optional[Path] = None, red: frozenset = frozenset(), red_sheet: Optional[str] = None,
+           yellow: frozenset = frozenset(),
            max_rows: int = MAX_ROWS) -> dict:
     """``sheet`` → ``default`` → faol list. ``fallback`` — natijasi yo'q formulalar qiymati shu fayldan
     (bir xil list va katak). ``red`` — qizil kataklar (``"G15"``), ``red_sheet`` listida (None — faol list)."""
@@ -287,7 +329,7 @@ def render(path: Path, sheet: Optional[str] = None, default: Optional[str] = Non
 
         fixes = {}
         if fallback is not None and last_r:
-            empty = {rc for rc in _missing_formulas(path, title) if rc[0] <= last_r and ws._cells.get(rc) is not None
+            empty = {rc for rc in _missing_formulas(path, title, last_r) if rc[0] <= last_r and ws._cells.get(rc) is not None
                      and ws._cells[rc].value is None}
             fixes = _values(fallback, title, empty)
 
@@ -351,7 +393,8 @@ def render(path: Path, sheet: Optional[str] = None, default: Optional[str] = Non
                 right = styles.side(side(r, c2, "right")) or styles.side(side(r, c2 + 1, "left"))
                 bottom = styles.side(side(r2, c, "bottom")) or styles.side(side(r2 + 1, c, "top"))
                 cell = ws._cells.get((r, c))
-                is_red = title == red_sheet and f"{get_column_letter(c)}{r}" in red
+                ref = f"{get_column_letter(c)}{r}"
+                is_red = title == red_sheet and ("yellow" if ref in yellow else ref in red)
                 cls = styles.css(cell, right, bottom, _kind(v), is_red) if cell is not None else (
                     styles.css(ws.cell(r, c), right, bottom, "text", is_red) if (right or bottom or is_red) else "")
                 attrs = f' class="{cls}"' if cls else ""

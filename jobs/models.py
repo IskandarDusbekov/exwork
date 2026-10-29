@@ -149,6 +149,7 @@ class Job(models.Model):
     local_columns = models.JSONField(default=dict, blank=True)  # smetachi ko'rsatgan ustunlar (Batch.columns dan)
     res_columns = models.JSONField(default=dict, blank=True)
     cleared = models.JSONField(default=list, blank=True)  # «ТОПИЛМАДИ» so'zi olib tashlangan qatorlar [183, 281]
+    marked = models.JSONField(default=list, blank=True)  # sariq belgilangan (so'z olingan, G sariq — «ko'rib chiqildi»)
     base_period = models.JSONField(default=dict, blank=True)  # ресурс базаси: {"region", "year", "quarter"}; {} — ишлатилмайди
     table_checked = models.BooleanField(default=False)  # 2-bosqich: L/M ko'chirildi, jadval ko'rib chiqildi
 
@@ -165,6 +166,7 @@ class Job(models.Model):
     recalc_requested = models.DateTimeField(null=True, blank=True)
     recalc_worker = models.CharField(max_length=100, blank=True)  # egallagan worker (lease)
     recalc_heartbeat = models.DateTimeField(null=True, blank=True)
+    preview_ready = models.BooleanField(default=False)  # natija ko'rinishi keshda tayyor (jobs/preview.py)
 
     class Meta:
         ordering = ["-created"]

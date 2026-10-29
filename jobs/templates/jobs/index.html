@@ -86,7 +86,7 @@
   </section>
 
   {# ================= алоҳида файллар ================= #}
-  <form id="panel-files" method="post" enctype="multipart/form-data" data-busy class="mode-panel bg-white rounded-xl border border-slate-200 p-6 space-y-5 shadow-sm">
+  <form id="panel-files" method="post" enctype="multipart/form-data" data-busy data-progress='{"title": "Файллар юкланмоқда", "steps": ["Файллар юборилмоқда", "Excel файллар очилмоқда", "Листлар таниб олинмоқда", "Локал ва RES жуфтланмоқда"]}' class="mode-panel bg-white rounded-xl border border-slate-200 p-6 space-y-5 shadow-sm">
     {% csrf_token %}
     {% if error %}
     <div class="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{% icon "alert-circle" "mt-0.5 h-4 w-4 shrink-0" %}<span>{{ error }}</span></div>
@@ -273,21 +273,31 @@
       xhr.open("POST", "{% url 'project_create' %}");
       submit.disabled = true;
       prog.classList.remove("hidden");
+      var np = window.narxProgress && narxProgress.start({title: "Папка юкланмоқда", steps: [
+        "Файллар серверга юборилмоқда", "Архивлар очилмоқда", "Смета файллари саралаб олинмоқда", "Папка саҳифаси очилмоқда"]});
       xhr.upload.onprogress = function (e) {
         if (!e.lengthComputable) return;
         var pct = Math.round(100 * e.loaded / e.total);
         document.getElementById("fprogress-bar").style.width = pct + "%";
         document.getElementById("fprogress-pct").textContent = pct + "%";
-        if (pct >= 100) document.getElementById("fprogress-text").textContent = "Сақланяпти, архивлар ва файллар очиляпти…";
+        if (np) np.note(pct + "%").percent(Math.round(pct * 0.5));
+        if (pct >= 100) {
+          document.getElementById("fprogress-text").textContent = "Сақланяпти, архивлар ва файллар очиляпти…";
+          if (np) np.step(1).percent(null).auto(2);
+        }
       };
       xhr.onload = function () {
         var data = {};
         try { data = JSON.parse(xhr.responseText); } catch (e) { data = {error: "сервер хатоси (" + xhr.status + ")"}; }
-        if (data.ok) { location.href = data.url; return; }
+        if (data.ok) { if (np) np.step(3); location.href = data.url; return; }
+        if (np) np.fail(data.error || "хато");
         err.textContent = data.error || "хато"; err.classList.remove("hidden");
         prog.classList.add("hidden"); submit.disabled = false;
       };
-      xhr.onerror = function () { err.textContent = "Тармоқ хатоси"; err.classList.remove("hidden"); submit.disabled = false; };
+      xhr.onerror = function () {
+        if (np) np.fail("Тармоқ хатоси — интернет уланишини текширинг");
+        err.textContent = "Тармоқ хатоси"; err.classList.remove("hidden"); submit.disabled = false;
+      };
       xhr.send(fd);
     });
   })();

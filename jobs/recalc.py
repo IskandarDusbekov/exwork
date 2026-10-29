@@ -27,10 +27,10 @@ KEEPALIVE_SECONDS = 30
 
 
 def request(job: Job, local_sheet=None, res_sheet=None, fuzzy=None, mode=None, percents=None,
-            categories=None, prices=None, cleared=None) -> Job:
+            categories=None, prices=None, cleared=None, marked=None) -> Job:
     """Sozlamani saqlab, qayta hisoblashni navbatga qo'yadi. Hisob natijasi — keyinroq (``job.recalc_pending``)."""
     apply_settings(job, local_sheet, res_sheet, job.fuzzy if fuzzy is None else fuzzy, mode, percents,
-                   categories, prices, cleared)
+                   categories, prices, cleared, marked)
     job.save(update_fields=SETTING_FIELDS)
     Job.objects.filter(pk=job.pk).update(recalc_seq=F("recalc_seq") + 1, recalc_requested=timezone.now())
     job.refresh_from_db(fields=["recalc_seq", "recalc_done", "recalc_requested"])
@@ -93,6 +93,10 @@ def run(job_id, worker: str):
         return  # lease boshqasiga o'tgan (uzoq javob bermadik) — natijani o'sha yozadi
     job.save(update_fields=RESULT_FIELDS)
     mine.update(recalc_done=seq, recalc_worker="", recalc_heartbeat=None)
+    if not Job.objects.filter(pk=job_id).filter(_pending()).exists():
+        # smetachi sahifada kutyapti: sahifa yangilanishi bilan jadval ochiladi — ko'rinish hozir tayyorlanadi
+        from .preview import warm
+        warm(job)
 
 
 def worker_mode() -> bool:

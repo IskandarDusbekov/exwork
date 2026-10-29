@@ -20,7 +20,7 @@ from django.db import close_old_connections
 from django.db.models import F
 from django.utils import timezone
 
-from jobs import folders, recalc
+from jobs import folders, preview, recalc
 from jobs.models import Worker
 
 log = logging.getLogger("jobs.worker")
@@ -85,6 +85,8 @@ class Command(BaseCommand):
                     close_old_connections()
                     self.stopping.wait(max(poll, 1.0))
                     continue
+                if pid is None and not once and self._warm():
+                    continue  # bo'sh payt: tayyor smetaning ko'rinishi oldindan (ochilganda kutilmasin)
                 if pid is None:
                     self.idle[i] = True
                     if once and all(self.idle):
@@ -105,6 +107,14 @@ class Command(BaseCommand):
         finally:
             self.idle[i] = True  # чиққан оқим бошқаларнинг «--once» тугашига халал бермасин
             close_old_connections()
+
+    def _warm(self) -> bool:
+        try:
+            return preview.warm_next()
+        except Exception:  # noqa: BLE001 — oqim o'lmasin
+            log.exception("кўринишни олдиндан тайёрлаш")
+            close_old_connections()
+            return False
 
     def _recalc(self, me, jid):
         self._count(busy=F("busy") + 1)
