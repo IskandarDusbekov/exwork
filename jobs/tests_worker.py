@@ -1,11 +1,13 @@
 """Навбат ва worker: эгаллаш (lease), эскирган ишни қайта олиш, ``run_worker --once`` билан бутун папка."""
 import io
+import json
 import shutil
 import tempfile
 from datetime import timedelta
 from pathlib import Path
 from unittest import mock
 
+import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import TransactionTestCase, override_settings
@@ -14,7 +16,7 @@ from django.utils import timezone
 
 from accounts.models import User
 
-from . import folders
+from . import folders, recalc
 from .models import Batch, Job, Project, Worker
 
 TMP_MEDIA = tempfile.mkdtemp(prefix="narxlash_worker_media_")
@@ -268,3 +270,96 @@ class DownloadNameTests(TransactionTestCase):
         """Лист номида қатор ташланиши бўлса — Windows'да натижа файли яратилмасди (OSError)."""
         name = Job(batch_label="ДАННЫМ ЛОКАЛЬНЫХ СМЕТ \nНА ЦЕНТРАЛЬНЫЙ СКЛАД", local_name="x.xlsx").download_name
         self.assertEqual(name, "ДАННЫМ ЛОКАЛЬНЫХ СМЕТ НА ЦЕНТРАЛЬНЫЙ СКЛАД_narxlandi.xlsx")
+
+
+@pytest.mark.recalc_queue
+@override_settings(MEDIA_ROOT=TMP_MEDIA, NARXLASH_TASKS="worker")
+class RecalcQueueTests(TransactionTestCase):
+    """Смета ўзгарди (L/M устун, нарх, фоиз…) — сўров ичида қайта нархланмайди: navbat → worker."""
+
+    def setUp(self):
+        self.user = User.objects.create_user("ali@test.uz", "Kuchli-parol-2026", first_name="Ali", last_name="V")
+        self.client.force_login(self.user)
+        local, res = (GOLDEN / "input_local.xlsx").read_bytes(), (GOLDEN / "input_res.xlsx").read_bytes()
+        files = {"МТТ/А/a_lokal.xlsx": local, "МТТ/А/a_res.xlsx": res}
+        self.client.post(reverse("project_create"), {
+            "files": [SimpleUploadedFile(p.split("/")[-1], b) for p, b in files.items()], "paths": list(files)})
+        self._work()
+        part = Project.objects.get().parts.get()
+        self.client.post(reverse("batch_confirm", args=[part.id]), {"include_0": "1", "res_0": part.pairs[0]["res"]})
+        self._work()
+        self.job = Job.objects.get()
+        self.assertEqual((self.job.status, self.job.mode, self.job.recalc_pending), (Job.Status.DONE, "smart", False))
+        self.row = next(r["row"] for r in self.job.result["rows"]
+                        if r.get("status") == "EXACT" and r.get("category", "K") == "K")
+
+    def _work(self):
+        call_command("run_worker", once=True, threads=1, poll=0.1, stdout=io.StringIO(), stderr=io.StringIO())
+
+    def _move(self, category="M"):
+        return self.client.post(reverse("job_categories", args=[self.job.id]),
+                                json.dumps({"rows": [self.row], "category": category}), content_type="application/json")
+
+    def _category(self):
+        self.job.refresh_from_db()
+        return next(r for r in self.job.result["rows"] if r["row"] == self.row).get("category")
+
+    def test_edit_is_queued_and_worker_recalculates(self):
+        with mock.patch.object(recalc, "recompute") as recompute:
+            r = self._move()
+        recompute.assert_not_called()  # сўров ичида ҳисобланмайди
+        self.assertEqual(r.json()["queued"], True)
+        self.job.refresh_from_db()
+        self.assertTrue(self.job.recalc_pending)
+        self.assertEqual(self.job.categories, {str(self.row): "M"})  # созлама дарҳол сақланди
+        self.assertEqual(self._category(), "K")  # натижа ҳали эски
+        state = self.client.get(reverse("job_state", args=[self.job.id])).json()
+        self.assertEqual((state["pending"], state["running"]), (True, False))
+
+        self._work()
+        self.assertEqual(self._category(), "M")
+        self.assertFalse(self.job.recalc_pending)
+        state = self.client.get(reverse("job_state", args=[self.job.id])).json()
+        self.assertFalse(state["pending"])
+        self.assertIn("rows", state["svodka"])
+
+    def test_repeated_edits_are_merged_into_one_run(self):
+        self._move("M")
+        self._move("L")
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.recalc_seq - self.job.recalc_done, 2)
+        with mock.patch.object(recalc, "recompute", wraps=recalc.recompute) as recompute:
+            self._work()
+        self.assertEqual(recompute.call_count, 1)  # иккита ўзгариш — битта ҳисоб
+        self.assertEqual(self._category(), "L")
+
+    def test_edit_during_run_keeps_job_queued(self):
+        self._move("M")
+        self.assertEqual(recalc.claim_next("w1"), self.job.id)
+        self.assertIsNone(recalc.claim_next("w2"))  # бошқаси ололмайди
+
+        real = recalc.recompute
+
+        def edit_meanwhile(job):
+            self._move("L")  # ҳисоб давомида смета­чи яна ўзгартирди
+            return real(job)
+
+        with mock.patch.object(recalc, "recompute", side_effect=edit_meanwhile):
+            recalc.run(self.job.id, "w1")
+        self.job.refresh_from_db()
+        self.assertTrue(self.job.recalc_pending)  # кейинги ўзгариш учун навбатда қолди
+        self.assertEqual(self.job.categories, {str(self.row): "L"})  # натижа созлама устидан ёзмади
+        self._work()
+        self.assertEqual(self._category(), "L")
+        self.assertFalse(self.job.recalc_pending)
+
+    def test_stale_lease_is_taken_over(self):
+        self._move()
+        self.assertEqual(recalc.claim_next("old#0"), self.job.id)
+        Job.objects.filter(id=self.job.id).update(recalc_heartbeat=timezone.now() - timedelta(minutes=10))
+        self.assertEqual(recalc.claim_next("new#0"), self.job.id)
+        recalc.run(self.job.id, "old#0")  # эски worker кеч тугатди — натижа ёзилмайди
+        self.job.refresh_from_db()
+        self.assertTrue(self.job.recalc_pending)
+        recalc.run(self.job.id, "new#0")
+        self.assertEqual(self._category(), "M")

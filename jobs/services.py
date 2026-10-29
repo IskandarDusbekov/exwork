@@ -167,6 +167,25 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
             mode: Optional[str] = None, percents: Optional[dict] = None,
             categories: Optional[dict] = None, prices: Optional[dict] = None,
             cleared: Optional[list] = None) -> Job:
+    """Sozlamalarni qo'llab, darhol (shu jarayonda) qayta narxlaydi — worker ichida. Sayt so'rovlari
+    ``jobs.recalc.request`` ni chaqiradi: sozlama saqlanadi, hisob fonda."""
+    apply_settings(job, local_sheet, res_sheet, fuzzy, mode, percents, categories, prices, cleared)
+    recompute(job)
+    job.save()
+    return job
+
+
+# sozlamalar (smetachi o'zgartiradi) — qayta hisoblash ularga tegmaydi, aks holda hisob davomidagi o'zgarish yo'qoladi
+SETTING_FIELDS = ["local_sheet", "res_sheet", "fuzzy", "mode", "percents", "categories", "prices", "cleared",
+                  "local_columns", "res_columns", "column_names", "base_period"]
+# natija — faqat qayta hisoblash yozadi
+RESULT_FIELDS = ["status", "error", "duration", "rows", "output_path", "result"]
+
+
+def apply_settings(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzzy,
+                   mode: Optional[str] = None, percents: Optional[dict] = None,
+                   categories: Optional[dict] = None, prices: Optional[dict] = None,
+                   cleared: Optional[list] = None) -> Job:
     """``percents``/``categories``/``prices``/``cleared``: None — avvalgilari qoladi, {} / [] — tozalanadi.
     Lokal list almashsa, qo'lda kategoriya, narxlar va tozalashlar bekor (qator raqamlari boshqa listga tegishli)."""
     if local_sheet and local_sheet != job.local_sheet:
@@ -191,12 +210,19 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
     if not job.percents:
         # смета ўз фоизини олмаган — смета­чининг охирги танлови (у ҳеч қачон ўчмайди)
         job.percents = remembered_percents(job.owner_id)
+    return job
+
+
+def recompute(job: Job) -> Job:
+    """Joriy sozlamalar bilan narxlaydi va natija maydonlarini (``RESULT_FIELDS``) to'ldiradi — saqlamaydi.
+    Natija fayli avval vaqtinchalik nomga yoziladi: hisob davomida yuklab olinayotgan eski fayl buzilmaydi."""
     out = job.abs("out") / job.download_name
+    tmp = out.with_name(f".{out.stem}.tmp{out.suffix}")
     t0 = time.monotonic()
     try:
         result = run(job.abs(job.local_path), job.abs(job.res_path) if job.res_path else None, Options(
             fuzzy_percent=job.fuzzy, mode=job.mode, local_sheet=job.local_sheet, res_sheet=job.res_sheet,
-            output_path=out, percents=job.percents or None,
+            output_path=tmp, percents=job.percents or None,
             categories={int(r): c for r, c in (job.categories or {}).items()} or None,
             prices={int(r): float(p) for r, p in (job.prices or {}).items()} or None,
             column_names=job.column_names or None, cleared=job.cleared or None,
@@ -206,9 +232,10 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
         job.status = Job.Status.FAILED
         job.error = str(e) if isinstance(e, LayoutError) else f"{type(e).__name__}: {e}"  # жадвал тузилиши — тушунарли сабаб
         job.duration = round(time.monotonic() - t0, 2)
-        job.save()
+        tmp.unlink(missing_ok=True)
         return job
 
+    tmp.replace(out)
     job.status = Job.Status.DONE
     job.error = ""
     job.duration = round(time.monotonic() - t0, 2)
@@ -235,7 +262,6 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
         "tail_removed": result.tail_removed,
         "cleared": result.cleared,
     }
-    job.save()
     return job
 
 

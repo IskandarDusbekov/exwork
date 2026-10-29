@@ -5,6 +5,7 @@
 {% block main_class %}px-4 lg:px-6 py-4{% endblock %}
 {% block content %}
 <script>try { if (localStorage.getItem("narx-job-mode") === "simple") document.documentElement.classList.add("simple-mode"); } catch (e) {}</script>
+{% include "jobs/_recalc.html" %}
 
 {% if job.status == "failed" %}
 <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">
@@ -1254,6 +1255,12 @@
         return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; });
       }).then(function (d) {
         if (!d.ok) throw new Error(d.error || "хато");
+        setStatus("сақланди, сводка қайта ҳисобланяпти…", "text-sky-700");
+        return window.narxRecalc.wait();  // ҳисоб фонда — тугагач янги сводка
+      }).then(function (s) {
+        if (s.error) throw new Error(s.error);
+        var d = s.svodka;
+        if (!d) { location.reload(); return; }
         d.rows.forEach(function (row) {
           var tr = form.querySelector('tr[data-key="' + row.key + '"]');
           if (!tr) return;

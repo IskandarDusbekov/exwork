@@ -158,8 +158,20 @@ class Job(models.Model):
     duration = models.FloatField(null=True, blank=True)  # oxirgi narxlash necha soniya davom etdi
     rows = models.PositiveIntegerField(null=True, blank=True)  # nechta qator ko'rib chiqildi (100/1000 qator tezligi)
 
+    # Qayta hisoblash navbati (jobs/recalc.py): smetachining har o'zgarishi recalc_seq ni oshiradi, worker
+    # hisoblab bo'lgach recalc_done ga yozadi. recalc_seq > recalc_done — navbatda yoki hisoblanyapti.
+    recalc_seq = models.PositiveIntegerField(default=0)
+    recalc_done = models.PositiveIntegerField(default=0)
+    recalc_requested = models.DateTimeField(null=True, blank=True)
+    recalc_worker = models.CharField(max_length=100, blank=True)  # egallagan worker (lease)
+    recalc_heartbeat = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ["-created"]
+
+    @property
+    def recalc_pending(self) -> bool:
+        return self.recalc_seq > self.recalc_done
 
     def __str__(self):
         return f"{self.local_name} ({self.get_status_display()})"

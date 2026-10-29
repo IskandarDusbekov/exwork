@@ -238,7 +238,13 @@ class FlowTests(LoggedInTestCase):
         self.client.post(reverse("job_run", args=[job.id]), {
             "local_sheet": job.local_sheet, "res_sheet": job.res_sheet, "fuzzy": "95", "mode": "smart"})
         url = reverse("job_percents", args=[job.id])
-        post = lambda payload: self.client.post(url, json.dumps(payload), content_type="application/json").json()
+        def post(payload):
+            # фоиз сақланади, ҳисоб навбатга; янги сводка — ҳолат сўровида (саҳифа шуни кутади)
+            self.assertEqual(self.client.post(url, json.dumps(payload), content_type="application/json").json(),
+                             {"ok": True, "queued": True})
+            state = self.client.get(reverse("job_state", args=[job.id])).json()
+            self.assertFalse(state["pending"])
+            return {"ok": True, **state["svodka"]}
 
         d = post({"pct": {"transport_mat": "5", "prochie": "19"}})
         self.assertTrue(d["ok"])
@@ -295,7 +301,7 @@ class FlowTests(LoggedInTestCase):
         post = lambda payload: self.client.post(url, json.dumps(payload), content_type="application/json")
 
         r = post({"rows": [water, cloth], "category": "M"})
-        self.assertEqual(r.json(), {"ok": True, "changed": 2, "overrides": 2})
+        self.assertEqual(r.json(), {"ok": True, "queued": True, "changed": 2, "overrides": 2})
         job.refresh_from_db()
         self.assertEqual(job.categories, {str(water): "M", str(cloth): "M"})
         rows = {x["row"]: x for x in job.result["rows"]}
@@ -341,7 +347,7 @@ class FlowTests(LoggedInTestCase):
 
         # 10 tasini taklif bo'yicha, bittasini qo'lda, bitta EXACT qatorda taklif yo'q — o'tkazib yuboriladi
         r = post({"rows": red[:10] + [exact], "action": "accept"})
-        self.assertEqual(r.json(), {"ok": True, "changed": 10, "skipped": 1})
+        self.assertEqual(r.json(), {"ok": True, "queued": True, "changed": 10, "skipped": 1})
         r = post({"rows": [red[10]], "action": "set", "price": "4 500 000"})
         self.assertTrue(r.json()["ok"])
         job.refresh_from_db()
@@ -378,7 +384,7 @@ class FlowTests(LoggedInTestCase):
 
         url = reverse("job_not_found", args=[job.id])
         post = lambda payload: self.client.post(url, json.dumps(payload), content_type="application/json")
-        self.assertEqual(post({"rows": nf, "action": "clear"}).json(), {"ok": True, "changed": len(nf)})
+        self.assertEqual(post({"rows": nf, "action": "clear"}).json(), {"ok": True, "queued": True, "changed": len(nf)})
         job.refresh_from_db()
         self.assertEqual(job.cleared, nf)
         self.assertEqual(job.result["cleared"], nf)

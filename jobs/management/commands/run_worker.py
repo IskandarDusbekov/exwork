@@ -1,4 +1,4 @@
-"""Fondagi ishchi: navbatdagi papkalarni ochadi va narxlaydi.
+"""Fondagi ishchi: navbatdagi papkalarni ochadi va narxlaydi, smetalarni qayta hisoblaydi.
 
     python manage.py run_worker              # 2 ta oqim, to'xtatilguncha
     python manage.py run_worker --threads 4
@@ -20,7 +20,7 @@ from django.db import close_old_connections
 from django.db.models import F
 from django.utils import timezone
 
-from jobs import folders
+from jobs import folders, recalc
 from jobs.models import Worker
 
 log = logging.getLogger("jobs.worker")
@@ -73,6 +73,12 @@ class Command(BaseCommand):
         try:
             while not self.stopping.is_set():
                 try:
+                    # smetachi ekranda kutayotgan qayta hisob — papkalardan oldin
+                    jid = recalc.claim_next(me)
+                    if jid is not None:
+                        self.idle[i] = False
+                        self._recalc(me, jid)
+                        continue
                     pid = folders.claim_next(me)
                 except Exception:  # noqa: BLE001 — база вақтинча банд/узилган: оқим ўлмасин, кейинроқ
                     log.exception("[%s] навбатни олиб бўлмади", me)
@@ -99,6 +105,17 @@ class Command(BaseCommand):
         finally:
             self.idle[i] = True  # чиққан оқим бошқаларнинг «--once» тугашига халал бермасин
             close_old_connections()
+
+    def _recalc(self, me, jid):
+        self._count(busy=F("busy") + 1)
+        started = time.monotonic()
+        try:
+            recalc.run(jid, me)
+        except Exception:  # noqa: BLE001
+            log.exception("[%s] қайта ҳисоб %s — хато", me, jid)
+        finally:
+            self._count(busy=F("busy") - 1, done=F("done") + 1)
+        self.stdout.write(f"[{me}] смета {jid} қайта ҳисобланди ({time.monotonic() - started:.1f} с)")
 
     def _count(self, **fields):
         """Панел учун ҳисоблагич — ёзилмаса ҳам иш тўхтамайди."""

@@ -1,0 +1,45 @@
+{# Қайта ҳисоб (фонда): смета ўзгаргач натижа янгилангунча — белги, ўтган вақт; тугагач саҳифа ўзи янгиланади. #}
+<div id="recalc-banner" class="{% if not job.recalc_pending %}hidden {% endif %}sticky top-0 z-30 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm text-sky-800 shadow-sm" role="status" aria-live="polite">
+  <svg class="h-4 w-4 shrink-0 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity=".25" stroke-width="3"/>
+    <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+  </svg>
+  <span class="font-medium" id="recalc-text">Смета қайта ҳисобланмоқда…</span>
+  <span class="tabular-nums text-sky-700" id="recalc-time"></span>
+  <span class="text-xs text-sky-700">Тугагач саҳифа ўзи янгиланади. Бу вақтда бошқа саҳифаларга ўтишингиз мумкин; юклаб олинадиган файл — ҳисоб тугагач янгиси.</span>
+</div>
+<script>
+  // window.narxRecalc.wait() — қайта ҳисоб тугашини кутади (Promise: ҳолат). Ҳеч ким кутмаса, тугагач саҳифа янгиланади.
+  window.narxRecalc = (function () {
+    var URL = "{% url 'job_state' job.id %}";
+    var banner = document.getElementById("recalc-banner"), text = document.getElementById("recalc-text"),
+        time = document.getElementById("recalc-time");
+    var waiters = [], polling = false, reloadWhenDone = {{ job.recalc_pending|yesno:"true,false" }}, since = null, tick = null;
+    var typical = {% if job.duration %}{{ job.duration|stringformat:".1f" }}{% else %}null{% endif %};  // охирги ҳисоб, сония
+    function fmt(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
+    function show(state) {
+      banner.classList.remove("hidden");
+      text.textContent = state && state.running === false ? "Навбатда, қайта ҳисоблаш бошланяпти…" : "Смета қайта ҳисобланмоқда…";
+      if (state && state.elapsed !== null && state.elapsed !== undefined) since = Date.now() - state.elapsed * 1000;
+      if (since === null) since = Date.now();
+      if (!tick) tick = setInterval(function () {
+        time.textContent = fmt((Date.now() - since) / 1000) + (typical ? " · одатда ~" + fmt(typical) : "");
+      }, 500);
+    }
+    function done(state) {
+      polling = false; clearInterval(tick); tick = null; since = null;
+      banner.classList.add("hidden");
+      var w = waiters; waiters = [];
+      w.forEach(function (f) { f(state); });
+      if (reloadWhenDone || !w.length) location.reload();
+    }
+    function poll() {
+      fetch(URL, {credentials: "same-origin", cache: "no-store"}).then(function (r) { return r.json(); }).then(function (s) {
+        if (s.pending) { show(s); setTimeout(poll, 1500); } else { done(s); }
+      }).catch(function () { setTimeout(poll, 3000); });  // тармоқ узилди — кейинроқ яна
+    }
+    function start() { if (!polling) { polling = true; show(null); poll(); } }
+    if (reloadWhenDone) start();
+    return {wait: function () { return new Promise(function (res) { waiters.push(res); start(); }); }};
+  })();
+</script>

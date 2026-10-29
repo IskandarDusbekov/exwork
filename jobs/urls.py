@@ -31,6 +31,7 @@ urlpatterns = [
     path("job/<uuid:job_id>/not-found/", views.job_not_found, name="job_not_found"),
     path("job/<uuid:job_id>/table-checked/", views.job_table_checked, name="job_table_checked"),
     path("job/<uuid:job_id>/percents/", views.job_percents, name="job_percents"),
+    path("job/<uuid:job_id>/state/", views.job_state, name="job_state"),
     path("job/<uuid:job_id>/columns/", views.job_columns, name="job_columns"),
     path("job/<uuid:job_id>/sheet/", views.job_sheet, name="job_sheet"),
     path("job/<uuid:job_id>/download/", views.job_download, name="job_download"),

@@ -20,7 +20,7 @@ from core.svodka import DEFAULT_PERCENTS, parse_text_number, percent_text, svodk
 from panel.audit import log as audit
 from panel.models import Event
 
-from . import xlview
+from . import recalc, xlview
 from .archives import is_archive
 from .guide import FLOW, GUIDE_PAGES, help_groups
 from .folders import (
@@ -30,7 +30,7 @@ from .folders import (
 from .models import Batch, Job, Project
 from .services import (
     BASE_RES, UploadError, analyze_batch, base_period_of, pair_ready, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job,
-    parse_percents, remember_base_period, remember_percents, remembered_percents, run_job, unpriced_res,
+    parse_percents, remember_base_period, remember_percents, remembered_percents, unpriced_res,
 )
 from .templatetags.narx import file_title, pct as pct_text, pct_input, readable, som
 
@@ -986,10 +986,8 @@ def job_categories(request, job_id):
             categories.pop(str(r), None)  # дастур аниқлагани билан бир хил — қўлда белги шарт эмас
         else:
             categories[str(r)] = category
-    run_job(job, None, None, job.fuzzy, job.mode, None, categories)
-    if job.status != Job.Status.DONE:
-        return JsonResponse({"ok": False, "error": job.error}, status=500)
-    return JsonResponse({"ok": True, "changed": len(rows), "overrides": len(job.categories)})
+    recalc.request(job, categories=categories)
+    return JsonResponse({"ok": True, "queued": True, "changed": len(rows), "overrides": len(job.categories)})
 
 
 def _as_price(v):
@@ -1038,10 +1036,8 @@ def job_prices(request, job_id):
             prices.pop(str(r), None)
     changed = len(rows) - len(skipped)
     if changed:
-        run_job(job, None, None, job.fuzzy, job.mode, prices=prices)
-        if job.status != Job.Status.DONE:
-            return JsonResponse({"ok": False, "error": job.error}, status=500)
-    return JsonResponse({"ok": True, "changed": changed, "skipped": len(skipped)})
+        recalc.request(job, prices=prices)
+    return JsonResponse({"ok": True, "queued": bool(changed), "changed": changed, "skipped": len(skipped)})
 
 
 def _has_unit(row) -> bool:
@@ -1124,10 +1120,8 @@ def job_not_found(request, job_id):
         return JsonResponse({"ok": False, "error": f"нотўғри сўров: {sorted(rows - allowed)[:5] or action}"}, status=400)
     cleared = set(job.cleared or [])
     cleared = cleared | rows if action == "clear" else cleared - rows
-    run_job(job, None, None, job.fuzzy, job.mode, cleared=sorted(cleared))
-    if job.status != Job.Status.DONE:
-        return JsonResponse({"ok": False, "error": job.error}, status=500)
-    return JsonResponse({"ok": True, "changed": len(rows)})
+    recalc.request(job, cleared=sorted(cleared))
+    return JsonResponse({"ok": True, "queued": True, "changed": len(rows)})
 
 
 LM_COLUMNS = ("L", "M")
@@ -1241,10 +1235,8 @@ def job_columns(request, job_id):
     else:
         return JsonResponse({"ok": False, "error": f"нотўғри амал ёки устун: {action} {col}"}, status=400)
     job.column_names = names
-    run_job(job, None, None, job.fuzzy, job.mode, None, categories)
-    if job.status != Job.Status.DONE:
-        return JsonResponse({"ok": False, "error": job.error}, status=500)
-    return JsonResponse({"ok": True, "col": col})
+    recalc.request(job, categories=categories)
+    return JsonResponse({"ok": True, "queued": True, "col": col})
 
 
 @require_POST
@@ -1254,7 +1246,7 @@ def job_base(request, job_id):
     job = _get_work(request, Job, id=job_id)
     job.base_period = parse_period(request.POST)
     remember_base_period(job.owner_id, job.base_period)
-    run_job(job, None, None, job.fuzzy)
+    recalc.request(job)
     return redirect("job", job_id=job.id)
 
 
@@ -1267,9 +1259,9 @@ def job_run(request, job_id):
         percents = parse_percents(request.POST, job.percents)
     else:
         percents = None  # yuqoridagi forma: foizlar o'zgarmaydi
-    run_job(job, request.POST.get("local_sheet"), request.POST.get("res_sheet"),
-            request.POST.get("fuzzy") or job.fuzzy, request.POST.get("mode"), percents)
-    if percents is not None and job.status == Job.Status.DONE:
+    recalc.request(job, request.POST.get("local_sheet"), request.POST.get("res_sheet"),
+                   request.POST.get("fuzzy") or job.fuzzy, request.POST.get("mode"), percents)
+    if percents is not None:
         remember_percents(job.owner_id, job.percents)
     return redirect("job", job_id=job.id)
 
@@ -1295,18 +1287,32 @@ def job_percents(request, job_id):
         percents = parse_percents({f"pct_{k}": str(v).strip() or "0" for k, v in data["pct"].items()}, job.percents)
     else:
         return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
-    run_job(job, None, None, job.fuzzy, job.mode, percents)
-    if job.status != Job.Status.DONE:
-        return JsonResponse({"ok": False, "error": job.error}, status=500)
+    recalc.request(job, percents=percents)
     remember_percents(job.owner_id, job.percents)
+    return JsonResponse({"ok": True, "queued": True})
+
+
+def _svodka_payload(job):
+    """Сводка (фоизлар ва суммалар) — фоиз ўзгаргач саҳифа қайта юкланмай янгиланади."""
     totals = job.result["totals"]
-    return JsonResponse({
-        "ok": True,
+    return {
         "rows": [{"key": s["key"], "value": som(s["value"]), "pct": pct_input(s["pct"]) if s["pct"] is not None else None,
                   "changed": s["pct"] is not None and s["pct"] != s["default"]} for s in _svodka_rows(job.result, "smart")],
         "s_nds": som(totals.get("s_nds")), "bez_nds": som(totals.get("bez_nds")),
         "changed": {**DEFAULT_PERCENTS, **(job.percents or {})} != DEFAULT_PERCENTS,
-    })
+    }
+
+
+def job_state(request, job_id):
+    """Қайта ҳисоб ҳолати (саҳифа шуни сўраб туради): ``pending`` — навбатда ёки ҳисобланяпти; тугагач —
+    натижа ҳолати ва smart режимда янги сводка."""
+    job = _get_work(request, Job, id=job_id)
+    data = {"pending": job.recalc_pending, "status": job.status, "error": job.error if job.status == Job.Status.FAILED else "",
+            "running": bool(job.recalc_worker), "duration": job.duration,
+            "elapsed": round((timezone.now() - job.recalc_requested).total_seconds()) if job.recalc_requested else None}
+    if not job.recalc_pending and job.status == Job.Status.DONE and job.result.get("mode") == "smart":
+        data["svodka"] = _svodka_payload(job)
+    return JsonResponse(data)
 
 
 # Нархлашдан кейинги текширув: тури -> (сарлавҳа, нима бўлди, нима қилиш керак) — смета­чига оддий тилда
