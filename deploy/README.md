@@ -41,15 +41,32 @@ sudo apt install -y python3 python3-venv python3-dev build-essential git nginx r
 
 ```bash
 sudo adduser --system --group --home /srv/narxlash narxlash
-sudo -u narxlash git clone <repo-manzili> /srv/narxlash/app
+sudo -u narxlash git clone -b narxlash-mvp https://github.com/IskandarDusbekov/exwork.git /srv/narxlash/app
 sudo -u narxlash python3 -m venv /srv/narxlash/venv
 sudo -u narxlash /srv/narxlash/venv/bin/pip install -r /srv/narxlash/app/requirements.txt
 sudo -u narxlash mkdir -p /srv/narxlash/{media,static,logs,backups}
 ```
 
+Repozitoriy yopiq (private) bo'lsa, `git clone` login so'raydi: parol o'rniga **GitHub token** kiriting
+(GitHub → Settings → Developer settings → Fine-grained tokens → faqat shu repo, `Contents: Read-only`).
+
 ## 3. PostgreSQL va Redis
 
-**Docker bilan** (tavsiya — `deploy/docker-compose.yml`):
+**Serverda allaqachon bor bo'lsa** (boshqa saytlar bilan umumiy — tekshirish: `ss -tlnp | grep -E ':(5432|6379)\b'`),
+Docker kerak emas. Narxlash uchun alohida baza va foydalanuvchi oching:
+
+```bash
+sudo -u postgres psql -c "CREATE USER narxlash WITH PASSWORD '<postgres-paroli>';"
+sudo -u postgres psql -c "CREATE DATABASE narxlash OWNER narxlash;"
+redis-cli ping      # PONG — Redis parolsiz; NOAUTH — parol /etc/redis/redis.conf dagi requirepass
+```
+
+`.env` da: `DATABASE_URL=postgres://narxlash:<postgres-paroli>@127.0.0.1:5432/narxlash`,
+`REDIS_URL=redis://127.0.0.1:6379/5` (`/5` — boshqa saytlar kalitlari bilan aralashmaydi).
+`pg_dump` (kunlik zaxira) server bilan bir xil versiyada bo'lishi kerak: `psql --version` va
+`sudo -u postgres psql -tAc "SHOW server_version;"` bir xil chiqsin.
+
+**Server bo'sh bo'lsa — Docker bilan** (`deploy/docker-compose.yml`):
 
 ```bash
 sudo apt install -y docker.io docker-compose-v2
@@ -57,7 +74,8 @@ cd /srv/narxlash/app/deploy
 sudo docker compose --env-file /srv/narxlash/.env up -d
 ```
 
-Portlar faqat `127.0.0.1` da ochiq, tashqaridan ulanib bo'lmaydi.
+Portlar faqat `127.0.0.1` da ochiq, tashqaridan ulanib bo'lmaydi. 5432 yoki 6379 band bo'lsa, Docker ishga tushmaydi —
+unda yuqoridagi usulni tanlang.
 
 ## 4. Sozlamalar (`.env`)
 
@@ -73,7 +91,15 @@ sudo chmod 600 /srv/narxlash/.env
 python3 -c "import secrets; print(secrets.token_urlsafe(60))"
 ```
 
-> `.env` 3-qadamdagi docker'dan **oldin** tayyor bo'lishi kerak: `POSTGRES_PASSWORD` va `REDIS_PASSWORD` shu yerdan olinadi.
+`NARXLASH_ADMIN_URL` va `NARXLASH_PANEL_URL` uchun (har biriga alohida ishga tushiring):
+
+```bash
+python3 -c "import secrets; print('boshqaruv-' + secrets.token_hex(8) + '/')"
+```
+
+Panel va admin shu manzillarda ochiladi (`https://DOMEN/boshqaruv-…/`). Ularni yozib qo'ying — saytda havola yo'q.
+
+> Docker usulida `.env` 3-qadamdagi docker'dan **oldin** tayyor bo'lishi kerak: `POSTGRES_PASSWORD` va `REDIS_PASSWORD` shu yerdan olinadi.
 
 ## 5. Baza, static va birinchi admin
 
@@ -112,16 +138,25 @@ sudo systemctl status narxlash-web narxlash-worker
 
 ## 7. nginx va HTTPS
 
+Domen DNS'i serverga ulangan bo'lishi kerak (tekshirish: `ping DOMEN` server IP sini ko'rsatsin).
+`DOMEN` o'rniga o'z domeningizni yozing:
+
 ```bash
+sudo certbot certonly --nginx -d DOMEN               # 1) avval sertifikat (nginx config'iga tegmaydi)
 sudo cp /srv/narxlash/app/deploy/nginx/narxlash.conf /etc/nginx/sites-available/narxlash
-sudo nano /etc/nginx/sites-available/narxlash        # narxlash.uz → o'z domeningiz
+sudo sed -i 's/narxlash\.uz/DOMEN/g' /etc/nginx/sites-available/narxlash
 sudo ln -s ../sites-available/narxlash /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo certbot --nginx -d narxlash.uz                   # sertifikat va 443 sozlamasi
-sudo nginx -t && sudo systemctl reload nginx
+sudo nginx -t && sudo systemctl reload nginx         # 2) nginx -t xato bersa — reload QILINMAYDI
 ```
 
-> **Muhim:** saytga faqat HTTPS orqali kirish mumkin — production'da cookie'lar «faqat HTTPS» rejimida. Sertifikat olinmaguncha kirish ishlamaydi.
+> **Serverda boshqa saytlar bo'lsa:** `/etc/nginx/sites-enabled/default` ni **o'chirmang** va `certbot --nginx`
+> (certonly'siz) ishlatmang — u boshqa saytlar config'iga ham tegishi mumkin.
+
+Keyin `/srv/narxlash/.env` da: `DJANGO_ALLOWED_HOSTS=DOMEN`, `DJANGO_SSL_REDIRECT=1`, so'ng
+`sudo systemctl restart narxlash-web narxlash-worker`.
+
+> **Muhim:** saytga faqat HTTPS orqali kirish mumkin — production'da cookie'lar «faqat HTTPS» rejimida.
+> Domen olinguncha — pastdagi «Domen olinguncha» bo'limi.
 
 ## 8. Kunlik zaxira
 
@@ -145,6 +180,34 @@ Har kuni soat 03:15 da baza (`backups/db/`, 14 kun saqlanadi) va `media/` nusxas
 2. **Панел → Хатолар → «Синов хатоси»**. Yozuv chiqsa, logging ishlayapti.
 3. Kichik papka yuklab, «Ҳисоблашни бошлаш»ni bosing. Worker uni olishi kerak (Панел → Жараёнлар).
 4. «Паролни унутдингизми?» orqali o'zingizga xat yuboring. Email ishlayotganini tekshirasiz.
+
+## Domen olinguncha (SSH tunnel)
+
+Domen faollashguncha sayt xavfsiz holatda, faqat sizga ochiq ishlaydi: tashqaridan (IP orqali) kirib bo'lmaydi,
+siz esa o'z kompyuteringizdan SSH tunnel orqali kirasiz. 1–6 qadamlarni bajaring, 7-qadamni (nginx) keyinga qoldiring.
+
+1. `/srv/narxlash/.env` da vaqtincha:
+
+   ```
+   DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+   DJANGO_SSL_REDIRECT=0
+   ```
+
+   va `sudo systemctl restart narxlash-web narxlash-worker`.
+
+2. **O'z kompyuteringizda** (serverda emas) terminal oching va tunnelni ulang — oyna ochiq turguncha ishlaydi:
+
+   ```bash
+   ssh -N -L 8800:127.0.0.1:8000 root@SERVER_IP
+   ```
+
+3. Brauzerda (Chrome, Edge yoki Firefox) oching: `http://localhost:8800/`, panel — `http://localhost:8800/boshqaruv-…/`.
+
+`check --deploy` bu vaqtda `security.W008` (SSL redirect o'chiq) deb ogohlantiradi — bu kutilgan holat.
+Domen faollashgach — 7-qadam, va `.env` ni qaytaring (`DJANGO_ALLOWED_HOSTS=DOMEN`, `DJANGO_SSL_REDIRECT=1`).
+
+> Saytni IP orqali oddiy `http://` da ochmang: parol va cookie'lar shifrlanmasdan yuboriladi, xavfsizlik
+> sozlamalari (faqat HTTPS cookie) tufayli kirish baribir ishlamaydi.
 
 ## Yangi versiyani qo'yish
 

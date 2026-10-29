@@ -6,6 +6,7 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -22,6 +23,11 @@ from .views import _ctx, staff_required, superuser_required
 def _bctx(request, **kw):
     """«Ресурс базаси» саҳифалари учун: умумий контекст + текширувдаги нархлар сони (таб белгиси)."""
     return _ctx(request, "base", n_review=Observation.objects.filter(review=Observation.Review.PENDING).count(), **kw)
+
+
+def _in_panel(url):
+    """«next» faqat panel ichidagi sahifa bo'lsa — boshqa saytga yoki panel tashqarisiga qaytarilmaydi."""
+    return url.startswith(reverse("panel:overview"))
 
 
 def _years():
@@ -251,7 +257,7 @@ def base_review_decide(request):
         audit(request, Event.Kind.ADMIN_BASE, detail=f"текширув: {n} та нарх {'қабул қилинди' if action == 'accept' else 'рад этилди'}")
         messages.success(request, f"{n} та нарх {'қабул қилинди' if action == 'accept' else 'рад этилди'}.")
     nxt = request.POST.get("next", "")
-    return redirect(nxt if nxt.startswith("/panel/") else "panel:base_review")
+    return redirect(nxt if _in_panel(nxt) else "panel:base_review")
 
 
 @require_POST
@@ -308,7 +314,7 @@ def base_add(request, kind, work_id):
           f"{source.stats.get('taken', 0)} та нарх, {source.get_region_display() or 'вилоят номаълум'}, {source.period_label}")
     messages.success(request, f"«{source.title}» базага қўшилди: {source.stats.get('taken', 0)} та нарх.")
     nxt = request.POST.get("next", "")
-    return redirect(nxt if nxt.startswith("/panel/") else "panel:base_sources")
+    return redirect(nxt if _in_panel(nxt) else "panel:base_sources")
 
 
 @require_POST
@@ -344,7 +350,7 @@ def base_source(request, pk, action):
         raise Http404
     audit(request, Event.Kind.ADMIN_BASE, detail=detail)
     nxt = request.POST.get("next", "")
-    return redirect(nxt if nxt.startswith("/panel/") else "panel:base_sources")
+    return redirect(nxt if _in_panel(nxt) else "panel:base_sources")
 
 
 def work_base_ctx(kind, work) -> dict:

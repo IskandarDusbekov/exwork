@@ -23,4 +23,10 @@ def production_infra(app_configs, **kwargs):
                            "bitta IP bo'lib ko'rinadi — kirish cheklovi va IP bloklash hammaga ta'sir qiladi",
                            hint="nginx ortida — NARXLASH_TRUST_PROXY=1, Cloudflare + nginx — 2; proksisiz bo'lsa "
                                 "bu ogohlantirishni e'tiborsiz qoldiring", id="narxlash.W004"))
+    for name, url, default in (("NARXLASH_ADMIN_URL", settings.ADMIN_URL, "admin/"),
+                               ("NARXLASH_PANEL_URL", settings.PANEL_URL, "panel/")):
+        if url == default or len(url) < 16:
+            out.append(Warning(f"{name}={url}: manzilni taxmin qilish oson — botlar parol tanlab ko'radi",
+                               hint="kamida 16 belgili tasodifiy yo'l: python3 -c \"import secrets; "
+                                    "print('boshqaruv-' + secrets.token_hex(8) + '/')\"", id="narxlash.W006"))
     return out

@@ -255,7 +255,7 @@ class PanelBaseTests(TestCase):
         s = Source.objects.get()
         self.assertEqual((s.region, s.year, s.quarter, s.stats["taken"]), ("samarqand", 2025, 2, 1))
         self.assertContains(self.client.get(reverse("panel:base_search"), {"q": "000258"}), "БУЛЬДОЗЕРЫ 79 КВТ")
-        self.assertContains(self.client.get(reverse("panel:base_search"), {"q": "бульдоз"}), "/panel/base/r/258/")
+        self.assertContains(self.client.get(reverse("panel:base_search"), {"q": "бульдоз"}), reverse("panel:base_resource", args=[258]))
         detail = self.client.get(reverse("panel:base_resource", args=["258"]))
         self.assertContains(detail, "275")
         self.client.post(reverse("panel:base_resource_edit", args=["258"]), {"name": "БУЛЬДОЗЕР 79 кВт", "unit": "маш.-ч", "category": "J"})
