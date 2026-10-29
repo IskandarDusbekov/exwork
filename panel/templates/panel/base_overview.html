@@ -1,0 +1,93 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Ресурс базаси — Панел{% endblock %}
+{% block panel %}
+{% include "panel/_base_tabs.html" with base_tab="overview" %}
+
+<section class="mb-4 flex flex-wrap items-center gap-4 rounded-xl border {% if cfg.enabled %}border-emerald-300 bg-emerald-50{% else %}border-slate-200 bg-white{% endif %} p-4 shadow-sm">
+  <span class="grid h-10 w-10 place-items-center rounded-full {% if cfg.enabled %}bg-emerald-600 text-white{% else %}bg-slate-200 text-slate-500{% endif %}">{% icon "database" "h-5 w-5" %}</span>
+  <div class="min-w-0 flex-1">
+    <div class="font-semibold text-slate-900">Базадан нархлаш {% if cfg.enabled %}<span class="text-emerald-700">ёқилган</span>{% else %}<span class="text-slate-500">ўчирилган</span>{% endif %}</div>
+    <div class="text-sm text-slate-600">{% if cfg.enabled %}Смета­чи юклашда вилоят ва даврни танлайди; RES топа олмаган (ёки RES йўқ) қаторлар шу вилоят ва даврнинг базадаги нархи билан нархланади. Бошқа давр ёки вилоят нархи олинмайди.{% else %}Тизим одатдагидек ишлайди — фақат смета­чининг RES файли.{% endif %}
+      {% if cfg.updated_by %}<span class="text-slate-400">· {{ cfg.updated|date:"d.m.Y H:i" }}, {{ cfg.updated_by.email }}</span>{% endif %}</div>
+  </div>
+  {% if can_act %}
+  <form method="post" action="{% url 'panel:base_toggle' %}" data-confirm="{% if cfg.enabled %}Базадан нархлаш ўчирилади — смета­чилар фақат ўз RES файли билан нархлайди.{% else %}Смета­чиларнинг юклаш саҳифасида вилоят ва давр танлови чиқади ва RES топмаган қаторлар базадан нархланади.{% endif %}"
+        data-confirm-title="{% if cfg.enabled %}Ўчирилсинми?{% else %}Ёқилсинми?{% endif %}" data-confirm-ok="{% if cfg.enabled %}Ўчириш{% else %}Ёқиш{% endif %}">{% csrf_token %}
+    <input type="hidden" name="enabled" value="{% if cfg.enabled %}0{% else %}1{% endif %}">
+    <button class="rounded-lg px-4 py-2 text-sm font-semibold {% if cfg.enabled %}border border-slate-300 bg-white text-slate-700 hover:bg-slate-50{% else %}bg-emerald-600 text-white hover:bg-emerald-700{% endif %}">{% if cfg.enabled %}Ўчириш{% else %}Ёқиш{% endif %}</button></form>
+  {% endif %}
+  <div class="basis-full border-t border-slate-200/70 pt-3 text-sm">
+    {% if can_act %}
+    <form method="post" action="{% url 'panel:base_default' %}" class="flex flex-wrap items-center gap-1.5">{% csrf_token %}
+      <span class="mr-1 text-slate-600">Сукут бўйича вилоят ва давр <span class="text-slate-400">(смета­чи ҳали танламаган бўлса)</span>:</span>
+      {% include "panel/_base_period.html" with r=cfg.region y=cfg.year q=cfg.quarter %}
+      <button class="rounded-lg border border-slate-300 bg-white px-3 py-1 text-sm hover:bg-slate-50">Сақлаш</button>
+    </form>
+    {% else %}
+    <span class="text-slate-600">Сукут бўйича: {{ cfg.get_region_display|default:"вилоят танланмаган" }}{% if cfg.year and cfg.quarter %} · {{ cfg.year }}-{{ cfg.quarter }}{% endif %}</span>
+    {% endif %}
+  </div>
+</section>
+
+{% if n_pending %}
+<a href="{% url 'panel:base_review' %}" class="mb-4 flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm hover:border-amber-400">
+  {% icon "alert-circle" "h-5 w-5 text-amber-600" %}<span><b class="num">{{ n_pending }}</b> та шубҳали нарх текширувда — қабул ёки рад қилмагунингизча медианага кирмайди.</span>
+  <span class="ml-auto font-medium">Текширув →</span></a>
+{% endif %}
+<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+  <a href="{% url 'panel:base_search' %}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-400">
+    <div class="text-xs text-slate-500">Ресурслар (кодлар)</div><div class="num text-2xl font-semibold">{{ n_resources }}</div>
+    <div class="text-xs text-slate-500">{{ n_priced }} тасининг нархи бор</div></a>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="text-xs text-slate-500">Нарх кузатувлари</div><div class="num text-2xl font-semibold">{{ n_obs }}</div>
+    <div class="text-xs text-slate-500">{% if n_manual %}{{ n_manual }} қўлда · {% endif %}{% if n_excluded %}{{ n_excluded }} истисно{% else %}ҳар смета — бир кузатув{% endif %}</div></div>
+  <a href="{% url 'panel:base_sources' %}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-400">
+    <div class="text-xs text-slate-500">Манбалар</div><div class="num text-2xl font-semibold">{{ n_sources }}</div>
+    <div class="text-xs text-slate-500">папка, объект ёки смета</div></a>
+  <a href="{% url 'panel:base_sources' %}?f=unknown" class="rounded-xl border {% if n_unknown %}border-amber-300 bg-amber-50 hover:border-amber-400{% else %}border-slate-200 bg-white{% endif %} p-4 shadow-sm">
+    <div class="text-xs {% if n_unknown %}text-amber-800{% else %}text-slate-500{% endif %}">Давр ёки вилоят номаълум</div><div class="num text-2xl font-semibold {% if n_unknown %}text-amber-700{% endif %}">{{ n_unknown }}</div>
+    <div class="text-xs {% if n_unknown %}text-amber-800{% else %}text-slate-500{% endif %}">нархлашда ишлатилмайди — белгиланг</div></a>
+</div>
+
+<section class="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3">
+    <h2 class="font-semibold">Вилоят × давр: нечта коднинг нархи бор</h2>
+    <p class="text-xs text-slate-500">Катак — шу вилоят ва даврда медианаси ҳисобланадиган кодлар сони (қавсда — кузатувлар). Нархлашда фақат танланган катак ишлатилади; сариқ — номаълум, нархлашга кирмайди.</p>
+  </div>
+  {% if table %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-left text-xs text-slate-500">
+        <tr><th class="px-4 py-2 font-medium">Вилоят</th>
+          {% for p in periods %}<th class="whitespace-nowrap px-3 py-2 text-right font-medium {% if not p.0 or not p.1 %}text-amber-700{% endif %}">{% if p.0 and p.1 %}{{ p.0 }} · {{ p.1 }}-ч{% else %}давр номаълум{% endif %}</th>{% endfor %}</tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for row in table %}
+        <tr><td class="whitespace-nowrap px-4 py-2 font-medium {% if not row.region %}text-amber-700{% endif %}">{{ row.label }}</td>
+          {% for c in row.cells %}<td class="num px-3 py-2 text-right">{% if c %}<b class="{% if row.region and c.source__year and c.source__quarter %}text-slate-900{% else %}text-amber-700{% endif %}">{{ c.codes }}</b> <span class="text-xs text-slate-400">({{ c.obs }})</span>{% else %}<span class="text-slate-200">—</span>{% endif %}</td>{% endfor %}</tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="px-4 py-10 text-center text-sm text-slate-500">База бўш. <a href="{% url 'panel:base_sources' %}" class="font-medium text-slate-900 underline">Манбалар</a> бўлимидан нархланган сметаларни қўшинг.</div>
+  {% endif %}
+</section>
+
+<section class="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <h2 class="mb-2 font-semibold">Турлар бўйича</h2>
+  <div class="flex flex-wrap gap-2 text-sm">
+    {% for c, label in cat_labels.items %}<a href="{% url 'panel:base_search' %}?cat={{ c }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50"><span class="rounded px-1.5 text-xs font-bold {{ c|cat_class }}">{{ c }}</span>{{ label }} <b class="num">{{ by_category|get_item:c|default:0 }}</b></a>{% endfor %}
+  </div>
+</section>
+
+{% if can_act %}
+<section class="rounded-xl border border-rose-200 bg-rose-50/50 p-4">
+  <h2 class="font-semibold text-rose-900">Синов учун</h2>
+  <p class="mb-3 text-sm text-rose-800/80">Ҳамма манбалар, кодлар ва нархлар ўчирилади. Сметаларнинг ўзига тегилмайди — кейин қайта қўшиш мумкин.</p>
+  <form method="post" action="{% url 'panel:base_wipe' %}" data-confirm="Ҳамма {{ n_resources }} та код ва {{ n_obs }} та нарх ўчирилади. Сметалар ўзгармайди." data-confirm-title="Базани тўлиқ тозалаш" data-confirm-ok="Тозалаш" data-danger>{% csrf_token %}
+    <button class="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-100">Базани тозалаш</button></form>
+</section>
+{% endif %}
+{% endblock %}

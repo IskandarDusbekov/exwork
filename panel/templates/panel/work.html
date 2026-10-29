@@ -37,6 +37,40 @@
   {% if kind == 'folder' and w.stop_requested %}<div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Тўхтатиш сўралган</div>{% endif %}
 </section>
 
+{% if base_ok %}
+{# ---- ресурс базаси: шу ишнинг нархларини базага қўшиш (нархланган смета бўлса) ---- #}
+<section class="mt-3 rounded-xl border {% if base_source %}border-emerald-200 bg-emerald-50/50{% else %}border-sky-200 bg-sky-50/50{% endif %} p-4 shadow-sm">
+  <div class="flex flex-wrap items-center gap-3">
+    <span class="{% if base_source %}text-emerald-600{% else %}text-sky-600{% endif %}">{% icon "database" "h-5 w-5" %}</span>
+    <div class="min-w-0 flex-1">
+      <div class="font-semibold">Ресурс базаси</div>
+      {% if base_source %}
+      <div class="text-sm text-slate-600">Базада: <b>{{ base_source.stats.taken|default:0 }}</b> та нарх · {{ base_source.get_region_display|default:"вилоят номаълум" }} · {{ base_source.period_label }}
+        · <a href="{% url 'panel:base_sources' %}" class="text-sky-700 hover:underline">манбалар</a></div>
+      {% else %}
+      <div class="text-sm text-slate-600">Аниқ мослашган қаторларнинг коди ва нархи базага олинади.{% if base_hint.0 %} Вилоят матндан топилди: <b>{{ base_region_labels|get_item:base_hint.0 }}</b> («{{ base_hint.1 }}»).{% endif %}</div>
+      {% endif %}
+    </div>
+    {% if can_act %}
+    {% if base_source %}
+    <form method="post" action="{% url 'panel:base_source' base_source.pk 'edit' %}" class="flex flex-wrap items-center gap-1.5">{% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}">
+      {% include "panel/_base_period.html" with r=base_source.region y=base_source.year q=base_source.quarter %}
+      <button class="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-slate-700">Сақлаш</button></form>
+    <form method="post" action="{% url 'panel:base_source' base_source.pk 'reharvest' %}">{% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}">
+      <button class="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs hover:bg-slate-50">Қайта йиғиш</button></form>
+    {% else %}
+    <form method="post" action="{% url 'panel:base_add' kind w.pk %}" class="flex flex-wrap items-center gap-1.5">{% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}">
+      {% include "panel/_base_period.html" with r=base_hint.0 y=None q=None %}
+      <button class="rounded-lg bg-sky-600 px-3 py-1 text-sm font-semibold text-white hover:bg-sky-700">Базага қўшиш</button></form>
+    {% endif %}
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
 {% if kind == 'folder' %}
 <section class="mt-3 rounded-xl border border-slate-200 bg-white shadow-sm">
   <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Қисмлар (ички папкалар)</h2></div>

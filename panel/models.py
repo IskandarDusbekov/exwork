@@ -22,6 +22,7 @@ class Event(models.Model):
         ADMIN_SESSION = "admin_session", "Админ: сессия тугатилди"
         ADMIN_IP = "admin_ip", "Админ: IP блоки"
         ADMIN_LOGS = "admin_logs", "Админ: хатолар журнали"
+        ADMIN_BASE = "admin_base", "Админ: ресурс базаси"
         BLOCKED_IP = "blocked_ip", "Блокланган IP'дан сўров"
 
     created = models.DateTimeField(auto_now_add=True, db_index=True)

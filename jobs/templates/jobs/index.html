@@ -10,6 +10,24 @@
 
   <div class="mb-6 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">{% flow 1 %}</div>
 
+  {% if base_on %}
+  <form id="base-period" class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm shadow-sm">{% csrf_token %}
+    <span class="text-violet-600">{% icon "database" "h-5 w-5" %}</span>
+    <span class="mr-1"><b class="text-violet-900">Нарх манбаи</b> <span class="text-violet-800/80">— RES топа олмаган қаторлар ресурс базасидан шу вилоят ва давр нархи билан:</span></span>
+    {% include "panel/_base_period.html" with r=base_period.region y=base_period.year q=base_period.quarter %}
+    <span id="base-saved" class="hidden text-xs text-emerald-700">✓ сақланди</span>
+  </form>
+  <script>
+  (function () {
+    var form = document.getElementById("base-period"), saved = document.getElementById("base-saved");
+    form.addEventListener("change", function () {
+      fetch("{% url 'base_period' %}", {method: "POST", body: new FormData(form), headers: {"X-CSRFToken": form.csrfmiddlewaretoken.value}})
+        .then(function (r) { if (r.ok) { saved.classList.remove("hidden"); setTimeout(function () { saved.classList.add("hidden"); }, 1500); } });
+    });
+  })();
+  </script>
+  {% endif %}
+
   <div id="mode-tabs" class="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 text-sm" role="tablist">
     <button type="button" data-mode="folder" role="tab" class="mode-tab flex items-center justify-center gap-2 rounded-lg px-3 py-2 font-medium">
       {% icon "folder" "h-4 w-4 text-amber-600" %} Бутун папка / архив <span class="hidden rounded bg-slate-900 px-1.5 py-0.5 text-[10px] font-medium text-white sm:inline">тавсия</span></button>

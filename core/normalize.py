@@ -53,3 +53,19 @@ def norm_unit(u) -> str:
             return repl
 
     return re.sub(r"[^0-9а-яa-z]+", "", u)
+
+
+_CODE = re.compile(r"^\d{1,6}$")
+
+
+def norm_code(raw) -> str:
+    """Milliy resurs kodi: «000258» / «258» / 258.0 → «258»; kod bo'lmasa (С1, Е0101-…, 15-104045-20) — ""."""
+    s = str(raw if raw is not None else "").strip()
+    if s.endswith(".0"):
+        s = s[:-2]
+    return str(int(s)) if _CODE.match(s) else ""
+
+
+def unit_key(unit) -> str:
+    """Birlikni solishtirish kaliti: «ЧЕЛ.-Ч» = «ЧЕЛ-ЧАС» = «челч»."""
+    return re.sub(r"час$", "ч", norm_unit(unit))

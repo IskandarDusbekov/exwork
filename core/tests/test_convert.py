@@ -53,6 +53,53 @@ def test_auto_falls_back_to_excel(monkeypatch, tmp_path):
     assert called
 
 
+def test_excel_opens_with_macros_disabled(monkeypatch, tmp_path):
+    """Begona .xls Excel orqali ochilganda makros va hodisalar ishlamasligi kerak — bu Open'dan OLDIN o'rnatiladi."""
+    import sys
+    import types
+
+    state = {}
+
+    class Workbook:
+        def SaveAs(self, path, FileFormat):  # noqa: N802, N803 — COM nomlari
+            open(path, "wb").close()
+
+        def Close(self, SaveChanges):  # noqa: N802, N803
+            pass
+
+    class Books:
+        def Open(self, path, **kw):  # noqa: N802
+            state["open"] = dict(kw, security=state.get("AutomationSecurity"), events=state.get("EnableEvents"))
+            return Workbook()
+
+    books = Books()
+
+    class Excel:
+        @property
+        def Workbooks(self):  # noqa: N802
+            return books
+
+        def __setattr__(self, name, value):
+            state[name] = value
+
+        def Quit(self):  # noqa: N802
+            pass
+
+    client = types.SimpleNamespace(DispatchEx=lambda name: Excel())
+    monkeypatch.setitem(sys.modules, "pythoncom", types.SimpleNamespace(CoInitialize=lambda: None, CoUninitialize=lambda: None))
+    monkeypatch.setitem(sys.modules, "win32com", types.SimpleNamespace(client=client))
+    monkeypatch.setitem(sys.modules, "win32com.client", client)
+    monkeypatch.setattr(convert, "excel_available", lambda: True)
+    monkeypatch.setattr(convert, "_excel_pid", lambda excel: None)
+    (tmp_path / "a.xls").write_bytes(b"")
+
+    out = convert._convert_excel(tmp_path / "a.xls", tmp_path)
+    assert out.name == "a.xlsx"
+    assert state["open"]["security"] == convert.MSO_AUTOMATION_FORCE_DISABLE
+    assert state["open"]["events"] is False
+    assert state["open"]["UpdateLinks"] == 0 and state["open"]["ReadOnly"] is True
+
+
 @pytest.mark.skipif(not soffice_available(), reason="LibreOffice o'rnatilmagan")
 def test_real_conversion(tmp_path):
     src = tmp_path / "src.xlsx"

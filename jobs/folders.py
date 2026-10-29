@@ -28,7 +28,7 @@ from .archives import ArchiveError, extract_excel, is_archive, safe_part
 from .models import Batch, Job, Project
 from .services import (
     ALLOWED_EXT, FileClock, UploadError, _save, analyze_batch, apply_decisions, batch_outputs, confirm_batch,
-    save_timings, sheet_names, unpriced_res,
+    pair_ready, save_timings, sheet_names, unpriced_res,
 )
 
 log = logging.getLogger(__name__)
@@ -475,7 +475,7 @@ def _step(part: Batch, text: str):
 
 def ready_stage(part: Batch):
     """Juftliklar bo'yicha qism holati (narxlashdan oldin): tayyor / resurs tanlang / smeta emas."""
-    ready = [p for p in part.pairs if p.get("include") and p.get("res")]
+    ready = [p for p in part.pairs if pair_ready(p)]
     locals_ = [s for s in part.sheets if s["role"] == "local" and not s.get("duplicate_of")]
     zero = unpriced_res(part)
     if ready and all(p["res"] in zero for p in ready):
@@ -540,7 +540,7 @@ def price_part(part: Batch, decisions=None):
     try:
         _set(part, Batch.Stage.PRICING)
         jobs = confirm_batch(part, decisions or {})
-        ready = [p for p in part.pairs if p.get("include") and p.get("res")]
+        ready = [p for p in part.pairs if pair_ready(p)]
         failed = [j for j in jobs if j.status != j.Status.DONE]
         missing = len(part.pairs) - len(ready)
         if failed:

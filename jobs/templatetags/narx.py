@@ -1,4 +1,5 @@
 import re
+from decimal import Decimal
 
 from django import template
 
@@ -55,6 +56,8 @@ def som(v):
     """Excel'dagi ``#,##0`` kabi: 1 234 567. Xato -> #ЗНАЧ!, matn o'zicha."""
     if v is None or v == "":
         return ""
+    if isinstance(v, Decimal):  # ресурс базаси нархлари — фақат кўрсатиш учун
+        v = float(v)
     if is_number(v):
         if round(v, 2) != round(v):  # 457,60 — Excel'даги #,##0.00 каби, бутун сон касрсиз
             return f"{v:,.2f}".replace(",", " ").replace(".", ",")
@@ -71,6 +74,7 @@ _ROW_BG = {
     "NO_PRICE": "bg-rose-100",
     "WORK_HEADER": "bg-slate-50",
     "MACHINIST": "bg-slate-50",
+    "BASE": "bg-violet-50",
 }
 
 
@@ -85,7 +89,25 @@ _STATUS_LABELS = {
     "UNIT_MISMATCH": "бирлик бошқа",
     "NOT_FOUND": "ТОПИЛМАДИ",
     "NO_PRICE": "нархсиз",
+    "BASE": "БАЗА",
 }
+
+
+@register.filter
+def zero_reason(row) -> dict:
+    """Нарх 0 бўлган қатор нега 0: {"tag": қисқа ёрлиқ, "why": тушунтириш}; 0 бўлмаса — {}."""
+    st, g = row.get("status"), row.get("g")
+    if st == "WORK_HEADER":
+        return {"tag": "иш сарлавҳаси", "why": "Иш қатори: унинг нархи остидаги ресурслар (1.1, 1.2…) суммаси, ўзи 0 туради."}
+    zero = is_number(g) and float(g) == 0
+    if st == "MACHINIST" or (zero and "МАШИНИСТ" in str(row.get("name") or "").upper()):
+        return {"tag": "машинист · 0", "why": "Машинист иш ҳақи машина-соат нархи ичида бор — алоҳида қўшилса, "
+                                              "икки марта ҳисобланади. Шунинг учун 0 (RES'да ҳам 0)."}
+    if zero and st == "EXACT":
+        return {"tag": "RES'да 0", "why": "RES файлида бу ресурснинг нархи 0 — шу олинди. Нотўғри бўлса, нархни қўлда ёзинг."}
+    if row.get("zero"):
+        return {"tag": "нол қоидаси", "why": "Эски дастур қоидаси бўйича 0."}
+    return {}
 
 
 @register.filter

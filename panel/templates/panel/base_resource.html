@@ -1,0 +1,107 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}{{ res.code }} {{ res.name }} — Панел{% endblock %}
+{% block panel %}
+{% include "panel/_base_tabs.html" with base_tab="search" %}
+
+<section class="mb-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+  <div class="flex flex-wrap items-start gap-3">
+    <span class="num rounded-lg bg-slate-900 px-3 py-2 text-lg font-bold text-white">{{ res.code }}</span>
+    <div class="min-w-0 flex-1">
+      <h2 class="break-words text-lg font-semibold">{{ res.name }}</h2>
+      <div class="mt-0.5 text-sm text-slate-500">{{ res.unit }}{% if res.category %} · <span class="rounded px-1.5 text-xs font-bold {{ res.category|cat_class }}">{{ res.category }}</span> {{ res.get_category_display }}{% endif %}
+        {% if res.edited %} · <span title="Йиғиш бу номни алмаштирмайди">админ таҳрирлаган</span>{% endif %}</div>
+    </div>
+    {% if can_act %}
+    <form method="post" action="{% url 'panel:base_resource_delete' res.code %}" data-confirm="{{ res.code }} коди ва унинг {{ obs|length }} та нархи ўчирилади. Манба қайта йиғилса, яна пайдо бўлади." data-confirm-title="Ресурсни ўчириш" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}
+      <button class="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-50">Ўчириш</button></form>
+    {% endif %}
+  </div>
+  {% if can_act %}
+  <details class="mt-3">
+    <summary class="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-900">✎ Таҳрирлаш</summary>
+    <form method="post" action="{% url 'panel:base_resource_edit' res.code %}" class="mt-2 grid gap-2 md:grid-cols-[minmax(0,1fr)_140px_180px_auto]">{% csrf_token %}
+      <input name="name" value="{{ res.name }}" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm" aria-label="Номи">
+      <input name="unit" value="{{ res.unit }}" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm" aria-label="Бирлик">
+      <select name="category" class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm" aria-label="Тури">
+        <option value="">— тури —</option>
+        {% for c, label in categories %}<option value="{{ c }}" {% if res.category == c %}selected{% endif %}>{{ c }} · {{ label }}</option>{% endfor %}
+      </select>
+      <button class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">Сақлаш</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+<section class="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Нарх — вилоят ва давр бўйича</h2>
+    <p class="text-xs text-slate-500">Медиана — нархлашда ишлатиладиган нарх. Қўлда, истисно қилинган ва текширувдаги нархлар кирмайди.</p></div>
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-xs text-slate-500">
+      <tr><th class="px-4 py-2 font-medium">Вилоят</th><th class="px-3 py-2 font-medium">Давр</th><th class="px-3 py-2 text-right font-medium">Медиана</th>
+        <th class="px-3 py-2 text-right font-medium">Кузатув</th><th class="px-3 py-2 text-right font-medium">Мин — Макс</th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for g in medians %}
+      <tr class="{% if not g.region or not g.year or not g.quarter %}bg-amber-50/60{% endif %}">
+        <td class="px-4 py-2">{{ region_labels|get_item:g.region|default:"номаълум" }}</td>
+        <td class="px-3 py-2">{% if g.year and g.quarter %}{{ g.year }} · {{ g.quarter }}-чорак{% else %}<span class="text-amber-700">номаълум</span>{% endif %}</td>
+        <td class="num px-3 py-2 text-right font-semibold">{% if g.median %}{{ g.median|som }}{% else %}—{% endif %}</td>
+        <td class="num px-3 py-2 text-right">{{ g.n }}{% if g.manual %} <span class="text-xs text-slate-400">+{{ g.manual }} қўлда</span>{% endif %}</td>
+        <td class="num px-3 py-2 text-right text-slate-500">{% if g.min %}{{ g.min|som }} — {{ g.max|som }}{% endif %}</td>
+      </tr>
+      {% empty %}<tr><td colspan="5" class="px-4 py-6 text-center text-slate-500">Нарх йўқ.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Ҳамма нархлар ({{ obs|length }})</h2>
+    <p class="text-xs text-slate-500">Ҳар бири — битта сметадан. Хато нархни истисно қилинг (медианага кирмайди) ёки ўчиринг.</p></div>
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-xs text-slate-500">
+      <tr><th class="px-4 py-2 text-right font-medium">Нарх</th><th class="px-3 py-2 font-medium">Вилоят · давр</th><th class="px-3 py-2 font-medium">Манба</th>
+        <th class="px-3 py-2 font-medium">Сметада ёзилиши</th><th class="px-3 py-2"></th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for o in obs %}
+      <tr class="{% if o.excluded %}bg-slate-50 text-slate-400 line-through{% elif o.review == 'pending' %}bg-amber-50/60{% endif %}">
+        <td class="num whitespace-nowrap px-4 py-2 text-right font-medium">{{ o.price|som }}{% if o.manual %} <span class="rounded bg-sky-100 px-1 text-[11px] font-semibold text-sky-800 no-underline" title="Смета­чи қўлда қўйган — медианага кирмайди">қўлда</span>{% endif %}</td>
+        <td class="whitespace-nowrap px-3 py-2">{{ o.source.get_region_display|default:"вилоят ?" }} · {{ o.source.period_label }}</td>
+        <td class="max-w-xs px-3 py-2"><a href="{% url 'job' o.job_id %}" class="block truncate text-sky-700 hover:underline" title="{{ o.source.title }} — {{ o.row }}-қатор">{{ o.source.title }}</a>
+          <span class="text-xs text-slate-400">{{ o.row }}-қатор{% if o.source.owner %} · {{ o.source.owner.email }}{% endif %}</span></td>
+        <td class="max-w-sm px-3 py-2 text-xs text-slate-600"><span class="line-clamp-2">{{ o.name }}</span> <span class="text-slate-400">[{{ o.unit }}]</span>
+          {% if o.flags %}<div class="mt-0.5 flex flex-wrap gap-1 no-underline">{% for k, label in o.flag_list %}<span class="rounded bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-800">{{ label }}</span>{% endfor %}
+            {% if o.review == 'pending' %}<span class="text-[11px] text-amber-700">· текширувда — медианага кирмайди</span>{% elif o.review == 'accepted' %}<span class="text-[11px] text-emerald-700">· қабул қилинган</span>{% endif %}</div>{% endif %}</td>
+        <td class="whitespace-nowrap px-3 py-2 text-right">
+          {% if can_act %}
+          {% if o.review == 'pending' %}
+          <form method="post" action="{% url 'panel:base_obs' o.pk 'accept' %}" class="inline">{% csrf_token %}
+            <button class="rounded border border-emerald-300 px-2 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50">қабул</button></form>
+          <form method="post" action="{% url 'panel:base_obs' o.pk 'reject' %}" class="inline">{% csrf_token %}
+            <button class="rounded border border-rose-200 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-50">рад</button></form>
+          {% else %}
+          <form method="post" action="{% url 'panel:base_obs' o.pk 'exclude' %}" class="inline">{% csrf_token %}
+            <button class="rounded border border-slate-300 px-2 py-0.5 text-xs no-underline hover:bg-slate-100">{% if o.excluded %}қайтариш{% else %}истисно{% endif %}</button></form>
+          {% endif %}
+          <form method="post" action="{% url 'panel:base_obs' o.pk 'delete' %}" class="inline" data-confirm="{{ o.price|som }} нарх ўчирилади ({{ o.source.title }})." data-confirm-title="Нархни ўчириш" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}
+            <button class="rounded border border-rose-200 px-2 py-0.5 text-xs text-rose-700 no-underline hover:bg-rose-50">×</button></form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+{% if names %}
+<section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <h2 class="mb-2 font-semibold">Сметаларда учраган номлари</h2>
+  <ul class="space-y-1 text-sm">
+    {% for n in names %}<li class="flex gap-2"><span class="num w-10 shrink-0 text-right text-slate-400">{{ n.seen }}×</span><span>{{ n.name }} <span class="text-slate-400">[{{ n.unit }}]</span></span></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

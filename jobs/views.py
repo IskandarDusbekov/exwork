@@ -29,8 +29,8 @@ from .folders import (
 )
 from .models import Batch, Job, Project
 from .services import (
-    UploadError, analyze_batch, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job, parse_percents,
-    remember_percents, remembered_percents, run_job, unpriced_res,
+    BASE_RES, UploadError, analyze_batch, base_period_of, pair_ready, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job,
+    parse_percents, remember_base_period, remember_percents, remembered_percents, run_job, unpriced_res,
 )
 from .templatetags.narx import file_title, pct as pct_text, pct_input, readable, som
 
@@ -51,6 +51,7 @@ STAT_CARDS = {
         ("UNIT_MISMATCH", "Бирлик бошқа", "rose"),
         ("NO_PRICE", "Нархсиз ресурс", "rose"),
         ("NOT_FOUND", "ТОПИЛМАДИ", "rose"),
+        ("BASE", "Ресурс базасидан", "violet"),
         ("MANUAL", "Қўлда нархланди", "sky"),
         ("WORK_HEADER", "Иш сарлавҳаси → 0", "slate"),
         ("MACHINIST", "Машинист → 0", "slate"),
@@ -119,7 +120,28 @@ def index(request):
             error = str(e)
     recent = work_items(request.user, limit=6)
     return render(request, "jobs/index.html", {"error": error, "recent": recent, "resume": recent[0] if recent else None,
-                                               "nav": "upload"})
+                                               "nav": "upload", **_base_ctx(base_period_of(request.user))})
+
+
+def _base_ctx(period) -> dict:
+    """«Нарх манбаи» танлови учун (ресурс базаси ёқилган бўлса): жорий давр ва рўйхатлар."""
+    from resbase.models import QUARTERS, BaseConfig
+    from resbase.regions import REGIONS
+    from resbase.services import period_label
+    if not BaseConfig.get().enabled:
+        return {"base_on": False}
+    y = timezone.now().year
+    return {"base_on": True, "base_period": period, "base_label": period_label(period), "regions": REGIONS,
+            "years": list(range(y + 1, 2017, -1)), "quarters": QUARTERS}
+
+
+@require_POST
+def base_period(request):
+    """Юклаш саҳифасида смета­чи танлаган вилоят ва давр — кейинги юклашлар шу билан нархланади."""
+    from resbase.services import parse_period, period_label
+    period = parse_period(request.POST)
+    remember_base_period(request.user, period)
+    return JsonResponse({"ok": True, "label": period_label(period)})
 
 
 # Рўйхатлар учун сметанинг фақат жами суммаси ва ҳолати керак: тўлиқ ``result`` (минглаб қатор) юкланмайди
@@ -713,7 +735,8 @@ def batch_detail(request, batch_id):
         "kind_labels": KIND_LABELS,
         "sheets_js": _sheets_js(batch),
         "role_labels": ROLE_LABELS.items(),
-        "ready": sum(1 for p in batch.pairs if p.get("include") and p.get("res")),
+        "ready": sum(1 for p in batch.pairs if pair_ready(p)),
+        **_base_ctx(base_period_of(batch.owner_id)), "base_res": BASE_RES,
         "jobs": jobs,
         "grand_total": sum(j.result.get("totals", {}).get("s_nds") or 0 for j in jobs
                            if isinstance(j.result.get("totals", {}).get("s_nds"), (int, float))),
@@ -779,7 +802,8 @@ def batch_download(request, batch_id):
 def job_detail(request, job_id):
     job = _get_work(request, Job, id=job_id)
     ctx = {"job": job, "modes": MODE_LABELS.items(), "crumbs": crumbs_for(job=job),
-           "siblings": list(job.batch.jobs.order_by("batch_order")) if job.batch_id else []}
+           "siblings": list(job.batch.jobs.order_by("batch_order")) if job.batch_id else [],
+           **_base_ctx(job.base_period)}
     if job.status == Job.Status.DONE:
         res = job.result
         totals = res["totals"]
@@ -793,12 +817,13 @@ def job_detail(request, job_id):
             view=view,
             grid_view="local" if view == "local" or not res_groups else ("res" if view in XL_FILES else view),
             xl_file=XL_FILES.get(view),
-            xl_files=[(v, label) for v, (_f, label) in XL_FILES.items()],
+            xl_files=[(v, label) for v, (_f, label) in XL_FILES.items() if v != "xl_res" or job.res_path],
             res_groups=res_groups,
             result_mode=mode,
             # «N та қатор нархланмади» — ён панелда ва сводкада бор, бу ерда такрорламаймиз
             warnings=[w for w in res.get("warnings", []) if "нархланмади" not in w and not w.startswith("Текширувдан")],
             checks=res.get("checks", []),
+            check_groups=check_groups(res.get("checks", []), res["rows"]),
             columns=res.get("columns", {}),
             # smart: фақат бор нарсалар (0 бўлган карталар чалғитмасин); compat — эски дастур каби ҳаммаси
             stats=[(key, label, res["stats"].get(key, 0), color) for key, label, color in STAT_CARDS[mode]
@@ -1223,6 +1248,17 @@ def job_columns(request, job_id):
 
 
 @require_POST
+def job_base(request, job_id):
+    """Сметанинг ресурс базаси даври ўзгарди — қайта нархланади (смета­чи танлови ҳам эслаб қолинади)."""
+    from resbase.services import parse_period
+    job = _get_work(request, Job, id=job_id)
+    job.base_period = parse_period(request.POST)
+    remember_base_period(job.owner_id, job.base_period)
+    run_job(job, None, None, job.fuzzy)
+    return redirect("job", job_id=job.id)
+
+
+@require_POST
 def job_run(request, job_id):
     job = _get_work(request, Job, id=job_id)
     if "reset_percents" in request.POST:
@@ -1255,7 +1291,8 @@ def job_percents(request, job_id):
     elif data.get("remembered"):
         percents = remembered_percents(job.owner_id)
     elif isinstance(data.get("pct"), dict):
-        percents = parse_percents({f"pct_{k}": str(v) for k, v in data["pct"].items()}, job.percents)
+        # бўш катак — 0 (смета­чи ўчириб қўйди): «стандарт» эмас, акс ҳолда саҳифада бўш, Excel'да 2% бўлиб қолади
+        percents = parse_percents({f"pct_{k}": str(v).strip() or "0" for k, v in data["pct"].items()}, job.percents)
     else:
         return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
     run_job(job, None, None, job.fuzzy, job.mode, percents)
@@ -1270,6 +1307,53 @@ def job_percents(request, job_id):
         "s_nds": som(totals.get("s_nds")), "bez_nds": som(totals.get("bez_nds")),
         "changed": {**DEFAULT_PERCENTS, **(job.percents or {})} != DEFAULT_PERCENTS,
     })
+
+
+# Нархлашдан кейинги текширув: тури -> (сарлавҳа, нима бўлди, нима қилиш керак) — смета­чига оддий тилда
+CHECK_KINDS = {
+    "no_qty": ("Миқдори йўқ — сумма 0 бўлиб қолди",
+               "Бу қаторларда нарх топилди, лекин миқдор («Кол-во») катаги бўш ёки унда сон эмас, матн турибди. "
+               "Сумма = миқдор × нарх бўлгани учун 0 чиқди ва смета жамига кирмади.",
+               "Локал файлда шу қаторнинг миқдорини текширинг (одатда F — «по проектным данным»). Миқдор бошқа устунда "
+               "бўлса — объект саҳифасида «Листлар тури» → «тузатиш» орқали устунларни кўрсатинг ва қайта нархланг. "
+               "Қатор изоҳ ёки ортиқча бўлса — эътибор бермасангиз ҳам бўлади."),
+    "amount": ("Сумма нотўғри ҳисобланди",
+               "Сумма (H) миқдор × нархга тенг чиқмади.",
+               "Одатда миқдор устуни нотўғри аниқланганда бўлади: объект саҳифасида устунларни текширинг ва қайта нархланг."),
+    "column": ("Сумма I–M устунига тушмади",
+               "Сумма иш ҳақи, машина, материал… устунларидан бирига ўтмади — жамида кўринмайди.",
+               "Қаторни белгиланг ва пастки панелдан тўғри устунни танланг."),
+    "overwrite": ("Смета маълумоти устидан ёзилди",
+                  "Нарх ёки сумма локалнинг номи, бирлиги ёки миқдори турган устунга ёзилиб қолди.",
+                  "Локал устунлари нотўғри аниқланган: объект саҳифасида устунларни кўрсатинг ва қайта нархланг."),
+    "zero_prices": ("RES'даги нархлар 0",
+                    "Ресурс файлида топилган нархларнинг деярли ҳаммаси 0 — RES нархланмаган бўлса керак.",
+                    "Нархланган RES файлини юкланг ёки RES'нинг нарх устунини текширинг."),
+    "zero_total": ("Жами сумма 0",
+                   "Нархлар топилди, лекин смета жами 0 чиқди.",
+                   "Миқдор ёки сумма устуни нотўғри аниқланган — объект саҳифасида устунларни текширинг."),
+    "other": ("Бошқа муаммолар", "Натижа текширувидан ўтмади.", "Қаторни очиб текширинг."),
+}
+_CHECK_TEXT = [("миқдори йўқ", "no_qty"), ("кутилгани", "amount"), ("устунига тушмади", "column"),
+               ("манба устуни", "overwrite"), ("нархи 0", "zero_prices"), ("жами сумма 0", "zero_total")]
+
+
+def check_groups(checks, rows) -> list:
+    """Текширув муаммолари турлари бўйича: сарлавҳа, сабаб, ечим ва қаторлар (номи, нархи) — техник матн ўрнига."""
+    by_row = {r["row"]: r for r in rows}
+    groups = {}
+    for c in checks:
+        kind = c.get("kind") or next((k for t, k in _CHECK_TEXT if t in c.get("problem", "")), "other")
+        title, why, fix = CHECK_KINDS.get(kind, CHECK_KINDS["other"])
+        g = groups.setdefault(kind, {"kind": kind, "title": title, "why": why, "fix": fix, "rows": [], "general": []})
+        row = by_row.get(c.get("row"))
+        if row:
+            g["rows"].append({"row": row["row"], "name": row.get("name") or "", "unit": row.get("unit") or "",
+                              "g": row.get("g"), "qty": row.get("qty")})
+        else:
+            g["general"].append(c.get("problem", ""))
+    order = list(CHECK_KINDS)
+    return sorted(groups.values(), key=lambda g: order.index(g["kind"]))
 
 
 # Жадвалнинг «файл кўриниши»: ?view=… -> (файл, тугма номи)
@@ -1298,6 +1382,8 @@ def job_sheet(request, job_id):
         fallback = job.abs(job.local_path)  # openpyxl сақлаганда асл формулалар натижаси йўқолади
     elif kind == "local":
         path, name, default = job.abs(job.local_path), job.local_name, job.local_sheet
+    elif kind == "res" and not job.res_path:
+        raise Http404("Бу смета RES'сиз — ресурс базасидан нархланган")
     elif kind == "res":
         path, name, default = job.abs(job.res_path), job.res_name, job.res_sheet
     else:

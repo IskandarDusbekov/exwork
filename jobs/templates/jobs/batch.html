@@ -210,6 +210,7 @@
           <div class="pair-res-meta mt-0.5 flex min-w-0 items-center gap-1 text-xs text-slate-500"></div>
           <select name="res_{{ p.n }}" class="pair-res mt-2 hidden w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" aria-label="{{ p.tag }} учун ресурс листи">
             <option value="" data-tag="">— ресурс листини танланг —</option>
+            {% if base_label %}<option value="{{ base_res }}" data-tag="Б" data-base="{{ base_label }}" {% if p.base and not p.res %}selected{% endif %}>Ресурс базаси (RES'сиз) · {{ base_label }}</option>{% endif %}
             {% for c in p.choices %}
             <option value="{{ c.key }}" data-tag="{{ c.tag }}" data-ov="{% if c.overlap is not None %}{{ c.overlap|stringformat:'.4f' }}{% endif %}" data-same="{{ c.same_file|yesno:'1,' }}"
                     data-file="{{ c.file_name }}" data-title="{{ c.title }}" data-sheet="{{ c.sheet }}" data-rows="{{ c.rows }}" {% if c.key == p.res %}selected{% endif %}>{% if c.best %}★ {% endif %}{{ c.tag }} · {{ c.sheet }}{% if c.overlap is not None %} — {% widthratio c.overlap 1 100 %}% мос{% endif %} · {% if c.same_file %}шу файлда{% else %}{{ c.title }}{% endif %}{% if c.hidden %} · яширин{% endif %}</option>
@@ -499,7 +500,17 @@
       var side = row.querySelector(".side-res"), name = row.querySelector(".pair-res-name"), meta = row.querySelector(".pair-res-meta");
       var tag = row.querySelector(".pair-res-tag"), eye = row.querySelector(".pair-res-eye");
       side.classList.toggle("is-empty", !sel.value);
-      if (!sel.value) {
+      if (opt && opt.dataset.base) {  // RES ўрнига ресурс базаси
+        tag.textContent = "Б";
+        name.textContent = "Ресурс базаси";
+        name.disabled = eye.disabled = true;
+        meta.innerHTML = '<span class="rounded bg-violet-50 px-1 font-medium text-violet-700">' + esc(opt.dataset.base) + "</span>" +
+          '<span>· RES йўқ — коди бор қаторлар базадаги медиана нарх билан</span>';
+        ov.textContent = "база";
+        ov.className = "pair-ov rounded-full px-2.5 py-0.5 text-sm font-bold bg-violet-100 text-violet-800";
+        ov.title = "RES'сиз: фақат ресурс базасидан нархланади";
+        if (inc.checked) n++;
+      } else if (!sel.value) {
         tag.textContent = "?";
         name.textContent = "ресурс танланмаган";
         name.disabled = eye.disabled = true;
@@ -550,7 +561,7 @@
   var BY_KEY = {};
   SHEETS.forEach(function (s) { BY_KEY[s.k] = s; });
   function candidates(row) {
-    return Array.prototype.slice.call(row.querySelector(".pair-res").options).filter(function (o) { return o.value; })
+    return Array.prototype.slice.call(row.querySelector(".pair-res").options).filter(function (o) { return o.value && !o.dataset.base; })
       .map(function (o) { return {k: o.value, ov: ovOf(o), same: !!o.dataset.same}; });
   }
   function badgeFor(row) {

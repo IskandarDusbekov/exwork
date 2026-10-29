@@ -1,0 +1,13 @@
+{# вилоят · йил · чорак танлови (бўш — номаълум); r, y, q — жорий қийматлар #}
+<select name="region" class="rounded-lg border border-slate-300 px-2 py-1 text-sm {% if not r %}border-amber-300 bg-amber-50{% endif %}" aria-label="Вилоят">
+  <option value="">вилоят — номаълум</option>
+  {% for k, label in regions %}<option value="{{ k }}" {% if r == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+</select>
+<select name="year" class="rounded-lg border border-slate-300 px-2 py-1 text-sm {% if not y %}border-amber-300 bg-amber-50{% endif %}" aria-label="Йил">
+  <option value="">йил ?</option>
+  {% for v in years %}<option value="{{ v }}" {% if y == v %}selected{% endif %}>{{ v }}</option>{% endfor %}
+</select>
+<select name="quarter" class="rounded-lg border border-slate-300 px-2 py-1 text-sm {% if not q %}border-amber-300 bg-amber-50{% endif %}" aria-label="Чорак">
+  <option value="">чорак ?</option>
+  {% for v, label in quarters %}<option value="{{ v }}" {% if q == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+</select>

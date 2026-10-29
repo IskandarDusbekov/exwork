@@ -61,13 +61,49 @@ def remember_percents(owner, percents: Optional[dict]):
     Setting.objects.update_or_create(owner_id=getattr(owner, "pk", owner), key="percents", defaults={"value": {**DEFAULT_PERCENTS, **(percents or {})}})
 
 
+def base_period_of(owner) -> dict:
+    """Смета­чининг ресурс базаси танлови (вилоят ва давр); танламаган бўлса — админ белгилагани.
+    Базадан нархлаш ўчирилган бўлса — {} (смета базасиз нархланади)."""
+    from resbase.models import BaseConfig
+    cfg = BaseConfig.get()
+    if not cfg.enabled:
+        return {}
+    s = Setting.objects.filter(owner_id=getattr(owner, "pk", owner), key="base_period").first()
+    return dict(s.value) if s and isinstance(s.value, dict) and s.value else cfg.period
+
+
+def remember_base_period(owner, period: dict):
+    Setting.objects.update_or_create(owner_id=getattr(owner, "pk", owner), key="base_period", defaults={"value": period})
+
+
+BASE_RES = "__base__"  # жуфтликда RES ўрнига «ресурс базаси» танланди
+
+
+def base_ready(owner) -> bool:
+    """RES'сиз нархлаш мумкинми: база ёқилган ва смета­чида (ёки сукут бўйича) вилоят ва давр тўлиқ."""
+    from resbase.services import period_complete
+    return period_complete(base_period_of(owner))
+
+
+def pair_ready(p: dict) -> bool:
+    """Жуфтлик нархланадими: белгиланган ва RES (ёки RES ўрнига ресурс базаси) танланган."""
+    return bool(p.get("include") and (p.get("res") or p.get("base")))
+
+
+def base_options(job: Job) -> dict:
+    """``Options`` uchun: ресурс базаси narxlari (baza o'chiq yoki davr tanlanmagan — bo'sh)."""
+    from resbase.services import period_label, price_map
+    prices = price_map(job.base_period)
+    return {"base_prices": prices or None, "base_label": period_label(job.base_period) if prices else ""}
+
+
 def create_job(owner, local_file, res_file=None) -> Job:
     """Fayllarni saqlaydi, .xlsx ga o'giradi, listlarni o'qib standart juftlikni tanlaydi."""
     local_ext = _check_upload(local_file, "Локал файл")
     res_ext = _check_upload(res_file, "Ресурс файл") if res_file else local_ext
 
     job = Job(owner=owner, local_name=Path(local_file.name).name, res_name=Path((res_file or local_file).name).name,
-              percents=remembered_percents(owner))
+              percents=remembered_percents(owner), base_period=base_period_of(owner))
     clock = FileClock()
     try:
         _save(local_file, job.abs(f"upload/local{local_ext}"))
@@ -158,13 +194,13 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
     out = job.abs("out") / job.download_name
     t0 = time.monotonic()
     try:
-        result = run(job.abs(job.local_path), job.abs(job.res_path), Options(
+        result = run(job.abs(job.local_path), job.abs(job.res_path) if job.res_path else None, Options(
             fuzzy_percent=job.fuzzy, mode=job.mode, local_sheet=job.local_sheet, res_sheet=job.res_sheet,
             output_path=out, percents=job.percents or None,
             categories={int(r): c for r, c in (job.categories or {}).items()} or None,
             prices={int(r): float(p) for r, p in (job.prices or {}).items()} or None,
             column_names=job.column_names or None, cleared=job.cleared or None,
-            local_columns=job.local_columns or None, res_columns=job.res_columns or None,
+            local_columns=job.local_columns or None, res_columns=job.res_columns or None, **base_options(job),
         ))
     except Exception as e:  # foydalanuvchiga ko'rsatamiz, server yiqilmasin
         job.status = Job.Status.FAILED
@@ -334,7 +370,9 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
     mark_duplicates(infos)
     pairs, _unused = plan_pairs(infos)
     batch.sheets = [dict(i.to_dict(), prices=prices.get(i.key)) for i in infos]
-    batch.pairs = [dict(p.to_dict(), include=p.res is not None) for p in pairs]
+    # RES топилмаган локал — база ёқилган ва давр танланган бўлса, ресурс базасидан нархланади
+    base = base_ready(batch.owner_id)
+    batch.pairs = [dict(p.to_dict(), include=p.res is not None or base, base=p.res is None and base) for p in pairs]
     return batch
 
 
@@ -364,8 +402,11 @@ def apply_decisions(batch: "Batch", decisions: dict):
     for n, p in enumerate(batch.pairs):
         d = decisions.get(n, {})
         p["include"] = bool(d.get("include", p.get("include")))
-        if "res" in d:
+        if d.get("res") == BASE_RES:
+            p["res"], p["base"] = None, True
+        elif "res" in d:
             p["res"] = d["res"] if d["res"] in resources else None
+            p["base"] = False
         if d.get("label", "").strip():
             p["label"] = d["label"].strip()[:200]
 
@@ -379,28 +420,38 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
     apply_decisions(batch, decisions)
 
     jobs = []
-    todo = sum(1 for p in batch.pairs if p["include"] and p["res"])
+    base_period = base_period_of(batch.owner_id)
+    from resbase.services import period_complete
+    if not period_complete(base_period):  # база ўчирилган ёки давр танланмаган — RES'сиз жуфтлик нархланмайди
+        for p in batch.pairs:
+            if not p.get("res"):
+                p["base"] = False
+    todo = sum(1 for p in batch.pairs if pair_ready(p))
     for n, p in enumerate(batch.pairs):
-        if not p["include"] or not p["res"]:
+        if not pair_ready(p):
             continue
         if batch.project_id:  # papka qismi: panel va sahifada jonli jarayon
             Batch.objects.filter(pk=batch.pk).update(step=f"{len(jobs) + 1}/{todo} смета нархланяпти: {p['label']}"[:300])
             Project.objects.filter(pk=batch.project_id).update(heartbeat=timezone.now())
-        loc, res = batch.sheet(p["local"]), batch.sheet(p["res"])
-        lf, rf = batch.files[loc["file"]], batch.files[res["file"]]
+        loc, res = batch.sheet(p["local"]), batch.sheet(p["res"]) if p.get("res") else None  # None — ресурс базасидан
+        lf, rf = batch.files[loc["file"]], batch.files[res["file"]] if res else None
         job = Job(owner_id=batch.owner_id, batch=batch, batch_label=p["label"], batch_file=loc["file"], batch_order=n,
-                  local_name=p["label"], res_name=f'{rf["name"]} · {res["sheet"]}',
-                  local_sheets=lf["sheets"], res_sheets=rf["sheets"],
-                  local_sheet=loc["sheet"], res_sheet=res["sheet"], mode="smart", percents=remembered_percents(batch.owner_id),
-                  local_columns=(batch.columns or {}).get(p["local"], {}), res_columns=(batch.columns or {}).get(p["res"], {}))
+                  local_name=p["label"], res_name=f'{rf["name"]} · {res["sheet"]}' if res else "ресурс базаси",
+                  local_sheets=lf["sheets"], res_sheets=rf["sheets"] if rf else [],
+                  local_sheet=loc["sheet"], res_sheet=res["sheet"] if res else "", mode="smart",
+                  percents=remembered_percents(batch.owner_id), base_period=base_period,
+                  local_columns=(batch.columns or {}).get(p["local"], {}),
+                  res_columns=(batch.columns or {}).get(p["res"], {}) if res else {})
         local_dst = job.abs(f"conv/{loc['file']}.xlsx")
-        res_dst = job.abs(f"conv/{res['file']}.xlsx")
         local_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(batch.abs(lf["path"]), local_dst)
-        if res_dst != local_dst:
-            shutil.copy2(batch.abs(rf["path"]), res_dst)
         job.local_path = str(local_dst.relative_to(job.dir))
-        job.res_path = str(res_dst.relative_to(job.dir))
+        job.res_path = ""
+        if res:
+            res_dst = job.abs(f"conv/{res['file']}.xlsx")
+            if res_dst != local_dst:
+                shutil.copy2(batch.abs(rf["path"]), res_dst)
+            job.res_path = str(res_dst.relative_to(job.dir))
         job.save()
         run_job(job, None, None, job.fuzzy, job.mode)
         jobs.append(job)
@@ -446,13 +497,13 @@ def batch_outputs(batch: "Batch") -> list:
         if len(jobs) == 1 and jobs[0].output_path and jobs[0].abs(jobs[0].output_path).is_file():
             shutil.copy2(jobs[0].abs(jobs[0].output_path), out)
         else:
-            steps = [(job.abs(job.res_path), Options(
+            steps = [(job.abs(job.res_path) if job.res_path else None, Options(
                 mode=job.mode, fuzzy_percent=job.fuzzy, local_sheet=job.local_sheet, res_sheet=job.res_sheet,
                 percents=job.percents or None,
                 categories={int(r): c for r, c in (job.categories or {}).items()} or None,
                 prices={int(r): float(v) for r, v in (job.prices or {}).items()} or None,
                 column_names=job.column_names or None, cleared=job.cleared or None,
-                local_columns=job.local_columns or None, res_columns=job.res_columns or None,
+                local_columns=job.local_columns or None, res_columns=job.res_columns or None, **base_options(job),
             )) for job in jobs]
             run_many(batch.abs(batch.files[f]["path"]), steps, out)
         outputs.append(out)

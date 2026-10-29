@@ -1,0 +1,41 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Ресурс қидириш — Панел{% endblock %}
+{% block panel %}
+{% include "panel/_base_tabs.html" with base_tab="search" %}
+
+<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <form method="get" class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
+    <input type="search" name="q" value="{{ q }}" autofocus placeholder="Код (258, 000258) ёки ном (бульдозер, щебень…)" class="min-w-[260px] flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm sm:max-w-md">
+    <select name="cat" class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+      <option value="">Ҳамма турлар</option>
+      {% for c, label in categories %}<option value="{{ c }}" {% if cat == c %}selected{% endif %}>{{ c }} · {{ label }}</option>{% endfor %}
+    </select>
+    <button class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">Излаш</button>
+    <span class="ml-auto text-xs text-slate-500">{{ page.paginator.count }} та{% if not q %} · кўп учрайдиганлари аввал{% endif %}</span>
+  </form>
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-xs text-slate-500">
+      <tr><th class="px-4 py-2 font-medium">Код</th><th class="px-3 py-2 font-medium">Номи</th><th class="px-3 py-2 font-medium">Бирлик</th>
+        <th class="px-3 py-2 font-medium">Тури</th><th class="px-3 py-2 text-right font-medium">Нархлар</th><th class="px-3 py-2 text-right font-medium">Манбалар</th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for r in page %}
+      <tr class="hover:bg-slate-50">
+        <td class="num px-4 py-2"><a href="{% url 'panel:base_resource' r.code %}" class="font-semibold text-sky-700 hover:underline">{{ r.code }}</a></td>
+        <td class="px-3 py-2"><a href="{% url 'panel:base_resource' r.code %}" class="hover:underline">{{ r.name }}</a>{% if r.edited %} <span class="text-xs text-slate-400" title="Админ таҳрирлаган">✎</span>{% endif %}</td>
+        <td class="whitespace-nowrap px-3 py-2 text-slate-600">{{ r.unit }}</td>
+        <td class="px-3 py-2">{% if r.category %}<span class="rounded px-1.5 text-xs font-bold {{ r.category|cat_class }}">{{ r.category }}</span>{% endif %}</td>
+        <td class="num px-3 py-2 text-right">{{ r.n_obs }}</td>
+        <td class="num px-3 py-2 text-right text-slate-500">{{ r.n_src }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="px-4 py-10 text-center text-slate-500">Топилмади.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% include "panel/_pager.html" %}
+{% endblock %}

@@ -32,6 +32,7 @@ STATUS_FILLS = {
     "WORK_HEADER": "FFE7E6E6",
     "MACHINIST": "FFE7E6E6",
     "MANUAL": "FFDDEBF7",
+    "BASE": "FFE4DFEC",  # ресурс базасидан
 }
 MAX_WIDTH = 60
 # Excel ColumnWidth=N faylga N + 0.7109375 bo'lib yoziladi (Calibri 11 uchun padding)

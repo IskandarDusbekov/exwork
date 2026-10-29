@@ -1,5 +1,6 @@
 """Нархлаш web: email + parol bilan kirish; har bir smetachi faqat o'z ishlarini ko'radi."""
 import os
+import re
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,6 +27,7 @@ INSTALLED_APPS = [
     "accounts",
     "jobs",
     "panel",
+    "resbase",
 ]
 
 MIDDLEWARE = [
@@ -120,7 +122,14 @@ USE_TZ = True
 AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "index"
-ADMIN_URL = os.environ.get("NARXLASH_ADMIN_URL", "admin/")  # production'da taxmin qilib bo'lmaydigan yo'l qo'ying
+# Django admin va boshqaruv paneli manzillari — production'da taxmin qilib bo'lmaydigan uzun yo'l qo'ying
+ADMIN_URL = os.environ.get("NARXLASH_ADMIN_URL", "admin/")
+PANEL_URL = os.environ.get("NARXLASH_PANEL_URL", "panel/")
+for _name, _url in (("NARXLASH_ADMIN_URL", ADMIN_URL), ("NARXLASH_PANEL_URL", PANEL_URL)):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*/", _url):
+        raise ImproperlyConfigured(f"{_name}: faqat lotin harf, raqam, - va _, oxirida / (masalan: boshqaruv-7f3a9c/)")
+if ADMIN_URL == PANEL_URL:
+    raise ImproperlyConfigured("NARXLASH_ADMIN_URL va NARXLASH_PANEL_URL bir xil bo'lmasin")
 
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.Argon2PasswordHasher",  # eng kuchli; eski PBKDF2 xeshlar kirishda yangilanadi

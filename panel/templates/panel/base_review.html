@@ -1,0 +1,83 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Текширув — Ресурс базаси — Панел{% endblock %}
+{% block panel %}
+{% include "panel/_base_tabs.html" with base_tab="review" %}
+
+<section class="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <div class="flex flex-wrap items-start gap-3">
+    <div class="min-w-0 flex-1">
+      <h2 class="font-semibold">Шубҳали нархлар · <span class="num">{{ total }}</span></h2>
+      <p class="text-xs text-slate-500">Коди бир хил, лекин номи бошқа, бирлиги бошқа ёки нархи шу вилоят ва давр медианасидан {{ ratio }} баравардан кўп фарқ қилади. Қарор қилмагунингизча медианага (нархлашга) кирмайди. «Қабул» — нарх ҳисобга олинади, шу ном ва бирлик кейин шубҳали бўлмайди; «рад» — истисно қилинади.</p>
+    </div>
+    {% if can_act %}
+    <form method="post" action="{% url 'panel:base_recheck' %}">{% csrf_token %}
+      <button class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50" title="Ҳамма нархлар қоидалар бўйича қайтадан текширилади (қарорларингиз сақланади)">Қайта текшириш</button></form>
+    {% endif %}
+  </div>
+  <nav class="mt-3 flex flex-wrap gap-1.5 text-sm" aria-label="Шубҳа тури">
+    <a href="?" class="rounded-lg border px-3 py-1 {% if not f %}border-slate-900 bg-slate-900 text-white{% else %}border-slate-300 hover:bg-slate-50{% endif %}">Ҳаммаси <b class="num">{{ total }}</b></a>
+    {% for k, label in flag_labels.items %}
+    <a href="?f={{ k }}" class="rounded-lg border px-3 py-1 {% if f == k %}border-slate-900 bg-slate-900 text-white{% else %}border-slate-300 hover:bg-slate-50{% endif %}">{{ label }} <b class="num">{{ counts|get_item:k }}</b></a>
+    {% endfor %}
+  </nav>
+</section>
+
+{% if page.object_list %}
+<form method="post" action="{% url 'panel:base_review_decide' %}" class="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">{% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  {% if can_act %}
+  <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2 text-sm">
+    <label class="inline-flex items-center gap-1.5 text-slate-600"><input type="checkbox" id="check-all"> шу саҳифадагиларни белгилаш</label>
+    <span class="flex-1"></span>
+    <button name="action" value="accept" class="rounded-lg bg-emerald-600 px-3 py-1 font-medium text-white hover:bg-emerald-700">Белгиланганларни қабул</button>
+    <button name="action" value="reject" class="rounded-lg border border-rose-300 bg-white px-3 py-1 font-medium text-rose-700 hover:bg-rose-50">Рад</button>
+  </div>
+  {% endif %}
+  <div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-xs text-slate-500">
+      <tr>{% if can_act %}<th class="w-8 px-4 py-2"></th>{% endif %}<th class="px-3 py-2 font-medium">Код · базадаги номи</th><th class="px-3 py-2 font-medium">Сметада</th>
+        <th class="px-3 py-2 text-right font-medium">Нарх</th><th class="px-3 py-2 text-right font-medium">Медиана</th><th class="px-3 py-2 font-medium">Вилоят · давр · манба</th>{% if can_act %}<th class="px-3 py-2"></th>{% endif %}</tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for o in page %}
+      <tr class="align-top">
+        {% if can_act %}<td class="px-4 py-2"><input type="checkbox" name="ids" value="{{ o.pk }}" class="row-check" aria-label="Танлаш"></td>{% endif %}
+        <td class="max-w-xs px-3 py-2"><a href="{% url 'panel:base_resource' o.resource.code %}" class="num font-semibold text-sky-700 hover:underline">{{ o.resource.code }}</a>
+          <div class="text-xs text-slate-600">{{ o.resource.name }} <span class="text-slate-400">[{{ o.resource.unit }}]</span></div></td>
+        <td class="max-w-sm px-3 py-2">
+          <div class="mb-0.5 flex flex-wrap gap-1">{% for k, label in o.flag_list %}<span class="rounded bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-800">{{ label }}</span>{% endfor %}</div>
+          <div class="text-xs {% if 'name' in o.flags %}font-medium text-slate-900{% else %}text-slate-600{% endif %}">{{ o.name }}
+            <span class="{% if 'unit' in o.flags %}font-semibold text-amber-800{% else %}text-slate-400{% endif %}">[{{ o.unit }}]</span></div></td>
+        <td class="num whitespace-nowrap px-3 py-2 text-right font-medium {% if 'price' in o.flags %}text-amber-800{% endif %}">{{ o.price|som }}</td>
+        <td class="num whitespace-nowrap px-3 py-2 text-right text-slate-500">{% if o.cell_median.0 %}{{ o.cell_median.0|som }} <span class="text-xs text-slate-400">({{ o.cell_median.1 }})</span>{% else %}—{% endif %}</td>
+        <td class="max-w-xs px-3 py-2 text-xs text-slate-600">{{ region_labels|get_item:o.source.region|default:"вилоят ?" }} · {{ o.source.period_label }}
+          <a href="{% url 'job' o.job_id %}" class="block truncate text-sky-700 hover:underline" title="{{ o.source.title }} — {{ o.row }}-қатор">{{ o.source.title }} · {{ o.row }}-қатор</a></td>
+        {% if can_act %}
+        <td class="whitespace-nowrap px-3 py-2 text-right">
+          <button name="one" value="{{ o.pk }}:accept" class="rounded border border-emerald-300 px-2 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50">қабул</button>
+          <button name="one" value="{{ o.pk }}:reject" class="rounded border border-rose-200 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-50">рад</button></td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody></table></div>
+  {% if page.has_other_pages %}
+  <div class="flex items-center justify-between border-t border-slate-100 px-4 py-2 text-sm">
+    {% if page.has_previous %}<a href="?f={{ f }}&page={{ page.previous_page_number }}" class="text-sky-700 hover:underline">← олдинги</a>{% else %}<span></span>{% endif %}
+    <span class="text-slate-500">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a href="?f={{ f }}&page={{ page.next_page_number }}" class="text-sky-700 hover:underline">кейинги →</a>{% else %}<span></span>{% endif %}
+  </div>
+  {% endif %}
+</form>
+<script>
+  (function () {
+    var all = document.getElementById("check-all");
+    if (all) all.addEventListener("change", function () {
+      document.querySelectorAll(".row-check").forEach(function (c) { c.checked = all.checked; });
+    });
+  })();
+</script>
+{% else %}
+<div class="rounded-xl border border-slate-200 bg-white px-4 py-10 text-center text-sm text-slate-500">Шубҳали нарх йўқ.</div>
+{% endif %}
+{% endblock %}

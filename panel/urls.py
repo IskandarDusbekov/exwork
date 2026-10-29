@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import views, views_base
 
 app_name = "panel"
 
@@ -24,6 +24,23 @@ urlpatterns = [
     path("files/", views.files, name="files"),
     path("log/", views.log, name="log"),
     path("errors/", views.errors, name="errors"),
+    path("base/", views_base.base_overview, name="base"),
+    path("base/toggle/", views_base.base_toggle, name="base_toggle"),
+    path("base/default/", views_base.base_default, name="base_default"),
+    path("base/wipe/", views_base.base_wipe, name="base_wipe"),
+    path("base/search/", views_base.base_search, name="base_search"),
+    path("base/r/<str:code>/", views_base.base_resource, name="base_resource"),
+    path("base/r/<str:code>/edit/", views_base.base_resource_edit, name="base_resource_edit"),
+    path("base/r/<str:code>/delete/", views_base.base_resource_delete, name="base_resource_delete"),
+    path("base/obs/<int:pk>/<str:action>/", views_base.base_obs, name="base_obs"),
+    path("base/coverage/", views_base.base_coverage, name="base_coverage"),
+    path("base/review/", views_base.base_review, name="base_review"),
+    path("base/review/decide/", views_base.base_review_decide, name="base_review_decide"),
+    path("base/review/recheck/", views_base.base_recheck, name="base_recheck"),
+    path("base/sources/", views_base.base_sources, name="base_sources"),
+    path("base/sources/add-all/", views_base.base_add_all, name="base_add_all"),
+    path("base/sources/<int:pk>/<str:action>/", views_base.base_source, name="base_source"),
+    path("base/add/<str:kind>/<uuid:work_id>/", views_base.base_add, name="base_add"),
     path("errors/test/", views.errors_test, name="errors_test"),
     path("errors/clear/", views.errors_clear, name="errors_clear"),
 ]

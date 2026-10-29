@@ -22,7 +22,8 @@
       {% include "panel/_side_link.html" with key="stats" url="panel:stats" ic="chart" label="Статистика" %}
       {% include "panel/_side_link.html" with key="speed" url="panel:speed" ic="clock" label="Тезлик" %}
       <div class="hidden px-3 pb-1 pt-4 text-[11px] font-medium uppercase tracking-wider text-slate-500 lg:block">Маълумот</div>
-      {% include "panel/_side_link.html" with key="files" url="panel:files" ic="database" label="Файллар" %}
+      {% include "panel/_side_link.html" with key="base" url="panel:base" ic="database" label="Ресурс базаси" %}
+      {% include "panel/_side_link.html" with key="files" url="panel:files" ic="file" label="Файллар" %}
       {% include "panel/_side_link.html" with key="log" url="panel:log" ic="lock" label="Журнал ва хавфсизлик" %}
       {% include "panel/_side_link.html" with key="errors" url="panel:errors" ic="alert" label="Хатолар" alarm=error_count %}
     </nav>

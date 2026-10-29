@@ -10,6 +10,7 @@ module.exports = {
     "../jobs/**/*.py",
     "../panel/**/*.py",
     "../accounts/**/*.py",
+    "../resbase/**/*.py",
   ],
   safelist: [
     { pattern: new RegExp(`^(bg|text|ring|border)-(${DYNAMIC_COLORS})-(50|100|200|500|600|700)$`) },
