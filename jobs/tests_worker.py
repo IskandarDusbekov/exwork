@@ -147,6 +147,27 @@ class WorkerQueueTests(TransactionTestCase):
         self.assertEqual((a.stage, b.stage), (Batch.Stage.READY, Batch.Stage.QUEUED))  # B — янги эгасида
         self.assertEqual((p.status, p.worker), (Project.Status.PROCESSING, "new:1#0"))
 
+    def test_part_queued_for_pricing_during_run_is_priced(self):
+        """Қисмлар очилаётганда смета­чи «Ҳисоблашни бошлаш»ни босди — аввал очилган қисм шу ишнинг ўзида
+        нархланади («ишлов берилмади» хатоси эмас)."""
+        p = self._project()
+        a = Batch.objects.create(owner=self.user, project=p, folder="A", name="A", stage=Batch.Stage.QUEUED)
+        Batch.objects.create(owner=self.user, project=p, folder="B", name="B", stage=Batch.Stage.QUEUED)
+
+        def analyzed(part):
+            if part.folder == "B":  # B очилаётганда A нархлашга қўйилди
+                folders.start_pricing(p)
+            Batch.objects.filter(id=part.id).update(stage=Batch.Stage.READY)
+
+        def priced(part, decisions=None):
+            Batch.objects.filter(id=part.id).update(stage=Batch.Stage.DONE)
+
+        with mock.patch.object(folders, "analyze_part", side_effect=analyzed),                 mock.patch.object(folders, "price_part", side_effect=priced) as price:
+            folders._run(p.id)
+        self.assertEqual([c.args[0].id for c in price.call_args_list], [a.id])
+        a.refresh_from_db()
+        self.assertEqual(a.stage, Batch.Stage.DONE)
+
     def test_settle_keeps_part_queued_meanwhile(self):
         """settle() ҳолатни ҳисоблаётганда смета­чи «Ҳисоблашни бошлаш»ни босди — лойиҳа навбатдан чиқмайди."""
         p = self._project()

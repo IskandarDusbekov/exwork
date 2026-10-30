@@ -297,17 +297,19 @@ def _run(project_id, worker: str = ""):
             mine = mine.filter(worker=worker)  # lease boshqasida bo'lsa — uning vaqtlariga tegilmaydi
         if not mine.update(heartbeat=now, run_started=now, run_finished=None):
             return
+        # bitta qism har bir bosqichda bir marta (holati o'zgarmay qolsa ham aylanib qolmaydi). Bosqich ham
+        # hisobga olinadi: ochilgan qism ish davomida «Ҳисоблашни бошлаш» bilan narxlashga qo'yilsa — yana olinadi
         done = set()
         with _KeepAlive(project_id, worker):
             try:
                 while True:
-                    part = (project.parts.filter(stage__in=WORKING).exclude(id__in=done)
-                            .order_by("folder").first())
+                    part = next((p for p in project.parts.filter(stage__in=WORKING).order_by("folder")
+                                 if (p.id, p.stage) not in done), None)
                     if part is None:
                         break
                     if not _owns(project_id, worker):
                         raise LeaseLost
-                    done.add(part.id)  # bitta qism bir marta (holati o'zgarmay qolsa ham aylanib qolmaydi)
+                    done.add((part.id, part.stage))
                     _check_stop(project_id)
                     if part.stage == Batch.Stage.PRICING:
                         price_part(part)
@@ -322,7 +324,8 @@ def _run(project_id, worker: str = ""):
         project.refresh_from_db()
         if not project.stop_requested:
             # ishlangan qism navbatda qolib ketmasin (aks holda keyingi aylanishda yana olinadi — cheksiz)
-            project.parts.filter(id__in=done, stage__in=WORKING).update(
+            stuck = [pid for pid, stage in done if project.parts.filter(id=pid, stage=stage).exists()]
+            project.parts.filter(id__in=stuck, stage__in=WORKING).update(
                 stage=Batch.Stage.FAILED, message="ишлов берилмади — қайта юклаб кўринг")
         if project.stop_requested:
             _finish_stop(project)
