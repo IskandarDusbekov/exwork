@@ -1241,7 +1241,7 @@
     <span id="pct-status" class="text-xs text-slate-500" aria-live="polite"></span>
   </div>
   <div class="grid lg:grid-cols-[minmax(0,860px)_minmax(320px,1fr)]">
-    <form id="pct-form" method="post" action="{% url 'job_run' job.id %}" data-busy class="min-w-0">
+    <form id="pct-form" method="post" action="{% url 'job_run' job.id %}" class="min-w-0">
       {% csrf_token %}
       <input type="hidden" name="local_sheet" value="{{ job.local_sheet }}">
       <input type="hidden" name="res_sheet" value="{{ job.res_sheet }}">
@@ -1256,14 +1256,20 @@
             <span class="inline-flex items-center gap-1">
               <input type="text" inputmode="decimal" name="pct_{{ s.key }}" value="{{ s.pct|pct_input }}" autocomplete="off"
                      class="pct-input w-16 rounded border px-1.5 py-0.5 text-right num {% if s.pct != s.default %}border-amber-400 bg-amber-50 text-amber-900{% else %}border-slate-300{% endif %}"
-                     data-default="{{ s.default|pct_input }}" title="Стандарт: {{ s.default|pct }} · ўзгартиринг — ўзи ҳисобланади">%</span>
+                     data-default="{{ s.default|pct_input }}" title="Стандарт: {{ s.default|pct }}">%</span>
             {% else %}{{ s.pct|pct }}{% endif %}
           </td>
           <td class="sv-val w-44 px-4 py-1.5 text-right num {% if s.value|is_error %}text-rose-600{% endif %}">{{ s.value|som }}</td>
         </tr>
         {% endfor %}
       </table>
-      <noscript><button type="submit" class="m-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white">Фоизлар билан қайта ҳисоблаш</button></noscript>
+      {% if result_mode == "smart" %}
+      <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 px-4 py-3">
+        <span class="mr-auto text-xs text-slate-500">Фоизларни ўзгартириб, тугмани босинг (ёки Enter).</span>
+        <button type="submit" id="pct-run" class="flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">
+          {% icon "calculator" "h-4 w-4" %} Қайта ҳисоблаш</button>
+      </div>
+      {% endif %}
     </form>
 
     <aside class="space-y-3 border-t border-slate-100 bg-slate-50/60 p-4 text-sm md:border-l md:border-t-0">
@@ -1273,7 +1279,7 @@
       </div>
       {% if result_mode == "smart" %}
       <p class="flex gap-2 text-xs leading-relaxed text-slate-600">{% icon "check-circle" "mt-px h-4 w-4 shrink-0 text-emerald-600" %}
-        <span>Фоизни ўзгартиринг — сумма <b>ўзи қайта ҳисобланади</b>. Танлов <b>эслаб қолинади</b>: кейинги сметалар шу фоизлар билан бошланади.</span></p>
+        <span>Фоизларни ўзгартириб, <b>«Қайта ҳисоблаш»</b>ни босинг. Танлов <b>эслаб қолинади</b>: кейинги сметалар шу фоизлар билан бошланади.</span></p>
       {% if pct_memory.diff %}
       <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
         <div class="mb-1 font-medium text-slate-700">Эслаб қолинган (стандартдан фарқли):</div>
@@ -1305,20 +1311,24 @@
 </section>
 {% if result_mode == "smart" %}
 <script>
-  // Фоиз ўзгарса — тугмасиз қайта ҳисоблаш (ёзиб бўлгач 1,5 с, Enter ёки бошқа катакка ўтганда).
-  // Катак бўшатилган пайтда (янги сон ёзиш учун ўчирилди) юборилмайди — акс ҳолда «0» билан ҳисоб бошланарди.
+  // Фоизлар «Қайта ҳисоблаш» тугмаси (ёки Enter) билан юборилади: бир нечтасини ўзгартириб, битта ҳисоб.
   // Бир вақтда битта сўров; у тугагунча яна ўзгарса — охиргиси кейин юборилади.
   (function () {
     var URL = "{% url 'job_percents' job.id %}";
     var form = document.getElementById("pct-form"), st = document.getElementById("pct-status");
     var inputs = Array.prototype.slice.call(form.querySelectorAll(".pct-input"));
-    var timer = null, busy = false, queued = null, lastSent = snapshot();
+    var busy = false, queued = null, lastSent = snapshot(), run = document.getElementById("pct-run");
     function snapshot() { var o = {}; inputs.forEach(function (i) { o[i.name.slice(4)] = i.value.trim() || "0"; }); return o; }
     function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
     function setStatus(text, cls) { st.textContent = text; st.className = "text-xs " + (cls || "text-slate-500"); }
+    function dirty() {  // ўзгарган, ҳали ҳисобланмаган — тугма ёнади
+      var d = !same(snapshot(), lastSent);
+      run.disabled = busy || !d;
+      if (!busy) setStatus(d ? "ўзгартирилди — «Қайта ҳисоблаш»ни босинг" : "", d ? "text-amber-700" : "");
+    }
     function send(payload) {
       if (busy) { queued = payload; return; }
-      busy = true;
+      busy = true; run.disabled = true;
       setStatus("ҳисобланяпти…", "text-sky-700");
       fetch(URL, {
         method: "POST",
@@ -1349,29 +1359,22 @@
         var bez = document.getElementById("side-bez"); if (bez) bez.textContent = d.bez_nds;
         var reset = document.getElementById("pct-reset"); if (reset) reset.classList.toggle("hidden", !d.changed);
         var rem = document.getElementById("pct-remembered"); if (rem) rem.classList.add("hidden");
-        lastSent = snapshot();
+        lastSent = payload.pct || snapshot();  // ҳисоб пайтида яна ўзгартирилган бўлса — тугма ёниқ қолади
         setStatus("✓ ҳисобланди ва эслаб қолинди", "text-emerald-700");
       }).catch(function (e) {
         setStatus("Хато: " + e.message, "text-rose-700");
       }).then(function () {
         busy = false;
-        if (queued) { var q = queued; queued = null; send(q); }
+        if (queued) { var q = queued; queued = null; send(q); } else run.disabled = same(snapshot(), lastSent);
       });
     }
     function changed() {
-      clearTimeout(timer);
+      inputs.forEach(function (i) { if (!i.value.trim()) i.value = "0"; });  // бўш — 0
       var now = snapshot();
       if (!same(now, lastSent)) send({pct: now});
     }
-    inputs.forEach(function (i) {
-      i.addEventListener("input", function () {
-        clearTimeout(timer);
-        if (!i.value.trim()) { setStatus("фоизни ёзинг…"); return; }
-        timer = setTimeout(changed, 1500); setStatus("ўзгартириляпти…");
-      });
-      i.addEventListener("change", function () { if (!i.value.trim()) i.value = "0"; changed(); });  // бўш — 0
-      i.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); changed(); } });
-    });
+    inputs.forEach(function (i) { i.addEventListener("input", dirty); });
+    run.disabled = true;
     form.addEventListener("submit", function (e) { e.preventDefault(); changed(); });
     var reset = document.getElementById("pct-reset");
     if (reset) reset.addEventListener("click", function () { send({reset: true}); });

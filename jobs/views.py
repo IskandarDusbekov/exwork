@@ -16,7 +16,7 @@ from openpyxl.utils import column_index_from_string, get_column_letter
 
 from core.batch import KIND_LABELS
 from core.pipeline import UNPRICED_STATUSES, extra_columns_of
-from core.svodka import DEFAULT_PERCENTS, parse_text_number, percent_text, svodka_layout
+from core.svodka import DEFAULT_PERCENTS, PERCENT_LABELS, parse_text_number, percent_text, svodka_layout
 
 from panel.audit import log as audit
 from panel.models import Event
@@ -497,6 +497,7 @@ def project_detail(request, project_id):
         "grand_total": sum(n["part"]["total"] for n in nodes),
         "not_priced_total": sum(n["part"]["not_priced"] for n in nodes),
         "can_download": any(s in ("done", "warn", "review") and n["part"]["jobs"] for s, n in zip(states, nodes)),
+        "pct_form": _pct_form(project.owner_id),
     }
     if request.GET.get("partial"):
         return render(request, "jobs/_project_body.html", ctx)
@@ -512,10 +513,23 @@ def project_viewer(request, project_id, batch_id):
                          "sheets": _sheets_js(batch), "cands": _cands_js(batch)})
 
 
+def _pct_form(owner_id) -> list:
+    """Папкани ҳисоблашдан олдинги сводка фоизлари: охирги танлов (бўлмаса — стандарт)."""
+    saved = {**DEFAULT_PERCENTS, **remembered_percents(owner_id)}
+    return [{"key": k, "text": PERCENT_LABELS.get(k, k), "pct": saved[k], "default": d} for k, d in DEFAULT_PERCENTS.items()]
+
+
 @require_POST
 def project_price(request, project_id):
-    """«Ҳисоблашни бошлаш»: смета­чи файлларни текширди — тайёр қисмлар фонда нархланади."""
+    """«Ҳисоблашни бошлаш»: смета­чи файлларни текширди — тайёр қисмлар фонда нархланади.
+    Формадаги сводка фоизлари эслаб қолинади: папкадаги ҳамма смета шу фоизлар билан ҳисобланади."""
     project = _get_work(request, Project, id=project_id)
+    if any(k.startswith("pct_") for k in request.POST):
+        saved = remembered_percents(project.owner_id)
+        # бўш катак — 0 (смета саҳифасидагидек)
+        data = {f"pct_{k}": (request.POST.get(f"pct_{k}", "").strip() or "0") for k in DEFAULT_PERCENTS
+                if f"pct_{k}" in request.POST}
+        remember_percents(project.owner_id, {**saved, **parse_percents(data, saved)})
     start_pricing(project)
     return redirect("project", project_id=project.id)
 

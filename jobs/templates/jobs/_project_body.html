@@ -58,11 +58,25 @@
         Пастдаги жадвалда қайси локал қайси ресурс билан ҳисобланишини кўринг; ўзгартириш учун қисмни очинг
         (у ерда ресурсни бошқасига алмаштириш мумкин).{% if count_review %} <b class="text-amber-800">{{ count_review }} та қисмда ресурсни ўзингиз танланг.</b>{% endif %}
       </div>
-      <form method="post" action="{% url 'project_price' project.id %}">{% csrf_token %}
-        <button type="submit" data-guide="price-start" class="flex items-center gap-2 rounded-lg bg-violet-700 px-5 py-3 font-semibold text-white shadow-sm hover:bg-violet-800">
-          {% icon "calculator" "h-5 w-5" %} Ҳисоблашни бошлаш</button>
-      </form>
     </div>
+    <form method="post" action="{% url 'project_price' project.id %}" class="mt-4 border-t border-violet-200 pt-4">{% csrf_token %}
+      <div class="mb-2 text-sm text-slate-800"><b>Сводка фоизлари</b> — ҳамма смета шу фоизлар билан ҳисобланади.
+        Шундай қолдирасизми ёки ўзгартирасизми? <span class="text-xs text-slate-500">Охирги танловингиз эслаб қолинади.</span></div>
+      <div class="flex flex-wrap items-end gap-x-3 gap-y-3">
+        {% for f in pct_form %}
+        <label class="block w-[150px]">
+          <span class="block truncate text-[11px] text-slate-600" title="{{ f.text }}">{{ f.text }}</span>
+          <span class="mt-1 flex items-center gap-1">
+            <input type="text" inputmode="decimal" name="pct_{{ f.key }}" value="{{ f.pct|pct_input }}" autocomplete="off"
+                   class="w-20 rounded border px-2 py-1 text-right text-sm num {% if f.pct != f.default %}border-amber-400 bg-amber-50 text-amber-900{% else %}border-slate-300 bg-white{% endif %}"
+                   title="Стандарт: {{ f.default|pct }}"><span class="text-sm text-slate-500">%</span>
+          </span>
+        </label>
+        {% endfor %}
+        <button type="submit" data-guide="price-start" class="ml-auto flex items-center gap-2 rounded-lg bg-violet-700 px-5 py-3 font-semibold text-white shadow-sm hover:bg-violet-800">
+          {% icon "calculator" "h-5 w-5" %} Ҳисоблашни бошлаш</button>
+      </div>
+    </form>
   </div>
   {% endif %}
 

@@ -231,7 +231,7 @@ class FlowTests(LoggedInTestCase):
         self.assertAlmostEqual(job.result["totals"]["s_nds"], default_total)
 
     def test_percents_autosave_and_remembered_for_next_jobs(self):
-        """Фоиз ўзгарса — тугмасиз ҳисобланади (JSON) ва эслаб қолинади; кейинги смета шу фоиз билан бошланади."""
+        """«Қайта ҳисоблаш»: фоизлар ҳисобланади (JSON) ва эслаб қолинади; кейинги смета шу фоиз билан бошланади."""
         from .models import Setting
         self._upload(local=self.local, res=self.res)
         job = Job.objects.get()
@@ -702,14 +702,22 @@ class FolderTests(LoggedInTestCase):
         self.assertEqual(viewer["url"], reverse("batch_sheet", args=[part.id]))
         self.assertTrue(viewer["sheets"])
 
+        self.assertContains(page, 'name="pct_prochie" value="19"')  # ҳисоблашдан олдин сводка фоизлари
+
+        # фоиз ўзгартирилди — папкадаги ҳамма смета шу фоиз билан, танлов эслаб қолинади
+        pct = {f"pct_{k}": page.context["pct_form"][i]["pct"] * 100 for i, k in enumerate(DEFAULT_PERCENTS)}
+        pct = {k: f"{v:g}" for k, v in pct.items()}
         with mock.patch.object(folders, "start", lambda project: folders._run(project.id)):
-            r = self.client.post(reverse("project_price", args=[project.id]))
+            r = self.client.post(reverse("project_price", args=[project.id]), {**pct, "pct_prochie": "17"})
         self.assertRedirects(r, data["url"])
         project.refresh_from_db()
         self.assertEqual(project.status, Project.Status.DONE)
         for p in project.parts.all():
             self.assertEqual(p.stage, Batch.Stage.DONE, p.message)
             self.assertEqual(p.jobs.count(), 1)
+            self.assertEqual(p.jobs.get().percents["prochie"], 0.17)
+        from .models import Setting
+        self.assertEqual(Setting.objects.get(key="percents").value["prochie"], 0.17)
         skipped = {f["path"]: f["skip"] for f in project.files if f["skip"]}
         self.assertEqual(skipped["2. ОВ/ov_lokal_narxlandi.xlsx"], "олдинги натижа")
         # Excel очиқлигидаги «~$» ва Excel бўлмаган файллар умуман кўрсатилмайди (чалғитмасин)
