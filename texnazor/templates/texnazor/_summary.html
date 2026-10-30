@@ -1,0 +1,22 @@
+{% load narx %}<table class="w-full min-w-[900px] text-sm">
+  <thead class="bg-slate-100 text-xs text-slate-600"><tr>
+    <th class="px-3 py-2 text-left">Кўрсаткич</th>
+    <th class="w-44 px-3 py-2 text-right">Шартнома (офёрта)</th>
+    <th class="w-44 px-3 py-2 text-right">Олдинги ойлар</th>
+    <th class="w-44 px-3 py-2 text-right text-sky-800">{{ period.title }}</th>
+    <th class="w-44 px-3 py-2 text-right text-emerald-800">Бошидан жами</th>
+    <th class="w-44 px-3 py-2 text-right">Қолдиқ</th>
+  </tr></thead>
+  <tbody class="divide-y divide-slate-100">
+  {% for key, label, contract, before, this, cum, left in steps %}
+  <tr class="{% if key in 'direct total contractor no_vat base direct_overhead' %}font-semibold{% endif %} {% if key == 'contractor' %}bg-emerald-50{% elif key == 'total' %}bg-slate-50{% endif %}">
+    <td class="px-3 py-1.5">{{ label }}</td>
+    <td class="num px-3 py-1.5 text-right">{{ contract|som }}</td>
+    <td class="num px-3 py-1.5 text-right text-slate-600">{{ before|som }}</td>
+    <td class="num px-3 py-1.5 text-right text-sky-900">{{ this|som }}</td>
+    <td class="num px-3 py-1.5 text-right text-emerald-900">{{ cum|som }}</td>
+    <td class="num px-3 py-1.5 text-right">{{ left|som }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>

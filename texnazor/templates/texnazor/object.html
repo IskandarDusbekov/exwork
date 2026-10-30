@@ -1,0 +1,209 @@
+{% extends "jobs/base.html" %}
+{% load narx %}
+{% block title %}{{ o.name }} · Техназор{% endblock %}
+{% block main_class %}px-4 lg:px-6 py-4{% endblock %}
+{% block content %}
+{% csrf_token %}
+<div class="mb-3 flex flex-wrap items-start gap-3">
+  <a href="{% url 'texnazor:index' %}" class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100" title="Объектлар">{% icon "arrow-left" "h-4 w-4" %}</a>
+  <div class="min-w-0 flex-1">
+    <h1 class="text-lg font-semibold leading-tight text-slate-900">{{ o.name }}</h1>
+    <div class="mt-0.5 flex flex-wrap gap-x-4 text-xs text-slate-500">
+      {% if o.address %}<span>{{ o.address }}</span>{% endif %}
+      {% if o.customer %}<span>Буюртмачи: <b class="font-medium text-slate-700">{{ o.customer }}</b></span>{% endif %}
+      {% if o.contractor %}<span>Пудратчи: <b class="font-medium text-slate-700">{{ o.contractor }}</b></span>{% endif %}
+      {% if o.contract %}<span>Шартнома: {{ o.contract }}</span>{% endif %}
+      <span>Офёрта: {{ o.source_name }}</span>
+    </div>
+  </div>
+</div>
+
+{% for m in messages %}<div class="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{{ m }}</div>{% endfor %}
+
+{% if o.warnings %}
+<details class="mb-3 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-900">
+  <summary class="cursor-pointer select-none px-3 py-2 font-medium">⚠ Офёртада {{ o.warnings|length }} та хато топилди — очиб кўринг</summary>
+  <ul class="list-disc space-y-1 border-t border-amber-200 px-8 py-2">{% for w in o.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+</details>
+{% endif %}
+
+{# ================= ойлар ================= #}
+<section class="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+  <span class="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Ойлар</span>
+  {% for p in periods %}
+  <a href="?p={{ p.pk }}" class="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium {% if p == period %}bg-slate-900 text-white{% else %}border border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
+    {% if p.closed %}{% icon "lock" "h-3.5 w-3.5" %}{% endif %}{{ p.title }}</a>
+  {% endfor %}
+  <form method="post" action="{% url 'texnazor:period_add' o.pk %}" class="flex items-center gap-1.5">{% csrf_token %}
+    <select name="month" class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+      {% for m in months %}<option value="{{ forloop.counter }}" {% if forloop.counter == next.1 %}selected{% endif %}>{{ m }}</option>{% endfor %}
+    </select>
+    <input type="number" name="year" value="{{ next.0 }}" min="2000" max="2100" class="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+    <button class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50">{% icon "plus" "h-4 w-4" %} Ой қўшиш</button>
+  </form>
+  {% if period %}
+  <form method="post" action="{% url 'texnazor:period_close' o.pk period.pk %}" class="ml-auto">{% csrf_token %}
+    <input type="hidden" name="closed" value="{{ period.closed|yesno:'0,1' }}">
+    <button class="rounded-lg px-3 py-1.5 text-sm font-medium {% if period.closed %}border border-slate-300 text-slate-700 hover:bg-slate-50{% else %}bg-emerald-600 text-white hover:bg-emerald-700{% endif %}"
+            title="{% if period.closed %}Ойни қайта очиш — ҳажмларни ўзгартириш мумкин бўлади{% else %}Ой ёпилгач ҳажмлари ўзгармайди (тўлов шу бўйича){% endif %}">
+      {% if period.closed %}Қайта очиш{% else %}{{ period.title }}ни ёпиш{% endif %}</button>
+  </form>
+  {% endif %}
+</section>
+
+{% if not period %}
+<div class="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+  <p class="font-medium text-slate-800">Офёрта тайёр: {{ o.sections.count }} та бўлим</p>
+  <p class="mt-1 text-sm text-slate-500">Биринчи ҳисобот ойини қўшинг (юқорида «Ой қўшиш») — кейин бажарилган ҳажмларни белгилайсиз.</p>
+  <p class="mt-3 text-sm text-slate-600">Шартнома (пудратчи, ҚҚС билан): <b class="num">{{ o.contract_totals.contractor|som }}</b> · жами объект: <b class="num">{{ o.contract_totals.total|som }}</b></p>
+</div>
+{% else %}
+
+{# ================= асосий кўрсаткичлар ================= #}
+<section class="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+  <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"><div class="text-xs text-slate-500">Шартнома (пудратчи, ҚҚС билан)</div>
+    <div id="k-contract" class="num mt-1 text-lg font-semibold text-slate-900">{{ totals.contract.contractor|som }}</div></div>
+  <div class="rounded-xl border border-sky-200 bg-sky-50 p-3 shadow-sm"><div class="text-xs text-sky-800">{{ period.title }} — шу ой</div>
+    <div id="k-this" class="num mt-1 text-lg font-semibold text-sky-900">{{ totals.this.contractor|som }}</div></div>
+  <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 shadow-sm"><div class="text-xs text-emerald-800">Бошидан жами бажарилган</div>
+    <div id="k-cum" class="num mt-1 text-lg font-semibold text-emerald-900">{{ totals.cum.contractor|som }}</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"><div class="text-xs text-slate-500">Қолдиқ</div>
+    <div id="k-left" class="num mt-1 text-lg font-semibold text-slate-900">{{ totals.left.contractor|som }}</div></div>
+</section>
+
+{% if period.closed %}<div class="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">{% icon "lock" "inline h-4 w-4" %} {{ period.title }} ёпилган — ҳажмларни ўзгартириб бўлмайди. Ўзгартириш керак бўлса — «Қайта очиш».</div>{% endif %}
+
+{# ================= бўлимлар ва ишлар ================= #}
+<section class="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="flex flex-wrap items-center gap-3 border-b border-slate-100 px-3 py-2.5">
+    <h2 class="font-semibold">Ишлар</h2>
+    <span class="text-xs text-slate-500">Бўлимни очинг ва «шу ой» катагига бажарилган ҳажмни ёзинг (масалан <b>35</b> ёки <b>60%</b>) — Enter ёки бошқа катакка ўтганда сақланади.</span>
+    <label class="ml-auto flex items-center gap-2 text-sm">{% icon "search" "h-4 w-4 text-slate-400" %}
+      <input id="tn-q" type="search" placeholder="иш номи, шифри ёки №" class="w-64 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"></label>
+  </div>
+  <div id="tn-search" class="hidden border-b border-slate-200 bg-amber-50/40"></div>
+  <div id="tn-sections" class="divide-y divide-slate-100">
+    {% for x in sections %}
+    {% if x.group %}
+    <div class="bg-slate-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{{ x.s.title }}</div>
+    {% else %}
+    <div class="tn-sec" data-id="{{ x.s.pk }}" data-url="{% url 'texnazor:section' o.pk x.s.pk %}?p={{ period.pk }}">
+      <div class="tn-sec-head flex cursor-pointer select-none flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 hover:bg-slate-50">
+        <span class="tn-caret text-slate-400 transition-transform">{% icon "chevron-right" "h-4 w-4" %}</span>
+        <span class="min-w-0 flex-1 font-medium text-slate-800">{{ x.s.title }} <span class="text-xs font-normal text-slate-400">· {{ x.s.items_count }} та</span></span>
+        <span class="w-40 text-right text-xs text-slate-500" title="Шартнома (тўғридан-тўғри харажат)">шартнома <b class="num text-slate-700">{{ x.contract|som }}</b></span>
+        <span class="w-36 text-right text-xs text-sky-700" title="Шу ой (тўғридан-тўғри)">шу ой <b class="num tn-sec-this">{{ x.this|som }}</b></span>
+        <span class="flex w-32 items-center gap-2">
+          <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100"><span class="tn-sec-bar block h-1.5 rounded-full bg-emerald-500" style="width:{% widthratio x.pct 100 100 %}%"></span></span>
+          <b class="num tn-sec-pct w-10 text-right text-xs text-slate-700">{{ x.pct|floatformat:0 }}%</b></span>
+        {% if not period.closed %}<button type="button" class="tn-fill rounded-md border border-emerald-300 px-2 py-0.5 text-xs font-medium text-emerald-800 hover:bg-emerald-50"
+                title="Бўлимдаги ҳамма иш 100% бажарилди деб белгилаш (етмаган қисми шу ойга)">100%</button>{% endif %}
+      </div>
+      <div class="tn-sec-body hidden border-t border-slate-100 bg-slate-50/40"></div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</section>
+
+{# ================= сводка (Ф-3 каби) ================= #}
+<section class="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-3 py-2.5"><h2 class="font-semibold">Сводка — {{ period.title }}</h2>
+    <p class="text-xs text-slate-500">Офёрта сводкаси билан бир хил ҳисоб: транспорт, пудратчи бошқа харажатлари, суғурта ва ҚҚС фоизлари офёртадан олинган.</p></div>
+  <div id="tn-summary" class="overflow-x-auto">{% include "texnazor/_summary.html" %}</div>
+</section>
+{% endif %}
+
+<script>
+  (function () {
+    var PERIOD = {{ period.pk|default:"null" }}, CLOSED = {{ period.closed|yesno:"true,false" }};
+    var DONE_URL = "{% url 'texnazor:done' o.pk %}";
+    var csrf = function () { return document.querySelector("[name=csrfmiddlewaretoken]").value; };
+    function post(url, body) {
+      return fetch(url, {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-CSRFToken": csrf()},
+                         body: JSON.stringify(body)}).then(function (r) {
+        return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; });
+      }).then(function (d) { if (!d.ok) throw new Error(d.error || "хато"); return d; });
+    }
+    function summary(s) {
+      ["this", "cum", "left", "contract"].forEach(function (k) { var el = document.getElementById("k-" + k); if (el) el.textContent = fmt(s[k]); });
+      if (s.html) document.getElementById("tn-summary").innerHTML = s.html;
+    }
+    function fmt(v) { return (Math.round(v * 100) / 100).toLocaleString("ru-RU", {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+    function wire(root) {
+      root.querySelectorAll(".tn-in").forEach(function (inp) {
+        inp.dataset.orig = inp.value;
+        function save() {
+          if (inp.value === inp.dataset.orig || CLOSED) return;
+          var tr = inp.closest("tr"), msg = tr.querySelector(".tn-msg");
+          inp.disabled = true; if (msg) { msg.textContent = "сақланмоқда…"; msg.className = "tn-msg text-xs text-slate-400"; }
+          post(DONE_URL, {period: PERIOD, item: Number(tr.dataset.item), value: inp.value}).then(function (d) {
+            var t = document.createElement("tbody"); t.innerHTML = d.row;
+            var fresh = t.firstElementChild; tr.replaceWith(fresh); wire(fresh.parentNode ? fresh : t);
+            summary(d.summary);
+            var m = fresh.querySelector(".tn-msg"); if (m) { m.textContent = "✓"; m.className = "tn-msg text-xs text-emerald-600"; }
+          }).catch(function (e) {
+            inp.disabled = false;
+            if (msg) { msg.textContent = e.message; msg.className = "tn-msg text-xs text-rose-600"; }
+            inp.classList.add("border-rose-400"); inp.focus();
+          });
+        }
+        inp.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") { e.preventDefault(); save(); }
+          if (e.key === "Escape") { inp.value = inp.dataset.orig; inp.blur(); }
+        });
+        inp.addEventListener("change", save);
+      });
+      root.querySelectorAll(".tn-res").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var tr = b.closest("tr"), next = tr.nextElementSibling;
+          if (next && next.classList.contains("tn-res-row")) { next.remove(); b.classList.remove("is-open"); return; }
+          b.classList.add("is-open");
+          fetch(b.dataset.url, {credentials: "same-origin"}).then(function (r) { return r.text(); }).then(function (html) {
+            var row = document.createElement("tr"); row.className = "tn-res-row";
+            var td = document.createElement("td"); td.colSpan = tr.children.length; td.innerHTML = html;
+            row.appendChild(td); tr.after(row);
+          });
+        });
+      });
+    }
+    function load(sec) {
+      var body = sec.querySelector(".tn-sec-body");
+      body.innerHTML = '<div class="px-4 py-3 text-sm text-slate-400">юкланмоқда…</div>';
+      return fetch(sec.dataset.url, {credentials: "same-origin"}).then(function (r) { return r.text(); }).then(function (html) {
+        body.innerHTML = html; wire(body);
+      });
+    }
+    document.querySelectorAll(".tn-sec").forEach(function (sec) {
+      var head = sec.querySelector(".tn-sec-head"), body = sec.querySelector(".tn-sec-body");
+      head.addEventListener("click", function (e) {
+        if (e.target.closest(".tn-fill")) return;
+        var open = body.classList.toggle("hidden") === false;
+        sec.querySelector(".tn-caret").style.transform = open ? "rotate(90deg)" : "";
+        if (open && !body.dataset.loaded) { body.dataset.loaded = "1"; load(sec); }
+      });
+      var fill = sec.querySelector(".tn-fill");
+      if (fill) fill.addEventListener("click", function () {
+        narxDialog.confirm("«" + head.querySelector(".font-medium").firstChild.textContent.trim() + "» бўлимидаги ҳамма иш 100% бажарилди деб белгиланади (етмаган қисми — " +
+                           "{{ period.title|default:'' }}га).", {title: "Бўлимни 100%", ok: "Белгилаш"}).then(function (yes) {
+          if (!yes) return;
+          fill.disabled = true;
+          post(sec.dataset.url.split("?")[0] + "fill/", {period: PERIOD, pct: 100}).then(function () { location.reload(); })
+            .catch(function (e) { fill.disabled = false; narxDialog.alert(e.message, {title: "Белгиланмади", danger: true}); });
+        });
+      });
+    });
+    // қидирув: ном, шифр ёки № бўйича — бўлимлардан қатъи назар
+    var q = document.getElementById("tn-q"), out = document.getElementById("tn-search"), timer = null;
+    if (q) q.addEventListener("input", function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        var v = q.value.trim();
+        if (!v) { out.classList.add("hidden"); out.innerHTML = ""; return; }
+        fetch("{% url 'texnazor:search' o.pk %}?p=" + PERIOD + "&q=" + encodeURIComponent(v), {credentials: "same-origin"})
+          .then(function (r) { return r.text(); }).then(function (html) { out.innerHTML = html; out.classList.remove("hidden"); wire(out); });
+      }, 350);
+    });
+  })();
+</script>
+{% endblock %}

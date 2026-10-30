@@ -30,6 +30,8 @@
           {% icon "chart" "h-4 w-4" %}<span class="{{ lbl }}">Дашборд</span></a>
         <a href="{% url 'index' %}" title="Юклаш" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'upload' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'upload' %} aria-current="page"{% endif %}>
           {% icon "upload" "h-4 w-4" %}<span class="{{ lbl }}">Юклаш</span></a>
+        <a href="{% url 'texnazor:index' %}" title="Техназор: объектлар ва ойлик бажарилган ишлар" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'texnazor' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'texnazor' %} aria-current="page"{% endif %}>
+          {% icon "building" "h-4 w-4" %}<span class="{{ lbl }}">Техназор</span></a>
         <a href="{% url 'landing' %}" title="Тизим ҳақида" class="hidden items-center gap-1.5 rounded-md px-3 py-1 font-medium text-slate-500 hover:text-slate-900 sm:inline-flex">
           {% icon "help" "h-4 w-4" %}<span class="{{ lbl }}">Тизим ҳақида</span></a>
         {% if user.is_staff %}<a href="{% url 'panel:overview' %}" title="Панел" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'panel' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'panel' %} aria-current="page"{% endif %}>

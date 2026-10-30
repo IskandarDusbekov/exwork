@@ -1,0 +1,35 @@
+{% extends "jobs/base.html" %}
+{% block title %}{{ o.name }} · Техназор{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl">
+  <a href="{% url 'texnazor:index' %}" class="text-sm text-slate-500 hover:text-slate-900">← Объектлар</a>
+  <h1 class="mt-2 text-xl font-semibold text-slate-900">{{ o.name }}</h1>
+  {% if o.status == "failed" %}
+  <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+    <div class="font-semibold">Офёртани ўқиб бўлмади</div>
+    <div class="mt-1">{{ o.error }}</div>
+    <p class="mt-2 text-rose-700">Файлда «Наименование работ…» сарлавҳали «ОФЁРТА» листи борлигини текширинг ва объектни қайта қўшинг.</p>
+  </div>
+  <form method="post" action="{% url 'texnazor:delete' o.pk %}" class="mt-3">{% csrf_token %}
+    <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Объектни ўчириш</button></form>
+  {% else %}
+  <p class="mt-3 text-sm text-slate-600">Офёрта ўқилмоқда — бу бир марта бўлади. Тугагач, саҳифа ўзи очилади.</p>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      if (!window.narxProgress) return;
+      var np = narxProgress.start({title: "Офёрта ўқилмоқда", steps: ["Файл очилмоқда", "Офёрта ўқилмоқда", "Базага ёзилмоқда"]});
+      var order = {"Файл очилмоқда": 0, "Офёрта ўқилмоқда": 1, "Базага ёзилмоқда": 2};
+      (function poll() {
+        fetch("{% url 'texnazor:state' o.pk %}", {credentials: "same-origin", cache: "no-store"}).then(function (r) { return r.json(); }).then(function (s) {
+          if (s.status === "ready") { np.done("Офёрта тайёр"); location.reload(); return; }
+          if (s.status === "failed") { np.fail(s.error || "хато"); setTimeout(function () { location.reload(); }, 1500); return; }
+          var p = s.progress || {};
+          np.step(order[p.step] || 0, p.total ? p.done + " / " + p.total + " қатор" : "");
+          setTimeout(poll, 1200);
+        }).catch(function () { setTimeout(poll, 3000); });
+      })();
+    });
+  </script>
+  {% endif %}
+</div>
+{% endblock %}

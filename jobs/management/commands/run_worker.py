@@ -22,6 +22,7 @@ from django.utils import timezone
 
 from jobs import folders, preview, recalc
 from jobs.models import Worker
+from texnazor import tasks as tn_tasks
 
 log = logging.getLogger("jobs.worker")
 
@@ -78,6 +79,15 @@ class Command(BaseCommand):
                     if jid is not None:
                         self.idle[i] = False
                         self._recalc(me, jid)
+                        continue
+                    oid = tn_tasks.claim_next(me)  # texnazor: yuklangan ofyortani o'qish
+                    if oid is not None:
+                        self.idle[i] = False
+                        self._count(busy=F("busy") + 1)
+                        try:
+                            tn_tasks.run(oid, me)
+                        finally:
+                            self._count(busy=F("busy") - 1, done=F("done") + 1)
                         continue
                     pid = folders.claim_next(me)
                 except Exception:  # noqa: BLE001 — база вақтинча банд/узилган: оқим ўлмасин, кейинроқ

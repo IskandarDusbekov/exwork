@@ -7,10 +7,12 @@ module.exports = {
     "../jobs/templates/**/*.{html,txt}",
     "../panel/templates/**/*.html",
     "../accounts/templates/**/*.html",
+    "../texnazor/templates/**/*.html",
     "../jobs/**/*.py",
     "../panel/**/*.py",
     "../accounts/**/*.py",
     "../resbase/**/*.py",
+    "../texnazor/**/*.py",
   ],
   safelist: [
     { pattern: new RegExp(`^(bg|text|ring|border)-(${DYNAMIC_COLORS})-(50|100|200|500|600|700)$`) },

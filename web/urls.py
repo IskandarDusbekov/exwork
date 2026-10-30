@@ -7,6 +7,7 @@ admin.site.site_header = admin.site.site_title = "Нархлаш — бошқа�
 urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
     path(settings.PANEL_URL, include("panel.urls")),
+    path("texnazor/", include("texnazor.urls")),
     path("", include("accounts.urls")),
     path("", include("jobs.urls")),
 ]

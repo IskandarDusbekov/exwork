@@ -1,0 +1,20 @@
+from django.urls import path
+
+from . import views
+
+app_name = "texnazor"
+
+urlpatterns = [
+    path("", views.index, name="index"),
+    path("new/", views.create, name="create"),
+    path("<uuid:obj_id>/", views.detail, name="object"),
+    path("<uuid:obj_id>/state/", views.state, name="state"),
+    path("<uuid:obj_id>/search/", views.search, name="search"),
+    path("<uuid:obj_id>/section/<int:section_id>/", views.section_items, name="section"),
+    path("<uuid:obj_id>/section/<int:section_id>/fill/", views.fill_section, name="fill"),
+    path("<uuid:obj_id>/item/<int:item_id>/resources/", views.resources, name="resources"),
+    path("<uuid:obj_id>/done/", views.set_done, name="done"),
+    path("<uuid:obj_id>/period/", views.add_period, name="period_add"),
+    path("<uuid:obj_id>/period/<int:period_id>/close/", views.close_period, name="period_close"),
+    path("<uuid:obj_id>/delete/", views.delete, name="delete"),
+]

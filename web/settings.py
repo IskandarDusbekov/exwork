@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "jobs",
     "panel",
     "resbase",
+    "texnazor",
 ]
 
 MIDDLEWARE = [

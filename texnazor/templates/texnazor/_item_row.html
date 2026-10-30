@@ -1,0 +1,23 @@
+{% load narx %}<tr data-item="{{ r.item.pk }}" class="align-top {% if r.pct >= 99.999 %}bg-emerald-50/50{% endif %}">
+  <td class="num px-2 py-1.5 text-slate-500">{{ r.item.num }}</td>
+  <td class="px-2 py-1.5 text-xs text-slate-600">{{ r.item.code }}</td>
+  <td class="px-2 py-1.5">
+    <div class="leading-snug {% if r.item.kind == 'work' %}font-medium text-slate-900{% else %}text-slate-800{% endif %}">{{ r.item.name }}</div>
+    <div class="text-[11px] text-slate-400">{% if r.item.kind == 'work' %}иш · 1 бирлиги {{ r.unit_cost|som }}{% elif r.item.kind == 'free' %}мустақил ресурс · нархи {{ r.unit_cost|som }}{% else %}сводкадаги қўшимча қатор{% endif %}{% if r.item.excel_row %} · Excel {{ r.item.excel_row }}-қатор{% endif %}</div>
+  </td>
+  <td class="px-2 py-1.5 text-xs text-slate-600">{{ r.item.unit }}</td>
+  <td class="num px-2 py-1.5 text-right">{{ r.item.qty|qty }}</td>
+  <td class="num px-2 py-1.5 text-right text-slate-500">{% if r.before %}{{ r.before|qty }}{% else %}—{% endif %}</td>
+  <td class="px-2 py-1">
+    <input type="text" inputmode="decimal" class="tn-in num w-full rounded-md border border-sky-300 bg-sky-50/50 px-2 py-1 text-right text-sm focus:border-sky-600 focus:bg-white focus:outline-none disabled:border-slate-200 disabled:bg-slate-50"
+           value="{% if r.this %}{{ r.this|floatformat:'-6' }}{% endif %}" placeholder="0" {% if period.closed %}disabled{% endif %}
+           title="Сон (масалан 35) ёки шартнома ҳажмидан фоиз (60%). Бўш — ўчириш">
+    <div class="tn-msg text-xs"></div>
+  </td>
+  <td class="num px-2 py-1.5 text-right font-medium">{% if r.cum %}{{ r.cum|qty }}{% else %}—{% endif %}</td>
+  <td class="num px-2 py-1.5 text-right {% if r.left < -0.0000001 %}font-semibold text-rose-700{% elif r.left < 0.0000001 %}text-emerald-700{% endif %}">{{ r.left|qty }}</td>
+  <td class="num px-2 py-1.5 text-right text-xs {% if r.pct >= 99.999 %}font-semibold text-emerald-700{% endif %}">{{ r.pct|floatformat:0 }}%</td>
+  <td class="num px-2 py-1.5 text-right font-medium text-sky-900">{% if r.this_amount %}{{ r.this_amount|som }}{% else %}—{% endif %}</td>
+  <td class="px-2 py-1.5 text-right">{% if r.item.kind == 'work' %}<button type="button" class="tn-res rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-600 hover:bg-slate-100"
+      data-url="{% url 'texnazor:resources' o.pk r.item.pk %}" title="Ишнинг ресурслари: меъёр, нарх, сумма">ресурслар</button>{% endif %}</td>
+</tr>
