@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   {% if user.is_authenticated %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
-  <title>{% block title %}Нархлаш{% endblock %}</title>
+  <title>{% block title %}Муҳандис лойиҳачи{% endblock %}</title>
+  <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">{# frontend/: npm run build #}
   <style>
     .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -17,9 +18,11 @@
   {% icon_sprite %}
   <header class="bg-white border-b border-slate-200">
     <div class="{% block header_class %}max-w-6xl mx-auto px-4{% endblock %} py-3 flex flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap">
-      <a href="{% url 'index' %}" class="flex items-center gap-2 text-slate-900">
-        <span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-900 text-white">{% icon "logo" "h-5 w-5" %}</span>
-        <span class="hidden text-lg font-semibold tracking-tight sm:inline">Нархлаш</span></a>
+      <a href="{% url 'index' %}" class="flex items-center gap-2.5 text-slate-900" title="Муҳандис лойиҳачи — бош саҳифа">
+        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-900 text-emerald-400">{% icon "logo" "h-6 w-6" "2.2" %}</span>
+        <span class="hidden leading-none sm:block">
+          <span class="block whitespace-nowrap text-[15px] font-bold tracking-tight">Муҳандис лойиҳачи</span>
+          <span class="mt-1 block text-[11px] font-medium tracking-wide text-slate-400">mloyihachi.uz</span></span></a>
       {% if user.is_authenticated %}
       {% if crumbs %}{% include "jobs/_crumbs.html" %}{% endif %}
       {% block header_extra %}{% endblock %}

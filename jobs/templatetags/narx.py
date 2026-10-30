@@ -216,7 +216,8 @@ _ICONS = {
     "grid": '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
     "monitor": '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
     "phone": '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
-    "logo": '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h6M7 12h10M7 16h4M15 16h2"/>',
+    # Муҳандис лойиҳачи: «М» — том/ферма чизиғи, остида чизмадаги ўлчам чизиғи (|——|)
+    "logo": '<path d="M5 14V4l7 6.5L19 4v10"/><path d="M3 19h18M3 17v4M21 17v4"/>',
 }
 _SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
         'stroke-width="{w}" stroke-linecap="round" stroke-linejoin="round" class="{cls}" aria-hidden="true">{body}</svg>')

@@ -1,6 +1,6 @@
 {% extends "jobs/base.html" %}
 {% load narx %}
-{% block title %}{{ project.name }} · Нархлаш{% endblock %}
+{% block title %}{{ project.name }} · Муҳандис лойиҳачи{% endblock %}
 {% block header_class %}px-4 lg:px-6{% endblock %}
 {% block main_class %}{% endblock %}
 {% block content %}
@@ -208,7 +208,7 @@
         document.title = "✓ Тайёр · " + baseTitle;
         showToast(text);
         if (document.hidden && canNotify() && Notification.permission === "granted") {
-          try { new Notification("Нархлаш: папка тайёр", {body: baseTitle.split(" · ")[0] + " — " + text, tag: "narx-{{ project.id }}"}); } catch (e) {}
+          try { new Notification("Муҳандис лойиҳачи: папка тайёр", {body: baseTitle.split(" · ")[0] + " — " + text, tag: "narx-{{ project.id }}"}); } catch (e) {}
         }
       }
       wasWorking = working;

@@ -120,7 +120,7 @@ def _send_reset(request, user):
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     link = request.build_absolute_uri(reverse("reset_confirm", args=[uid, default_token_generator.make_token(user)]))
     ctx = {"user": user, "link": link, "hours": settings.PASSWORD_RESET_TIMEOUT // 3600}
-    send_mail("Нархлаш: паролни тиклаш", render_to_string("accounts/reset_email.txt", ctx),
+    send_mail("Муҳандис лойиҳачи: паролни тиклаш", render_to_string("accounts/reset_email.txt", ctx),
               settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
 
 

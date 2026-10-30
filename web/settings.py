@@ -219,7 +219,7 @@ MAILERS = {"default": {
         "timeout": 15,
     },
 } if _email_host else {"BACKEND": "django.core.mail.backends.console.EmailBackend"}}
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Нархлаш <noreply@localhost>")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Муҳандис лойиҳачи <noreply@localhost>")
 PASSWORD_RESET_TIMEOUT = 2 * 3600  # ҳавола 2 соат амал қилади
 
 STATIC_URL = "static/"
