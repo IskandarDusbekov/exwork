@@ -1305,7 +1305,8 @@
 </section>
 {% if result_mode == "smart" %}
 <script>
-  // Фоиз ўзгарса — тугмасиз қайта ҳисоблаш (ёзиб бўлгач 0,7 с, Enter ёки бошқа катакка ўтганда).
+  // Фоиз ўзгарса — тугмасиз қайта ҳисоблаш (ёзиб бўлгач 1,5 с, Enter ёки бошқа катакка ўтганда).
+  // Катак бўшатилган пайтда (янги сон ёзиш учун ўчирилди) юборилмайди — акс ҳолда «0» билан ҳисоб бошланарди.
   // Бир вақтда битта сўров; у тугагунча яна ўзгарса — охиргиси кейин юборилади.
   (function () {
     var URL = "{% url 'job_percents' job.id %}";
@@ -1363,7 +1364,11 @@
       if (!same(now, lastSent)) send({pct: now});
     }
     inputs.forEach(function (i) {
-      i.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(changed, 700); setStatus("ўзгартириляпти…"); });
+      i.addEventListener("input", function () {
+        clearTimeout(timer);
+        if (!i.value.trim()) { setStatus("фоизни ёзинг…"); return; }
+        timer = setTimeout(changed, 1500); setStatus("ўзгартириляпти…");
+      });
       i.addEventListener("change", function () { if (!i.value.trim()) i.value = "0"; changed(); });  // бўш — 0
       i.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); changed(); } });
     });
