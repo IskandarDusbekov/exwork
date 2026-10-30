@@ -1,7 +1,9 @@
+import html as _html
 import re
 from decimal import Decimal
 
 from django import template
+from django.conf import settings
 
 register = template.Library()
 
@@ -311,3 +313,170 @@ FLOW_STEPS = [
 def flow(at, finished=False):
     """``{% flow 2 %}`` — умумий йўл (ҳамма саҳифада бир хил): 1 Юклаш → 2 Текшириш → 3 Тўғирлаш → 4 Юклаб олиш."""
     return {"flow_steps": FLOW_STEPS, "at": at, "finished": finished}
+
+
+# ===================== смета жадвали қаторлари =====================
+_MISSING = object()
+
+
+def _esc(v) -> str:
+    """Шаблондаги ``{{ v }}`` каби (рақам — локал кўринишда, матн — экранланган). Матн ва бутун сон учун тез йўл:
+    Django ``escape`` билан бир хил (stdlib ҳам ``'`` ни ``&#x27;`` қилади)."""
+    if type(v) is str:
+        return _html.escape(v)
+    if type(v) is int and not settings.USE_THOUSAND_SEPARATOR:
+        return str(v)
+    from django.utils.formats import localize
+    from django.utils.html import conditional_escape
+    return str(conditional_escape(localize(v)))
+
+
+def _out(row, key) -> str:
+    """``{{ row.key }}`` каби: йўқ калит — бўш, None — «None», қолгани — экранланган матн."""
+    v = row.get(key, _MISSING)
+    return "" if v is _MISSING else _esc(v)
+
+
+def _tag(status_cls: str, text, title=None) -> str:
+    t = f' title="{_esc(title)}"' if title is not None else ""
+    return f'<span class="xl-tag {status_cls}"{t}>{_esc(text)}</span>'
+
+
+def _xl_row(row: dict, group, smart: bool, grid_columns) -> str:
+    """Битта қатор — илгариги ``_row.html`` билан бир хил HTML. 16 минг қаторли сметада шаблон
+    ``include``и сониялаб вақт оларди (қатор бошига ~0,6 мс), бу ерда — ўн баробар тез."""
+    e = lambda v: "" if v is None else _esc(v)  # noqa: E731 — {{ v|default_if_none:"" }}
+    st, g, name, note = row.get("status"), row.get("g"), row.get("name"), row.get("note")
+    sugg = row.get("suggested_price")
+    sugg_cat, lm, cat = row.get("suggested_category"), row.get("lm_target"), row.get("category")
+    g_num = is_number(g)
+    flags = f"CAT_{_out(row, 'category')}"
+    if row.get("override"):
+        flags += " OVERRIDE"
+    if sugg_cat:
+        flags += f" SUGG_{_out(row, 'suggested_category')}"
+    if row.get("zero"):
+        flags += " ZERO_RULE"
+    if isinstance(note, str) and "UNIT_MISMATCH" in note:
+        flags += " UNIT_MISMATCH"
+    if name and not g_num and st != "CLEARED":
+        flags += " NON_NUMERIC NOT_PRICED"
+    if row.get("cleared"):
+        flags += " CLEARED"
+    if lm:
+        flags += f" LM_{_out(row, 'lm_target')}"
+    if row.get("manual"):
+        flags += " MANUAL"
+    elif sugg is not None:
+        flags += " HAS_SUGG"
+    if sugg_cat:
+        flags += " SUGG_ANY"
+    if st == "CLEARED":
+        cls = "xl-zero"
+    elif name and not g_num:
+        cls = "xl-red"
+    elif row.get("zero"):
+        cls = "xl-zero"
+    elif st in ("FUZZY", "AMBIGUOUS"):
+        cls = "xl-yellow"
+    else:
+        cls = ""
+    if not name:
+        cls += " xl-blank"
+    out = [f'<tr data-row="{_out(row, "row")}" data-status="{_out(row, "status")}"']
+    if group:
+        out.append(f' data-group="{e(group.get("id") if hasattr(group, "get") else group.id)}"')
+    if smart and name:
+        out.append(' data-selectable="1"')
+    out.append(f' data-flags="{flags}" class="{cls}">')
+    out.append(f'<td class="xl-gutter">{_out(row, "row")}</td><td class="xl-name">{e(name)}')
+    if st in ("FUZZY", "AMBIGUOUS"):
+        out.append(f'<div class="xl-sub">ресурсда: {_out(row, "picked_name")} ({e(score(row.get("score", "")))})</div>')
+    if note:
+        out.append(f'<div class="xl-sub text-amber-700">{_out(row, "note")}</div>')
+    else:
+        zr = zero_reason(row)
+        if zr.get("tag") == "RES'да 0":
+            out.append(f'<div class="xl-sub text-slate-500">{e(zr["why"])}</div>')
+    out.append(f'</td><td class="text-center">{e(row.get("unit"))}</td>'
+               f'<td class="num text-right">{e(qty(row.get("qty")))}</td>')
+    g_cls = "num text-right xl-g" + (" xl-red-text" if g and not g_num else "") + (" xl-manual" if row.get("manual") else "")
+    out.append(f'<td class="{g_cls}">')
+    if smart and name and not g_num and st != "CLEARED":
+        ph = e(som(sugg)) if sugg is not None else "нарх"
+        out.append(f'<div class="flex items-center justify-end gap-1"><input type="text" inputmode="decimal" class="g-input" '
+                   f'data-row="{_out(row, "row")}" autocomplete="off" placeholder="{ph}" '
+                   f'title="Нарх ёзинг ва Enter · Ctrl+Enter — белгиланган ҳамма қаторларга">')
+        if sugg is not None:
+            out.append(f'<button type="button" class="g-accept" data-row="{_out(row, "row")}" '
+                       f'title="Таклифни қабул қилиш: {e(som(sugg))}">{icon("check", "h-3 w-3", "3")}</button>')
+        out.append(f'</div><div class="xl-sub xl-red-text">{e(g)}')
+        if sugg is not None:
+            out.append(f" · таклиф {e(som(sugg))}")
+        out.append("</div>")
+    elif row.get("manual"):
+        out.append(f'<span>{e(som(g))}</span><button type="button" class="g-clear" data-row="{_out(row, "row")}" '
+                   f'title="Қўлда нархни бекор қилиш">×</button><div class="xl-sub text-sky-700">қўлда')
+        if sugg is not None:
+            out.append(f" · таклиф {e(som(sugg))}")
+        out.append("</div>")
+    else:
+        out.append(e(som(g)))
+        if sugg is not None:
+            out.append(f'<div class="xl-sub">таклиф {e(som(sugg))}</div>')
+    h = row.get("h")
+    out.append(f'</td><td class="num text-right font-medium{" xl-red-text" if is_error(h) else ""}">{e(som(h))}</td>')
+    h_som = e(som(h))
+    for c, _label in grid_columns:
+        on = name and cat == c
+        out.append(f'<td class="num text-right xl-cat{" xl-cat-on " + cat_class(c) if on else ""}">')
+        if on:
+            out.append(h_som)
+            if row.get("override"):
+                out.append(f'<span class="xl-mark" title="Қўлда ўзгартирилган (асли {_out(row, "default_category")})">'
+                           f'{icon("swap", "inline h-3 w-3")}</span>')
+        if sugg_cat == c or lm == c:
+            reason = row.get("suggest_reason") or "ресурс файлида шу бўлимда"
+            out.append(f'<span class="xl-sugg" title="Таклиф: {e(reason)}">{e(c)}?</span>')
+        out.append("</td>")
+    out.append('<td class="xl-extra">')
+    zr = zero_reason(row)
+    if st == "MANUAL":
+        out.append(_tag("bg-sky-600 text-white", "қўлда", f"асли: {status_label(row.get('orig_status'))}"))
+    elif st == "BASE":
+        out.append(_tag("bg-violet-100 text-violet-800", "БАЗА", localize_out(note) if "note" in row else ""))
+    elif st == "WORK_HEADER":
+        out.append(_tag("bg-slate-200 text-slate-700", "иш сарлавҳаси", zr.get("why")))
+    elif st == "CLEARED":
+        out.append(_tag("bg-slate-100 text-slate-600", "тозаланди"))
+    elif zr:
+        out.append(_tag("bg-slate-200 text-slate-700", zr["tag"], zr["why"]))
+    elif st == "NO_PRICE":
+        out.append(_tag("bg-rose-200 text-rose-800", "нархсиз"))
+    elif row.get("zero"):
+        out.append(_tag("bg-slate-100 text-slate-600", "нол қоидаси"))
+    elif name and not g_num:
+        out.append(_tag("bg-rose-600 text-white", f"{status_label(st)} · қўлда"))
+    elif st == "EXACT":
+        out.append(_tag("bg-emerald-100 text-emerald-800", "аниқ"))
+    elif st == "FUZZY":
+        out.append(_tag("bg-amber-300 text-amber-900", "FUZZY"))
+    elif st == "AMBIGUOUS":
+        out.append(_tag("bg-orange-300 text-orange-900", "ШАБҲАЛИ"))
+    elif st == "NOT_FOUND":
+        out.append(_tag("bg-rose-300 text-rose-900", "ТОПИЛМАДИ"))
+    out.append("</td></tr>")
+    return "".join(out)
+
+
+def localize_out(v) -> str:
+    from django.utils.formats import localize
+    return "None" if v is None else str(localize(v))
+
+
+@register.simple_tag
+def xl_rows(rows, group, result_mode, grid_columns):
+    """Смета жадвалининг қаторлари (``job.html``, «Жадвал»)."""
+    from django.utils.safestring import mark_safe
+    smart = result_mode == "smart"
+    return mark_safe("".join(_xl_row(r, group, smart, grid_columns) for r in rows))

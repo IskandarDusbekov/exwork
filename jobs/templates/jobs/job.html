@@ -1207,10 +1207,10 @@
         </div>
       </td>
     </tr>
-    {% for row in group.rows %}{% include "jobs/_row.html" %}{% endfor %}
+    {% xl_rows group.rows group result_mode grid_columns %}
     {% endfor %}
     {% else %}
-    {% for row in rows %}{% include "jobs/_row.html" with group=None %}{% endfor %}
+    {% xl_rows rows None result_mode grid_columns %}
     {% endif %}
     </tbody>
   </table>
