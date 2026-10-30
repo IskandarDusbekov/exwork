@@ -1,22 +1,19 @@
-{% extends "jobs/base.html" %}
-{% block title %}Янги пароль — Нархлаш{% endblock %}
+{% extends "accounts/_auth.html" %}
+{% block title %}Янги пароль — Муҳандис лойиҳачи{% endblock %}
 {% block content %}
-<div class="mx-auto mt-10 max-w-sm">
-  <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    {% if invalid %}
-    <h1 class="text-xl font-semibold text-slate-900">Ҳавола эскирган</h1>
-    <p class="mt-2 text-sm text-slate-600">Бу ҳавола муддати ўтган ёки аллақачон ишлатилган. Янги ҳавола сўранг.</p>
-    <a href="{% url 'reset_request' %}" class="mt-5 block w-full rounded-lg bg-slate-900 px-4 py-2 text-center text-sm font-medium text-white hover:bg-slate-700">Янги ҳавола сўраш</a>
-    {% else %}
-    <h1 class="text-xl font-semibold text-slate-900">Янги пароль</h1>
-    <p class="mt-1 text-sm text-slate-500">{{ email }} учун янги пароль ўйлаб топинг. Бошқа қурилмалардан тизимдан чиқарилади.</p>
-    <form method="post" class="mt-5 space-y-4" novalidate>
-      {% csrf_token %}
-      {% include "accounts/_field.html" with field=form.password1 hint="Камида 10 белги; фақат рақам ёки оддий сўз бўлмасин." %}
-      {% include "accounts/_field.html" with field=form.password2 %}
-      <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Паролни сақлаш</button>
-    </form>
-    {% endif %}
-  </div>
-</div>
+<p class="auth-k">Парол</p>
+{% if invalid %}
+<h1>Ҳавола эскирган</h1>
+<p class="auth-sub">Бу ҳавола муддати ўтган ёки аллақачон ишлатилган. Янги ҳавола сўранг.</p>
+<div class="auth-go"><a href="{% url 'reset_request' %}" class="btn btn-p">Янги ҳавола сўраш</a></div>
+{% else %}
+<h1>Янги пароль</h1>
+<p class="auth-sub">{{ email }} учун янги пароль ўйлаб топинг. Бошқа қурилмалардан тизимдан чиқарилади.</p>
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "accounts/_field.html" with field=form.password1 hint="Камида 10 белги; фақат рақам ёки оддий сўз бўлмасин." %}
+  {% include "accounts/_field.html" with field=form.password2 %}
+  <button type="submit" class="btn btn-p">Паролни сақлаш</button>
+</form>
+{% endif %}
 {% endblock %}

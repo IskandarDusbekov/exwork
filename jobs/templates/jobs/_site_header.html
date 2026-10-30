@@ -1,0 +1,21 @@
+{% load narx %}{% icon_sprite %}
+<header class="site-h">
+  <div class="wrap site-h-in">
+    {% include "jobs/_brand.html" %}
+    <nav class="site-nav" aria-label="Саҳифа бўлимлари">
+      <a href="{% url 'landing' %}#narxlash">Нархлаш</a>
+      <a href="{% url 'landing' %}#texnazor">Техназор</a>
+      <a href="{% url 'landing' %}#how">Иш тартиби</a>
+      <a href="{% url 'landing' %}#security">Хавфсизлик</a>
+    </nav>
+    <div class="site-act">
+      {% if user.is_authenticated %}
+      <a class="plain hide-s" href="{% url 'dashboard' %}">Дашборд</a>
+      <a class="btn btn-p" href="{% url 'index' %}">Смета юклаш</a>
+      {% else %}
+      <a class="plain" href="{% url 'login' %}">Кириш</a>
+      {% if signup_open %}<a class="btn btn-p hide-s" href="{% url 'register' %}">Ҳисоб очиш</a>{% endif %}
+      {% endif %}
+    </div>
+  </div>
+</header>

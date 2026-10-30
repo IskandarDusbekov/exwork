@@ -1,6 +1,6 @@
-<div>
-  <label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-medium text-slate-700">{{ field.label }}</label>
+<div class="f{% if field.errors %} has-err{% endif %}">
+  <label class="f-l" for="{{ field.id_for_label }}"><span>{{ field.label }}</span>{% if extra_url %}<a href="{{ extra_url }}">{{ extra_text }}</a>{% endif %}</label>
   {{ field }}
-  {% for e in field.errors %}<p class="mt-1 text-xs text-rose-600">{{ e }}</p>{% endfor %}
-  {% if hint %}<p class="mt-1 text-xs text-slate-500">{{ hint }}</p>{% endif %}
+  {% for e in field.errors %}<p class="f-e">{{ e }}</p>{% endfor %}
+  {% if hint %}<p class="f-h">{{ hint }}</p>{% endif %}
 </div>

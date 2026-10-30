@@ -12,8 +12,7 @@ PASSWORD_MESSAGES = {
     "password_too_similar": "Пароль исм, фамилия ёки email'га жуда ўхшаш.",
 }
 
-INPUT = ("w-full rounded-lg border border-slate-300 px-3 py-2 text-sm "
-         "focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900")
+INPUT = "fld"  # кўриниши accounts/_auth.html да
 
 
 def password_errors(password, user) -> list:

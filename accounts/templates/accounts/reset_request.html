@@ -1,25 +1,22 @@
-{% extends "jobs/base.html" %}
-{% block title %}Паролни тиклаш — Нархлаш{% endblock %}
+{% extends "accounts/_auth.html" %}
+{% block title %}Паролни тиклаш — Муҳандис лойиҳачи{% endblock %}
 {% block content %}
-<div class="mx-auto mt-10 max-w-sm">
-  <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <h1 class="text-xl font-semibold text-slate-900">Паролни тиклаш</h1>
-    {% if sent %}
-    <div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900" role="status">
-      Агар <b>{{ email }}</b> билан ҳисоб бўлса, унга паролни тиклаш ҳаволаси юборилди. Почтангизни (ва «Спам» папкасини) текширинг.
-      Ҳавола 2 соат амал қилади.
-    </div>
-    <a href="{% url 'login' %}" class="mt-5 block w-full rounded-lg bg-slate-900 px-4 py-2 text-center text-sm font-medium text-white hover:bg-slate-700">Киришга қайтиш</a>
-    {% else %}
-    <p class="mt-1 text-sm text-slate-500">Ҳисобингиз email'ини киритинг — паролни тиклаш ҳаволасини юборамиз.</p>
-    {% if error %}<div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{{ error }}</div>{% endif %}
-    <form method="post" class="mt-5 space-y-4" novalidate>
-      {% csrf_token %}
-      {% include "accounts/_field.html" with field=form.email %}
-      <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Ҳавола юбориш</button>
-    </form>
-    {% endif %}
-  </div>
-  <p class="mt-4 text-center text-sm text-slate-500"><a href="{% url 'login' %}" class="font-medium text-slate-900 underline">Киришга қайтиш</a></p>
+<p class="auth-k">Парол</p>
+<h1>Паролни тиклаш</h1>
+{% if sent %}
+<div class="msg msg-ok" role="status">
+  Агар <b>{{ email }}</b> билан ҳисоб бўлса, унга паролни тиклаш ҳаволаси юборилди. Почтангизни (ва «Спам» папкасини) текширинг.
+  Ҳавола 2 соат амал қилади.
 </div>
+<div class="auth-go"><a href="{% url 'login' %}" class="btn btn-p">Киришга қайтиш</a></div>
+{% else %}
+<p class="auth-sub">Ҳисобингиз email'ини киритинг — паролни тиклаш ҳаволасини юборамиз.</p>
+{% if error %}<div class="msg msg-err" role="alert">{{ error }}</div>{% endif %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "accounts/_field.html" with field=form.email %}
+  <button type="submit" class="btn btn-p">Ҳавола юбориш</button>
+</form>
+<p class="auth-alt"><a href="{% url 'login' %}">Киришга қайтиш</a></p>
+{% endif %}
 {% endblock %}

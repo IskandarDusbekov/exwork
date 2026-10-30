@@ -68,7 +68,7 @@ class SecurityPanelTests(TestCase):
         self.client.force_login(self.admin)
         s = LoginSession.objects.get(user=self.ali)
         self.client.post(reverse("panel:session_revoke", args=[self.ali.pk, s.pk]))
-        self.assertEqual(self.ali_client.get(reverse("index")).status_code, 302)  # чиқариб юборилди
+        self.assertEqual(self.ali_client.get(reverse("dashboard")).status_code, 302)  # чиқариб юборилди
         s.refresh_from_db()
         self.assertEqual(s.end_reason, "revoked")
         self.assertTrue(Event.objects.filter(kind=Event.Kind.ADMIN_SESSION, target=self.ali).exists())

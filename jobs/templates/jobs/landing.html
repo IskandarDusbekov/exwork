@@ -3,249 +3,376 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Нархлаш — локал сметани автоматик нархлаш</title>
-  <meta name="description" content="Локал смета ресурсларини RES нархлари билан сонияларда нархлайди: жуфтлаш, мослаштириш, свод, ҳисобот.">
+  <title>Муҳандис лойиҳачи — сметани нархлаш ва техназор</title>
+  <meta name="description" content="Муҳандис лойиҳачи (mloyihachi.uz): локал смета ресурсларини RES нархлари билан сонияларда нархлайди, техназор — офёрта бўйича ойма-ой бажарилган ишлар.">
+  <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}">{# frontend/: npm run build #}
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  {# «қурилади» эффекти: биринчи кадрдан яширин турсин; assemble.js юкланмаса — 3 с дан кейин ҳаммаси кўринади #}
+  <script>document.documentElement.classList.add("asm");setTimeout(function(){if(!window.__asmReady)document.documentElement.classList.remove("asm")},3000);</script>
+  {% include "jobs/_site_css.html" %}
   <style>
-    body { font-family: Inter, "Segoe UI", system-ui, sans-serif; }
-    .num { font-variant-numeric: tabular-nums; }
-    .grid-bg { background-image: linear-gradient(rgba(148, 163, 184, .08) 1px, transparent 1px), linear-gradient(90deg, rgba(148, 163, 184, .08) 1px, transparent 1px); background-size: 32px 32px; }
-    .glow { background: radial-gradient(600px 300px at 20% 0%, rgba(16, 185, 129, .22), transparent 70%), radial-gradient(500px 300px at 90% 20%, rgba(56, 189, 248, .14), transparent 70%); }
-    .mock td, .mock th { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
-    .fade-in { animation: fade .6s ease both; }
-    @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-    .price-cell { animation: pop .5s ease both; }
-    @keyframes pop { from { background: #bbf7d0; } to { background: transparent; } }
-    @media (prefers-reduced-motion: reduce) { .fade-in, .price-cell { animation: none; } }
+    /* ===== landing: «чизма варағи» — оқ варақ, ингичка чизиқлар, моно изоҳлар, позиция рақамлари ===== */
+    .hero { position: relative; border-bottom: 1px solid var(--line); overflow-x: clip; }
+    .hero-in { display: grid; gap: clamp(40px, 5vw, 88px); padding-block: clamp(48px, 7vw, 112px) clamp(56px, 7vw, 104px); }
+    @media (min-width: 1100px) { .hero-in { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: center; } }
+    .eyebrow { display: flex; align-items: center; gap: 12px; font: 500 12.5px/1 var(--fm); letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
+    .eyebrow::before { content: ""; width: 28px; height: 1px; background: var(--ink); }
+    .hero h1 { margin-top: 22px; font-size: clamp(2.35rem, 1.3rem + 3.1vw, 4.4rem); line-height: 1.03; font-weight: 600; letter-spacing: -.028em; text-wrap: balance; }
+    .hero h1 em { font-style: normal; color: var(--acc); }
+    .hero .lead { margin-top: 22px; max-width: 34em; font-size: clamp(1.02rem, .95rem + .3vw, 1.2rem); line-height: 1.6; color: var(--ink-2); }
+    .cta { margin-top: 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+    .spec { margin-top: 44px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--ink); }
+    .spec div { padding: 14px 16px 0 0; }
+    .spec div + div { padding-left: 16px; border-left: 1px solid var(--line); }
+    .spec dt { font: 500 11.5px/1.3 var(--fm); letter-spacing: .04em; text-transform: uppercase; color: var(--mute); }
+    .spec dd { margin: 6px 0 0; font: 600 clamp(1.25rem, 1rem + .9vw, 1.75rem)/1.1 var(--fm); letter-spacing: -.02em; }
+
+    /* смета парчаси — Excel варағи, позиция рақамлари билан */
+    .sheet-fig { position: relative; min-width: 0; }
+    .sheet-fig::before { content: ""; position: absolute; inset: -28px -28px -28px -28px; z-index: -1;
+      background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 16px 16px;
+      -webkit-mask-image: radial-gradient(closest-side, #000 60%, transparent); mask-image: radial-gradient(closest-side, #000 60%, transparent); }
+    .sheet { background: #fff; border: 1px solid var(--line-2); box-shadow: 0 1px 0 var(--line), 0 24px 48px -28px rgba(13, 21, 34, .28); }
+    .sheet-bar { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--line); font: 500 12px var(--fm); color: var(--ink-2); }
+    .sheet-bar .xl { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 3px; background: #1d6f42; color: #fff; font: 700 10px var(--ff); }
+    .sheet-bar .st { margin-left: auto; color: var(--acc); }
+    .sheet-scroll { overflow-x: auto; }
+    .xt { width: 100%; min-width: 600px; border-collapse: collapse; font: 12.5px/1.35 var(--ff); color: var(--ink); }
+    .xt th, .xt td { border: 1px solid #e4e7eb; padding: 6px 9px; white-space: nowrap; }
+    .xt thead th { background: #f4f5f7; color: #6a7380; font: 500 11px var(--fm); text-align: center; }
+    .xt td.rn { background: #f4f5f7; color: #8a929d; font: 500 11px var(--fm); text-align: center; width: 34px; }
+    .xt td.n { text-align: right; font-family: var(--fm); font-size: 12px; }
+    .xt tr.w td:not(.rn) { font-weight: 600; background: #fafbfc; }
+    .xt td.pr { background: var(--acc-soft); color: var(--acc-ink); font-weight: 600; }
+    .xt td.nf { background: var(--bad-soft); color: var(--bad); font: 600 11.5px var(--fm); text-align: center; }
+    .xt td.dim { color: #9aa2ad; }
+    .pos { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 6px; border: 1px solid var(--ink); border-radius: 50%; font: 600 10px var(--fm); color: var(--ink); background: #fff; vertical-align: -4px; }
+    .sheet-foot { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+    .sheet-foot div { padding: 10px 14px; font-size: 12px; color: var(--mute); }
+    .sheet-foot div + div { border-left: 1px solid var(--line); }
+    .sheet-foot b { display: block; font: 600 15px var(--fm); color: var(--ink); }
+    .legend { margin-top: 18px; display: grid; gap: 8px; font-size: 13.5px; color: var(--ink-2); }
+    @media (min-width: 640px) { .legend { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
+    .legend li { display: flex; gap: 8px; list-style: none; }
+    .legend .pos { flex: none; margin: 1px 0 0; }
+
+
+    /* ===== «қурилади»: static/js/assemble.js — ўнг четда минорали кран блокларни олиб келади, сарлавҳа сўзлари ғиштдек терилади.
+       Фақат html.asm да; JS йўқ, тор экран ёки ҳаракат ўчиқ — ҳаммаси жойида. ===== */
+    html.asm:not(.asm-on) :is(.hero h1, .sec-h h2, .final h2) { visibility: hidden; }
+    html.asm .asm-wait { opacity: 0; }
+    html.asm body { overflow-x: clip; }  /* юк узоқдан (экран четидан) келганда ён айлантиргич чиқмасин */
+    .asm-fly { position: relative; z-index: 850; transform-origin: 50% 0; will-change: transform; }
+    .tc { position: fixed; inset: 0; z-index: 900; pointer-events: none; }
+    .tc-ln { fill: none; stroke: #6f7a89; stroke-width: 1.3; stroke-linejoin: round; stroke-linecap: round; }
+    .tc-thin { fill: none; stroke: #6f7a89; stroke-width: .8; }
+    .tc-solid { fill: var(--paper); stroke: #6f7a89; stroke-width: 1.3; }
+    .tc-win { fill: var(--acc-soft); stroke: #6f7a89; stroke-width: .8; }
+    .tc-cab { stroke: #4a5566; stroke-width: 1; }
+    .tc-sling { stroke: var(--acc); stroke-width: 1.3; }
+    .tc-hk { stroke-width: 1.8; }
+    html.asm .asm-brick .asm-w { display: inline-block; opacity: 0; transform: translateY(-.6em); }
+    html.asm .asm-brick.asm-go .asm-w { animation: asm-brick .5s cubic-bezier(.3, 1.45, .5, 1) calc(var(--i) * .07s) both; }
+    @keyframes asm-brick { to { opacity: 1; transform: none; } }
+    /* бўлим сарлавҳаси */
+    .sec { padding-block: clamp(64px, 8vw, 128px); border-bottom: 1px solid var(--line); }
+    .sec-h { display: grid; gap: 14px 48px; margin-bottom: clamp(36px, 4vw, 64px); }
+    @media (min-width: 1000px) { .sec-h { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: end; } }
+    .sec-h h2 { font-size: clamp(1.8rem, 1.2rem + 1.8vw, 3rem); line-height: 1.08; font-weight: 600; letter-spacing: -.022em; text-wrap: balance; margin-top: 14px; }
+    .sec-h p { max-width: 38em; color: var(--ink-2); line-height: 1.65; }
+
+    /* икки модул */
+    .mods { display: grid; gap: 40px; }
+    @media (min-width: 1000px) { .mods { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(40px, 5vw, 96px); } }
+    .mod { border-top: 2px solid var(--ink); padding-top: 22px; display: grid; gap: 16px; align-content: start; min-width: 0; }
+    .mod-k { display: flex; justify-content: space-between; font: 500 12px var(--fm); letter-spacing: .05em; text-transform: uppercase; color: var(--mute); }
+    .mod h3 { font-size: clamp(1.4rem, 1.1rem + .8vw, 1.9rem); font-weight: 600; letter-spacing: -.015em; }
+    .mod p { color: var(--ink-2); line-height: 1.65; max-width: 36em; }
+    .ticks { display: grid; border-top: 1px solid var(--line); }
+    .ticks li { list-style: none; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+    .ticks li::before { content: ""; width: 12px; height: 7px; margin-top: 6px; border-left: 2px solid var(--acc); border-bottom: 2px solid var(--acc); transform: rotate(-45deg); }
+    .mini { border: 1px solid var(--line-2); background: #fff; overflow-x: auto; }
+    .mini table { width: 100%; min-width: 440px; border-collapse: collapse; font-size: 13px; }
+    .mini th, .mini td { padding: 8px 12px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+    .mini th { font: 500 11px var(--fm); text-transform: uppercase; letter-spacing: .04em; color: var(--mute); background: #f7f8f9; }
+    .mini th:first-child, .mini td:first-child { text-align: left; white-space: normal; }
+    .mini td.n { font-family: var(--fm); }
+    .mini td.now { background: var(--acc-soft); color: var(--acc-ink); font-weight: 600; }
+    .mini tr.r td { color: var(--mute); font-size: 12.5px; }
+    .mini tr.r td:first-child { padding-left: 26px; }
+    .mini caption { caption-side: bottom; text-align: left; padding: 9px 12px; font-size: 12px; color: var(--mute); border-top: 1px solid var(--line); }
+
+    /* қадамлар — ўлчам занжири */
+    .chain { display: grid; gap: 28px; counter-reset: st; }
+    @media (min-width: 900px) { .chain { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; } }
+    .chain li { list-style: none; position: relative; padding-top: 34px; min-width: 0; }
+    @media (min-width: 900px) { .chain li { padding-right: 32px; } }
+    .chain li::before { content: ""; position: absolute; left: 0; right: 0; top: 10px; height: 1px; background: var(--ink); }
+    .chain li::after { counter-increment: st; content: "0" counter(st); position: absolute; top: 0; left: 8px; padding: 0 8px; background: var(--paper); font: 600 13px/20px var(--fm); color: var(--ink); }
+    /* ўлчам чизиғининг белгилари: ҳар қадам бошида, охирида — якуний */
+    .chain li .tk { position: absolute; top: 3px; left: 0; width: 1px; height: 15px; background: var(--ink); }
+    .chain li .tk-end { position: absolute; top: 3px; right: 0; width: 1px; height: 15px; background: var(--ink); }
+    .chain h3 { font-size: 1.15rem; font-weight: 600; }
+    .chain p { margin-top: 8px; color: var(--ink-2); line-height: 1.6; font-size: 15px; max-width: 26em; }
+
+    /* ҳолатлар жадвали */
+    .states { width: 100%; border-collapse: collapse; }
+    .states td { padding: 16px 16px 16px 0; border-top: 1px solid var(--line); vertical-align: top; line-height: 1.55; }
+    .states tr:last-child td { border-bottom: 1px solid var(--line); }
+    .states td:first-child { width: 170px; }
+    .states td:last-child { color: var(--mute); }
+    .states .t { font-weight: 600; display: block; }
+    .chip { display: inline-block; padding: 3px 9px; font: 600 12px var(--fm); letter-spacing: .02em; border: 1px solid currentColor; }
+    .c-ok { color: var(--acc); background: var(--acc-soft); }
+    .c-warn { color: var(--warn); background: var(--warn-soft); }
+    .c-bad { color: var(--bad); background: var(--bad-soft); }
+    @media (max-width: 720px) { .states td { display: block; padding: 4px 0; border: 0; width: auto !important; } .states tr { display: block; padding: 14px 0; border-top: 1px solid var(--line); } }
+
+    /* ўлчанган натижа */
+    .measure { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 2px solid var(--ink); }
+    @media (min-width: 900px) { .measure { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    .measure div { padding: 22px 20px 26px 0; border-bottom: 1px solid var(--line); }
+    .measure div:not(:first-child) { padding-left: 20px; }
+    @media (min-width: 900px) { .measure div + div { border-left: 1px solid var(--line); } }
+    @media (max-width: 899px) { .measure div:nth-child(even) { border-left: 1px solid var(--line); } .measure div:nth-child(odd) { padding-left: 0; } }
+    .measure b { display: block; font: 600 clamp(1.9rem, 1.3rem + 1.8vw, 3.1rem)/1 var(--fm); letter-spacing: -.03em; }
+    .measure span { display: block; margin-top: 10px; font-size: 14px; color: var(--ink-2); line-height: 1.45; }
+    .note { margin-top: 14px; font-size: 13px; color: var(--mute); }
+
+    /* имкониятлар ва хавфсизлик рўйхати */
+    .index { display: grid; border-top: 1px solid var(--line); }
+    @media (min-width: 760px) { .index { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: clamp(32px, 4vw, 72px); } }
+    @media (min-width: 1280px) { .index.three { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .index > div { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 14px; padding: 22px 0; border-bottom: 1px solid var(--line); }
+    .index .ic { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--line-2); color: var(--ink); }
+    .index .ic svg { width: 18px; height: 18px; }
+    [id] { scroll-margin-top: 96px; }
+    .index h3 { font-size: 1.02rem; font-weight: 600; }
+    .index p { margin-top: 6px; font-size: 14.5px; line-height: 1.6; color: var(--ink-2); }
+
+    /* якуний банд */
+    .final { background: var(--ink); color: #fff; }
+    .final-in { display: grid; gap: 28px; padding-block: clamp(56px, 7vw, 104px); }
+    @media (min-width: 1000px) { .final-in { grid-template-columns: minmax(0, 1fr) auto; align-items: end; } }
+    .final h2 { font-size: clamp(1.9rem, 1.2rem + 2vw, 3.2rem); font-weight: 600; line-height: 1.06; letter-spacing: -.024em; max-width: 18em; text-wrap: balance; }
+    .final p { margin-top: 14px; color: #a9b3c1; max-width: 40em; line-height: 1.6; }
+    .final .btn-p { background: #fff; color: var(--ink); }
+    .final .btn-p:hover { background: #e9f5ef; }
+    .final .lnk { color: #fff; }
   </style>
 </head>
-<body class="bg-white text-slate-800 antialiased">
-  {% icon_sprite %}
+<body>
+{% include "jobs/_site_header.html" %}
 
-{# ================= навигация ================= #}
-<header class="absolute inset-x-0 top-0 z-20">
-  <div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-4">
-    <a href="{% url 'landing' %}" class="flex items-center gap-2 text-white">
-      <span class="grid h-9 w-9 place-items-center rounded-lg bg-emerald-500 text-slate-950">{% icon "logo" "h-5 w-5" %}</span>
-      <span class="text-lg font-bold tracking-tight">Нархлаш</span></a>
-    <nav class="ml-6 hidden items-center gap-6 text-sm text-slate-300 md:flex">
-      <a href="#features" class="hover:text-white">Имкониятлар</a>
-      <a href="#how" class="hover:text-white">Қандай ишлайди</a>
-      <a href="#speed" class="hover:text-white">Тезлик</a>
-      <a href="#security" class="hover:text-white">Хавфсизлик</a>
-    </nav>
-    <a href="{% url 'dashboard' %}" class="ml-auto hidden rounded-lg px-3 py-2 text-sm font-medium text-slate-200 hover:text-white sm:block">Дашборд</a>
-    <a href="{% url 'index' %}" class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-emerald-50 sm:ml-0 ml-auto">Смета юклаш</a>
-  </div>
-</header>
-
+<main>
 {# ================= бош қисм ================= #}
-<section class="relative overflow-hidden bg-slate-950 text-white">
-  <div class="grid-bg glow absolute inset-0"></div>
-  <div class="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pb-20 pt-32 lg:grid-cols-[1.05fr_1fr] lg:pt-36">
-    <div class="fade-in min-w-0">
-      <span class="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300">
-        <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Смета­чилар учун</span>
-      <h1 class="mt-5 text-[2rem] font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
-        Локал сметани <span class="text-emerald-400">RES нархлари</span> билан сонияларда нархланг</h1>
-      <p class="mt-5 max-w-xl text-lg leading-relaxed text-slate-300">
-        Минглаб ресурсни қўлда қидириб, нархини кўчириб ёзиш шарт эмас. Нархлаш ресурсларни RES билан номи ва бирлиги бўйича солиштиради,
-        нархни ёзади, сводни ҳисоблайди — тайёр Excel файлни беради.</p>
-      <div class="mt-8 flex flex-wrap gap-3">
-        <a href="{% url 'index' %}" class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 hover:bg-emerald-400">
-          {% icon "upload" "h-5 w-5" %} Смета юклаш</a>
-        <a href="#how" class="inline-flex items-center gap-2 rounded-xl border border-white/15 px-5 py-3 font-semibold text-white hover:bg-white/5">Қандай ишлайди {% icon "arrow-right" "h-4 w-4" %}</a>
+<section class="hero">
+  <div class="wrap hero-in">
+    <div>
+      <p class="eyebrow">Лойиҳачи ва смета­чилар учун</p>
+      <h1>Локал смета&nbsp;— <em>RES нархлари билан</em>, бир неча сонияда</h1>
+      <p class="lead">Тизим ҳар бир ресурсни RES билан номи ва бирлиги бўйича солиштиради, нархни ёзади ва сводни ҳисоблайди.
+        Аниқ топилмаган қатор тахмин билан тўлдирилмайди — смета­чи кўриши учун белгиланади.</p>
+      <div class="cta">
+        {% if user.is_authenticated %}
+        <a class="btn btn-p" href="{% url 'index' %}">Смета юклаш {% icon "arrow-right" "h-4 w-4" %}</a>
+        <a class="lnk" href="{% url 'texnazor:index' %}">Техназорга ўтиш</a>
+        {% else %}
+        <a class="btn btn-p" href="{% if signup_open %}{% url 'register' %}{% else %}{% url 'login' %}{% endif %}">{% if signup_open %}Ҳисоб очиш{% else %}Тизимга кириш{% endif %} {% icon "arrow-right" "h-4 w-4" %}</a>
+        <a class="lnk" href="#how">Қандай ишлайди</a>
+        {% endif %}
       </div>
-      <dl class="mt-10 grid max-w-lg grid-cols-3 gap-4 border-t border-white/10 pt-6">
-        <div><dt class="text-xs text-slate-400">1 800 қаторли смета</dt><dd class="num mt-1 text-xl font-bold sm:text-2xl">≈ 14 с</dd></div>
-        <div><dt class="text-xs text-slate-400">аниқ топилган ресурс</dt><dd class="num mt-1 text-xl font-bold sm:text-2xl">99,8%</dd></div>
-        <div><dt class="text-xs text-slate-400">формат</dt><dd class="mt-1 text-xl font-bold sm:text-2xl">.xls .xlsx</dd></div>
+      <dl class="spec">
+        <div><dt>Сметада қатор</dt><dd>1 800</dd></div>
+        <div><dt>Нархлаш вақти</dt><dd>≈ 14 с</dd></div>
+        <div><dt>Аниқ топилди</dt><dd>99,8%</dd></div>
       </dl>
     </div>
 
-    {# натижа намунаси: олдин / кейин #}
-    <div class="fade-in relative min-w-0" style="animation-delay:.15s">
-      <div class="absolute -inset-4 rounded-3xl bg-emerald-500/10 blur-2xl"></div>
-      <div class="relative overflow-hidden rounded-2xl bg-white text-slate-800 shadow-2xl ring-1 ring-white/10">
-        <div class="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-xs">
-          <span class="flex gap-1"><i class="h-2.5 w-2.5 rounded-full bg-rose-300"></i><i class="h-2.5 w-2.5 rounded-full bg-amber-300"></i><i class="h-2.5 w-2.5 rounded-full bg-emerald-300"></i></span>
-          <span class="ml-2 font-medium text-slate-600">Локал_смета_narxlandi.xlsx</span>
-          <span class="ml-auto rounded bg-emerald-100 px-1.5 py-0.5 font-semibold text-emerald-700">нархланди</span>
+    <figure class="sheet-fig" aria-label="Нархланган смета намунаси">
+      <div class="sheet">
+        <div class="sheet-bar"><span class="xl">X</span>Локал_смета_2-1_narxlandi.xlsx<span class="st">● нархланди</span></div>
+        <div class="sheet-scroll">
+          <table class="xt">
+            <thead><tr><th></th><th>A</th><th style="text-align:left">C · Наименование</th><th>D · Ед.</th><th>F · Кол-во</th><th>G · Цена</th><th>H · Сумма</th></tr></thead>
+            <tbody>
+              <tr class="w"><td class="rn">22</td><td>12</td><td>Разработка грунта экскаватором</td><td>1000 м3</td><td class="n">0,84</td><td class="dim n">0</td><td class="dim n">—</td></tr>
+              <tr><td class="rn">23</td><td>12.1</td><td>Затраты труда рабочих</td><td>чел.-ч</td><td class="n">11,59</td><td class="pr n"><span class="pos">1</span>28 500</td><td class="n">330 372</td></tr>
+              <tr><td class="rn">24</td><td>12.2</td><td>Экскаваторы 0,65 м3</td><td>маш.-ч</td><td class="n">17,98</td><td class="pr n" style="animation-delay:.1s">410 000</td><td class="n">7 370 160</td></tr>
+              <tr><td class="rn">25</td><td>12.3</td><td>Бульдозеры 79 кВт</td><td>маш.-ч</td><td class="n">3,53</td><td class="pr n" style="animation-delay:.2s">365 000</td><td class="n">1 287 720</td></tr>
+              <tr class="w"><td class="rn">26</td><td>13</td><td>Укладка стальных трубопроводов 219 мм</td><td>км</td><td class="n">0,35</td><td class="dim n">0</td><td class="dim n">—</td></tr>
+              <tr><td class="rn">27</td><td>13.1</td><td>Трубы стальные 219х6</td><td>м</td><td class="n">350</td><td class="pr n" style="animation-delay:.3s">685 000</td><td class="n">239 750 000</td></tr>
+              <tr><td class="rn">28</td><td>13.2</td><td>Электроды Э46</td><td>т</td><td class="n">0,04</td><td class="nf"><span class="pos" style="border-color:currentColor;color:inherit">2</span>ТОПИЛМАДИ</td><td class="dim n">0</td></tr>
+            </tbody>
+          </table>
         </div>
-        <div class="overflow-x-auto">
-        <table class="mock w-full text-[12px]">
-          <thead class="bg-slate-50 text-left text-[10px] uppercase tracking-wide text-slate-400">
-            <tr><th>Ресурс</th><th>Бирл.</th><th class="text-right">Жами</th><th class="text-right">Нарх</th><th class="text-right">Сумма</th></tr></thead>
-          <tbody class="num">
-            <tr class="font-semibold text-slate-900"><td colspan="5">Разработка грунта экскаватором · 0,84 × 1000 м3</td></tr>
-            <tr><td>Затраты труда рабочих</td><td>чел.-ч</td><td class="text-right">11,59</td><td class="price-cell text-right" style="animation-delay:.4s">28 500</td><td class="text-right">330 372</td></tr>
-            <tr><td>Экскаваторы 0,65 м3</td><td>маш.-ч</td><td class="text-right">17,98</td><td class="price-cell text-right" style="animation-delay:.55s">410 000</td><td class="text-right">7 370 160</td></tr>
-            <tr><td>Бульдозеры 79 кВт</td><td>маш.-ч</td><td class="text-right">3,53</td><td class="price-cell text-right" style="animation-delay:.7s">365 000</td><td class="text-right">1 287 720</td></tr>
-            <tr class="font-semibold text-slate-900"><td colspan="5">Укладка стальных трубопроводов 219 мм · 0,35 км</td></tr>
-            <tr><td>Трубы стальные 219х6</td><td>м</td><td class="text-right">350</td><td class="price-cell text-right" style="animation-delay:.85s">685 000</td><td class="text-right">239 750 000</td></tr>
-            <tr class="bg-rose-50"><td>Электроды Э46 (RES'да йўқ)</td><td>т</td><td class="text-right">0,04</td><td class="text-right font-semibold text-rose-600">ТОПИЛМАДИ</td><td class="text-right text-slate-400">—</td></tr>
-          </tbody>
-        </table>
-        </div>
-        <div class="grid grid-cols-3 border-t border-slate-200 bg-slate-50 text-center text-[11px]">
-          <div class="px-2 py-2.5"><b class="block text-base text-emerald-600">10</b>аниқ</div>
-          <div class="border-x border-slate-200 px-2 py-2.5"><b class="block text-base text-rose-600">1</b>қизил — текширинг</div>
-          <div class="px-2 py-2.5"><b class="num block text-base text-slate-900">423,0 млн</b>Всего с НДС</div>
+        <div class="sheet-foot">
+          <div><b>10</b>аниқ нархланди</div>
+          <div><b style="color:var(--bad)">1</b>смета­чи кўради</div>
+          <div><span class="pos" style="vertical-align:0;margin:0 0 4px">3</span><b>423,0 млн</b>Всего с НДС</div>
         </div>
       </div>
-    </div>
+      <ul class="legend">
+        <li><span class="pos">1</span><span>Нарх RES'дан олинди: ном ва бирлик аниқ мос келди.</span></li>
+        <li><span class="pos">2</span><span>RES'да йўқ — қизил қолади, энг яқин ресурс таклиф қилинади.</span></li>
+        <li><span class="pos">3</span><span>Свод: транспорт, устама, суғурта ва ҚҚС билан.</span></li>
+      </ul>
+    </figure>
   </div>
 </section>
 
-{# ================= муаммо ================= #}
-<section class="border-b border-slate-100 bg-slate-50">
-  <div class="mx-auto grid max-w-6xl gap-8 px-4 py-14 md:grid-cols-3">
-    <div class="md:col-span-1">
-      <p class="text-sm font-semibold uppercase tracking-wider text-emerald-600">Нима учун</p>
-      <h2 class="mt-2 text-2xl font-bold tracking-tight text-slate-900">Қўлда нархлаш — секин ва хатоли</h2>
+{# ================= икки иш ================= #}
+<section class="sec" id="modules">
+  <div class="wrap">
+    <div class="sec-h">
+      <div><p class="eyebrow">Тизимда нима бор</p><h2>Сметадан тортиб ойлик актгача</h2></div>
+      <p>Лойиҳачи сметани нархлайди, техник назорат эса шу смета бўйича ҳар ойда қанча иш бажарилганини юритади. Иккаласи бир тизимда, ҳар бир фойдаланувчининг иши фақат ўзига кўринади.</p>
     </div>
-    <div class="grid gap-6 sm:grid-cols-3 md:col-span-2">
-      <div><p class="font-semibold text-slate-900">Минглаб қатор</p><p class="mt-1 text-sm leading-relaxed text-slate-600">Битта объект сметасида 1 500+ ресурс бўлади — ҳар бирини RES'дан қўлда қидириш жуда кўп вақт олади.</p></div>
-      <div><p class="font-semibold text-slate-900">Кўчиришдаги хато</p><p class="mt-1 text-sm leading-relaxed text-slate-600">Бошқа қатор нархини олиш, бирликни адаштириш — суммани кўп ёки кам кўрсатади.</p></div>
-      <div><p class="font-semibold text-slate-900">Ҳар хил жадвал</p><p class="mt-1 text-sm leading-relaxed text-slate-600">Ҳар бир лойиҳачида устунлар бошқача: ном C'да ёки G'да, миқдор бир ёки икки устунда.</p></div>
-    </div>
-  </div>
-</section>
-
-{# ================= имкониятлар ================= #}
-<section id="features" class="scroll-mt-8">
-  <div class="mx-auto max-w-6xl px-4 py-20">
-    <div class="max-w-2xl">
-      <p class="text-sm font-semibold uppercase tracking-wider text-emerald-600">Нима қилади</p>
-      <h2 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">Юклашдан тайёр файлгача — бир жойда</h2>
-      <p class="mt-3 text-slate-600">Смета­чи фақат натижани текширади. Қолганини тизим бажаради.</p>
-    </div>
-    <div class="mt-12 grid gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-3">
-      {% for icon_name, title, text in features %}
-      <div class="bg-white p-6">
-        <span class="grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-emerald-600">{% icon icon_name "h-5 w-5" %}</span>
-        <h3 class="mt-4 font-semibold text-slate-900">{{ title }}</h3>
-        <p class="mt-1.5 text-sm leading-relaxed text-slate-600">{{ text }}</p>
-      </div>
-      {% endfor %}
+    <div class="mods">
+      <article class="mod" id="narxlash">
+        <div class="mod-k"><span>Модул 1</span><span>Смета</span></div>
+        <h3>Нархлаш</h3>
+        <p>Локал смета ва RES файлини ёки бутун объект папкасини юкланг. Тизим листларни мазмунидан танийди, локални мос RES билан жуфтлайди ва нархлайди.</p>
+        <ul class="ticks">
+          <li>Нарх фақат ном аниқ ва бирлик бир хил бўлса ёзилади</li>
+          <li>Ўхшаш ва шубҳали қаторлар учун таклиф — тасдиқни смета­чи беради</li>
+          <li>Иш ҳақи, машина, материал, кабель ва ускуна алоҳида устунларда</li>
+          <li>ZIP, RAR ёки папка — ҳамма қисмлар битта натижада</li>
+        </ul>
+      </article>
+      <article class="mod" id="texnazor">
+        <div class="mod-k"><span>Модул 2</span><span>Техник назорат</span></div>
+        <h3>Техназор</h3>
+        <p>Шартнома офёртасини юкланг — блок ва бўлимлар бўйича ҳар ойда бажарилган ҳажмни ёзасиз. Ресурслар меъёр бўйича ўзи ҳисобланади.</p>
+        <div class="mini">
+          <table>
+            <thead><tr><th>Иш ва ресурс</th><th>На единицу</th><th>Октябрь</th><th>Ноябрь</th><th>Қолдиқ</th></tr></thead>
+            <tbody>
+              <tr><td><b>Разборка деревянных заполнений проемов</b>, 100 м2</td><td class="n">0,816</td><td class="n">0,4</td><td class="n now">0,416</td><td class="n">0</td></tr>
+              <tr class="r"><td>Затраты труда рабочих, чел.-ч</td><td class="n">188,54</td><td class="n">75,416</td><td class="n">78,433</td><td class="n">0</td></tr>
+              <tr class="r"><td>Подъемники мачтовые 0,5 т, маш.-ч</td><td class="n">7,74</td><td class="n">3,096</td><td class="n">3,220</td><td class="n">0</td></tr>
+            </tbody>
+            <caption>Ресурс = меъёр × шу ойдаги иш ҳажми. Ойни ёпсангиз, ҳажмлари ўзгармайди.</caption>
+          </table>
+        </div>
+      </article>
     </div>
   </div>
 </section>
 
 {# ================= қандай ишлайди ================= #}
-<section id="how" class="scroll-mt-8 bg-slate-950 text-white">
-  <div class="mx-auto max-w-6xl px-4 py-20">
-    <div class="max-w-2xl">
-      <p class="text-sm font-semibold uppercase tracking-wider text-emerald-400">Қандай ишлайди</p>
-      <h2 class="mt-2 text-3xl font-bold tracking-tight">Тўрт қадам</h2>
+<section class="sec" id="how">
+  <div class="wrap">
+    <div class="sec-h">
+      <div><p class="eyebrow">Иш тартиби</p><h2>Тўрт қадам</h2></div>
+      <p>Ҳар бир қадамда тизим нима топганини кўрсатади. Устун ёки лист нотўғри аниқланса — бир босишда тузатасиз.</p>
     </div>
-    <ol class="mt-12 grid gap-6 md:grid-cols-4">
+    <ol class="chain">
       {% for title, text in steps %}
-      <li class="relative rounded-2xl border border-white/10 bg-white/[.03] p-6">
-        <span class="num grid h-9 w-9 place-items-center rounded-full bg-emerald-500 font-bold text-slate-950">{{ forloop.counter }}</span>
-        <h3 class="mt-4 font-semibold">{{ title }}</h3>
-        <p class="mt-1.5 text-sm leading-relaxed text-slate-400">{{ text }}</p>
-      </li>
+      <li><span class="tk"></span>{% if forloop.last %}<span class="tk-end"></span>{% endif %}<h3>{{ title }}</h3><p>{{ text }}</p></li>
       {% endfor %}
     </ol>
-
-    {# мослик ҳолатлари #}
-    <div class="mt-14 rounded-2xl border border-white/10 bg-white/[.03] p-6 md:p-8">
-      <h3 class="text-lg font-semibold">Ҳар бир ресурс учун аниқ ҳолат</h3>
-      <p class="mt-1 text-sm text-slate-400">Тизим ном ва бирликни солиштиради ва натижани ранг билан белгилайди — нимани текшириш кераклиги дарҳол кўринади.</p>
-      <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="rounded-xl bg-white p-4 text-slate-800"><span class="rounded bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">аниқ</span>
-          <p class="mt-2 text-sm">Ном ва бирлик RES билан тўлиқ мос — нарх ёзилади.</p></div>
-        <div class="rounded-xl bg-white p-4 text-slate-800"><span class="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">ўхшаш</span>
-          <p class="mt-2 text-sm">Ном бироз фарқ қилади (95%+ ўхшаш) — нарх ёзилади, текшириш учун белгиланади.</p></div>
-        <div class="rounded-xl bg-white p-4 text-slate-800"><span class="rounded bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-700">ШАБҲАЛИ</span>
-          <p class="mt-2 text-sm">Иккита бир хил ўхшаш ресурс — тизим тахмин қилмайди, смета­чи танлайди.</p></div>
-        <div class="rounded-xl bg-white p-4 text-slate-800"><span class="rounded bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">ТОПИЛМАДИ</span>
-          <p class="mt-2 text-sm">RES'да йўқ — қизил билан белгиланади, энг яқин ресурс таклиф қилинади.</p></div>
-      </div>
-    </div>
   </div>
 </section>
 
-{# ================= тезлик ва фойда ================= #}
-<section id="speed" class="scroll-mt-8">
-  <div class="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 lg:grid-cols-2">
-    <div>
-      <p class="text-sm font-semibold uppercase tracking-wider text-emerald-600">Тезлик</p>
-      <h2 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">Узоқ қўл меҳнати — бир неча сонияда</h2>
-      <p class="mt-3 leading-relaxed text-slate-600">Ҳақиқий объект сметасида ўлчанган натижа: 1 800 қатор, 198 та иш ва 1 520 та ресурс.
-        Тизим уларни RES билан солиштириб, нархни ёзиб, сводни ҳисоблади.</p>
-      <ul class="mt-6 space-y-3 text-sm text-slate-700">
-        <li class="flex gap-3">{% icon "check-circle" "mt-0.5 h-5 w-5 shrink-0 text-emerald-600" %}<span><b>Бутун папка бир марта:</b> ZIP/RAR ёки папкани юкланг — ичидаги ҳамма локал ва RES жуфтланиб, кетма-кет нархланади.</span></li>
-        <li class="flex gap-3">{% icon "check-circle" "mt-0.5 h-5 w-5 shrink-0 text-emerald-600" %}<span><b>Хатолар камаяди:</b> нарх қўлда кўчирилмайди. Ҳар бир ресурс учун RES'даги қайси ном ва бирлик олингани LOG листида ёзилади.</span></li>
-        <li class="flex gap-3">{% icon "check-circle" "mt-0.5 h-5 w-5 shrink-0 text-emerald-600" %}<span><b>Вақт текширишга кетади:</b> смета­чи фақат қизил ва сариқ қаторларни кўриб чиқади.</span></li>
-      </ul>
+{# ================= ҳолатлар ================= #}
+<section class="sec" id="states">
+  <div class="wrap">
+    <div class="sec-h">
+      <div><p class="eyebrow">Натижа файлида</p><h2>Ҳар бир қатор учун аниқ ҳолат</h2></div>
+      <p>Тизим ўзига ишонмаган жойда нарх ёзмайди. Нимани текшириш кераклиги ранг ва ёзувдан дарҳол кўринади.</p>
     </div>
-    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-6 md:p-8">
-      <p class="text-sm font-medium text-slate-500">Битта объект · 1 800 қатор</p>
-      <div class="mt-6 space-y-5">
-        <div>
-          <div class="flex items-baseline justify-between text-sm"><span class="font-semibold text-slate-900">Нархлаш</span><span class="num font-bold text-emerald-600">13–14 сония</span></div>
-          <div class="mt-2 h-3 rounded-full bg-slate-200"><div class="h-3 w-[3%] min-w-[10px] rounded-full bg-emerald-500"></div></div>
-        </div>
-        <div>
-          <div class="flex items-baseline justify-between text-sm"><span class="font-semibold text-slate-900">Аниқ топилган</span><span class="num font-bold text-slate-900">1 517 / 1 520</span></div>
-          <div class="mt-2 h-3 rounded-full bg-slate-200"><div class="h-3 w-[99.8%] rounded-full bg-emerald-500"></div></div>
-        </div>
-        <div>
-          <div class="flex items-baseline justify-between text-sm"><span class="font-semibold text-slate-900">Қўлда текшириш керак</span><span class="num font-bold text-rose-600">3 қатор</span></div>
-          <div class="mt-2 h-3 rounded-full bg-slate-200"><div class="h-3 w-[2%] min-w-[8px] rounded-full bg-rose-500"></div></div>
-        </div>
-      </div>
-      <p class="mt-6 text-xs text-slate-400">Тизим ишлаётган компьютерда ўлчанган. Вақт смета ҳажми ва компьютерга қараб ўзгаради.</p>
+    <table class="states">
+      <tr><td><span class="chip c-ok">НАРХ</span></td><td><span class="t">Ном ва бирлик RES билан аниқ мос</span>Нарх G устунига ёзилади, сумма ҳисобланади.</td><td>Ҳеч нарса қилиш шарт эмас</td></tr>
+      <tr><td><span class="chip c-warn">ТЕКШИРИНГ</span></td><td><span class="t">Ўхшаш, иккита номзод ёки бирлик бошқа</span>Нарх ёзилмайди, сайтда таклиф ва RES'даги қатори кўрсатилади.</td><td>Таклифни тасдиқланг ёки нархни ёзинг</td></tr>
+      <tr><td><span class="chip c-bad">ТОПИЛМАДИ</span></td><td><span class="t">RES'да йўқ</span>Қизил қолади, энг яқин учта ресурс ўхшашлик фоизи билан таклиф қилинади.</td><td>Нархни ёзинг ёки таклифни танланг</td></tr>
+      <tr><td><span class="chip">0</span></td><td><span class="t">Иш сарлавҳаси ёки машинист меҳнати</span>Нархи остидаги ресурсларда ёки машина-соат ичида.</td><td>Ҳеч нарса қилиш шарт эмас</td></tr>
+    </table>
+  </div>
+</section>
+
+{# ================= ўлчанган натижа ================= #}
+<section class="sec" id="speed">
+  <div class="wrap">
+    <div class="sec-h">
+      <div><p class="eyebrow">Ҳақиқий объектда ўлчанди</p><h2>Кунлик қўл меҳнати&nbsp;— бир неча сонияда</h2></div>
+      <p>Битта объект сметаси: 198 та иш ва 1 520 та ресурс. Смета­чи фақат белгиланган қаторларни кўриб чиқади, қолганини тизим бажаради.</p>
+    </div>
+    <div class="measure">
+      <div><b>1 800</b><span>қатор битта сметада</span></div>
+      <div><b>13–14 с</b><span>солиштириш, нарх ёзиш ва свод</span></div>
+      <div><b>1 517</b><span>ресурс 1 520 тадан аниқ топилди</span></div>
+      <div><b>3</b><span>қатор смета­чига қолди</span></div>
+    </div>
+    <p class="note">Вақт смета ҳажми ва сервер юкламасига қараб ўзгаради.</p>
+  </div>
+</section>
+
+{# ================= имкониятлар ================= #}
+<section class="sec" id="features">
+  <div class="wrap">
+    <div class="sec-h">
+      <div><p class="eyebrow">Имкониятлар</p><h2>Юклашдан тайёр файлгача</h2></div>
+      <p>Асл файл ўзгармайди: натижа алоҳида «…_narxlandi.xlsx» бўлиб чиқади, LOG листида ҳар бир нарх қаердан олингани ёзилади.</p>
+    </div>
+    <div class="index three">
+      {% for icon_name, title, text in features %}
+      <div><span class="ic">{% icon icon_name "h-[18px] w-[18px]" "1.8" %}</span><div><h3>{{ title }}</h3><p>{{ text }}</p></div></div>
+      {% endfor %}
     </div>
   </div>
 </section>
 
 {# ================= хавфсизлик ================= #}
-<section id="security" class="scroll-mt-8 border-y border-slate-100 bg-slate-50">
-  <div class="mx-auto max-w-6xl px-4 py-20">
-    <div class="max-w-2xl">
-      <p class="text-sm font-semibold uppercase tracking-wider text-emerald-600">Хавфсизлик</p>
-      <h2 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">Маълумот сизда қолади</h2>
-      <p class="mt-3 text-slate-600">Смета — тижорат сири. Шунинг учун тизим уни ҳеч қаерга юбормайди ва асл файлга тегмайди.</p>
+<section class="sec" id="security">
+  <div class="wrap">
+    <div class="sec-h">
+      <div><p class="eyebrow">Хавфсизлик</p><h2>Смета — тижорат сири</h2></div>
+      <p>Файллар фақат шу серверда ишланади ва сақланади. Ҳар бир смета­чи ўз ҳисоби билан киради ва фақат ўз ишларини кўради.</p>
     </div>
-    <div class="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+    <div class="index three">
       {% for title, text in security %}
-      <div class="rounded-2xl border border-slate-200 bg-white p-6">
-        <span class="grid h-10 w-10 place-items-center rounded-lg bg-slate-900 text-emerald-400">
-          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/></svg></span>
-        <h3 class="mt-4 font-semibold text-slate-900">{{ title }}</h3>
-        <p class="mt-1.5 text-sm leading-relaxed text-slate-600">{{ text }}</p>
-      </div>
+      <div><span class="ic">{% icon "shield" "h-[18px] w-[18px]" "1.8" %}</span><div><h3>{{ title }}</h3><p>{{ text }}</p></div></div>
       {% endfor %}
     </div>
-    <p class="mt-6 flex items-start gap-2 text-sm text-slate-500">{% icon "alert-circle" "mt-0.5 h-4 w-4 shrink-0" %}
-      <span>Ҳозирги версияда фойдаланувчи логини йўқ — ишга фақат тасодифий ҳавола орқали кирилади. Тизимни корхонанинг ички тармоғида ишлатинг.</span></p>
   </div>
 </section>
 
 {# ================= якун ================= #}
-<section class="bg-slate-950 text-white">
-  <div class="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-16 md:flex-row md:items-center">
-    <div class="flex-1">
-      <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">Биринчи сметангизни ҳозир нархланг</h2>
-      <p class="mt-2 text-slate-400">Локал ва RES файлини ёки бутун папкани юкланг — натижани бир неча сонияда кўрасиз.</p>
+<section class="final">
+  <div class="wrap final-in">
+    <div>
+      <h2>Биринчи сметани бугун нархланг</h2>
+      <p>Локал ва RES файлини ёки бутун папкани юкланг. Натижа — нархланган Excel, свод ва ҳар бир қарор ёзилган LOG.</p>
     </div>
-    <a href="{% url 'index' %}" class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-3.5 font-semibold text-slate-950 hover:bg-emerald-400">
-      {% icon "upload" "h-5 w-5" %} Смета юклаш</a>
+    <div class="cta" style="margin:0">
+      {% if user.is_authenticated %}
+      <a class="btn btn-p" href="{% url 'index' %}">Смета юклаш {% icon "arrow-right" "h-4 w-4" %}</a>
+      {% else %}
+      <a class="btn btn-p" href="{% if signup_open %}{% url 'register' %}{% else %}{% url 'login' %}{% endif %}">{% if signup_open %}Ҳисоб очиш{% else %}Тизимга кириш{% endif %} {% icon "arrow-right" "h-4 w-4" %}</a>
+      {% if signup_open %}<a class="lnk" href="{% url 'login' %}">Ҳисобим бор — кириш</a>{% endif %}
+      {% endif %}
+    </div>
   </div>
-  <footer class="border-t border-white/10">
-    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-sm text-slate-500">
-      <span class="flex items-center gap-2 text-slate-300"><span class="grid h-6 w-6 place-items-center rounded bg-emerald-500 text-slate-950">{% icon "logo" "h-3.5 w-3.5" %}</span> Нархлаш</span>
-      <a href="{% url 'index' %}" class="hover:text-white">Юклаш</a>
-      <a href="{% url 'dashboard' %}" class="hover:text-white">Дашборд</a>
-      <a href="#security" class="hover:text-white">Хавфсизлик</a>
-    </div>
-  </footer>
 </section>
+</main>
+
+{# ================= штамп (чизма варағидаги каби) ================= #}
+<footer class="stamp">
+  <div class="wrap"><div class="stamp-in">
+    <div class="stamp-cell stamp-name">{% include "jobs/_brand.html" %}</div>
+    <div class="stamp-cell"><span>Модуллар</span><b>Нархлаш · Техназор</b></div>
+    <div class="stamp-cell"><span>Манзил</span><b>mloyihachi.uz</b></div>
+    <div class="stamp-cell"><span>Йил</span><b>{% now "Y" %}</b></div>
+    <nav class="stamp-cell stamp-links" aria-label="Пастки ҳаволалар">
+      {% if user.is_authenticated %}<a href="{% url 'index' %}">Юклаш</a><a href="{% url 'dashboard' %}">Дашборд</a><a href="{% url 'texnazor:index' %}">Техназор</a>
+      {% else %}<a href="{% url 'login' %}">Кириш</a>{% if signup_open %}<a href="{% url 'register' %}">Рўйхатдан ўтиш</a>{% endif %}{% endif %}
+      <a href="#security">Хавфсизлик</a>
+    </nav>
+  </div></div>
+</footer>
+<script src="{% static 'js/assemble.js' %}"></script>
 </body>
 </html>

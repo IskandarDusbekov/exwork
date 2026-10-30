@@ -54,17 +54,26 @@ class LoginTests(TestCase):
         self.user = User.objects.create_user("ali@mail.uz", PASSWORD, first_name="Ali", last_name="Valiyev")
 
     def test_pages_require_login(self):
-        for url in (reverse("index"), reverse("dashboard")):
-            r = self.client.get(url)
-            self.assertRedirects(r, f"{reverse('login')}?next={url}")
+        url = reverse("dashboard")
+        self.assertRedirects(self.client.get(url), f"{reverse('login')}?next={url}")
         self.assertEqual(self.client.get(reverse("landing")).status_code, 200)  # «Тизим ҳақида» очиқ
+
+    def test_home_is_landing_for_guests(self):
+        """Биринчи келган одам бош саҳифада «Тизим ҳақида»ни кўради; юклаш (POST) — фақат киргандан кейин."""
+        r = self.client.get(reverse("index"))
+        self.assertTemplateUsed(r, "jobs/landing.html")
+        self.assertContains(r, reverse("login"))
+        url = reverse("index")
+        self.assertRedirects(self.client.post(url), f"{reverse('login')}?next={url}", fetch_redirect_response=False)
+        self.client.force_login(self.user)
+        self.assertTemplateUsed(self.client.get(url), "jobs/index.html")
 
     def test_login_logout(self):
         r = self.client.post(reverse("login"), {"email": "ALI@mail.uz", "password": PASSWORD, "next": "/dashboard/"})
         self.assertRedirects(r, reverse("dashboard"))
         self.assertEqual(self.client.get(reverse("logout")).status_code, 405)  # чиқиш фақат POST
         self.client.post(reverse("logout"))
-        self.assertEqual(self.client.get(reverse("index")).status_code, 302)
+        self.assertTemplateUsed(self.client.get(reverse("index")), "jobs/landing.html")  # чиққач — бош саҳифа
 
     def test_open_redirect_blocked(self):
         r = self.client.post(reverse("login"), {"email": "ali@mail.uz", "password": PASSWORD,
@@ -201,7 +210,7 @@ class PasswordResetTests(TestCase):
         self.assertRedirects(r, reverse("login"), fetch_redirect_response=False)
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("Yangi-kuchli-parol-7"))
-        self.assertEqual(other.get(reverse("index")).status_code, 302)  # бошқа қурилмадан чиқарилди
+        self.assertEqual(other.get(reverse("dashboard")).status_code, 302)  # бошқа қурилмадан чиқарилди
         self.assertContains(self.client.get(link), "Ҳавола эскирган")  # иккинчи марта ишламайди
 
     def test_weak_or_mismatched_password_rejected(self):

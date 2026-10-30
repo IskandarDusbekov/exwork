@@ -2,6 +2,7 @@ import json
 from datetime import timedelta
 
 from django.contrib.auth.decorators import login_not_required
+from django.contrib.auth.views import redirect_to_login
 from django.core.cache import cache
 from django.db.models import Prefetch
 from django.db.models.fields.json import KeyTransform
@@ -94,8 +95,14 @@ def column_labels(job) -> dict:
     return labels
 
 
+@login_not_required
 @require_http_methods(["GET", "POST"])
 def index(request):
+    """Бош саҳифа: биринчи келган (кирмаган) одамга — «Тизим ҳақида» (landing), кирганга — юклаш."""
+    if not request.user.is_authenticated:
+        if request.method == "POST":
+            return redirect_to_login(request.get_full_path())
+        return landing(request)
     error = None
     if request.method == "POST":
         try:
@@ -269,9 +276,38 @@ def work_items(user, limit=None):
     return items[:limit] if limit else items
 
 
+def _tn_summary(cards) -> dict:
+    """Техназор объектлари: умумий шартнома, бажарилган ва қолдиқ (пудратчи, ҚҚС билан), энг янгилари."""
+    contract = sum(c["contract"] for c in cards)
+    done = sum(c["done"] for c in cards)
+    return {"cards": cards[:5], "count": len(cards), "contract": contract, "done": done, "left": contract - done,
+            "pct": 100 * done / contract if contract else 0.0}
+
+
+# «Эътибор керак»: ҳолат -> смета­чи нима қилиши керак (иш маълумотидан)
+def _todo(it) -> str:
+    st = it["state"]
+    if st == "warn":
+        return f"{it['not_priced']} та қаторга нарх ёзинг"
+    if st == "awaiting":
+        return f"{it['awaiting']} та қисмни ҳисоблашни бошланг" if it["kind"] == "folder" else "Ҳисоблашни бошланг"
+    if st == "stopped":
+        return "Тўхтатилган — давом эттиринг"
+    if st == "failed":
+        return "Очиб бўлмади — сабабини кўринг"
+    if it["kind"] == "folder" and it.get("review"):
+        return f"{it['review']} та қисмни текширинг"
+    return "Ресурсни танланг ёки хатони кўринг"
+
+
+ATTENTION = ("warn", "awaiting", "stopped", "review", "failed")
+
+
 def dashboard(request):
-    """Дашборд: барча ишлар, ҳолатлар бўйича статистика ва сметалар босқичлари."""
+    """Дашборд: нима тайёр ва нима смета­чини кутяпти (нархлаш ҳамда техназор), сметалар босқичлари, барча ишлар."""
+    from texnazor.services import object_cards
     items = work_items(request.user)
+    attention = [dict(it, todo=_todo(it)) for it in items if it["state"] in ATTENTION]
     pipes = [p for it in items for p in it["pipes"]]
     pipeline = [{"key": k, "label": label, "color": color, "hint": hint, "count": pipes.count(k),
                  "pct": round(100 * pipes.count(k) / len(pipes), 1) if pipes else 0}
@@ -298,6 +334,12 @@ def dashboard(request):
         "count_priced": pipes.count("done") + pipes.count("warn"),
         "count_active": pipes.count("opening") + pipes.count("pricing"),
         "count_pending": pipes.count("pending") + pipes.count("review"),
+        "count_done": pipes.count("done"),
+        "count_warn": pipes.count("warn"),
+        "done_pct": round(100 * pipes.count("done") / len(pipes)) if pipes else 0,
+        "attention": attention[:6],
+        "attention_total": len(attention),
+        "tn": _tn_summary(object_cards(request.user)),
         "priced_pct": round(100 * (pipes.count("done") + pipes.count("warn")) / len(pipes)) if pipes else 0,
         "any_working": any(it["working"] for it in items),
         "days": [{"date": d, "count": n, "h": round(100 * n / peak)} for d, n in per_day.items()],
@@ -493,15 +535,15 @@ LANDING_FEATURES = [
     ("layers", "Локал ва RES'ни ўзи жуфтлайди",
      "Файлдаги ҳар бир листни мазмунидан танийди: локал смета, нарх рўйхати ёки свод. Ҳар бир локалга энг мос RES'ни мослик фоизи билан таклиф қилади."),
     ("search", "Ном ва бирлик бўйича мослаштириш",
-     "Ресурс номи ва ўлчов бирлиги RES билан солиштирилади: аниқ ёки 95%+ ўхшаш бўлса — нарх ёзилади, шубҳали бўлса — смета­чи танлайди."),
+     "Ресурс номи ва ўлчов бирлиги RES билан солиштирилади: аниқ мос бўлса — нарх ёзилади, ўхшаш ёки шубҳали бўлса — таклиф берилади, смета­чи тасдиқлайди."),
     ("calculator", "Сумма ва свод ҳисобланади",
      "Жами миқдор × нарх, иш ҳақи, машина, материаллар, транспорт, прочие, суғурта ва НДС — фоизларни ўзгартириш мумкин."),
     ("alert-circle", "Топилмаганлар қизил",
      "RES'да йўқ ресурс «ТОПИЛМАДИ» деб қизил белгиланади ва энг яқин ўхшаши таклиф қилинади — ҳеч нарса яширинмайди."),
     ("folder-open", "Бутун папкани юклаш",
      "ZIP, RAR ёки папка — ичидаги ҳамма локал ва RES топилиб, қисмлар бўйича нархланади. Натижа битта ZIP ёки битта Excel файлда."),
-    ("sliders", "Ҳар хил жадвалга мослашади",
-     "Устунлар бошқа жойда бўлса — тизим топганини кўрсатади, смета­чи эса Excel кўринишида устунни босиб тузатади. Қадамма-қадам қўлланма бор."),
+    ("building", "Техназор: ойма-ой бажарилган иш",
+     "Офёртани юкланг — блок ва бўлимлар бўйича ҳар ойда бажарилган ҳажмни ёзасиз. Ресурслар меъёр бўйича ўзи ҳисобланади, қолдиқ ва Ф-3 фарқи кўринади."),
 ]
 LANDING_STEPS = [
     ("Юклаш", "Локал смета ва RES файлини (.xls, .xlsx) ёки бутун объект папкасини юкланг."),

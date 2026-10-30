@@ -1,0 +1,76 @@
+{% comment %} Сайтнинг ташқи саҳифалари (landing, кириш, рўйхат) учун умумий асос: ранглар, шрифт, сарлавҳа, тугмалар, штамп.
+   Tailwind (app.css) бу саҳифаларда юкланмайди — ҳаммаси шу ерда. {% endcomment %}
+<style>
+  :root {
+    --paper: #fbfcfc; --ink: #0d1522; --ink-2: #3a4555; --mute: #6b7686;
+    --line: #dfe3e8; --line-2: #c8cfd8; --grid: rgba(13, 21, 34, .055);
+    --acc: #0c7a4c; --acc-ink: #0a5b39; --acc-soft: #e4f3eb;
+    --bad: #b42318; --bad-soft: #fdecea; --warn: #9a5b00; --warn-soft: #fdf2dc;
+    --ff: "Onest", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --fm: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+    --gut: clamp(16px, 4vw, 64px);
+    --max: 1360px;
+  }
+  /* катта мониторлар: бутун саҳифа мутаносиб катталашади (шрифт, жадвал, чизма бирга), тўр эни ўша-ўша */
+  /* zoom ичида 100vh ҳам катталашади — экран баландлиги керак бўлган жойда: calc(100vh / var(--z)) */
+  :root { --z: 1; }
+  @media (min-width: 1760px) { :root { --z: 1.15; } }
+  @media (min-width: 2200px) { :root { --z: 1.3; } }
+  @media (min-width: 2800px) { :root { --z: 1.5; } }
+  body { zoom: var(--z); }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.5 var(--ff); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  h1, h2, h3, p, dl, dd, ul, ol, figure { margin: 0; padding: 0; }
+  a { color: inherit; }
+  img, svg { display: block; }
+  .wrap { width: 100%; max-width: calc(var(--max) + 2 * var(--gut)); margin-inline: auto; padding-inline: var(--gut); }
+  :focus-visible { outline: 2px solid var(--acc); outline-offset: 3px; }
+
+  /* тугмалар */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 48px; padding: 0 22px; border: 0; border-radius: 2px;
+         font: 600 15px var(--ff); text-decoration: none; cursor: pointer; transition: background .15s, color .15s; }
+  .btn svg { width: 16px; height: 16px; transition: transform .15s; }
+  .btn:hover svg { transform: translateX(3px); }
+  .btn-p { background: var(--ink); color: #fff; }
+  .btn-p:hover { background: #1f2b3d; }
+  .lnk { font-weight: 600; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px; }
+  .lnk:hover { color: var(--acc); }
+
+  /* бренд: белги + ном + домен */
+  .brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+  .brand-mark { display: grid; place-items: center; width: 40px; height: 40px; flex: none; background: var(--ink); color: #34d399; border-radius: 3px; }
+  .brand-mark svg { width: 26px; height: 26px; }
+  .brand-t { display: grid; gap: 4px; line-height: 1; }
+  .brand-t b { font: 700 16.5px/1 var(--ff); letter-spacing: -.01em; white-space: nowrap; }
+  .brand-t span { font: 500 11px/1 var(--fm); letter-spacing: .04em; color: var(--mute); }
+
+  /* сарлавҳа */
+  .site-h { position: sticky; top: 0; z-index: 1000; background: rgba(251, 252, 252, .92); border-bottom: 1px solid var(--line);
+            -webkit-backdrop-filter: saturate(1.4) blur(10px); backdrop-filter: saturate(1.4) blur(10px); }
+  .site-h-in { display: flex; align-items: center; gap: 24px; height: 72px; }
+  .site-nav { display: none; gap: 28px; margin-left: 24px; font-size: 14.5px; font-weight: 500; color: var(--ink-2); }
+  .site-nav a { text-decoration: none; padding: 6px 0; border-bottom: 1px solid transparent; }
+  .site-nav a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+  @media (min-width: 960px) { .site-nav { display: flex; } }
+  .site-act { margin-left: auto; display: flex; align-items: center; gap: 8px 20px; }
+  .site-act .btn { height: 40px; padding: 0 16px; font-size: 14px; white-space: nowrap; }
+  .site-act .plain { font-size: 14.5px; font-weight: 600; text-decoration: none; }
+  .site-act .plain:hover { color: var(--acc); }
+  @media (max-width: 520px) { .brand-t span { display: none; } .site-act .hide-s { display: none; } }
+
+  /* штамп — чизма варағининг пастки ўнг бурчагидаги жадвал каби */
+  .stamp { padding-block: 36px 48px; }
+  .stamp-in { display: grid; grid-template-columns: 1fr; border: 1px solid var(--ink); }
+  @media (min-width: 760px) { .stamp-in { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 1200px) { .stamp-in { grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)) minmax(0, 2fr); } }
+  .stamp-cell { padding: 14px 18px; border-bottom: 1px solid var(--ink); display: grid; gap: 6px; align-content: center; min-width: 0; }
+  @media (min-width: 1200px) { .stamp-cell { border-bottom: 0; } .stamp-cell + .stamp-cell { border-left: 1px solid var(--ink); } }
+  @media (min-width: 760px) and (max-width: 1199px) { .stamp-name, .stamp-links { grid-column: 1 / -1; } .stamp-cell:nth-child(3), .stamp-cell:nth-child(4) { border-left: 1px solid var(--ink); } .stamp-links { border-bottom: 0; } }
+  @media (max-width: 759px) { .stamp-cell:last-child { border-bottom: 0; } }
+  .stamp-cell > span { font: 500 10.5px var(--fm); letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
+  .stamp-cell > b { font: 600 14px var(--fm); }
+  .stamp-links { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 14px; font-weight: 500; }
+  .stamp-links a { text-decoration: none; } .stamp-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
+</style>

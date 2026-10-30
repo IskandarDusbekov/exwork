@@ -92,7 +92,7 @@ class PanelTests(TestCase):
         self.assertTrue(Event.objects.filter(kind=Event.Kind.ADMIN_USER, actor=self.admin, target=self.ali).exists())
         other = self.client_class()
         other.force_login(self.ali)  # блокланган — сессия бўлса ҳам ичкарига кирмайди
-        self.assertEqual(other.get(reverse("index")).status_code, 302)
+        self.assertEqual(other.get(reverse("dashboard")).status_code, 302)
 
     def test_cannot_change_self_or_superuser(self):
         self.client.force_login(self.admin)

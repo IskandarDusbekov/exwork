@@ -1,0 +1,124 @@
+{% comment %} Қурилиш саҳнаси (тўқ фонда, чизма услубида). Вақт бўйича кетма-кетлик (p = 0…1, static/js/build.js):
+  .005–.04 геодезия қозиқлари · .06–.30 бульдозер тепаликларни текислайди · .30–.42 каток, йўл · .40–.50 ўқлар ва пойдевор
+  .44–.55 минорали кран · .54–.78 устунлар ва ёпмалар · .78–.90 том ва деразалар · .86–.97 сатҳлар ва ўлчамлар · .95 чироқлар
+  Белгиланмаган ҳолатда (JS йўқ) — тайёр бино. {% endcomment %}
+<svg class="bscene" viewBox="0 0 640 440" role="img" aria-label="Қурилиш: майдон текисланади, йўл қурилади, бино тикланади">
+  <style>
+    .bscene .ln { stroke: #e6ebf2; fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+    .bscene .thin { stroke: rgba(230, 235, 242, .55); fill: none; stroke-width: 1; }
+    .bscene .acc { stroke: #34d399; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .bscene .hatch { stroke: rgba(230, 235, 242, .35); stroke-width: 1; }
+    .bscene .axis { stroke: rgba(230, 235, 242, .45); stroke-width: 1; stroke-dasharray: 10 4 2 4; fill: none; }
+    .bscene .dirt { fill: rgba(230, 235, 242, .07); stroke: rgba(230, 235, 242, .5); stroke-width: 1; }
+    .bscene .road { fill: rgba(230, 235, 242, .045); }
+    .bscene .road-mid { stroke: rgba(230, 235, 242, .5); stroke-width: 1.4; stroke-dasharray: 14 10; }
+    .bscene .veh { fill: #0d1522; stroke: #e6ebf2; stroke-width: 1.4; stroke-linejoin: round; }
+    .bscene .veh-acc { fill: none; stroke: #34d399; stroke-width: 2.2; stroke-linecap: round; }
+    .bscene .light { fill: rgba(52, 211, 153, .22); stroke: none; }
+    .bscene .flag { fill: #34d399; }
+    .bscene text { font: 500 11px "JetBrains Mono", Consolas, monospace; fill: rgba(230, 235, 242, .78); }
+    .bscene text.ax { font-size: 12px; fill: #e6ebf2; }
+    .bscene text.lv { fill: #34d399; }
+  </style>
+
+  <!-- ер ва унинг остидаги штрих -->
+  <path class="ln" d="M20 320H620"/>
+  <path class="hatch" d="M24 320l-10 12M44 320l-10 12M64 320l-10 12M560 320l-10 12M580 320l-10 12M600 320l-10 12M620 320l-10 12"/>
+
+  <!-- геодезия қозиқлари: пайдо бўлади, пойдевор қуйилгач йўқолади -->
+  <g data-fx="out" data-a=".40" data-b=".45"><g data-fx="fade" data-a=".005" data-b=".04">
+    <path class="acc" d="M150 320V294M320 320V294M490 320V294"/>
+    <path class="flag" d="M150 294l14 5-14 5zM320 294l14 5-14 5zM490 294l14 5-14 5z"/>
+  </g></g>
+
+  <!-- тепаликлар: бульдозер тиғи етганда ботади -->
+  <path class="dirt" data-fx="shrink" data-a=".086" data-b=".110" d="M60 320Q100 286 140 320Z"/>
+  <path class="dirt" data-fx="shrink" data-a=".127" data-b=".159" d="M196 320Q250 276 304 320Z"/>
+  <path class="dirt" data-fx="shrink" data-a=".176" data-b=".200" d="M360 320Q400 298 440 320Z"/>
+  <path class="dirt" data-fx="shrink" data-a=".218" data-b=".249" d="M500 320Q552 284 604 320Z"/>
+
+  <!-- йўл -->
+  <rect class="road" data-fx="fade" data-a=".32" data-b=".42" x="20" y="372" width="600" height="20"/>
+  <path class="ln" data-fx="draw" data-a=".30" data-b=".42" d="M20 372H620"/>
+  <path class="ln" data-fx="draw" data-a=".30" data-b=".42" d="M20 392H620"/>
+  <path class="road-mid" data-fx="fade" data-a=".38" data-b=".44" d="M28 382H614"/>
+
+  <!-- ўқлар А Б В -->
+  <path class="axis" data-fx="fade" data-a=".40" data-b=".47" d="M150 54V360M320 54V360M490 54V360"/>
+  <g data-fx="fade" data-a=".43" data-b=".49">
+    <circle class="thin" cx="150" cy="40" r="13"/><circle class="thin" cx="320" cy="40" r="13"/><circle class="thin" cx="490" cy="40" r="13"/>
+    <text class="ax" x="150" y="44" text-anchor="middle">А</text><text class="ax" x="320" y="44" text-anchor="middle">Б</text><text class="ax" x="490" y="44" text-anchor="middle">В</text>
+  </g>
+
+  <!-- пойдевор -->
+  <path class="ln" data-fx="rise" data-a=".43" data-b=".50" d="M138 320v26h24v-26M308 320v26h24v-26M478 320v26h24v-26"/>
+
+  <!-- 1-қават: устунлар ва ёпма -->
+  <path class="ln" data-fx="rise" data-a=".54" data-b=".62" d="M144 320V230M156 320V230M314 320V230M326 320V230M484 320V230M496 320V230"/>
+  <path class="ln" data-fx="draw" data-a=".62" data-b=".66" d="M138 230H502M502 222H138"/>
+  <!-- 2-қават -->
+  <path class="ln" data-fx="rise" data-a=".66" data-b=".74" d="M144 222V138M156 222V138M314 222V138M326 222V138M484 222V138M496 222V138"/>
+  <path class="ln" data-fx="draw" data-a=".74" data-b=".78" d="M138 138H502M502 130H138"/>
+  <!-- том -->
+  <path class="acc" data-fx="draw" data-a=".78" data-b=".84" d="M126 132L320 84L514 132"/>
+  <!-- деразалар ва кечки чироқлар -->
+  <path class="light" data-fx="fade" data-a=".95" data-b="1" d="M205 252h60v40h-60zM375 252h60v40h-60zM205 162h60v40h-60zM375 162h60v40h-60z"/>
+  <path class="thin" data-fx="draw" data-a=".82" data-b=".88" d="M205 252h60v40h-60zM375 252h60v40h-60zM205 162h60v40h-60zM375 162h60v40h-60z"/>
+  <path class="thin" data-fx="fade" data-a=".86" data-b=".90" d="M235 252v40M405 252v40M235 162v40M405 162v40"/>
+
+  <!-- минорали кран: йиғилади, юк ташийди, бино битгач олиб кетилади -->
+  <g data-fx="out" data-a=".86" data-b=".90">
+    <path class="ln" data-fx="draw" data-a=".44" data-b=".50" d="M584 320V64M596 320V64"/>
+    <path class="thin" data-fx="draw" data-a=".46" data-b=".52" d="M584 320L596 296L584 272L596 248L584 224L596 200L584 176L596 152L584 128L596 104L584 80"/>
+    <path class="ln" data-fx="draw" data-a=".50" data-b=".54" d="M330 64H626M330 72H596M590 64V42M590 42L330 64M590 42L626 64"/>
+    <rect class="veh" data-fx="fade" data-a=".52" data-b=".55" x="604" y="72" width="20" height="14"/>
+    <g data-fx="fade" data-a=".52" data-b=".55">
+      <g data-fx="move" data-a=".54" data-b=".80" data-x0="0" data-x1="-200" data-y="0" transform="translate(-200 0)">
+        <rect class="veh" x="513" y="72" width="14" height="6"/>
+        <path class="thin" d="M520 78V150"/>
+        <path class="ln" d="M520 150v6q0 6-5 6"/>
+        <rect class="veh" x="488" y="164" width="64" height="6"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- сатҳ белгилари -->
+  <path class="acc" data-fx="draw" data-a=".86" data-b=".92" d="M520 320H560M532 320l-6-8h12zM520 226H560M532 226l-6-8h12zM520 134H560M532 134l-6-8h12z"/>
+  <g data-fx="fade" data-a=".90" data-b=".94">
+    <text class="lv" x="566" y="316">±0.000</text><text class="lv" x="566" y="222">+3.300</text><text class="lv" x="566" y="130">+6.600</text>
+  </g>
+  <!-- ўлчам чизиқлари -->
+  <path class="thin" data-fx="draw" data-a=".90" data-b=".96" d="M150 414H490M150 406v16M320 406v16M490 406v16M146 418l8-8M316 418l8-8M486 418l8-8"/>
+  <path class="thin" data-fx="draw" data-a=".92" data-b=".97" d="M150 432H490M150 426v12M490 426v12M146 436l8-8M486 436l8-8"/>
+  <path class="thin" data-fx="draw" data-a=".90" data-b=".96" d="M100 320V134M92 320h16M92 226h16M92 134h16M96 324l8-8M96 230l8-8M96 138l8-8"/>
+  <g data-fx="fade" data-a=".93" data-b=".97">
+    <text x="235" y="408" text-anchor="middle">6 000</text><text x="405" y="408" text-anchor="middle">6 000</text>
+    <text x="320" y="427" text-anchor="middle">12 000</text>
+    <text x="88" y="273" text-anchor="middle" transform="rotate(-90 88 273)">3 300</text>
+    <text x="88" y="180" text-anchor="middle" transform="rotate(-90 88 180)">3 300</text>
+  </g>
+
+  <!-- бульдозер (ўнгга юради, тиғи олдида) -->
+  <g data-fx="move" data-a=".06" data-b=".30" data-x0="-110" data-x1="690" data-y="320" transform="translate(690 320)">
+    <path class="dirt" d="M84 0Q92 -12 102 0Z"/>
+    <path class="veh" d="M6 -16V-30H22V-46H46V-30H64V-16Z"/>
+    <path class="thin" d="M27 -42H41V-32H27Z"/>
+    <path class="ln" d="M54 -30V-42M52 -42h4"/>
+    <path class="ln" d="M64 -24L80 -20"/>
+    <path class="veh-acc" d="M78 -1L84 -34"/>
+    <rect class="veh" x="0" y="-16" width="72" height="16" rx="8"/>
+    <g class="wheel" data-r="5"><circle class="veh" cx="10" cy="-8" r="5"/><path class="ln" d="M10 -13V-3"/></g>
+    <g class="wheel" data-r="5"><circle class="veh" cx="36" cy="-8" r="5"/><path class="ln" d="M36 -13V-3"/></g>
+    <g class="wheel" data-r="5"><circle class="veh" cx="62" cy="-8" r="5"/><path class="ln" d="M62 -13V-3"/></g>
+  </g>
+
+  <!-- каток (йўлни зичлайди) -->
+  <g data-fx="move" data-a=".30" data-b=".42" data-x0="-90" data-x1="690" data-y="392" transform="translate(690 392)">
+    <path class="veh" d="M10 -26V-42H28V-26Z"/>
+    <path class="thin" d="M14 -38H24V-30H14Z"/>
+    <path class="veh" d="M2 -12V-26H40V-12Z"/>
+    <path class="ln" d="M40 -20H50"/>
+    <g class="wheel" data-r="7"><circle class="veh" cx="12" cy="-7" r="7"/><path class="ln" d="M12 -14V0"/></g>
+    <g class="wheel" data-r="12"><circle class="veh" cx="58" cy="-12" r="12"/><path class="ln" d="M58 -24V0M46 -12H70"/></g>
+  </g>
+</svg>
