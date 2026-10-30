@@ -42,36 +42,52 @@
 {% endif %}
 
 {# ================= ойлар ================= #}
-<section class="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-  <span class="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Ойлар</span>
-  {% for p in periods %}
-  <a href="?p={{ p.pk }}" class="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium {% if p == period %}bg-slate-900 text-white{% else %}border border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
-    {% if p.closed %}{% icon "lock" "h-3.5 w-3.5" %}{% endif %}{{ p.title }}</a>
-  {% endfor %}
-  <form method="post" action="{% url 'texnazor:period_add' o.pk %}" class="flex items-center gap-1.5">{% csrf_token %}
-    <select name="month" class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
-      {% for m in months %}<option value="{{ forloop.counter }}" {% if forloop.counter == next.1 %}selected{% endif %}>{{ m }}</option>{% endfor %}
-    </select>
-    <input type="number" name="year" value="{{ next.0 }}" min="2000" max="2100" class="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
-    <button class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50">{% icon "plus" "h-4 w-4" %} Ой қўшиш</button>
-  </form>
-  {% if period %}
-  <form method="post" action="{% url 'texnazor:period_close' o.pk period.pk %}" class="ml-auto">{% csrf_token %}
-    <input type="hidden" name="closed" value="{{ period.closed|yesno:'0,1' }}">
-    <button class="rounded-lg px-3 py-1.5 text-sm font-medium {% if period.closed %}border border-slate-300 text-slate-700 hover:bg-slate-50{% else %}bg-emerald-600 text-white hover:bg-emerald-700{% endif %}"
-            title="{% if period.closed %}Ойни қайта очиш — ҳажмларни ўзгартириш мумкин бўлади{% else %}Ой ёпилгач ҳажмлари ўзгармайди (тўлов шу бўйича){% endif %}">
-      {% if period.closed %}Қайта очиш{% else %}{{ period.title }}ни ёпиш{% endif %}</button>
-  </form>
-  {% if not period.closed %}
-  <form method="post" action="{% url 'texnazor:period_delete' o.pk period.pk %}">{% csrf_token %}<input type="hidden" name="confirm">
-    <button type="button" data-confirm2 class="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50"
-            title="{{ period.title }}ни ўчириш" data-title="{{ period.title }}ни ўчириш"
-            data-msg="Шу ой ва унга ёзилган ҳамма бажарилган ҳажмлар ўчади. Кейинги ойларнинг «Аввал» устуни шунга қараб камаяди."
-            data-list="Ўчадиган қаторлар: {{ period_info.rows }} та|Ойнинг суммаси: {{ period_info.sum|pul }} сўм"
-            data-warn="Бу амални ортга қайтариб бўлмайди." data-word="{{ period.title }}" data-ok="Ойни ўчириш">{% icon "trash" "h-4 w-4" %} Ойни ўчириш</button>
-  </form>
-  {% endif %}
-  {% endif %}
+<section class="tn-months mb-3">
+  <div class="tn-months-top">
+    <div class="min-w-0">
+      <h2 class="tn-months-h">Ҳисобот ойлари</h2>
+      <p class="tn-months-p">Ҳар ой алоҳида ҳисобланади: шу ойда бажарилган ҳажм шу ойга ёзилади, жадвалдаги «Аввал» — олдинги ойлар йиғиндиси.</p>
+    </div>
+    {% if period %}
+    <div class="tn-months-act">
+      <span class="tn-months-sel">Танланган: <b>{{ period.title }}</b></span>
+      <form method="post" action="{% url 'texnazor:period_close' o.pk period.pk %}">{% csrf_token %}
+        <input type="hidden" name="closed" value="{{ period.closed|yesno:'0,1' }}">
+        <button class="tn-mbtn {% if period.closed %}tn-mbtn-line{% else %}tn-mbtn-ok{% endif %}"
+                title="{% if period.closed %}Ойни қайта очиш — ҳажмларни ўзгартириш мумкин бўлади{% else %}Ой ёпилгач ҳажмлари ўзгармайди (тўлов шу бўйича){% endif %}">
+          {% icon "lock" "h-4 w-4" %}{% if period.closed %}Қайта очиш{% else %}Ойни ёпиш{% endif %}</button>
+      </form>
+      {% if not period.closed %}
+      <form method="post" action="{% url 'texnazor:period_delete' o.pk period.pk %}">{% csrf_token %}<input type="hidden" name="confirm">
+        <button type="button" data-confirm2 class="tn-mbtn tn-mbtn-del"
+                title="{{ period.title }}ни ўчириш" data-title="{{ period.title }}ни ўчириш"
+                data-msg="Шу ой ва унга ёзилган ҳамма бажарилган ҳажмлар ўчади. Кейинги ойларнинг «Аввал» устуни шунга қараб камаяди."
+                data-list="Ўчадиган қаторлар: {{ period_info.rows }} та|Ойнинг суммаси: {{ period_info.sum|pul }} сўм"
+                data-warn="Бу амални ортга қайтариб бўлмайди." data-word="{{ period.title }}" data-ok="Ойни ўчириш">{% icon "trash" "h-4 w-4" %}Ўчириш</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="tn-mline">
+    {% for r in pay.rows %}
+    <a href="?p={{ r.p.pk }}" class="tn-m{% if r.p == period %} is-on{% endif %}{% if r.p.closed %} is-closed{% endif %}"{% if r.p == period %} aria-current="page"{% endif %}>
+      <span class="tn-m-n">{{ forloop.counter }}-ой · {% if r.p.closed %}{% icon "lock" "h-3 w-3" %} ёпилган{% else %}очиқ{% endif %}</span>
+      <span class="tn-m-t">{{ r.p.title }}</span>
+      <span class="tn-m-s num"{% if r.p == period %} id="k-mon"{% endif %}>{{ r.calc|pul }}</span>
+    </a>
+    {% if not forloop.last %}<span class="tn-m-arrow" aria-hidden="true">›</span>{% endif %}
+    {% endfor %}
+    {# ой ҳар доим кетма-кет эмас — фойдаланувчи ўзи танлайди (кейинги ой фақат олдиндан танланиб туради) #}
+    <form method="post" action="{% url 'texnazor:period_add' o.pk %}" class="tn-m tn-m-add">{% csrf_token %}
+      <label class="tn-m-n" for="tn-new-month">{% icon "plus" "h-3 w-3" %} янги ой қўшиш</label>
+      <div class="tn-m-pick">
+        <select id="tn-new-month" name="month" aria-label="Ой">{% for m in months %}<option value="{{ forloop.counter }}" {% if forloop.counter == next.1 %}selected{% endif %}>{{ m }}</option>{% endfor %}</select>
+        <input type="number" name="year" value="{{ next.0 }}" min="2000" max="2100" aria-label="Йил">
+      </div>
+      <button class="tn-m-go" title="Охирги ойдан кейинги исталган ой — ойлар ўтказиб юборилса ҳам бўлади">{% icon "plus" "h-4 w-4" %}Қўшиш</button>
+    </form>
+  </div>
 </section>
 
 {% if not period %}
@@ -117,5 +133,5 @@
 </form>
 
 {% include "texnazor/_confirm2.html" %}
-{% if period %}{% include "texnazor/_ofyorta_css.html" %}{% include "texnazor/_ofyorta_js.html" %}{% endif %}
+{% include "texnazor/_ofyorta_css.html" %}{% if period %}{% include "texnazor/_ofyorta_js.html" %}{% endif %}
 {% endblock %}

@@ -1,4 +1,39 @@
 <style>
+  /* ҳисобот ойлари: чапдан ўнгга кетма-кет карточкалар (ой, ҳолати, шу ой суммаси), охирида «+ янги ой» */
+  .tn-months { border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+  .tn-months-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 16px; padding: 12px 16px 4px; }
+  .tn-months-h { font-size: 15px; font-weight: 600; color: #0f172a; }
+  .tn-months-p { margin-top: 1px; font-size: 12.5px; color: #64748b; }
+  .tn-months-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .tn-months-sel { font-size: 13px; color: #64748b; margin-right: 2px; }
+  .tn-months-sel b { color: #0f172a; font-weight: 600; }
+  .tn-mbtn { display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; padding: 6px 12px; font-size: 13.5px; font-weight: 500; border: 1px solid transparent; }
+  .tn-mbtn-ok { background: #059669; color: #fff; } .tn-mbtn-ok:hover { background: #047857; }
+  .tn-mbtn-line { border-color: #cbd5e1; color: #334155; background: #fff; } .tn-mbtn-line:hover { background: #f8fafc; border-color: #94a3b8; }
+  .tn-mbtn-del { border-color: #fecdd3; color: #be123c; background: #fff; } .tn-mbtn-del:hover { background: #fff1f2; }
+  .tn-mline { display: flex; align-items: flex-start; gap: 6px; overflow-x: auto; padding: 8px 16px 14px; scrollbar-width: thin; }
+  .tn-m { position: relative; display: flex; flex: none; flex-direction: column; min-width: 150px; padding: 8px 12px 9px; border: 1px solid #e2e8f0; border-radius: 10px;
+          background: #fff; text-align: left; color: #334155; transition: border-color .12s, background .12s; }
+  .tn-m:hover { border-color: #94a3b8; background: #f8fafc; }
+  .tn-m-n { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: #64748b; }
+  .tn-m-t { margin-top: 1px; font-size: 14.5px; font-weight: 600; color: #0f172a; white-space: nowrap; }
+  .tn-m-s { margin-top: 2px; font-size: 12.5px; color: #475569; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .tn-m.is-closed { background: #f8fafc; }
+  .tn-m.is-closed .tn-m-t { color: #475569; }
+  .tn-m.is-on { border-color: #0f172a; background: #0f172a; box-shadow: 0 4px 12px -4px rgba(15, 23, 42, .45); }
+  .tn-m.is-on .tn-m-n { color: #cbd5e1; } .tn-m.is-on .tn-m-t { color: #fff; } .tn-m.is-on .tn-m-s { color: #7dd3fc; }
+  .tn-m.is-on::after { content: ""; position: absolute; left: 50%; bottom: -7px; width: 12px; height: 12px; margin-left: -6px; background: #0f172a; transform: rotate(45deg); border-radius: 2px; }
+  .tn-m-arrow { align-self: flex-start; margin-top: 22px; flex: none; color: #cbd5e1; font-size: 18px; }
+  /* янги ой: ой ва йилни ўзи танлайди */
+  .tn-m-add { margin-left: 6px; gap: 6px; border-style: dashed; border-color: #86c49d; background: #f6fbf8; }
+  .tn-m-add:hover { background: #f6fbf8; border-color: #16a34a; }
+  .tn-m-add .tn-m-n { color: #15803d; font-weight: 500; }
+  .tn-m-pick { display: flex; gap: 6px; }
+  .tn-m-pick select, .tn-m-pick input { border: 1px solid #b7dcc4; border-radius: 7px; padding: 4px 6px; font-size: 13.5px; font-weight: 600; color: #14532d; background: #fff; }
+  .tn-m-pick input { width: 72px; }
+  .tn-m-pick select:focus, .tn-m-pick input:focus { outline: none; border-color: #16a34a; box-shadow: 0 0 0 2px #bbf7d0; }
+  .tn-m-go { display: inline-flex; align-items: center; justify-content: center; gap: 4px; border-radius: 7px; padding: 4px 10px; font-size: 13px; font-weight: 600; color: #fff; background: #16a34a; }
+  .tn-m-go:hover { background: #15803d; }
   /* офёрта: чапда мундарижа, ўнгда бўлим — тинч, катта ҳарфлар, битта асосий ранг (sky) */
   .tn-layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
   @media (min-width: 1024px) { .tn-layout { grid-template-columns: 260px minmax(0, 1fr); } }
@@ -38,12 +73,29 @@
   .tn-res-all[aria-pressed="true"] { background: #f0fdf4; border-color: #86efac; color: #166534; }
   .tn-res-all[aria-pressed="true"] svg { transform: none; }
   .tn-bar-hint { font-size: 12.5px; color: #64748b; }
-  .tn-scroll { overflow-x: auto; }
-  .tn-t { width: 100%; min-width: 940px; border-collapse: separate; border-spacing: 0; table-layout: fixed; font: 13.5px/1.4 "Segoe UI", Calibri, Arial, sans-serif; color: #1f2937; }
+  /* жадвал ўз ичида айланади: сарлавҳа доим кўриниб туради, пастдаги горизонтал айлантиргич ҳам экранда */
+  .tn-scroll { overflow: auto; max-height: calc(100vh - 190px); min-height: 260px; scrollbar-width: thin; scrollbar-color: #b6bec9 #f1f5f9; }
+  .tn-scroll::-webkit-scrollbar { width: 11px; height: 11px; }
+  .tn-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+  .tn-scroll::-webkit-scrollbar-thumb { background: #b6bec9; border: 2px solid #f1f5f9; border-radius: 6px; }
+  .tn-scroll::-webkit-scrollbar-thumb:hover { background: #8a94a3; }
+  .tn-t { width: 100%; min-width: 1020px; border-collapse: separate; border-spacing: 0; table-layout: fixed; font: 13.5px/1.4 "Segoe UI", Calibri, Arial, sans-serif; color: #1f2937; }
   .tn-t th, .tn-t td { border-right: 1px solid #e3e3e3; border-bottom: 1px solid #e3e3e3; padding: 5px 8px; vertical-align: top; }
-  .tn-t th { position: sticky; top: 0; z-index: 2; background: #f3f3f3; color: #444; font-size: 12.5px; font-weight: 600; text-align: center; border-bottom: 1px solid #c8c8c8; white-space: nowrap; }
-  .tn-t th.tn-th-in { background: #e7f3ec; color: #14532d; }
+  .tn-t th { position: sticky; top: 0; z-index: 2; background: #f3f3f3; color: #444; font-size: 12.5px; font-weight: 600; text-align: center; vertical-align: middle; border-bottom: 1px solid #c8c8c8; white-space: nowrap; }
+  .tn-t th small { display: block; font-size: 11px; font-weight: 400; color: #7b8494; }
+  /* икки қаторли сарлавҳа: «Бажарилган ҳажм — ойма-ой» остида Аввал | шу ой */
+  .tn-t thead tr:first-child th { height: 30px; }
+  .tn-t thead tr + tr th { top: 30px; }
+  .tn-t th.tn-th-grp { padding: 4px 8px; background: #eaeef3; color: #334155; font-size: 12px; border-bottom-color: #d5dbe3; }
+  .tn-t th.tn-th-sub { padding: 3px 8px; box-shadow: 0 1px 0 #c8c8c8; }
+  .tn-t thead tr:first-child th[rowspan] { box-shadow: 0 1px 0 #c8c8c8; }
+  .tn-t th.tn-th-in { background: #d9efe1; color: #14532d; }
+  .tn-t th.tn-th-in small { color: #3f7a55; }
   .tn-t th.tn-th-l { text-align: left; }
+  /* меъёр: ресурс ойма-ой шунга кўпайтирилади — кулранг фонда, асосий рақамлардан ажралиб туради */
+  .tn-t th.tn-th-norm { background: #f6f6f6; color: #64748b; font-weight: 500; }
+  .tn-t td.tn-norm { background: #fafafa; color: #64748b; font-style: italic; }
+  .tn-t tr.tn-w > td.tn-norm-w { font-style: normal; font-weight: 600; color: #0b1220; }
   .tn-t .tn-g { background: #f3f3f3; color: #8a8a8a; font-size: 11.5px; text-align: center; border-right-color: #d0d0d0; }
   .tn-t .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .tn-n { color: #475569; white-space: nowrap; }
@@ -91,6 +143,7 @@
   .tn-tag-minus { background: #e0e7ff; color: #3730a3; cursor: help; }
   /* ишларни белгилаб бирданига фоиз қўйиш */
   .tn-t .tn-ck { padding: 5px 0; text-align: center; background: #f3f3f3; }
+  .tn-t thead .tn-ck { z-index: 3; }
   .tn-t .tn-ck input { width: 15px; height: 15px; accent-color: #217346; cursor: pointer; vertical-align: -2px; }
   .tn-t tr.tn-w.is-sel > td:not(.tn-cin) { background: #dbeafe !important; }
   .tn-selbar { position: sticky; bottom: 0; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 20px;

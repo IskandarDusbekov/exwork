@@ -17,6 +17,8 @@
     }
     function summary(s) {
       ["this", "cum", "left", "contract"].forEach(function (k) { var el = document.getElementById("k-" + k); if (el) el.textContent = money(s[k]); });
+      var mon = document.getElementById("k-mon");  // ойлар қаторидаги танланган ой суммаси
+      if (mon) mon.textContent = money(s.this);
       if (s.html) document.getElementById("tn-summary").innerHTML = s.html;
     }
 

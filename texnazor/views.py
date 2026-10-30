@@ -99,8 +99,10 @@ def detail(request, obj_id):
 
 def _panel(o, period, section) -> dict:
     """O'ng tomondagi bo'lim: ishlari, raqamlari, qaysi blokda va oldingi / keyingi bo'lim."""
+    earlier = [p for p in o.periods.all() if p.key < period.key]  # «Аввал» устуни шу ойлар йиғиндиси
     return {"section": section, "rows": _section_rows(period, section), "stats": _section_stats(period, section),
-            "where": services.section_nav(o, section), "warn": _warn(o), "fixes": services.latest_corrections(o)}
+            "where": services.section_nav(o, section), "warn": _warn(o), "fixes": services.latest_corrections(o),
+            "earlier": earlier}
 
 
 def _history(o) -> list:

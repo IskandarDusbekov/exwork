@@ -26,9 +26,12 @@
   <span class="tn-bar-hint">Ҳажмни яшил катакка ёзинг: сон (35) ёки фоиз (60%), Enter — сақлаш</span>
 </div>
 <div class="tn-scroll"><table class="tn-t">
-  <colgroup>{% if not period.closed %}<col style="width:32px">{% endif %}<col style="width:42px"><col style="width:62px"><col style="width:104px"><col><col style="width:78px"><col style="width:92px"><col style="width:92px"><col style="width:104px"><col style="width:104px"></colgroup>
-  <thead><tr>{% if not period.closed %}<th class="tn-ck"><input type="checkbox" class="tn-selall" title="Ҳамма ишларни белгилаш" aria-label="Ҳамма ишларни белгилаш"></th>{% endif %}<th class="tn-g" title="Excel'даги қатор рақами"></th><th>№</th><th>Шифр</th><th class="tn-th-l">Иш ва ресурс номи</th><th>Бирлик</th>
-    <th>Шартнома</th><th>Аввал</th><th class="tn-th-in">{{ period.title }}</th><th>Қолдиқ</th></tr></thead>
+  <colgroup>{% if not period.closed %}<col style="width:32px">{% endif %}<col style="width:42px"><col style="width:62px"><col style="width:104px"><col><col style="width:78px"><col style="width:92px"><col style="width:106px"><col style="width:92px"><col style="width:104px"><col style="width:104px"></colgroup>
+  <thead><tr>{% if not period.closed %}<th class="tn-ck" rowspan="2"><input type="checkbox" class="tn-selall" title="Ҳамма ишларни белгилаш" aria-label="Ҳамма ишларни белгилаш"></th>{% endif %}<th class="tn-g" rowspan="2" title="Excel'даги қатор рақами"></th><th rowspan="2">№</th><th rowspan="2">Шифр</th><th class="tn-th-l" rowspan="2">Иш ва ресурс номи</th><th rowspan="2">Бирлик</th>
+    <th rowspan="2" class="tn-th-norm" title="Офёртадаги 5-устун «на единицу»: иш қаторида — шартнома бўйича иш ҳажми (✎ — тузатиш), ресурс қаторида — меъёр (ишнинг 1 бирлигига). Ресурснинг ҳар ойдаги миқдори = меъёр × ишнинг шу ойдаги ҳажми">На единицу<small>измерения</small></th>
+    <th rowspan="2" title="Офёртадаги 6-устун «по проектным данным»: ресурс жами = меъёр × иш ҳажми. Иш қаторида бўш (иш ҳажми 5-устунда)">По проектным<small>данным · жами</small></th><th colspan="2" class="tn-th-grp">Бажарилган ҳажм — ойма-ой</th><th rowspan="2">Қолдиқ<small>бажарилмаган</small></th></tr>
+    <tr><th class="tn-th-sub" title="{% if earlier %}{% for p in earlier %}{{ p.title }}{% if not forloop.last %} + {% endif %}{% endfor %}{% else %}Бу биринчи ой — олдин бажарилган ҳажм йўқ{% endif %}">Аввал<small>{% if earlier|length == 1 %}{{ earlier.0.title }}{% elif earlier %}{{ earlier|length }} ой жами{% else %}йўқ{% endif %}</small></th>
+    <th class="tn-th-sub tn-th-in">{{ period.title }}<small>{% if period.closed %}ёпилган{% else %}шу ойга ёзинг{% endif %}</small></th></tr></thead>
   <tbody>{% for r in rows %}{% include "texnazor/_item_row.html" %}{% endfor %}</tbody>
 </table></div>
 {% if not period.closed %}
