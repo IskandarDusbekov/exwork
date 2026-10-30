@@ -135,6 +135,19 @@ def delete_object(obj: SiteObject):
 
 
 # ===================== oylar =====================
+def object_cards(owner) -> list:
+    """Объектлар рўйхати ва дашборд учун: шартнома (пудратчи, ҚҚС билан), бошидан бажарилган, қолдиқ, фоиз, ойлар сони."""
+    cards = []
+    for o in SiteObject.objects.filter(owner=owner):
+        last = o.periods.order_by("-year", "-month").first()
+        t = period_totals(last) if last and o.status == SiteObject.Status.READY else None
+        contract = (o.contract_totals or {}).get("contractor", 0.0)
+        done = t["cum"]["contractor"] if t else 0.0
+        cards.append({"o": o, "last": last, "contract": contract, "done": done, "left": contract - done,
+                      "pct": 100 * done / contract if contract else 0.0, "months": o.periods.count()})
+    return cards
+
+
 def periods(obj: SiteObject):
     return list(obj.periods.all())
 

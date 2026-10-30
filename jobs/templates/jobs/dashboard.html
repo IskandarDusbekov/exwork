@@ -1,18 +1,19 @@
 {% extends "jobs/base.html" %}
 {% load narx %}
-{% block title %}Дашборд — Нархлаш{% endblock %}
+{% block title %}Дашборд — Муҳандис лойиҳачи{% endblock %}
 {% block content %}
 {% csrf_token %}
-<div class="mb-6 flex flex-wrap items-end gap-3">
-  <div>
-    <h1 class="text-2xl font-semibold">Дашборд</h1>
-    <p class="text-sm text-slate-500">Барча юкланган ишлар ва сметалар қайси босқичда эканлиги</p>
+<div class="mb-5 flex flex-wrap items-end gap-x-4 gap-y-3">
+  <div class="min-w-0">
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Дашборд</h1>
+    <p class="mt-0.5 text-sm text-slate-500">Нархлаш ва техназор ишлари: нима тайёр ва нима сизни кутяпти</p>
   </div>
-  {% if any_working %}
-  <span class="ml-auto inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 ring-1 ring-inset ring-sky-200">
-    <span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-sky-500"></span></span>
-    Фонда иш бор — саҳифа ўзи янгиланади</span>
-  {% endif %}
+  <div class="ml-auto flex flex-wrap items-center gap-2">
+    {% if any_working %}<span class="inline-flex items-center gap-2 rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-800 ring-1 ring-inset ring-sky-200">
+      <span class="h-2 w-2 rounded-full bg-sky-500"></span>Фонда иш бор — саҳифа ўзи янгиланади</span>{% endif %}
+    <a href="{% url 'texnazor:index' %}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">{% icon "building" "h-4 w-4" %} Техназор</a>
+    <a href="{% url 'index' %}" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">{% icon "upload" "h-4 w-4" %} Юклаш</a>
+  </div>
 </div>
 
 {% if not items %}
@@ -24,97 +25,145 @@
 </div>
 {% else %}
 
-{# ================= охирги иккита иш ================= #}
-<div class="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400">Охирги ишлар</div>
-<div data-guide="latest" class="mb-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-  {% for it in latest %}
-  <a href="{{ it.url }}" class="group flex min-w-0 items-center gap-3 rounded-xl {% if forloop.first %}bg-slate-900 text-white hover:bg-slate-800{% else %}border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50{% endif %} px-4 py-4 shadow-sm">
-    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg {% if forloop.first %}bg-white/10{% elif it.kind == 'folder' %}bg-amber-50 text-amber-600{% elif it.kind == 'object' %}bg-slate-100 text-slate-500{% else %}bg-emerald-50 text-emerald-600{% endif %}">
-      {% if it.working %}{% icon "loader" "h-5 w-5 animate-spin" "2.5" %}{% elif it.kind == "folder" %}{% icon "folder" "h-5 w-5" "1.75" %}{% elif it.kind == "object" %}{% icon "layers" "h-5 w-5" "1.75" %}{% else %}{% icon "sheet" "h-5 w-5" "1.75" %}{% endif %}
-    </span>
-    <span class="min-w-0 flex-1">
-      <span class="block truncate text-[11px] uppercase tracking-wider text-slate-400">{% if it.kind == "folder" %}Папка{% elif it.kind == "object" %}Объект{% else %}Смета{% endif %}{% if it.meta %} · {{ it.meta }}{% endif %} · {{ it.created|date:"d.m.Y H:i" }}</span>
-      <span class="block truncate font-semibold {% if not forloop.first %}text-slate-800{% endif %}" title="{{ it.name }}">{{ it.name }}</span>
-      <span class="mt-1.5 flex flex-wrap items-center gap-2">{% include "jobs/_work_badge.html" %}{% if it.total %}<span class="num text-sm font-semibold {% if not forloop.first %}text-slate-700{% endif %}">{{ it.total|som }}</span>{% endif %}</span>
-      {% if it.reason %}<span class="mt-1.5 block truncate text-xs {% if forloop.first %}text-slate-300{% else %}text-slate-500{% endif %}" title="{{ it.reason }}">Сабаби: {{ it.reason }}</span>{% endif %}
-      {% if it.working %}<span class="mt-2 block h-1 overflow-hidden rounded-full {% if forloop.first %}bg-white/10{% else %}bg-slate-100{% endif %}"><span class="block h-full rounded-full bg-sky-500" style="width: {{ it.percent }}%"></span></span>{% endif %}
-    </span>
-    <span class="{% if forloop.first %}text-slate-500 group-hover:text-white{% else %}text-slate-300 group-hover:text-slate-500{% endif %}">{% icon "chevron-right" "h-5 w-5" %}</span>
+{# ================= асосий кўрсаткичлар: битта қатор ================= #}
+<section data-guide="kpi" class="grid grid-cols-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:grid-cols-3 xl:grid-cols-5">
+  <div class="border-b border-r border-slate-100 p-4 xl:border-b-0">
+    <div class="text-xs font-medium text-slate-500">Сметалар</div>
+    <div class="num mt-1.5 text-2xl font-semibold text-slate-900">{{ count_smetas }}</div>
+    <div class="mt-1 truncate text-xs text-slate-400">{{ kinds.folder }} папка · {{ kinds.object }} объект · {{ kinds.smeta }} смета</div>
+  </div>
+  <div class="border-b border-slate-100 p-4 md:border-r xl:border-b-0">
+    <div class="flex items-center gap-1.5 text-xs font-medium text-slate-500"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Тўлиқ нархланди</div>
+    <div class="mt-1.5 flex items-baseline gap-2"><span class="num text-2xl font-semibold text-slate-900">{{ count_done }}</span><span class="num text-sm text-slate-400">{{ done_pct }}%</span></div>
+    <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width: {{ done_pct }}%"></div></div>
+  </div>
+  <div class="border-b border-r border-slate-100 p-4 xl:border-b-0">
+    <div class="flex items-center gap-1.5 text-xs font-medium text-slate-500"><span class="h-2 w-2 rounded-full bg-rose-500"></span>Қўлда нарх керак</div>
+    <div class="num mt-1.5 text-2xl font-semibold {% if count_warn %}text-rose-700{% else %}text-slate-900{% endif %}">{{ count_warn }}</div>
+    <div class="mt-1 text-xs text-slate-400">айрим қаторлар нархсиз</div>
+  </div>
+  <div class="border-b border-slate-100 p-4 md:border-b-0 md:border-r">
+    <div class="flex items-center gap-1.5 text-xs font-medium text-slate-500"><span class="h-2 w-2 rounded-full bg-violet-500"></span>Кутяпти</div>
+    <div class="num mt-1.5 text-2xl font-semibold text-slate-900">{{ count_pending }}</div>
+    <div class="mt-1 text-xs text-slate-400">{% if count_active %}{{ count_active }} таси ҳозир ишланяпти{% else %}бошлаш ёки текшириш керак{% endif %}</div>
+  </div>
+  <a href="{% url 'texnazor:index' %}" class="col-span-2 block p-4 hover:bg-slate-50 md:col-span-2 xl:col-span-1">
+    <div class="flex items-center gap-1.5 text-xs font-medium text-slate-500">{% icon "building" "h-3.5 w-3.5" %} Техназор</div>
+    <div class="mt-1.5 flex items-baseline gap-2"><span class="num text-2xl font-semibold text-slate-900">{{ tn.count }}</span><span class="text-sm text-slate-400">объект</span></div>
+    <div class="mt-1 text-xs text-slate-400">{% if tn.count %}бажарилди <b class="num font-semibold text-slate-600">{{ tn.pct|floatformat:1 }}%</b>{% else %}объект қўшилмаган{% endif %}</div>
   </a>
-  {% endfor %}
-</div>
+</section>
 
-{# ================= асосий кўрсаткичлар ================= #}
-<div data-guide="kpi" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">{% icon "sheet" "h-4 w-4" %} Жами сметалар</div>
-    <div class="num mt-2 text-3xl font-semibold">{{ count_smetas }}</div>
-    <div class="mt-1 text-xs text-slate-500">{{ kinds.folder }} папка · {{ kinds.object }} объект · {{ kinds.smeta }} смета</div>
-  </div>
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-emerald-600">{% icon "check-circle" "h-4 w-4" %} Ҳисобланди</div>
-    <div class="mt-2 flex items-baseline gap-2"><span class="num text-3xl font-semibold">{{ count_priced }}</span><span class="text-sm text-slate-400">{{ priced_pct }}%</span></div>
-    <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width: {{ priced_pct }}%"></div></div>
-  </div>
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-sky-600">{% if count_active %}{% icon "loader" "h-4 w-4 animate-spin" "2.5" %}{% else %}{% icon "loader" "h-4 w-4" %}{% endif %} Жараёнда</div>
-    <div class="num mt-2 text-3xl font-semibold">{{ count_active }}</div>
-    <div class="mt-1 text-xs text-slate-500">очиляпти ёки ҳисобланяпти</div>
-  </div>
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-violet-600">{% icon "clock" "h-4 w-4" %} Ҳисобланмаган</div>
-    <div class="num mt-2 text-3xl font-semibold">{{ count_pending }}</div>
-    <div class="mt-1 text-xs text-slate-500">бошлашни ёки текширишни кутяпти</div>
-  </div>
-</div>
+<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+  {# ================= эътибор керак: смета­чи нима қилиши керак ================= #}
+  <section data-guide="latest" class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="flex items-baseline justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
+      <h2 class="font-semibold text-slate-900">Эътибор керак <span class="num ml-1 text-sm font-normal text-slate-400">{{ attention_total }}</span></h2>
+      {% if attention_total > attention|length %}<a href="#all" class="text-xs font-medium text-slate-500 hover:text-slate-900">Ҳаммаси пастда →</a>{% endif %}
+    </div>
+    {% if attention %}
+    <ul class="divide-y divide-slate-100">
+      {% for it in attention %}
+      <li><a href="{{ it.url }}" class="group flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg {% if it.kind == 'folder' %}bg-amber-50 text-amber-600{% elif it.kind == 'object' %}bg-slate-100 text-slate-500{% else %}bg-emerald-50 text-emerald-600{% endif %}">
+          {% if it.kind == "folder" %}{% icon "folder" "h-5 w-5" "1.75" %}{% elif it.kind == "object" %}{% icon "layers" "h-5 w-5" "1.75" %}{% else %}{% icon "sheet" "h-5 w-5" "1.75" %}{% endif %}</span>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-sm font-medium text-slate-800" title="{{ it.name }}">{{ it.name }}</span>
+          <span class="block truncate text-xs text-slate-400">{% if it.kind == "folder" %}Папка{% elif it.kind == "object" %}Объект{% else %}Смета{% endif %}{% if it.meta %} · {{ it.meta }}{% endif %} · {{ it.created|date:"d.m.Y" }}</span>
+          <span class="mt-0.5 block truncate text-xs font-medium sm:hidden {% if it.state == 'warn' or it.state == 'failed' %}text-rose-700{% elif it.state == 'review' %}text-amber-700{% elif it.state == 'awaiting' %}text-violet-700{% else %}text-slate-600{% endif %}">{{ it.todo }}</span>
+        </span>
+        <span class="hidden shrink-0 text-right text-sm font-medium sm:block {% if it.state == 'warn' or it.state == 'failed' %}text-rose-700{% elif it.state == 'review' %}text-amber-700{% elif it.state == 'awaiting' %}text-violet-700{% else %}text-slate-600{% endif %}">{{ it.todo }}</span>
+        <span class="text-slate-300 group-hover:text-slate-500">{% icon "chevron-right" "h-4 w-4" %}</span>
+      </a></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="flex items-center gap-3 px-5 py-8 text-sm text-emerald-800">{% icon "check-circle" "h-5 w-5" %} Ҳаммаси тайёр — сизни кутаётган иш йўқ.</div>
+    {% endif %}
+  </section>
 
-<div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
   {# ================= сметалар босқичлари ================= #}
   <section data-guide="pipeline" class="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="flex flex-wrap items-baseline justify-between gap-x-3">
-      <h2 class="font-semibold">Сметалар босқичлари</h2>
-      <span class="text-xs text-slate-400">ҳар бир папка қисми — алоҳида смета</span>
+    <div class="flex items-baseline justify-between gap-3">
+      <h2 class="font-semibold text-slate-900">Сметалар босқичлари</h2>
+      <span class="num text-sm text-slate-400">{{ count_smetas }}</span>
     </div>
-    <div class="mt-4 flex h-3 overflow-hidden rounded-full bg-slate-100">
-      {% for p in pipeline %}{% if p.count %}<div class="h-full bg-{{ p.color }}-500 {% if not forloop.last %}border-r-2 border-white{% endif %}" style="width: {{ p.pct|stringformat:'s' }}%" title="{{ p.label }}: {{ p.count }}"></div>{% endif %}{% endfor %}
+    <p class="mt-0.5 text-xs text-slate-400">Папканинг ҳар бир қисми — алоҳида смета</p>
+    <div class="mt-4 flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-slate-100">
+      {% for p in pipeline %}{% if p.count %}<div class="h-full bg-{{ p.color }}-500" style="width: {{ p.pct|stringformat:'s' }}%" title="{{ p.label }}: {{ p.count }}"></div>{% endif %}{% endfor %}
     </div>
-    <ul class="mt-4 grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2">
+    <ul class="mt-4 space-y-2">
       {% for p in pipeline %}
-      <li class="flex items-start gap-2.5 {% if not p.count %}opacity-50{% endif %}" title="{{ p.hint }}">
-        <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-sm bg-{{ p.color }}-500"></span>
-        <span class="min-w-0 flex-1"><span class="block text-sm text-slate-700">{{ p.label }}</span><span class="block truncate text-xs text-slate-400">{{ p.hint }}</span></span>
-        <span class="num text-sm font-semibold text-slate-800">{{ p.count }}</span>
+      <li class="flex items-center gap-2.5 text-sm {% if not p.count %}opacity-50{% endif %}" title="{{ p.hint }}">
+        <span class="h-2.5 w-2.5 shrink-0 rounded-sm bg-{{ p.color }}-500"></span>
+        <span class="min-w-0 flex-1 truncate text-slate-700">{{ p.label }}</span>
+        <span class="num w-10 text-right font-semibold text-slate-800">{{ p.count }}</span>
+        <span class="num w-12 text-right text-xs text-slate-400">{{ p.pct|floatformat:0 }}%</span>
       </li>
       {% endfor %}
     </ul>
   </section>
+</div>
 
-  {# ================= суммалар ва охирги 14 кун ================= #}
-  <section class="flex min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="text-xs font-medium uppercase tracking-wider text-slate-400">Охирги иш — Всего с НДС</div>
-    {% if last_total %}
-    <div class="num mt-1 text-2xl font-semibold">{{ last_total.total|som }}</div>
-    <a href="{{ last_total.url }}" class="mt-0.5 block truncate text-xs text-slate-500 hover:text-slate-800" title="{{ last_total.name }}">{{ last_total.name }} · {{ last_total.created|date:"d.m.Y H:i" }}</a>
-    {% if last_total.not_priced %}<div class="mt-1 inline-flex items-center gap-1.5 text-xs text-rose-700">{% icon "alert-circle" "h-3.5 w-3.5" %} {{ last_total.not_priced }} та қатор қўлда нархланиши керак</div>
-    {% else %}<div class="mt-1 text-xs text-emerald-700">Нархланмаган қатор йўқ</div>{% endif %}
+<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+  {# ================= техназор ================= #}
+  <section class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="flex items-baseline justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
+      <h2 class="font-semibold text-slate-900">Техназор объектлари <span class="num ml-1 text-sm font-normal text-slate-400">{{ tn.count }}</span></h2>
+      <a href="{% url 'texnazor:index' %}" class="text-xs font-medium text-slate-500 hover:text-slate-900">Барчаси →</a>
+    </div>
+    {% if tn.cards %}
+    <ul class="divide-y divide-slate-100">
+      {% for c in tn.cards %}
+      <li><a href="{% url 'texnazor:object' c.o.pk %}" class="group block px-5 py-3 hover:bg-slate-50">
+        <div class="flex items-baseline gap-3">
+          <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-800" title="{{ c.o.name }}">{{ c.o.name }}</span>
+          <span class="num shrink-0 text-sm font-semibold text-slate-800">{{ c.pct|floatformat:1 }}%</span>
+        </div>
+        <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width: {{ c.pct|stringformat:'.2f' }}%;{% if c.pct > 0 %}min-width:3px{% endif %}"></div></div>
+        <div class="mt-1.5 flex flex-wrap gap-x-4 text-xs text-slate-400">
+          <span>бажарилди <span class="num text-slate-600">{{ c.done|som }}</span></span>
+          <span>қолдиқ <span class="num text-slate-600">{{ c.left|som }}</span></span>
+          <span>{% if c.last %}{{ c.months }} ой · охирги {{ c.last.title }}{% else %}ой қўшилмаган{% endif %}</span>
+        </div>
+      </a></li>
+      {% endfor %}
+    </ul>
     {% else %}
-    <div class="num mt-1 text-2xl font-semibold text-slate-300">—</div>
-    <div class="mt-1 text-xs text-slate-500">Ҳали ҳисобланган иш йўқ</div>
+    <div class="flex flex-wrap items-center gap-3 px-5 py-8 text-sm text-slate-500">Ҳали объект йўқ.
+      <a href="{% url 'texnazor:create' %}" class="font-medium text-slate-900 underline underline-offset-4">Офёртани юклаб объект қўшинг</a></div>
     {% endif %}
-    <div class="mt-5 flex items-baseline justify-between text-xs"><span class="font-medium text-slate-500">Охирги 14 кунда юкланган</span><span class="num font-semibold text-slate-700">{{ days_total }}</span></div>
-    <div class="mt-2 flex h-20 items-end gap-1">
+  </section>
+
+  {# ================= юклашлар: охирги 14 кун ================= #}
+  <section class="flex min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex items-baseline justify-between gap-3">
+      <h2 class="font-semibold text-slate-900">Юклашлар</h2>
+      <span class="text-xs text-slate-400">охирги 14 кун · <b class="num font-semibold text-slate-700">{{ days_total }}</b></span>
+    </div>
+    <div class="mt-4 flex h-28 items-end gap-1">
       {% for d in days %}
-      <div class="group relative flex h-full flex-1 items-end" title="{{ d.date|date:'d.m' }}: {{ d.count }} та">
-        <div class="w-full rounded-t {% if d.count %}bg-slate-700 group-hover:bg-slate-900{% else %}bg-slate-100{% endif %}" style="height: {% if d.count %}{{ d.h }}%{% else %}3px{% endif %}"></div>
+      <div class="flex h-full flex-1 flex-col justify-end" title="{{ d.date|date:'d.m' }}: {{ d.count }} та">
+        {% if d.count %}<span class="num mb-0.5 text-center text-[10px] text-slate-500">{{ d.count }}</span>{% endif %}
+        <div class="w-full rounded-sm {% if d.count %}bg-slate-700{% else %}bg-slate-100{% endif %}" style="height: {% if d.count %}{{ d.h }}%{% else %}3px{% endif %}"></div>
       </div>
       {% endfor %}
     </div>
-    <div class="mt-1 flex justify-between text-[10px] text-slate-400"><span>{{ days.0.date|date:"d.m" }}</span><span>бугун</span></div>
+    <div class="mt-1.5 flex justify-between text-[10px] text-slate-400"><span>{{ days.0.date|date:"d.m" }}</span><span>бугун</span></div>
+    <div class="mt-auto border-t border-slate-100 pt-3 text-xs">
+      {% if last_total %}
+      <div class="text-slate-400">Охирги ҳисобланган иш · Всего с НДС</div>
+      <div class="mt-0.5 flex items-baseline justify-between gap-3">
+        <a href="{{ last_total.url }}" class="min-w-0 truncate text-slate-600 hover:text-slate-900" title="{{ last_total.name }}">{{ last_total.name }}</a>
+        <span class="num shrink-0 text-sm font-semibold text-slate-900">{{ last_total.total|som }}</span>
+      </div>
+      {% else %}<span class="text-slate-400">Ҳали ҳисобланган иш йўқ</span>{% endif %}
+    </div>
   </section>
 </div>
 
 {# ================= барча ишлар ================= #}
-<section class="mt-8" data-work-section data-guide="all">
+<section id="all" class="mt-8 scroll-mt-4" data-work-section data-guide="all">
   <div class="mb-3 flex flex-wrap items-center gap-2">
     <h2 class="mr-2 font-semibold">Барча ишлар <span class="num text-sm font-normal text-slate-400">{{ items|length }}</span></h2>
     <label class="relative ml-auto block w-full sm:w-64">
@@ -184,10 +233,10 @@
 </script>
 {% endblock %}
 {% block guide %}{page: "dashboard", steps: [
-  {sel: '[data-guide="latest"]', title: "Охирги ишлар",
-   text: "Энг охирги иккита ишингиз — бир босишда давом эттиринг. Ҳолати рангли белгида: <b class='text-violet-700'>ҳисоблашга тайёр</b>, <b class='text-sky-700'>ишланяпти</b>, <b class='text-rose-700'>нархланмаган бор</b>, <b class='text-emerald-700'>тайёр</b>."},
   {sel: '[data-guide="kpi"]', title: "Асосий кўрсаткичлар",
-   text: "Жами сметалар, нечтаси ҳисобланди, нечтаси ҳозир жараёнда ва нечтасида иш қолган."},
+   text: "Жами сметалар, нечтаси тўлиқ нархланди, нечтасида қўлда нарх керак, нечтаси кутяпти ва техназор объектлари."},
+  {sel: '[data-guide="latest"]', title: "Эътибор керак",
+   text: "Сизни кутаётган ишлар ва ҳар бирида нима қилиш кераклиги: <b class='text-rose-700'>нарх ёзиш</b>, <b class='text-violet-700'>ҳисоблашни бошлаш</b>, <b class='text-amber-700'>текшириш</b>. Босинг — иш очилади."},
   {sel: '[data-guide="pipeline"]', title: "Сметалар қайси босқичда",
    text: "Ҳар бир смета юклашдан тайёр бўлгунча қайси босқичда тургани."},
   {sel: '[data-guide="all"]', title: "Барча ишлар",

@@ -36,16 +36,7 @@ def _period(obj, request, data=None) -> Period:
 
 
 def index(request):
-    objs = list(SiteObject.objects.filter(owner=request.user))
-    cards = []
-    for o in objs:
-        last = o.periods.order_by("-year", "-month").first()
-        t = services.period_totals(last) if last and o.status == SiteObject.Status.READY else None
-        contract = (o.contract_totals or {}).get("contractor", 0.0)
-        done = t["cum"]["contractor"] if t else 0.0
-        cards.append({"o": o, "last": last, "contract": contract, "done": done, "left": contract - done,
-                      "pct": 100 * done / contract if contract else 0.0, "months": o.periods.count()})
-    return render(request, "texnazor/index.html", {"nav": "texnazor", "cards": cards})
+    return render(request, "texnazor/index.html", {"nav": "texnazor", "cards": services.object_cards(request.user)})
 
 
 def create(request):
