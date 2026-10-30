@@ -140,13 +140,13 @@ sudo systemctl status narxlash-web narxlash-worker
 
 ## 7. nginx va HTTPS
 
-Domen DNS'i serverga ulangan bo'lishi kerak (tekshirish: `ping DOMEN` server IP sini ko'rsatsin).
-`DOMEN` o'rniga o'z domeningizni yozing:
+Domen: **mloyihachi.uz** va **www.mloyihachi.uz**. DNS serverga ulangan bo'lishi kerak — domen panelida
+ikkita `A` yozuv: `@` → server IP, `www` → server IP (tekshirish: `ping mloyihachi.uz` va
+`ping www.mloyihachi.uz` server IP sini ko'rsatsin; DNS 5 daqiqadan bir necha soatgacha yangilanadi).
 
 ```bash
-sudo certbot certonly --nginx -d DOMEN               # 1) avval sertifikat (nginx config'iga tegmaydi)
+sudo certbot certonly --nginx -d mloyihachi.uz -d www.mloyihachi.uz   # 1) avval sertifikat (nginx config'iga tegmaydi)
 sudo cp /srv/narxlash/app/deploy/nginx/narxlash.conf /etc/nginx/sites-available/narxlash
-sudo sed -i 's/narxlash\.uz/DOMEN/g' /etc/nginx/sites-available/narxlash
 sudo ln -s ../sites-available/narxlash /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx         # 2) nginx -t xato bersa — reload QILINMAYDI
 ```
@@ -154,7 +154,8 @@ sudo nginx -t && sudo systemctl reload nginx         # 2) nginx -t xato bersa �
 > **Serverda boshqa saytlar bo'lsa:** `/etc/nginx/sites-enabled/default` ni **o'chirmang** va `certbot --nginx`
 > (certonly'siz) ishlatmang — u boshqa saytlar config'iga ham tegishi mumkin.
 
-Keyin `/srv/narxlash/.env` da: `DJANGO_ALLOWED_HOSTS=DOMEN`, `DJANGO_SSL_REDIRECT=1`, so'ng
+Keyin `/srv/narxlash/.env` da: `DJANGO_ALLOWED_HOSTS=mloyihachi.uz,www.mloyihachi.uz`, `DJANGO_SSL_REDIRECT=1`,
+`NARXLASH_TRUST_PROXY=1` (bo'lmasa sayt cheksiz yo'naltirishga tushadi), so'ng
 `sudo systemctl restart narxlash-web narxlash-worker`.
 
 > **Muhim:** saytga faqat HTTPS orqali kirish mumkin — production'da cookie'lar «faqat HTTPS» rejimida.
@@ -206,7 +207,7 @@ siz esa o'z kompyuteringizdan SSH tunnel orqali kirasiz. 1–6 qadamlarni bajari
 3. Brauzerda (Chrome, Edge yoki Firefox) oching: `http://localhost:8800/`, panel — `http://localhost:8800/boshqaruv-…/`.
 
 `check --deploy` bu vaqtda `security.W008` (SSL redirect o'chiq) deb ogohlantiradi — bu kutilgan holat.
-Domen faollashgach — 7-qadam, va `.env` ni qaytaring (`DJANGO_ALLOWED_HOSTS=DOMEN`, `DJANGO_SSL_REDIRECT=1`).
+Domen faollashgach — 7-qadam, va `.env` ni qaytaring (`DJANGO_ALLOWED_HOSTS=mloyihachi.uz,www.mloyihachi.uz`, `DJANGO_SSL_REDIRECT=1`).
 
 > Saytni IP orqali oddiy `http://` da ochmang: parol va cookie'lar shifrlanmasdan yuboriladi, xavfsizlik
 > sozlamalari (faqat HTTPS cookie) tufayli kirish baribir ishlamaydi.
