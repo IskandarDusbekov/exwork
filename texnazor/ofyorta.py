@@ -38,6 +38,7 @@ _HEADERS = [
 _FALLBACK = {"num": 1, "code": 2, "name": 3, "unit": 4, "qty": 5, "total": 6, "price": 7, "price_customer": 8,
              "amount": 9, "J": 10, "K": 11, "L": 12, "M": 13, "N": 14, "O": 15}
 _NUM_TOP = re.compile(r"^\d+$")
+NO_SECTION = "Бўлим номи кўрсатилмаган"
 _NUM_SUB = re.compile(r"^(\d+)\.\d+$")
 
 
@@ -74,7 +75,7 @@ class Ofyorta:
     rows: List[Row] = field(default_factory=list)
     rates: Dict[str, float] = field(default_factory=lambda: dict(DEFAULT_RATES))
     file_totals: Dict[str, float] = field(default_factory=dict)  # svodkadagi summalar (taqqoslash uchun)
-    warnings: List[str] = field(default_factory=list)
+    warnings: List[dict] = field(default_factory=list)  # {"row": Excel qatori, "title", "text"} — oddiy tilda
     amount_diff: float = 0.0  # faylning I ustuni − biz hisoblagan (to'g'ridan-to'g'ri, ofyortadagi xatolar)
 
     @property
@@ -185,6 +186,22 @@ def parse(path: Path, sheet: Optional[str] = None, progress: Callable[[int, int]
             end = i
             break
 
+    def next_num(i: int) -> str:
+        for j in range(i + 1, end):
+            n, t = _text(get(rows[j], "num")), _text(get(rows[j], "name"))
+            if n or t:
+                return n
+        return ""
+
+    def is_numbered_header(r, num: str, i: int) -> bool:
+        """«1 | ДЕМОНТАЖ» — A da raqam bor, lekin birligi, miqdori, narxi, summasi yo'q va ostida «1.1» resurs yo'q:
+        bu ish emas, bo'lim sarlavhasi (ba'zi ofyortalarda sarlavha ham raqamlanadi)."""
+        if not _NUM_TOP.match(num) or _text(get(r, "unit")):
+            return False
+        if any(_num(get(r, k)) for k in ("qty", "total", "price", "price_customer", "amount")):
+            return False
+        return not next_num(i).startswith(num + ".")
+
     section = None
     last_work = None
     for i in range(start, end):
@@ -192,13 +209,20 @@ def parse(path: Path, sheet: Optional[str] = None, progress: Callable[[int, int]
         num, nm = _text(get(r, "num")), _text(get(r, "name"))
         if not num and not nm:
             continue
-        if not num or not (_NUM_TOP.match(num) or _NUM_SUB.match(num)):
+        if not num or not (_NUM_TOP.match(num) or _NUM_SUB.match(num)) or (nm and is_numbered_header(r, num, i)):
             if nm:
                 of.sections.append(nm)
                 section = len(of.sections) - 1
                 of.rows.append(Row(excel_row=i + 1, kind="section", name=nm, section=section))
                 last_work = None
             continue
+        if section is None:  # birinchi sarlavhadan oldingi (yoki sarlavhasiz ofyortadagi) ishlar — yo'qolib qolmasin
+            of.sections.append(NO_SECTION)
+            section = len(of.sections) - 1
+            of.rows.append(Row(excel_row=i + 1, kind="section", name=NO_SECTION, section=section))
+            of.warnings.append({"row": i + 1, "title": "Бўлим сарлавҳаси йўқ ишлар бор",
+                                "text": f"{i + 1}-қатордан бошлаб ишлар тепасида бўлим номи (А устуни бўш, C да ном) йўқ. "
+                                        f"Тизим уларни «{NO_SECTION}» бўлимига олди — ишлар ва пул ҳисоби тўлиқ."})
         qty = _num(get(r, "qty")) or 0.0
         g, hc = _num(get(r, "price")) or 0.0, _num(get(r, "price_customer")) or 0.0
         # buyurtmachi uskunasida narx H da (G bo'sh): I = H × E
@@ -215,7 +239,9 @@ def parse(path: Path, sheet: Optional[str] = None, progress: Callable[[int, int]
         if row.kind == "res":
             parent = last_work if last_work is not None and _NUM_SUB.match(num).group(1) == of.rows[last_work].num else None
             if parent is None:
-                of.warnings.append(f"{i + 1}-қатор: «{num}» ресурсининг иши топилмади — мустақил деб олинди")
+                of.warnings.append({"row": i + 1, "title": f"«{num}» ресурсининг иши топилмади",
+                                    "text": f"Рақами «{num}», лекин тепасида {num.split('.')[0]}-иш йўқ. Тизим уни алоҳида "
+                                            "материал деб олди: ҳажмини ўзингиз белгилайсиз."})
                 row.kind = "top"
             else:
                 row.parent = parent
@@ -249,15 +275,22 @@ def _check_amounts(of: Ofyorta):
     for key, rows in by_work.items():
         head = of.rows[key]
         diff = sum(r.file_amount - r.amount for r in rows)
-        why = " — иш ҳажми 0" if head.kind == "work" and not head.qty else ""
-        of.warnings.append(
-            f"{head.excel_row}-қатор («{head.num} {head.name[:60]}»){why}: файлда {len(rows)} та қатор суммаси бошқача, "
-            f"фарқ {money(diff)} сўм (тўғридан-тўғри харажат). Тизим тўғри формула (I = G × F) билан ҳисоблайди.")
+        name = f"{head.num}-иш «{head.name[:70].strip()}»" if head.kind == "work" else f"«{head.name[:70].strip()}»"
+        if head.kind == "work" and not head.qty:
+            text = (f"Шартномада бу ишнинг ҳажми 0, лекин Excel'да унинг {len(rows)} та ресурсига жами {money(diff)} сўм пул "
+                    "ёзилган. Сабаби — формула хатоси: ресурс суммаси «нарх × жами ҳажм» ўрнига «нарх × меъёр» бўлиб "
+                    "ҳисобланган. Ҳажми 0 бўлган иш учун пул бўлмаслиги керак, шунинг учун тизим бу суммани ҳисобга олмайди. "
+                    "Шу сабаб тизимдаги акт Excel'дагидан шунча (устамалари билан бироз кўпроқ) кам чиқади. "
+                    "Пудратчи ёки смета тузувчи билан аниқлаштиринг.")
+        else:
+            text = (f"Excel'да {len(rows)} та қатор суммаси «нарх × миқдор»га тўғри келмайди, фарқ {money(diff)} сўм. "
+                    "Тизим тўғри формула билан ҳисоблайди. Excel'даги формулани текширинг.")
+        of.warnings.append({"row": head.excel_row, "title": f"{name}: Excel'да ортиқча {money(diff)} сўм", "text": text})
     of.amount_diff = sum(r.file_amount - r.amount for rows in by_work.values() for r in rows)
 
 
 def money(v: float) -> str:
-    return f"{v:,.0f}".replace(",", " ")
+    return f"{v:,.2f}".replace(",", " ").replace(".", ",")
 
 
 def _guess_category(unit: str) -> str:
@@ -282,7 +315,8 @@ def _unit_costs(of: Ofyorta):
             if work.qty:
                 work.unit_cost[row.category] = work.unit_cost.get(row.category, 0.0) + row.amount / work.qty
             else:
-                of.warnings.append(f"{work.excel_row}-қатор: ишнинг ҳажми 0 — ресурслари ({row.amount:,.0f}) ҳисобга олинмади")
+                of.warnings.append({"row": work.excel_row, "title": f"{work.num}-ишнинг ҳажми 0",
+                                    "text": f"Ресурсларида {money(row.amount)} сўм бор, лекин иш ҳажми 0 — бу пул ҳисобга олинмади."})
     for row in of.rows:
         if row.kind == "work":
             row.amount = sum(v * row.qty for v in row.unit_cost.values())

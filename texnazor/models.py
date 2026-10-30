@@ -115,6 +115,7 @@ class Period(models.Model):
     month = models.PositiveSmallIntegerField()
     closed = models.BooleanField(default=False)
     created = models.DateTimeField(auto_now_add=True)
+    paid = models.FloatField(null=True, blank=True)  # Ф-3 bo'yicha haqiqatda to'langan (pudratchi, QQS bilan) — farqi ko'rinadi
 
     class Meta:
         ordering = ["year", "month"]
@@ -139,3 +140,23 @@ class Done(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["period", "item"], name="tn_done_unique")]
+
+
+class Correction(models.Model):
+    """Ofyortaga tuzatish (asos hujjati bilan): qatorning shartnoma hajmi o'zgaradi, tarix saqlanadi.
+
+    Bajarilgan hajmlar va yopilgan oylar summasi o'zgarmaydi — faqat shartnoma (va qoldiq) o'zgaradi."""
+    obj = models.ForeignKey(SiteObject, on_delete=models.CASCADE, related_name="corrections")
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="corrections")
+    period = models.ForeignKey(Period, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")  # qaysi oydan
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    created = models.DateTimeField(auto_now_add=True)
+    old_qty = models.FloatField()
+    new_qty = models.FloatField()
+    basis = models.CharField(max_length=300)  # asos hujjati: qo'shimcha kelishuv, smeta tuzatmasi, xat raqami va sanasi
+    note = models.TextField(blank=True)
+    reverted = models.DateTimeField(null=True, blank=True)  # bekor qilingan (tarixda qoladi, hajm eskisiga qaytgan)
+    reverted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+
+    class Meta:
+        ordering = ["-created", "-pk"]

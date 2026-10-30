@@ -1,5 +1,6 @@
 """Texnazor: ofyortani o'qish, svodka zanjiri, oyma-oy hajmlar, qoldiq, ruxsatlar."""
 import json
+from pathlib import Path
 import shutil
 import tempfile
 
@@ -13,7 +14,7 @@ from accounts.models import User
 
 from . import services, tasks
 from .calc import chain
-from .models import Done, Item, Period, SiteObject
+from .models import Correction, Done, Item, Period, SiteObject
 from .ofyorta import parse
 
 TMP_MEDIA = tempfile.mkdtemp(prefix="narxlash_tn_")
@@ -96,7 +97,8 @@ def test_parse_structure_and_unit_costs(tmp_path):
 
 def test_zero_volume_work_with_wrong_formula_is_reported(tmp_path):
     of = parse(build_ofyorta(tmp_path / "o.xlsx", broken_zero_work=True))
-    assert len(of.warnings) == 1 and "иш ҳажми 0" in of.warnings[0] and "15 000" in of.warnings[0]
+    w = of.warnings[0]
+    assert len(of.warnings) == 1 and "ҳажми 0" in w["text"] and "15 000" in w["title"] and w["row"]
 
 
 def test_chain_matches_svodka_formula():
@@ -172,6 +174,11 @@ class TexnazorFlowTests(TestCase):
         self.assertAlmostEqual(d["summary"]["cum"] + d["summary"]["left"], d["summary"]["contract"], places=2)
         rows = services.item_rows(sept, [self.work])
         self.assertEqual((rows[0]["before"], rows[0]["this"], rows[0]["left"]), (4.0, 6.0, 0.0))
+        # resurslar ishga ergashadi (me'yor × hajm), bo'lim qatori ham yangilanadi
+        for x in rows[0]["res"]:
+            self.assertAlmostEqual(x["this"], x["r"].qty * 6)
+        self.assertAlmostEqual(sum(x["this_amount"] for x in rows[0]["res"]), rows[0]["this_amount"])
+        self.assertAlmostEqual(d["section"]["this"], 6 * per_m3)
 
     def test_closed_month_and_section_fill(self):
         self.client.post(reverse("texnazor:period_add", args=[self.obj.pk]), {"year": 2026, "month": 7})
@@ -192,12 +199,90 @@ class TexnazorFlowTests(TestCase):
         july = Period.objects.get()
         self.assertContains(self.client.get(reverse("texnazor:index")), "CHILONZOR")
         page = self.client.get(reverse("texnazor:object", args=[self.obj.pk]))
-        self.assertContains(page, "ФУНДАМЕНТ")
+        self.assertContains(page, "Фундамент")  # mundarija; nomlar oddiy yozuvda (readable)
+        self.assertContains(page, "Бетон фундаментов")  # birinchi bo'lim o'ng tomonda darhol ochiq
         self.assertContains(page, "Июль 2026")
         part = self.client.get(reverse("texnazor:section", args=[self.obj.pk, self.work.section_id]), {"p": july.pk})
-        self.assertContains(part, "БЕТОН ФУНДАМЕНТОВ")
-        self.assertContains(self.client.get(reverse("texnazor:search", args=[self.obj.pk]), {"p": july.pk, "q": "швеллер"}), "ШВЕЛЛЕР")
-        self.assertContains(self.client.get(reverse("texnazor:resources", args=[self.obj.pk, self.work.pk])), "КРАН")
+        self.assertContains(part, "Бетон фундаментов")
+        self.assertContains(part, "Кран")  # ishning resurslari shu jadvalda (yopiq), alohida so'rovsiz
+        self.assertContains(self.client.get(reverse("texnazor:search", args=[self.obj.pk]), {"p": july.pk, "q": "швеллер"}), "Швеллер")
+        res_row = self.work.resources.first().excel_row  # Excel qatori bo'yicha: resurs qatori -> uning ishi
+        self.assertContains(self.client.get(reverse("texnazor:search", args=[self.obj.pk]), {"p": july.pk, "q": str(res_row)}),
+                            "Бетон фундаментов")
+
+    def test_correction_changes_contract_and_keeps_history(self):
+        self.client.post(reverse("texnazor:period_add", args=[self.obj.pk]), {"year": 2026, "month": 7})
+        july = Period.objects.get()
+        self._post("done", {"period": july.pk, "item": self.work.pk, "value": "4"})
+        before = SiteObject.objects.get().contract_totals["direct"]
+        url = lambda it: reverse("texnazor:correct", args=[self.obj.pk, it.pk])  # noqa: E731
+        post = lambda it, body: self.client.post(url(it), json.dumps(body), content_type="application/json")  # noqa: E731
+        r = post(self.work, {"period": july.pk, "value": "12", "basis": ""})
+        self.assertIn("Асос", r.json()["error"])  # asos hujjatisiz bo'lmaydi
+        r = post(self.work, {"period": july.pk, "value": "3", "basis": "ҚК №2"})
+        self.assertIn("Бажарилган 4", r.json()["error"])  # bajarilganidan kam bo'lmaydi
+        self.assertTrue(post(self.work, {"period": july.pk, "value": "12", "basis": "ҚК №2, 12.11.2026"}).json()["ok"])
+        self.work.refresh_from_db()
+        self.assertEqual(self.work.qty, 12)
+        self.assertEqual(Done.objects.get(item=self.work).qty, 4)  # bajarilgan o'zgarmaydi
+        per_m3 = 5000 + 10000 + 510000 * 1.03
+        self.assertAlmostEqual(SiteObject.objects.get().contract_totals["direct"] - before, 2 * per_m3, places=2)
+        c = Correction.objects.get()
+        self.assertEqual((c.old_qty, c.new_qty, c.basis, c.author), (10, 12, "ҚК №2, 12.11.2026", self.user))
+        page = self.client.get(reverse("texnazor:object", args=[self.obj.pk]))
+        self.assertContains(page, "Офёрта тузатишлари")
+        self.assertContains(page, "ҚК №2, 12.11.2026")
+        # yopilgan oydan kuchga kirmaydi
+        self.client.post(reverse("texnazor:period_close", args=[self.obj.pk, july.pk]), {"closed": "1"})
+        self.assertIn("ёпилган", post(self.work, {"period": july.pk, "value": "13", "basis": "ҚК №3"}).json()["error"])
+
+    def test_paid_difference(self):
+        self.client.post(reverse("texnazor:period_add", args=[self.obj.pk]), {"year": 2026, "month": 7})
+        july = Period.objects.get()
+        self._post("done", {"period": july.pk, "item": self.work.pk, "value": "4"})
+        calc_ = services.period_totals(july)["this"]["contractor"]
+        self.client.post(reverse("texnazor:paid", args=[self.obj.pk, july.pk]), {"paid": f"{calc_ + 1000.5:,.2f}".replace(",", " ").replace(".", ",")})
+        july.refresh_from_db()
+        self.assertAlmostEqual(july.paid, calc_ + 1000.5, places=2)
+        self.assertAlmostEqual(services.payments(self.obj)["over"], 1000.5, places=2)
+        self.assertContains(self.client.get(reverse("texnazor:object", args=[self.obj.pk])), "ортиқча тўланган")
+
+    def test_delete_month_needs_typed_title_and_open_month(self):
+        self.client.post(reverse("texnazor:period_add", args=[self.obj.pk]), {"year": 2026, "month": 7})
+        july = Period.objects.get()
+        self._post("done", {"period": july.pk, "item": self.work.pk, "value": "4"})
+        url = reverse("texnazor:period_delete", args=[self.obj.pk, july.pk])
+        self.client.post(url, {"confirm": "ҳа"})
+        self.assertTrue(Period.objects.exists())  # 2-qadam: oy nomi yozilmasa o'chmaydi
+        self.client.post(reverse("texnazor:period_close", args=[self.obj.pk, july.pk]), {"closed": "1"})
+        self.client.post(url, {"confirm": "Июль 2026"})
+        self.assertTrue(Period.objects.exists())  # yopilgan oy o'chmaydi
+        self.client.post(reverse("texnazor:period_close", args=[self.obj.pk, july.pk]), {"closed": "0"})
+        self.client.post(url, {"confirm": "июль 2026"})
+        self.assertFalse(Period.objects.exists())
+        self.assertFalse(Done.objects.exists())
+
+    def test_revert_correction_last_first(self):
+        self.client.post(reverse("texnazor:period_add", args=[self.obj.pk]), {"year": 2026, "month": 7})
+        july = Period.objects.get()
+        c1 = services.correct_item(self.user, self.work, july, "12", "ҚК №1")
+        c2 = services.correct_item(self.user, Item.objects.get(pk=self.work.pk), july, "15", "ҚК №2")
+        rv = lambda c, w: self.client.post(reverse("texnazor:revert", args=[self.obj.pk, c.pk]), json.dumps({"confirm": w}),  # noqa: E731
+                                           content_type="application/json").json()
+        self.assertIn("БЕКОР", rv(c2, "ҳа")["error"])
+        self.assertIn("кейинги", rv(c1, "бекор")["error"])  # oxirgisi birinchi
+        self.assertTrue(rv(c2, "бекор")["ok"])
+        self.assertEqual(Item.objects.get(pk=self.work.pk).qty, 12)
+        self.assertTrue(rv(c1, "БЕКОР")["ok"])
+        self.assertEqual(Item.objects.get(pk=self.work.pk).qty, 10)
+        self.assertEqual(Correction.objects.filter(reverted__isnull=False).count(), 2)  # tarixda qoladi
+        self.assertAlmostEqual(SiteObject.objects.get().contract_totals["direct"], self.obj.contract_totals["direct"], places=2)
+
+    def test_delete_object_needs_word(self):
+        self.client.post(reverse("texnazor:delete", args=[self.obj.pk]), {"confirm": ""})
+        self.assertTrue(SiteObject.objects.exists())
+        self.client.post(reverse("texnazor:delete", args=[self.obj.pk]), {"confirm": "ўчириш"})
+        self.assertFalse(SiteObject.objects.exists())
 
     def test_other_user_cannot_see_object(self):
         other = User.objects.create_user("b@test.uz", "Kuchli-parol-2026", first_name="B", last_name="B")
@@ -205,3 +290,82 @@ class TexnazorFlowTests(TestCase):
         self.assertEqual(self.client.get(reverse("texnazor:object", args=[self.obj.pk])).status_code, 404)
         self.assertEqual(self._post("done", {"item": self.work.pk, "value": "1"}).status_code, 404)
         self.assertNotContains(self.client.get(reverse("texnazor:index")), "CHILONZOR")
+
+
+def test_money_is_shown_to_tiyin_without_rounding_to_som():
+    from texnazor.templatetags.texnazor_tags import pul
+    assert pul(2862982.6934) == "2 862 982,69"
+    assert pul(1000) == "1 000,00"
+    assert pul(-0.001) == "0,00"
+
+
+@override_settings(MEDIA_ROOT=TMP_MEDIA)
+class ZeroVolumeCorrectionTests(TestCase):
+    """Ofyortada hajmi 0 bo'lgan ish (resurslarida formula xato): tuzatilsa narxi me'yorlardan tiklanadi."""
+
+    def test_zero_volume_work_gets_unit_cost_from_norms(self):
+        user = User.objects.create_user("z@test.uz", "Kuchli-parol-2026", first_name="Z", last_name="Z")
+        self.client.force_login(user)
+        Path(TMP_MEDIA).mkdir(parents=True, exist_ok=True)
+        with open(build_ofyorta(f"{TMP_MEDIA}/z.xlsx", broken_zero_work=True), "rb") as f:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.client.post(reverse("texnazor:create"), {"ofyorta": SimpleUploadedFile("z.xlsx", f.read())})
+        obj = SiteObject.objects.get()
+        tasks.run_now(obj.pk)
+        zero = Item.objects.get(name="УКЛАДКА ПРОГОНОВ")
+        self.assertEqual((zero.qty, zero.unit_cost), (0, 0))
+        self.client.post(reverse("texnazor:period_add", args=[obj.pk]), {"year": 2026, "month": 7})
+        page = self.client.get(reverse("texnazor:object", args=[obj.pk]))
+        self.assertContains(page, "Жадвалда кўрсатиш")
+        norms = sum(r.price * r.qty for r in zero.resources.all())
+        before = SiteObject.objects.get().contract_totals["direct"]
+        r = self.client.post(reverse("texnazor:correct", args=[obj.pk, zero.pk]),
+                             json.dumps({"value": "2", "basis": "Смета тузатмаси №1"}), content_type="application/json")
+        self.assertTrue(r.json()["ok"])
+        zero.refresh_from_db()
+        self.assertAlmostEqual(zero.unit_cost, norms)
+        self.assertGreater(SiteObject.objects.get().contract_totals["direct"], before)
+        self.assertTrue(all(abs(x.total_qty - x.qty * 2) < 1e-9 for x in zero.resources.all()))
+        self.assertContains(self.client.get(reverse("texnazor:object", args=[obj.pk])), "Тузатилди: 0 → 2")
+
+
+def _mini_ofyorta(path, rows):
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "ОФЁРТА"
+    ws.append(["№ п/п", "Шифр", "Наименование работ", "Единица", "Количество"])
+    ws.append([None, None, None, None, "на единицу", "по проектным", "Цена подрятчик", "Цена заказчик", "Сумма", "ЧЕЛ-Ч.", "МАШ-Ч.", "МАТРИАЛ"])
+    ws.append(list(range(1, 13)))
+    for r in rows:
+        ws.append(r)
+    wb.save(path)
+    return path
+
+
+_WORK = [[1, "Е06-01-001-1", "БЕТОН", "1 М3", 10], ["1.1", "1", "ЗАТРАТЫ ТРУДА", "ЧЕЛ-Ч.", 5, 50, 1000, None, 50000, 50000]]
+_FREE = [[2, "30032", "ШВЕЛЛЕР", "ТН", 2, None, 9600000, None, 19200000, None, None, 19200000]]
+
+
+def test_items_without_any_header_are_not_lost(tmp_path):
+    of = parse(_mini_ofyorta(tmp_path / "a.xlsx", _WORK + _FREE))
+    assert of.sections == ["Бўлим номи кўрсатилмаган"]
+    assert all(r.section == 0 for r in of.rows)
+    assert any("сарлавҳаси йўқ" in w["title"] for w in of.warnings)
+
+
+def test_numbered_header_without_unit_or_price_is_a_section(tmp_path):
+    rows = [[1, None, "ДЕМОНТАЖ"], [2, "Е06-01-001-1", "БЕТОН", "1 М3", 10],
+            ["2.1", "1", "ЗАТРАТЫ", "ЧЕЛ-Ч.", 5, 50, 1000, None, 50000, 50000]]
+    of = parse(_mini_ofyorta(tmp_path / "b.xlsx", rows))
+    assert of.sections == ["ДЕМОНТАЖ"]
+    assert [r.kind for r in of.rows] == ["section", "work", "res"]
+
+
+def test_block_titles_with_or_without_na():
+    from .services import _BLOCK, block_label
+    for t in ("на АС Блок-1", "НА ЭО", "АС БЛОК-2", "БЛОК №3"):
+        assert _BLOCK.search(t), t
+    for t in ("ДВЕРНЫЕ БЛОКИ (АС ЛИСТ-9)", "ДЕМОНТАЖ 1-ЭТАЖ", "НАРУЖНОЙ ОТДЕЛКИ"):
+        assert not _BLOCK.search(t), t
+    assert block_label("НА АС БЛОК-1") == "АС БЛОК-1"

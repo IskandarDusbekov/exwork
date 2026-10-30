@@ -16,8 +16,8 @@ from core import convert
 from core.convert import check_xlsx
 
 from . import calc
-from .models import COST_FIELDS, Done, Item, Period, Section, SiteObject
-from .ofyorta import Ofyorta, OfyortaError, parse
+from .models import COST_FIELDS, Correction, Done, Item, Period, Section, SiteObject
+from .ofyorta import CATEGORY_LABELS, Ofyorta, OfyortaError, parse
 
 ALLOWED_EXT = (".xls", ".xlsx", ".xlsm")
 MAX_UPLOAD = 60 * 1024 * 1024
@@ -110,14 +110,19 @@ def _store(obj: SiteObject, of: Ofyorta):
     if of.title and obj.name == Path(obj.source_name).stem[:300]:
         obj.name = of.title[:300]  # nomi kiritilmagan — ofyortadagi obyekt nomi
     obj.object_type = of.object_type[:200]
-    cat = {}
-    for _i, it in tops:
-        for c, f in COST_FIELDS.items():
-            cat[c] = cat.get(c, 0.0) + getattr(it, f) * it.qty
-    obj.contract_totals = calc.chain(cat, obj.rates)
+    obj.contract_totals = _contract([it for _i, it in tops], obj.rates)
     obj.status, obj.error = SiteObject.Status.READY, ""
     obj.progress = {"step": "Тайёр", "done": len(of.rows), "total": len(of.rows)}
     obj.save()
+
+
+def _contract(items, rates) -> Dict[str, float]:
+    """Shartnoma zanjiri: Σ (shartnoma hajmi × 1 birlik narxi) turlar bo'yicha -> svodka foizlari."""
+    cat = {}
+    for it in items:
+        for c, f in COST_FIELDS.items():
+            cat[c] = cat.get(c, 0.0) + getattr(it, f) * it.qty
+    return calc.chain(cat, rates)
 
 
 def search_key(text: str) -> str:
@@ -222,6 +227,109 @@ def fill_section(period: Period, section: Section, pct: float) -> int:
     return n
 
 
+# ===================== ofyortaga tuzatish =====================
+def correct_item(user, item: Item, period: Optional[Period], text, basis: str, note: str = "") -> Correction:
+    """Qatorning shartnoma hajmini asos hujjati bilan o'zgartirish. Bajarilganidan kam qilib bo'lmaydi.
+
+    Bajarilgan hajmlar o'zgarmaydi, shuning uchun yopilgan oylar summasi ham o'zgarmaydi — o'zgaradigani shartnoma
+    va qoldiq. Ofyortada hajmi 0 bo'lgan ishning 1 birlik narxi resurslarining me'yoridan tiklanadi (narx × me'yor)."""
+    if item.kind not in ITEM_KINDS:
+        raise TexnazorError("Ресурс ҳажми алоҳида тузатилмайди — ишнинг ҳажмини тузатинг")
+    if period is not None and period.closed:
+        raise TexnazorError(f"{period.title} ёпилган — тузатиш очиқ ойдан кучга киради")
+    basis = " ".join(str(basis or "").split())
+    if len(basis) < 3:
+        raise TexnazorError("Асос ҳужжатини ёзинг (масалан: «Қўшимча келишув №2, 12.11.2026»)")
+    new = parse_value(text, item.qty)
+    if new is None or new < 0:
+        raise TexnazorError("Янги ҳажмни ёзинг (0 ёки ундан катта сон)")
+    done = Done.objects.filter(item=item).aggregate(q=Sum("qty"))["q"] or 0.0
+    if new < done - max(1e-9, abs(done) * 1e-9):
+        raise TexnazorError(f"Бажарилган {fmt_qty(done)} {item.unit} — шартнома ҳажмини ундан кам қилиб бўлмайди")
+    with transaction.atomic():
+        c = Correction.objects.create(obj_id=item.obj_id, item=item, period=period, author=user, old_qty=item.qty,
+                                      new_qty=new, basis=basis[:300], note=str(note or "").strip())
+        _set_contract_qty(item, new)
+    return c
+
+
+def _set_contract_qty(item: Item, new: float):
+    """Qatorning shartnoma hajmi -> resurslari (jami = me'yor × hajm) va obyektning shartnoma zanjiri."""
+    res = list(item.resources.all()) if item.kind == Item.Kind.WORK else []
+    if res and not item.unit_cost:
+        for f in COST_FIELDS.values():
+            setattr(item, f, 0.0)
+        for r in res:
+            f = COST_FIELDS.get(r.category)
+            if f:
+                setattr(item, f, getattr(item, f) + r.price * r.qty)
+    item.qty = new
+    if item.kind != Item.Kind.WORK:
+        item.total_qty = new
+    item.amount = item.unit_cost * new
+    item.save()
+    for r in res:
+        r.total_qty = r.qty * new
+        r.amount = r.price * r.total_qty
+    Item.objects.bulk_update(res, ["total_qty", "amount"])
+    obj = item.obj
+    obj.contract_totals = _contract(obj.items.filter(kind__in=ITEM_KINDS), obj.rates or {})
+    obj.save(update_fields=["contract_totals"])
+
+
+REVERT_WORD = "БЕКОР"
+DELETE_WORD = "ЎЧИРИШ"
+
+
+def _confirmed(text, word: str) -> bool:
+    return search_key(text or "") == search_key(word)
+
+
+def revert_correction(user, c: Correction, confirm: str) -> Correction:
+    """Tuzatishni bekor qilish (ikkinchi bosqich — «БЕКОР» deb yozish): hajm eskisiga qaytadi, yozuv tarixda qoladi.
+    Faqat shu ishning oxirgi amaldagi tuzatishi bekor qilinadi (zanjir buzilmasin)."""
+    if not _confirmed(confirm, REVERT_WORD):
+        raise TexnazorError(f"Тасдиқлаш учун «{REVERT_WORD}» деб ёзинг")
+    if c.reverted:
+        raise TexnazorError("Бу тузатиш аллақачон бекор қилинган")
+    last = c.item.corrections.filter(reverted__isnull=True).first()
+    if last is None or last.pk != c.pk:
+        raise TexnazorError("Аввал шу ишнинг кейинги тузатишини бекор қилинг (энг охиргиси биринчи)")
+    done = Done.objects.filter(item=c.item).aggregate(q=Sum("qty"))["q"] or 0.0
+    if c.old_qty < done - max(1e-9, abs(done) * 1e-9):
+        raise TexnazorError(f"Бажарилган {fmt_qty(done)} {c.item.unit} — ҳажмни {fmt_qty(c.old_qty)} га қайтариб бўлмайди. "
+                            "Аввал ортиқча бажарилган ҳажмни ўчиринг.")
+    with transaction.atomic():
+        c.reverted, c.reverted_by = timezone.now(), user
+        c.save(update_fields=["reverted", "reverted_by"])
+        _set_contract_qty(c.item, c.old_qty)
+    return c
+
+
+def delete_period(period: Period, confirm: str):
+    """Oyni o'chirish (ikkinchi bosqich — oy nomini yozish): ichidagi hajmlar ham o'chadi. Yopilgan oy o'chmaydi."""
+    if period.closed:
+        raise TexnazorError(f"{period.title} ёпилган (тўлов шу бўйича) — ўчириш учун аввал «Қайта очиш»")
+    if not _confirmed(confirm, period.title):
+        raise TexnazorError(f"Тасдиқлаш учун ой номини ёзинг: «{period.title}»")
+    period.delete()
+
+
+def period_info(period: Period) -> dict:
+    """O'chirishdan oldin ko'rsatiladi: nechta qator va qancha summa yo'qoladi."""
+    return {"rows": period.done.count(), "sum": period_totals(period)["this"]["contractor"]}
+
+
+def payments(obj: SiteObject) -> dict:
+    """Ф-3 bo'yicha to'langan va tizim hisobi (pudratchi, QQS bilan) oyma-oy; farq + — ortiqcha to'langan."""
+    rows = []
+    for p in obj.periods.all():
+        calc_ = period_totals(p)["this"]["contractor"]
+        rows.append({"p": p, "calc": calc_, "paid": p.paid, "diff": (p.paid - calc_) if p.paid is not None else None})
+    over = sum(r["diff"] for r in rows if r["diff"] is not None)
+    return {"rows": rows, "over": over, "any": any(r["paid"] is not None for r in rows)}
+
+
 def fmt_qty(v: float) -> str:
     s = f"{v:,.6f}".rstrip("0").rstrip(".")
     return s.replace(",", " ").replace(".", ",")  # sahifadagidek: 1 234,5
@@ -276,7 +384,116 @@ def item_rows(period: Period, items) -> list:
     for it in items:
         b, t = before.get(it.pk, 0.0), this.get(it.pk)
         cum = b + (t or 0.0)
+        left = it.qty - cum - later.get(it.pk, 0.0)
         uc = it.unit_cost
-        out.append({"item": it, "before": b, "this": t, "cum": cum, "left": it.qty - cum - later.get(it.pk, 0.0),
+        # resurslar ishga ergashadi: me'yor × ishning hajmi (Ф-2 dagidek)
+        res = [{"r": r, "total": r.total_qty, "before": r.qty * b, "this": r.qty * (t or 0.0),
+                "cum": r.qty * cum, "left": r.qty * left,
+                "this_amount": r.price * r.qty * (t or 0.0), "cat": CATEGORY_LABELS.get(r.category, ""), "tone": _tone(r)} for r in it.resources.all()] if it.kind == Item.Kind.WORK else []
+        out.append({"item": it, "before": b, "this": t, "cum": cum, "left": left, "res": res, "done": it.qty - left,
+                    "cat": CATEGORY_LABELS.get(it.category, "") if it.kind == Item.Kind.FREE else "",
                     "pct": 100 * cum / it.qty if it.qty else 0.0, "this_amount": (t or 0.0) * uc, "unit_cost": uc})
     return out
+
+
+def _tone(r: Item) -> str:
+    """Resurs qatorining rangi: чел-ч — иш ҳақи, маш-ч — машина, қолгани — материал/ускуна (бирлик бўйича)."""
+    u = r.unit.upper()
+    return "j" if "ЧЕЛ" in u else "k" if "МАШ" in u else "m"
+
+
+def section_tree(obj: SiteObject, stats: Dict[int, dict]) -> list:
+    """Mundarija: bloklar («НА АС БЛОК-1», «НА ЭО» — ofyortada qizil) va ularning bo'limlari. Ichida ishi yo'q
+    bo'lim (masalan «ПОЛ 1-ЭТАЖ», ostida «ПОЛ ИЗ РЕЛИН …») — oraliq sarlavha. Blok summalari — bo'limlaridan.
+    Birinchi blokdan oldingi bo'limlar — nomsiz blokda."""
+    blocks = [{"s": None, "label": "", "items": [], "contract": 0.0, "before": 0.0, "this": 0.0}]
+    for s in obj.sections.all():
+        if _BLOCK.search(s.title):
+            blocks.append({"s": s, "label": block_label(s.title), "items": [], "contract": 0.0, "before": 0.0, "this": 0.0})
+        elif not s.items_count:
+            blocks[-1]["items"].append({"kind": "group", "s": s})
+        else:
+            st = stats.get(s.pk) or {"contract": 0.0, "before": 0.0, "this": 0.0}
+            blocks[-1]["items"].append({"kind": "section", "s": s, **section_pct(st)})
+            for k in ("contract", "before", "this"):
+                blocks[-1][k] += st[k]
+    return [{**b, **section_pct(b)} for b in blocks if b["items"] or b["s"]]
+
+
+_BLOCK = re.compile(r"^\s*НА\s+|\bБЛОК[\s№-]*\d", re.I)  # «НА АС БЛОК-1», «НА ЭО» (ofyortada qizil) yoki «АС БЛОК-2»
+_NA = re.compile(r"^\s*НА\s+", re.I)
+
+
+def block_label(title: str) -> str:
+    """«НА АС БЛОК-1» -> «АС БЛОК-1» (mundarijada «НА» ortiqcha)."""
+    return _NA.sub("", title, count=1)
+
+
+def section_nav(obj: SiteObject, section: Section) -> dict:
+    """Bo'lim sahifasi uchun: qaysi blokda, oldingi va keyingi bo'lim (ishi borlari, ofyorta tartibida)."""
+    block, prev, found = "", None, None
+    for sid, title, n in obj.sections.values_list("id", "title", "items_count"):
+        if _BLOCK.search(title):
+            if found is None:
+                block = block_label(title)
+            continue
+        if not n:
+            continue
+        if found is not None:
+            return {"block": block, "prev": prev, "next": (sid, title)}
+        if sid == section.pk:
+            found = sid
+        else:
+            prev = (sid, title)
+    return {"block": block, "prev": prev, "next": None}
+
+
+def section_paths(obj: SiteObject) -> Dict[int, tuple]:
+    """Bo'lim -> (blok, bo'lim) — qidiruv natijasida qator qayerdanligi."""
+    out, block = {}, ""
+    for sid, title in obj.sections.values_list("id", "title"):
+        if _BLOCK.search(title):
+            block = block_label(title)
+        out[sid] = (block, title)
+    return out
+
+
+_ROW = re.compile(r"^(\d+)-қатор[:\s]*(.*)$", re.S)
+
+
+def warnings(obj: SiteObject) -> list:
+    """Ofyortadagi xatolar — har biri qaysi ishga tegishli (sahifada «Кўрсатиш» shu bo'lim va qatorga olib boradi).
+    Eski obyektlarda matn ko'rinishida saqlangan: «8911-қатор …»."""
+    out = []
+    for w in obj.warnings or []:
+        if isinstance(w, str):
+            m = _ROW.match(w)
+            w = {"row": int(m.group(1)), "title": m.group(2)[:160], "text": ""} if m else {"row": 0, "title": w, "text": ""}
+        out.append(dict(w))
+    rows = {w["row"] for w in out if w.get("row")}
+    found = {it.excel_row: it for it in obj.items.filter(excel_row__in=rows).select_related("parent")}
+    for w in out:
+        it = found.get(w.get("row"))
+        if it is not None and it.kind == Item.Kind.RES and it.parent_id:
+            it = it.parent
+        w["item"], w["section"] = (it.pk, it.section_id) if it is not None else (None, None)
+    fixed = latest_corrections(obj, [w["item"] for w in out if w["item"]])
+    for w in out:
+        w["fixed"] = fixed.get(w["item"])  # шу иш тузатилган / тасдиқланган бўлса — охирги тузатиш
+    return out
+
+
+def latest_corrections(obj: SiteObject, items=None) -> Dict[int, Correction]:
+    """Ish -> uning oxirgi tuzatishi (jadvalda «тузатилган» belgisi, ogohlantirishda «тузатилди»)."""
+    qs = obj.corrections.filter(reverted__isnull=True)
+    if items is not None:
+        qs = qs.filter(item_id__in=items)
+    out = {}
+    for c in qs:  # yangisi birinchi
+        out.setdefault(c.item_id, c)
+    return out
+
+
+def section_pct(st: dict) -> dict:
+    cum = st["before"] + st["this"]
+    return {**st, "cum": cum, "pct": 100 * cum / st["contract"] if st["contract"] else 0.0}

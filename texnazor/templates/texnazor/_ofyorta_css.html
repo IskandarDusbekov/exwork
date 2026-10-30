@@ -1,0 +1,105 @@
+<style>
+  /* офёрта: чапда мундарижа, ўнгда бўлим — тинч, катта ҳарфлар, битта асосий ранг (sky) */
+  .tn-layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  @media (min-width: 1024px) { .tn-layout { grid-template-columns: 260px minmax(0, 1fr); } }
+  @media (min-width: 1440px) { .tn-layout { grid-template-columns: 300px minmax(0, 1fr); } }
+  .tn-nav { border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; overflow: hidden; }
+  @media (min-width: 1024px) { .tn-nav { position: sticky; top: 12px; } }
+  .tn-search { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #e2e8f0; padding: 10px 12px; }
+  .tn-search input { width: 100%; border: 0; outline: 0; font-size: 14px; background: transparent; }
+  .tn-toc { max-height: calc(100vh - 90px); overflow-y: auto; padding: 6px 0 10px; }
+  .tn-blk-h { display: flex; width: 100%; align-items: center; gap: 6px; padding: 9px 12px 7px; text-align: left; font-size: 13.5px; font-weight: 600; color: #334155; }
+  .tn-blk-h:hover { background: #f8fafc; }
+  .tn-blk-i { color: #94a3b8; transition: transform .15s; }
+  .tn-blk.is-open .tn-blk-i { transform: rotate(90deg); }
+  .tn-blk-t { flex: 1; min-width: 0; }
+  .tn-blk-b { display: none; padding-bottom: 6px; }
+  .tn-blk.is-open .tn-blk-b { display: block; }
+  .tn-grp { padding: 8px 12px 2px 34px; font-size: 12px; color: #94a3b8; }
+  .tn-sec { display: flex; align-items: flex-start; gap: 8px; margin: 1px 8px; padding: 6px 8px 6px 26px; border-radius: 8px; font-size: 14px; line-height: 1.35; color: #334155; }
+  .tn-sec:hover { background: #f1f5f9; }
+  .tn-sec.is-on { background: #e0f2fe; color: #0c4a6e; font-weight: 600; }
+  .tn-sec-t { flex: 1; min-width: 0; }
+  .tn-pc { flex: none; font-size: 12.5px; color: #64748b; font-weight: 500; }
+  .tn-sec.is-on .tn-pc { color: #0369a1; }
+  /* ўнг томон */
+  .tn-panel { min-width: 0; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; transition: opacity .15s; }
+  .tn-panel.is-loading { opacity: .45; pointer-events: none; }
+  .tn-head { padding: 16px 20px 14px; border-bottom: 1px solid #e2e8f0; }
+  .tn-crumb { font-size: 13px; color: #64748b; margin-bottom: 3px; }
+  .tn-h { font-size: 19px; font-weight: 600; color: #0f172a; line-height: 1.3; }
+  .tn-meter { display: inline-block; width: 90px; height: 6px; border-radius: 3px; background: #e2e8f0; overflow: hidden; }
+  .tn-meter > span { display: block; height: 6px; background: #10b981; }
+  /* жадвал — Excel варағи каби: катак чизиқлари, кулранг сарлавҳа, чапда Excel қатор рақами */
+  .tn-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 20px; border-bottom: 1px solid #e2e8f0; }
+  .tn-res-all { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 12px; font-size: 13.5px; color: #334155; background: #fff; }
+  .tn-res-all:hover { background: #f8fafc; border-color: #94a3b8; }
+  .tn-res-all svg { transition: transform .15s; transform: rotate(-90deg); }
+  .tn-res-all[aria-pressed="true"] { background: #f0fdf4; border-color: #86efac; color: #166534; }
+  .tn-res-all[aria-pressed="true"] svg { transform: none; }
+  .tn-bar-hint { font-size: 12.5px; color: #64748b; }
+  .tn-scroll { overflow-x: auto; }
+  .tn-t { width: 100%; min-width: 900px; border-collapse: separate; border-spacing: 0; table-layout: fixed; font: 13.5px/1.4 "Segoe UI", Calibri, Arial, sans-serif; color: #1f2937; }
+  .tn-t th, .tn-t td { border-right: 1px solid #e3e3e3; border-bottom: 1px solid #e3e3e3; padding: 5px 8px; vertical-align: top; }
+  .tn-t th { position: sticky; top: 0; z-index: 2; background: #f3f3f3; color: #444; font-size: 12.5px; font-weight: 600; text-align: center; border-bottom: 1px solid #c8c8c8; white-space: nowrap; }
+  .tn-t th.tn-th-in { background: #e7f3ec; color: #14532d; }
+  .tn-t th.tn-th-l { text-align: left; }
+  .tn-t .tn-g { background: #f3f3f3; color: #8a8a8a; font-size: 11.5px; text-align: center; border-right-color: #d0d0d0; }
+  .tn-t .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .tn-n { color: #475569; white-space: nowrap; }
+  .tn-code, .tn-unit { font-size: 12.5px; color: #475569; overflow-wrap: anywhere; }
+  .tn-name { overflow-wrap: anywhere; }
+  .tn-where { margin-top: 2px; font-size: 12px; color: #0369a1; }
+  .tn-tag { display: inline-block; border-radius: 4px; padding: 0 5px; background: #fef3c7; color: #92400e; font-size: 11px; vertical-align: 1px; }
+  .tn-rt { display: inline-grid; place-items: center; width: 18px; height: 18px; margin: 0 2px 0 -4px; border-radius: 4px; color: #166534; vertical-align: -3px; }
+  .tn-rt:hover { background: #dcfce7; }
+  .tn-rt svg { transition: transform .15s; }
+  tr.tn-w.is-open .tn-rt svg { transform: rotate(90deg); }
+  .tn-t tr.tn-w:hover > td:not(.tn-g) { background: #fafcff; }
+  .tn-t tr.tn-w.is-done > td:not(.tn-g) { background: #f3fbf6; }
+  .tn-dim { color: #64748b; }
+  /* шу ой катаги — ёзиладиган жой яққол: яшил устун ичида оқ қути, рамкаси билан */
+  .tn-t td.tn-cin { padding: 3px 4px; background: #e9f6ee; }
+  .tn-t tr.tn-w:hover > td.tn-cin, .tn-t tr.tn-w.is-done > td.tn-cin { background: #e9f6ee; }
+  .tn-in { display: block; width: 100%; height: 30px; border: 1px solid #86c49d; border-radius: 4px; padding: 3px 8px; font: inherit; font-weight: 600; color: #14532d; text-align: right; background: #fff; box-shadow: inset 0 1px 2px rgba(0, 0, 0, .06); }
+  .tn-in::placeholder { color: #a3b8aa; font-weight: 400; }
+  .tn-in:hover { border-color: #217346; }
+  .tn-in:focus { outline: none; border-color: #217346; box-shadow: 0 0 0 2px #217346; }
+  .tn-in:disabled { border-color: #d4d4d4; background: #f5f5f5; color: #64748b; box-shadow: none; }
+  .tn-in.is-bad { border-color: #dc2626; box-shadow: 0 0 0 2px #fca5a5; background: #fff1f2; }
+  .tn-in.is-saved { background: #dcfce7; }
+  .tn-ok { color: #15803d; }
+  .tn-bad { color: #b91c1c; font-weight: 600; }
+  tr.tn-r { display: none; }
+  tr.tn-r.is-shown { display: table-row; }
+  .tn-t tr.tn-r > td { background: #fbfbfb; color: #5b6472; font-size: 12.5px; padding-top: 3px; padding-bottom: 3px; }
+  .tn-t tr.tn-r > td.tn-g { background: #f3f3f3; }
+  .tn-t tr.tn-r > td.tn-name { padding-left: 22px; }
+  /* ранглар: иш тури — тўқ ва қалин; ресурс тури бўйича — иш ҳақи қирмизи, машина яшил, материал кўк */
+  .tn-t tr.tn-w > td.tn-name, .tn-t tr.tn-w > td.tn-n, .tn-t tr.tn-w > td.tn-code { color: #0b1220; font-weight: 600; }
+  .tn-warn { display: inline-block; border-radius: 4px; padding: 0 6px; background: #fee2e2; color: #991b1b; font-size: 11.5px; font-weight: 600; vertical-align: 1px; cursor: help; }
+  .tn-t tr.tn-w.has-warn > td:not(.tn-g):not(.tn-cin) { background: #fff7ed; }
+  @keyframes tn-flash { 0%, 55% { box-shadow: inset 0 0 0 9999px rgba(245, 158, 11, .35); } 100% { box-shadow: none; } }
+  .tn-t tr.tn-flash > td { animation: tn-flash 2.4s ease-out; }
+  /* шартнома ҳажмини тузатиш: ✎ тугмаси қатор устига келганда (хатоли қаторда доим) кўринади */
+  .tn-t td.tn-qcell { position: relative; padding-left: 26px; }
+  .tn-fix { position: absolute; left: 3px; top: 5px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 4px; color: #64748b; opacity: 0; }
+  .tn-t tr.tn-w:hover .tn-fix, .tn-t tr.tn-w.has-warn .tn-fix, .tn-fix:focus { opacity: 1; }
+  .tn-fix:hover { background: #e2e8f0; color: #0f172a; }
+  .tn-t tr.tn-w.has-warn .tn-fix { color: #b45309; background: #fef3c7; }
+  .tn-fixed { display: block; font-size: 10.5px; font-weight: 600; color: #047857; line-height: 1.1; cursor: help; }
+  .tn-tag-0 { background: #fee2e2; color: #991b1b; }
+  .tn-t tr.tn-r.tn-c-j > td:not(.tn-g) { color: #a3216b; }
+  .tn-t tr.tn-r.tn-c-k > td:not(.tn-g) { color: #15803d; }
+  .tn-t tr.tn-r.tn-c-m > td:not(.tn-g) { color: #1d5fc4; }
+  .tn-legend { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; }
+  .tn-legend b { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; }
+  .tn-legend b::before { content: ""; width: 10px; height: 10px; border-radius: 2px; background: currentColor; }
+  .tn-lg-w { color: #0b1220; } .tn-lg-j { color: #a3216b; } .tn-lg-k { color: #15803d; } .tn-lg-m { color: #1d5fc4; }
+  .tn-msg td { padding: 5px 10px !important; background: #fff1f2 !important; color: #9f1239; font-size: 13px; }
+  .tn-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 20px; }
+  .tn-go { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 14px; font-size: 14px; color: #334155; background: #fff; }
+  .tn-go:hover { background: #f8fafc; border-color: #94a3b8; }
+  .tn-fill { border-radius: 8px; padding: 7px 14px; font-size: 14px; color: #047857; border: 1px solid #a7f3d0; background: #fff; }
+  .tn-fill:hover { background: #ecfdf5; }
+</style>

@@ -1,0 +1,294 @@
+<script>
+  (function () {
+    var PERIOD = {{ period.pk|default:"null" }}, CLOSED = {{ period.closed|yesno:"true,false" }};
+    var DONE_URL = "{% url 'texnazor:done' o.pk %}", SEARCH_URL = "{% url 'texnazor:search' o.pk %}";
+    var SECTION_URL = "{% url 'texnazor:section' o.pk 0 %}", KEY = "tn-blocks-{{ o.pk }}", FIRST = "{{ section.pk|default:'' }}";
+    var nav = document.querySelector(".tn-nav"), panel = document.getElementById("tn-panel");
+    if (!nav || !panel) return;
+    var csrf = function () { return document.querySelector("[name=csrfmiddlewaretoken]").value; };
+    function post(url, body) {
+      return fetch(url, {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-CSRFToken": csrf()},
+                         body: JSON.stringify(body)}).then(function (r) {
+        return r.json().catch(function () { return {ok: false, error: "Сервер жавоб бермади (" + r.status + "). Қайта уриниб кўринг."}; });
+      }).then(function (d) { if (!d.ok) throw new Error(d.error || "Сақланмади"); return d; });
+    }
+    function money(v) {  // сервердаги |pul каби: ҳар доим тийингача
+      return (v || 0).toLocaleString("ru-RU", {minimumFractionDigits: 2, maximumFractionDigits: 2}).replace(/ | /g, " ");
+    }
+    function summary(s) {
+      ["this", "cum", "left", "contract"].forEach(function (k) { var el = document.getElementById("k-" + k); if (el) el.textContent = money(s[k]); });
+      if (s.html) document.getElementById("tn-summary").innerHTML = s.html;
+    }
+
+    // ---- мундарижа: блокни очиш / ёпиш (очиқлари шу браузерда эсда қолади) ----
+    var openBlocks = {};
+    try { openBlocks = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { openBlocks = {}; }
+    function saveBlocks() { try { localStorage.setItem(KEY, JSON.stringify(openBlocks)); } catch (e) { /* хотирасиз ҳам ишлайди */ } }
+    function setBlock(blk, open) {
+      blk.classList.toggle("is-open", open);
+      if (blk.dataset.block) { if (open) openBlocks[blk.dataset.block] = 1; else delete openBlocks[blk.dataset.block]; }
+    }
+    nav.querySelectorAll(".tn-blk[data-block]").forEach(function (b) {
+      if (openBlocks[b.dataset.block] || b.querySelector(".tn-sec.is-on")) setBlock(b, true);
+    });
+    nav.addEventListener("click", function (e) {
+      var h = e.target.closest(".tn-blk-h");
+      if (h) { var b = h.parentNode; setBlock(b, !b.classList.contains("is-open")); saveBlocks(); return; }
+      var a = e.target.closest("a.tn-sec");
+      if (a && !e.ctrlKey && !e.metaKey) { e.preventDefault(); open(a.dataset.sec, true); }
+    });
+    var current = nav.querySelector(".tn-sec.is-on");
+    if (current) current.scrollIntoView({block: "center"});
+
+    // ---- бўлимни ўнг томонда очиш (саҳифа қайта юкланмайди) ----
+    function show(html) {
+      panel.innerHTML = html;
+      panel.classList.remove("is-loading");
+      resAll(RES_ALL);
+    }
+
+    // ---- ресурслар: ҳаммасини очиш / ёпиш (шу браузерда эсда қолади) ----
+    var RES_KEY = "tn-res-{{ o.pk }}", RES_ALL = false;
+    try { RES_ALL = localStorage.getItem(RES_KEY) === "1"; } catch (e) { RES_ALL = false; }
+    setTimeout(function () {  // сервер чизган биринчи бўлим учун ҳам
+      resAll(RES_ALL);
+      focusItem(new URLSearchParams(location.search).get("i"));
+    });
+    function resAll(on) {
+      panel.querySelectorAll("tr.tn-w").forEach(function (w) { if (w.querySelector(".tn-rt")) w.classList.toggle("is-open", on); });
+      panel.querySelectorAll("tr.tn-r").forEach(function (r) { r.classList.toggle("is-shown", on); });
+      var b = panel.querySelector(".tn-res-all");
+      if (b) {
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+        b.querySelector(".tn-res-all-t").textContent = on ? "Ресурсларни ёпиш" : "Ҳамма ресурсларни очиш";
+      }
+    }
+    // ---- огоҳлантиришдан «Жадвалда кўрсатиш»: бўлим очилади, қатор ажралиб туради, ресурслари очилади ----
+    function focusItem(id) {
+      var tr = id && document.getElementById("tn-i-" + id);
+      if (!tr) return;
+      if (tr.querySelector(".tn-rt") && !tr.classList.contains("is-open")) {
+        tr.classList.add("is-open");
+        panel.querySelectorAll('tr.tn-r[data-w="' + id + '"]').forEach(function (r) { r.classList.add("is-shown"); });
+      }
+      tr.classList.remove("tn-flash");
+      void tr.offsetWidth;
+      tr.classList.add("tn-flash");
+      tr.scrollIntoView({block: "center"});
+    }
+    document.querySelectorAll(".tn-warn-go").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        if (e.ctrlKey || e.metaKey) return;
+        e.preventDefault();
+        open(a.dataset.sec, true, a.dataset.item);
+      });
+    });
+
+    function open(id, push, item) {
+      var link = nav.querySelector('.tn-sec[data-sec="' + id + '"]');
+      nav.querySelectorAll(".tn-sec.is-on").forEach(function (x) { x.classList.remove("is-on"); });
+      if (link) {
+        link.classList.add("is-on");
+        var blk = link.closest(".tn-blk");
+        if (blk && !blk.classList.contains("is-open")) { setBlock(blk, true); saveBlocks(); }
+        var r = link.getBoundingClientRect(), box = link.closest(".tn-toc").getBoundingClientRect();
+        if (r.top < box.top || r.bottom > box.bottom) link.scrollIntoView({block: "nearest"});
+      }
+      document.getElementById("tn-q").value = "";
+      panel.classList.add("is-loading");
+      if (push) history.pushState({s: id}, "", "?p=" + PERIOD + "&s=" + id + (item ? "&i=" + item : ""));
+      return fetch(SECTION_URL.replace("/0/", "/" + id + "/") + "?p=" + PERIOD, {credentials: "same-origin"})
+        .then(function (r) { if (!r.ok) throw new Error(); return r.text(); })
+        .then(function (html) {
+          show(html);
+          if (item) return focusItem(item);
+          var top = panel.getBoundingClientRect().top;
+          if (top < 0) window.scrollBy({top: top - 12});
+        })
+        .catch(function () { show('<p class="px-5 py-8 text-center text-rose-700">Бўлим очилмади. Саҳифани янгилаб кўринг.</p>'); });
+    }
+    window.addEventListener("popstate", function () {
+      var s = new URLSearchParams(location.search).get("s") || FIRST;
+      if (s) open(s, false);
+    });
+
+    // ---- мундарижа ва сарлавҳадаги рақамлар ----
+    function pct(v) { return v >= 1 ? Math.round(v) + "%" : (v > 0 ? "<1%" : ""); }
+    function section(d) {
+      var link = nav.querySelector('.tn-sec[data-sec="' + d.id + '"]');
+      if (link) {
+        link.dataset.this = d.this;
+        link.dataset.before = d.before;
+        link.querySelector(".tn-pc").innerHTML = d.pct >= 99.95 ? '<span class="text-emerald-600">✓</span>' : pct(d.pct);
+        var blk = link.closest(".tn-blk"), pc = blk && blk.querySelector("[data-block-pct]");
+        if (pc) {
+          var c = 0, done = 0;
+          blk.querySelectorAll(".tn-sec").forEach(function (s) { c += Number(s.dataset.contract); done += Number(s.dataset.before) + Number(s.dataset.this); });
+          pc.textContent = c ? pct(100 * done / c) : "";
+        }
+      }
+      var head = panel.querySelector('.tn-head[data-section="' + d.id + '"]');
+      if (head) {
+        head.querySelector(".tn-sec-this").textContent = money(d.this);
+        head.querySelector(".tn-sec-pct").textContent = Math.round(d.pct) + "%";
+        head.querySelector(".tn-sec-bar").style.width = Math.min(100, d.pct) + "%";
+      }
+    }
+
+    // ---- ресурслар ----
+    panel.addEventListener("click", function (e) {
+      var rt = e.target.closest(".tn-rt");
+      if (rt) {
+        var w = rt.closest("tr"), on = !w.classList.contains("is-open");
+        w.classList.toggle("is-open", on);
+        panel.querySelectorAll('tr.tn-r[data-w="' + w.dataset.item + '"]').forEach(function (r) { r.classList.toggle("is-shown", on); });
+        return;
+      }
+      if (e.target.closest(".tn-res-all")) {
+        RES_ALL = !RES_ALL;
+        try { localStorage.setItem(RES_KEY, RES_ALL ? "1" : "0"); } catch (err) { /* хотирасиз ҳам ишлайди */ }
+        resAll(RES_ALL);
+        return;
+      }
+      var go = e.target.closest("a.tn-go");
+      if (go && !e.ctrlKey && !e.metaKey) { e.preventDefault(); open(go.dataset.sec, true); return; }
+      var fx = e.target.closest(".tn-fix");
+      if (fx) { fixOpen(fx.closest("tr")); return; }
+      var fill = e.target.closest(".tn-fill");
+      if (fill) fillSection(fill);
+    });
+
+    // ---- ҳажм ёзиш: Enter — сақлаб кейинги ишга, ↑ ↓ — ишлар бўйлаб, Esc — бекор ----
+    function message(tr, text) {
+      var next = tr.nextElementSibling;
+      while (next && next.classList.contains("tn-r")) next = next.nextElementSibling;
+      var old = panel.querySelector("tr.tn-msg");
+      if (old) old.remove();
+      if (!text) return;
+      var row = document.createElement("tr"), td = document.createElement("td");
+      row.className = "tn-msg"; td.colSpan = 9; td.textContent = text;
+      row.appendChild(td);
+      tr.parentNode.insertBefore(row, next);
+    }
+    function move(inp, step) {
+      var all = Array.prototype.slice.call(panel.querySelectorAll(".tn-in:not(:disabled)")), next = all[all.indexOf(inp) + step];
+      if (next) { next.focus(); next.select(); }
+    }
+    function save(inp) {
+      if (CLOSED || inp.value.trim() === inp.defaultValue) return Promise.resolve(inp);
+      var tr = inp.closest("tr"), id = tr.dataset.item, wasOpen = tr.classList.contains("is-open");
+      inp.disabled = true;
+      return post(DONE_URL, {period: PERIOD, item: Number(id), value: inp.value}).then(function (d) {
+        message(tr, null);
+        panel.querySelectorAll('tr.tn-r[data-w="' + id + '"]').forEach(function (r) { r.remove(); });
+        var holder = document.createElement("tbody");
+        holder.innerHTML = d.row;
+        var fresh = Array.prototype.slice.call(holder.children);
+        tr.replaceWith.apply(tr, fresh);
+        if (wasOpen) { fresh[0].classList.add("is-open"); fresh.slice(1).forEach(function (r) { r.classList.add("is-shown"); }); }
+        var ni = fresh[0].querySelector(".tn-in");
+        ni.classList.add("is-saved");
+        setTimeout(function () { ni.classList.remove("is-saved"); }, 1200);
+        section(d.section);
+        summary(d.summary);
+        return ni;
+      }).catch(function (e) {
+        inp.disabled = false;
+        inp.classList.add("is-bad");
+        inp.focus();
+        message(tr, e.message);
+        throw e;
+      });
+    }
+    panel.addEventListener("keydown", function (e) {
+      var inp = e.target.closest && e.target.closest(".tn-in");
+      if (!inp) return;
+      if (e.key === "Enter" || e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        var step = e.key === "ArrowUp" ? -1 : 1;
+        save(inp).then(function (ni) { move(ni, step); }, function () {});
+      } else if (e.key === "Escape") {
+        inp.value = inp.defaultValue;
+        inp.classList.remove("is-bad");
+        message(inp.closest("tr"), null);
+        inp.blur();
+      }
+    });
+    panel.addEventListener("change", function (e) { if (e.target.classList.contains("tn-in")) save(e.target).catch(function () {}); });
+
+    // ---- шартнома ҳажмини тузатиш (асос ҳужжати билан) ----
+    var fixBox = document.getElementById("tn-fixbox"), fixForm = document.getElementById("tn-fixform"), fixItem = null;
+    function fixClose() { fixBox.classList.add("hidden"); fixBox.classList.remove("flex"); fixItem = null; }
+    function fixOpen(tr) {
+      fixItem = tr.dataset.item;
+      var unit = tr.dataset.unit ? " (" + tr.dataset.unit + ")" : "";  // «0 (1 М3)» — бирлик сондан ажралиб турсин
+      document.getElementById("tn-fix-name").textContent = tr.dataset.name;
+      document.getElementById("tn-fix-old").textContent = tr.dataset.qty + unit;
+      document.getElementById("tn-fix-done").textContent = (tr.dataset.done || "0") + unit;
+      fixForm.reset();
+      document.getElementById("tn-fix-qty").value = tr.dataset.qty;
+      document.getElementById("tn-fix-err").classList.add("hidden");
+      fixBox.classList.remove("hidden"); fixBox.classList.add("flex");
+      var q = document.getElementById("tn-fix-qty"); q.focus(); q.select();
+    }
+    if (fixBox) {
+      document.getElementById("tn-fix-cancel").addEventListener("click", fixClose);
+      fixBox.addEventListener("click", function (e) { if (e.target === fixBox) fixClose(); });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape" && fixItem) fixClose(); });
+      fixForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var f = new FormData(fixForm), err = document.getElementById("tn-fix-err"), id = fixItem;
+        post("{% url 'texnazor:correct' o.pk 0 %}".replace("/0/", "/" + id + "/"),
+             {period: PERIOD, value: f.get("value"), basis: f.get("basis"), note: f.get("note")})
+          .then(function () {
+            var sec = (nav.querySelector(".tn-sec.is-on") || {}).dataset;
+            location.href = "?p=" + PERIOD + (sec ? "&s=" + sec.sec : "") + "&i=" + id;
+          })
+          .catch(function (e2) { err.textContent = e2.message; err.classList.remove("hidden"); });
+      });
+    }
+
+    // ---- тузатишни бекор қилиш (икки босқичли) ----
+    document.querySelectorAll(".tn-revert").forEach(function (b) {
+      b.addEventListener("click", function () {
+        window.tnConfirm2({title: "Тузатишни бекор қилиш", msg: b.dataset.name,
+                           list: ["Шартнома ҳажми " + b.dataset["new"] + " дан " + b.dataset.old + " га қайтади", "Асоси эди: " + b.dataset.basis,
+                                  "Ёзув тарихда «бекор қилинди» бўлиб қолади"],
+                           word: "БЕКОР", ok: "Бекор қилиш"}).then(function (v) {
+          if (v === null) return;
+          post(b.dataset.url, {confirm: v}).then(function (d) {
+            location.href = "?p=" + PERIOD + "&s=" + d.section + "&i=" + d.item;
+          }).catch(function (e) { narxDialog.alert(e.message, {title: "Бекор қилинмади", danger: true}); });
+        });
+      });
+    });
+
+    // ---- бўлимни 100% ----
+    function fillSection(btn) {
+      var title = panel.querySelector(".tn-h").textContent.trim();
+      narxDialog.confirm("«" + title + "» бўлимидаги ҳамма иш тўлиқ бажарилди деб белгиланади. Етмаган қисми {{ period.title|default:'' }}га ёзилади.",
+                         {title: "Бўлимни 100% белгилаш", ok: "Белгилаш"}).then(function (yes) {
+        if (!yes) return;
+        btn.disabled = true;
+        post(btn.dataset.url, {period: PERIOD, pct: 100}).then(function (d) {
+          show(d.panel);
+          section(d.section);
+          summary(d.summary);
+        }).catch(function (e) { btn.disabled = false; narxDialog.alert(e.message, {title: "Белгиланмади", danger: true}); });
+      });
+    }
+
+    // ---- қидирув: ном, шифр ёки № бўйича — ҳамма бўлимлардан ----
+    var q = document.getElementById("tn-q"), timer = null;
+    q.addEventListener("input", function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        var v = q.value.trim();
+        if (!v) { var on = nav.querySelector(".tn-sec.is-on"); if (on) open(on.dataset.sec, false); return; }
+        panel.classList.add("is-loading");
+        fetch(SEARCH_URL + "?p=" + PERIOD + "&q=" + encodeURIComponent(v), {credentials: "same-origin"})
+          .then(function (r) { return r.text(); }).then(show);
+      }, 350);
+    });
+  })();
+</script>
