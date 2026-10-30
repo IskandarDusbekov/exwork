@@ -1,0 +1,62 @@
+{% load narx %}{# офёрта тузатишлари тарихи ва тузатиш ойнаси #}
+{% if corrections %}
+<details class="mb-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <summary class="cursor-pointer select-none px-4 py-3"><b class="font-semibold">Офёрта тузатишлари</b>
+    <span class="text-sm text-slate-500">— {{ corrections|length }} та · ким, қачон, нимани, қайси ҳужжат асосида</span></summary>
+  <div class="overflow-x-auto border-t border-slate-200">
+  <table class="w-full min-w-[900px] text-sm">
+    <thead class="bg-slate-50 text-xs text-slate-500"><tr>
+      <th class="px-3 py-2 text-left font-medium">Сана</th><th class="px-3 py-2 text-left font-medium">Иш</th>
+      <th class="px-3 py-2 text-right font-medium">Эди</th><th class="px-3 py-2 text-right font-medium">Бўлди</th>
+      <th class="px-3 py-2 text-left font-medium">Асос</th><th class="px-3 py-2 text-left font-medium">Ойдан</th><th class="px-3 py-2 text-left font-medium">Ким</th><th class="px-3 py-2"></th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+    {% for c in corrections %}<tr class="align-top{% if c.reverted %} bg-slate-50 text-slate-400 line-through decoration-slate-300{% endif %}">
+      <td class="whitespace-nowrap px-3 py-2 text-slate-600">{{ c.created|date:"d.m.Y H:i" }}</td>
+      <td class="px-3 py-2"><a class="tn-warn-go font-medium text-sky-800 hover:underline" href="?p={{ period.pk }}&s={{ c.item.section_id }}&i={{ c.item_id }}" data-sec="{{ c.item.section_id }}" data-item="{{ c.item_id }}">{{ c.item.num }}. {{ c.item.name|readable|truncatechars:70 }}</a>
+        <div class="text-xs text-slate-500">{% if c.where.0 %}{{ c.where.0|readable }} › {% endif %}{{ c.where.1|readable }} · Excel {{ c.item.excel_row }}-қатор</div></td>
+      <td class="num px-3 py-2 text-right text-slate-500">{{ c.old_qty|qty }} {{ c.item.unit }}</td>
+      <td class="num px-3 py-2 text-right font-semibold">{{ c.new_qty|qty }} {{ c.item.unit }}</td>
+      <td class="px-3 py-2">{{ c.basis }}{% if c.note %}<div class="text-xs text-slate-500">{{ c.note }}</div>{% endif %}</td>
+      <td class="whitespace-nowrap px-3 py-2 text-slate-600">{{ c.period.title|default:"—" }}</td>
+      <td class="px-3 py-2 text-slate-600">{{ c.author.get_full_name|default:c.author.email|default:"—" }}</td>
+      <td class="whitespace-nowrap px-3 py-2 text-right no-underline" style="text-decoration:none">
+        {% if c.reverted %}<span class="text-xs text-slate-500">бекор қилинди {{ c.reverted|date:"d.m.Y" }}{% if c.reverted_by %} · {{ c.reverted_by.get_full_name|default:c.reverted_by.email }}{% endif %}</span>
+        {% elif c.can_revert %}<button type="button" class="tn-revert inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            data-url="{% url 'texnazor:revert' o.pk c.pk %}" data-old="{{ c.old_qty|qty }} ({{ c.item.unit }})" data-new="{{ c.new_qty|qty }} ({{ c.item.unit }})"
+            data-name="{{ c.item.num }}. {{ c.item.name|readable|truncatechars:60 }}" data-basis="{{ c.basis }}">{% icon "undo" "h-3.5 w-3.5" %} Бекор қилиш</button>{% endif %}</td>
+    </tr>{% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+{% endif %}
+
+{% if period %}
+<div id="tn-fixbox" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-modal="true" aria-labelledby="tn-fix-t">
+  <form id="tn-fixform" class="w-full max-w-lg rounded-xl bg-white shadow-2xl">
+    <div class="border-b border-slate-200 px-5 py-4">
+      <h3 id="tn-fix-t" class="text-lg font-semibold text-slate-900">Шартнома ҳажмини тузатиш</h3>
+      <p id="tn-fix-name" class="mt-1 text-sm text-slate-600"></p>
+    </div>
+    <div class="space-y-4 px-5 py-4 text-sm">
+      <div class="grid grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3">
+        <div><div class="text-xs text-slate-500">Ҳозир офёртада</div><b id="tn-fix-old" class="num text-base"></b></div>
+        <div><div class="text-xs text-slate-500">Шу пайтгача бажарилган</div><b id="tn-fix-done" class="num text-base"></b></div>
+      </div>
+      <label class="block"><span class="font-medium text-slate-800">Тўғри ҳажм</span>
+        <input id="tn-fix-qty" name="value" inputmode="decimal" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-right text-base focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-200">
+        <span class="mt-1 block text-xs text-slate-500">Ҳажм ҳақиқатан 0 бўлса, 0 ёзинг — бу «0 тасдиқланди» деб сақланади.</span></label>
+      <label class="block"><span class="font-medium text-slate-800">Асос ҳужжати</span>
+        <input id="tn-fix-basis" name="basis" required maxlength="300" placeholder="Қўшимча келишув №2, 12.11.2026" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-200"></label>
+      <label class="block"><span class="font-medium text-slate-800">Изоҳ <span class="font-normal text-slate-400">(ихтиёрий)</span></span>
+        <textarea name="note" rows="2" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-200"></textarea></label>
+      <p class="rounded-lg bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-900">{{ period.title }}дан кучга киради. Бажарилган ҳажмлар ва ёпилган ойлар суммаси ўзгармайди — шартнома ва қолдиқ ўзгаради. Тузатиш тарихда сақланади.</p>
+      <p id="tn-fix-err" class="hidden rounded-lg bg-rose-50 px-3 py-2 text-rose-800" role="alert"></p>
+    </div>
+    <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
+      <button type="button" id="tn-fix-cancel" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">Бекор қилиш</button>
+      <button type="submit" class="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Тузатишни сақлаш</button>
+    </div>
+  </form>
+</div>
+{% endif %}

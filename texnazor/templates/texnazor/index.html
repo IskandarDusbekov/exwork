@@ -1,5 +1,5 @@
 {% extends "jobs/base.html" %}
-{% load narx %}
+{% load narx texnazor_tags %}
 {% block title %}Техназор · Нархлаш{% endblock %}
 {% block content %}
 <div class="mb-5 flex flex-wrap items-center gap-3">
@@ -36,11 +36,11 @@
       <span class="text-slate-500">Бажарилди</span>
       <span><b class="num text-slate-900">{{ c.pct|floatformat:1 }}%</b></span>
     </div>
-    <div class="mt-1 h-2 overflow-hidden rounded-full bg-slate-100"><div class="h-2 rounded-full bg-emerald-500" style="width:{% widthratio c.pct 100 100 %}%"></div></div>
+    <div class="mt-1 h-2 overflow-hidden rounded-full bg-slate-100"><div class="h-2 rounded-full bg-emerald-500" style="width:{{ c.pct|stringformat:'.3f' }}%;{% if c.pct > 0 %}min-width:4px{% endif %}"></div></div>
     <dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-      <dt class="text-slate-500">Шартнома (пудратчи)</dt><dd class="num text-right font-medium text-slate-800">{{ c.contract|som }}</dd>
-      <dt class="text-slate-500">Бажарилган</dt><dd class="num text-right font-medium text-emerald-700">{{ c.done|som }}</dd>
-      <dt class="text-slate-500">Қолдиқ</dt><dd class="num text-right font-medium text-slate-800">{{ c.left|som }}</dd>
+      <dt class="text-slate-500">Шартнома (пудратчи)</dt><dd class="num text-right font-medium text-slate-800">{{ c.contract|pul }}</dd>
+      <dt class="text-slate-500">Бажарилган</dt><dd class="num text-right font-medium text-emerald-700">{{ c.done|pul }}</dd>
+      <dt class="text-slate-500">Қолдиқ</dt><dd class="num text-right font-medium text-slate-800">{{ c.left|pul }}</dd>
       <dt class="text-slate-500">Ойлар</dt><dd class="text-right text-slate-700">{{ c.months }}{% if c.last %} · охиргиси {{ c.last.title }}{% endif %}</dd>
     </dl>
     {% endif %}

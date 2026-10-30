@@ -1,0 +1,25 @@
+{% load narx texnazor_tags %}{# Ф-3 бўйича ҳақиқатда тўланган ва тизим ҳисоби — фарқ кейинги актда ҳисобга олинади #}
+<div class="border-t border-slate-200 px-4 py-3">
+  <form method="post" action="{% url 'texnazor:paid' o.pk period.pk %}" class="flex flex-wrap items-center gap-2 text-sm">{% csrf_token %}
+    <span class="font-medium text-slate-800">{{ period.title }} — Ф-3 бўйича тўланган:</span>
+    <input name="paid" inputmode="decimal" value="{% if period.paid is not None %}{{ period.paid|pul }}{% endif %}" placeholder="масалан 18 390 330 726,71"
+           class="w-56 rounded-lg border border-slate-300 px-3 py-1.5 text-right focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-200">
+    <button class="rounded-lg border border-slate-300 px-3 py-1.5 font-medium hover:bg-slate-50">Сақлаш</button>
+    <span class="text-xs text-slate-500">Пудратчига ҳақиқатда тўланган сумма (ҚҚС билан). Тизим ҳисобидан фарқ қилса — пастда кўринади.</span>
+  </form>
+  {% if pay.any %}
+  <table class="mt-3 w-full max-w-3xl text-sm">
+    <thead class="text-xs text-slate-500"><tr><th class="py-1 text-left font-medium">Ой</th><th class="py-1 text-right font-medium">Тизим ҳисоби</th>
+      <th class="py-1 text-right font-medium">Ф-3 бўйича тўланган</th><th class="py-1 text-right font-medium">Фарқ</th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+    {% for r in pay.rows %}<tr>
+      <td class="py-1.5">{{ r.p.title }}</td><td class="num py-1.5 text-right">{{ r.calc|pul }}</td>
+      <td class="num py-1.5 text-right">{% if r.paid is not None %}{{ r.paid|pul }}{% else %}<span class="text-slate-400">киритилмаган</span>{% endif %}</td>
+      <td class="num py-1.5 text-right {% if r.diff > 0.005 %}font-semibold text-rose-700{% elif r.diff < -0.005 %}font-semibold text-amber-700{% endif %}">{% if r.diff is not None %}{{ r.diff|pul }}{% endif %}</td>
+    </tr>{% endfor %}
+    </tbody>
+  </table>
+  {% if pay.over > 0.005 %}<p class="mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-900">Жами <b class="num">{{ pay.over|pul }}</b> сўм ортиқча тўланган — кейинги актдан ушлаб қолиниши керак.</p>
+  {% elif pay.over < -0.005 %}<p class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Жами <b class="num">{{ pay.over|pul }}</b> сўм кам тўланган — пудратчига қўшимча тўланиши керак.</p>{% endif %}
+  {% endif %}
+</div>

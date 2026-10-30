@@ -15,7 +15,7 @@ if not SECRET_KEY:
     if not DEBUG:
         raise ImproperlyConfigured("DJANGO_SECRET_KEY o'rnatilmagan (production'da majburiy)")
     SECRET_KEY = "dev-only-not-for-production"
-ALLOWED_HOSTS = [h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h]
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -155,7 +155,14 @@ X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
-CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+# Berilmasa — production'da ALLOWED_HOSTS dagi domenlardan: mloyihachi.uz → https://mloyihachi.uz,
+# .mloyihachi.uz → https://*.mloyihachi.uz (localhost va IP — kerak emas)
+if not CSRF_TRUSTED_ORIGINS and not DEBUG:
+    CSRF_TRUSTED_ORIGINS = [
+        "https://" + ("*" + h if h.startswith(".") else h) for h in ALLOWED_HOSTS
+        if h not in ("*", "localhost") and not re.fullmatch(r"[\d.:\[\]]+", h)
+    ]
 # Nginx kabi proksi ortida: X-Forwarded-For / X-Forwarded-Proto ga faqat shunda ishoniladi.
 # Qiymat — sayt oldidagi proksilar soni: faqat nginx — 1; Cloudflare + nginx — 2; to'g'ridan-to'g'ri — 0.
 # Proksi ortida 0 qolsa, hamma foydalanuvchi bitta IP (proksi manzili) bo'lib ko'rinadi: kirish cheklovi va

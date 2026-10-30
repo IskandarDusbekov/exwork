@@ -1,0 +1,27 @@
+{% load narx %}{# офёрта: чапда мундарижа (блок -> бўлим), ўнгда танланган бўлимнинг ишлари #}
+<section class="tn-layout mb-4">
+  <nav class="tn-nav" aria-label="Офёрта мундарижаси">
+    <label class="tn-search">{% icon "search" "h-4 w-4 text-slate-400" %}
+      <input id="tn-q" type="search" placeholder="Қидириш: ном, шифр ёки Excel қатори" aria-label="Иш қидириш"></label>
+    <div class="tn-toc">
+    {% for b in tree %}
+      <div class="tn-blk{% if b.s is None %} is-open{% endif %}"{% if b.s %} data-block="{{ b.s.pk }}"{% endif %}>
+        {% if b.s %}<button type="button" class="tn-blk-h">
+          <span class="tn-blk-i">{% icon "chevron-right" "h-4 w-4" %}</span>
+          <span class="tn-blk-t">{{ b.label|readable }}</span>
+          <span class="tn-pc num" data-block-pct>{% if b.pct >= 1 %}{{ b.pct|floatformat:0 }}%{% elif b.pct %}&lt;1%{% endif %}</span></button>{% endif %}
+        <div class="tn-blk-b">
+        {% for x in b.items %}
+          {% if x.kind == "group" %}<div class="tn-grp">{{ x.s.title|readable }}</div>
+          {% else %}<a href="?p={{ period.pk }}&s={{ x.s.pk }}" class="tn-sec{% if x.s.pk == section.pk %} is-on{% endif %}" data-sec="{{ x.s.pk }}"
+             data-contract="{{ x.contract|stringformat:'.6f' }}" data-before="{{ x.before|stringformat:'.6f' }}" data-this="{{ x.this|stringformat:'.6f' }}">
+            <span class="tn-sec-t">{{ x.s.title|readable }}</span>
+            <span class="tn-pc num">{% if x.pct >= 99.95 %}{% icon "check" "h-4 w-4 text-emerald-600" %}{% elif x.pct >= 1 %}{{ x.pct|floatformat:0 }}%{% elif x.pct %}&lt;1%{% endif %}</span></a>{% endif %}
+        {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+    </div>
+  </nav>
+  <div class="tn-panel" id="tn-panel">{% if section %}{% include "texnazor/_panel.html" %}{% endif %}</div>
+</section>
