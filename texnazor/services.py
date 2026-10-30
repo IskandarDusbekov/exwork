@@ -194,32 +194,46 @@ def set_done(period: Period, item: Item, text) -> Optional[float]:
     if qty is None or abs(qty) < 1e-12:
         Done.objects.filter(period=period, item=item).delete()
         return None
-    if qty < 0:
+    if item.qty < 0 and qty > 0:
+        qty = -qty  # айириш қатори (офёртада манфий ҳажм): «0,364» ёзилса ҳам −0,364 бўлиб сақланади
+    if qty * _sign(item) < 0:
         raise TexnazorError("Ҳажм манфий бўлмайди")
     others = Done.objects.filter(item=item).exclude(period=period).aggregate(q=Sum("qty"))["q"] or 0.0
     left = item.qty - others
-    if qty > left + max(1e-9, abs(item.qty) * 1e-9):
+    if abs(qty) > abs(left) * (left * qty > 0) + max(1e-9, abs(item.qty) * 1e-9):
         raise TexnazorError(f"Қолдиқ {fmt_qty(left)} {item.unit} — {fmt_qty(qty)} ёзиб бўлмайди"
                             f" (шартнома {fmt_qty(item.qty)}, бошқа ойларда {fmt_qty(others)})")
     Done.objects.update_or_create(period=period, item=item, defaults={"qty": qty})
     return qty
 
 
+def _sign(item: Item) -> int:
+    """Ofyortadagi manfiy hajm (masalan «ИСКЛЮЧИТЬ толщ. 10 см») — asosiy ishdan ayiriladigan qator: hajmlari manfiy."""
+    return -1 if item.qty < 0 else 1
+
+
 def fill_section(period: Period, section: Section, pct: float) -> int:
     """Bo'limdagi hamma ish jami ``pct`` % bajarilgan bo'lsin (shu oyga — yetmagan qismi). Nechta qator o'zgardi."""
+    return fill_items(period, section.items.filter(kind__in=ITEM_KINDS), pct)
+
+
+def fill_items(period: Period, items, pct: float) -> int:
+    """Tanlangan ishlar jami ``pct`` % bajarilgan bo'lsin: yetmagan qismi shu oyga yoziladi (avvalgi oylar o'zgarmaydi,
+    keyingi oylar bilan birga shartnomadan oshmaydi). Nechta qator ko'rib chiqildi."""
     if period.closed:
         raise TexnazorError(f"{period.title} ёпилган — ўзгартириб бўлмайди")
     pct = max(0.0, min(100.0, float(pct)))
-    items = list(section.items.filter(kind__in=ITEM_KINDS))
+    items = [it for it in items if it.kind in ITEM_KINDS and it.obj_id == period.obj_id]
     before = done_before(period, items)
     after = {r["item_id"]: r["q"] for r in Done.objects.filter(item__in=items, period__obj_id=period.obj_id)
              .exclude(_before(period)).exclude(period=period).values("item_id").annotate(q=Sum("qty"))}
     n = 0
     with transaction.atomic():
         for it in items:
+            sg = _sign(it)  # айириш қаторида ҳамма ҳажмлар манфий — шу ишора билан мусбатдек ҳисобланади
             want = it.qty * pct / 100 - before.get(it.pk, 0.0)
-            want = min(max(want, 0.0), it.qty - before.get(it.pk, 0.0) - after.get(it.pk, 0.0))
-            if want > 1e-12:
+            want = sg * min(max(sg * want, 0.0), sg * (it.qty - before.get(it.pk, 0.0) - after.get(it.pk, 0.0)))
+            if abs(want) > 1e-12:
                 Done.objects.update_or_create(period=period, item=it, defaults={"qty": want})
             else:
                 Done.objects.filter(period=period, item=it).delete()
@@ -241,10 +255,10 @@ def correct_item(user, item: Item, period: Optional[Period], text, basis: str, n
     if len(basis) < 3:
         raise TexnazorError("Асос ҳужжатини ёзинг (масалан: «Қўшимча келишув №2, 12.11.2026»)")
     new = parse_value(text, item.qty)
-    if new is None or new < 0:
-        raise TexnazorError("Янги ҳажмни ёзинг (0 ёки ундан катта сон)")
+    if new is None:
+        raise TexnazorError("Янги ҳажмни ёзинг")
     done = Done.objects.filter(item=item).aggregate(q=Sum("qty"))["q"] or 0.0
-    if new < done - max(1e-9, abs(done) * 1e-9):
+    if not _covers(new, done):
         raise TexnazorError(f"Бажарилган {fmt_qty(done)} {item.unit} — шартнома ҳажмини ундан кам қилиб бўлмайди")
     with transaction.atomic():
         c = Correction.objects.create(obj_id=item.obj_id, item=item, period=period, author=user, old_qty=item.qty,
@@ -277,6 +291,13 @@ def _set_contract_qty(item: Item, new: float):
     obj.save(update_fields=["contract_totals"])
 
 
+def _covers(contract: float, done: float) -> bool:
+    """Shartnoma hajmi bajarilganni qoplaydimi (manfiy — ayirish qatorida ham): ishorasi bir xil va kam emas."""
+    if abs(done) < 1e-12:
+        return True
+    return contract * done > 0 and abs(contract) >= abs(done) - max(1e-9, abs(done) * 1e-9)
+
+
 REVERT_WORD = "БЕКОР"
 DELETE_WORD = "ЎЧИРИШ"
 
@@ -296,7 +317,7 @@ def revert_correction(user, c: Correction, confirm: str) -> Correction:
     if last is None or last.pk != c.pk:
         raise TexnazorError("Аввал шу ишнинг кейинги тузатишини бекор қилинг (энг охиргиси биринчи)")
     done = Done.objects.filter(item=c.item).aggregate(q=Sum("qty"))["q"] or 0.0
-    if c.old_qty < done - max(1e-9, abs(done) * 1e-9):
+    if not _covers(c.old_qty, done):
         raise TexnazorError(f"Бажарилган {fmt_qty(done)} {c.item.unit} — ҳажмни {fmt_qty(c.old_qty)} га қайтариб бўлмайди. "
                             "Аввал ортиқча бажарилган ҳажмни ўчиринг.")
     with transaction.atomic():
@@ -390,7 +411,10 @@ def item_rows(period: Period, items) -> list:
         res = [{"r": r, "total": r.total_qty, "before": r.qty * b, "this": r.qty * (t or 0.0),
                 "cum": r.qty * cum, "left": r.qty * left,
                 "this_amount": r.price * r.qty * (t or 0.0), "cat": CATEGORY_LABELS.get(r.category, ""), "tone": _tone(r)} for r in it.resources.all()] if it.kind == Item.Kind.WORK else []
+        sg = _sign(it)
         out.append({"item": it, "before": b, "this": t, "cum": cum, "left": left, "res": res, "done": it.qty - left,
+                    "over": left * sg < -max(1e-7, abs(it.qty) * 1e-9), "complete": bool(it.qty) and abs(left) < max(1e-7, abs(it.qty) * 1e-9),
+                    "base": _base(it) if it.qty < 0 else None,
                     "cat": CATEGORY_LABELS.get(it.category, "") if it.kind == Item.Kind.FREE else "",
                     "pct": 100 * cum / it.qty if it.qty else 0.0, "this_amount": (t or 0.0) * uc, "unit_cost": uc})
     return out
@@ -400,6 +424,13 @@ def _tone(r: Item) -> str:
     """Resurs qatorining rangi: чел-ч — иш ҳақи, маш-ч — машина, қолгани — материал/ускуна (бирлик бўйича)."""
     u = r.unit.upper()
     return "j" if "ЧЕЛ" in u else "k" if "МАШ" in u else "m"
+
+
+def _base(it: Item) -> Optional[Item]:
+    """Ayirish qatorining asosiy ishi: shu bo'limda tepadagi, hajmi teskari ishorali teng ish (masalan −4,532 ga 4,532)."""
+    eps = max(1e-9, abs(it.qty) * 1e-9)
+    return (Item.objects.filter(section_id=it.section_id, order__lt=it.order, kind__in=ITEM_KINDS,
+                                qty__gte=-it.qty - eps, qty__lte=-it.qty + eps).order_by("-order").first())
 
 
 def section_tree(obj: SiteObject, stats: Dict[int, dict]) -> list:

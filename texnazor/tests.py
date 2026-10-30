@@ -284,6 +284,25 @@ class TexnazorFlowTests(TestCase):
         self.client.post(reverse("texnazor:delete", args=[self.obj.pk]), {"confirm": "ўчириш"})
         self.assertFalse(SiteObject.objects.exists())
 
+    def test_selected_items_get_total_percent(self):
+        self.client.post(reverse("texnazor:period_add", args=[self.obj.pk]), {"year": 2026, "month": 7})
+        july = Period.objects.get()
+        self._post("done", {"period": july.pk, "item": self.work.pk, "value": "4"})
+        self.client.post(reverse("texnazor:period_add", args=[self.obj.pk]), {"year": 2026, "month": 9})
+        sept = Period.objects.get(month=9)
+        fill = lambda ids, pct: self._post("fill_items", {"period": sept.pk, "items": ids, "pct": pct})  # noqa: E731
+        self.assertIn("белгиланг", fill([], 100).json()["error"])
+        d = fill([self.work.pk, self.free.pk], "50").json()
+        self.assertTrue(d["ok"])
+        self.assertAlmostEqual(Done.objects.get(item=self.work, period=sept).qty, 1)  # jami 50% = 5, avval 4 -> shu oy 1
+        self.assertAlmostEqual(Done.objects.get(item=self.free, period=sept).qty, 1)  # 2 ТН × 50%
+        self.assertEqual(Done.objects.filter(period=july).count(), 1)  # avvalgi oy o'zgarmaydi
+        self.assertEqual({x["id"] for x in d["sections"]}, {self.work.section_id, self.free.section_id})
+        fill([self.work.pk], 30)  # avval 40% bajarilgan — shu oydagisi olib tashlanadi
+        self.assertFalse(Done.objects.filter(item=self.work, period=sept).exists())
+        fill([self.work.pk], 100)
+        self.assertAlmostEqual(Done.objects.get(item=self.work, period=sept).qty, 6)
+
     def test_other_user_cannot_see_object(self):
         other = User.objects.create_user("b@test.uz", "Kuchli-parol-2026", first_name="B", last_name="B")
         self.client.force_login(other)
@@ -369,3 +388,71 @@ def test_block_titles_with_or_without_na():
     for t in ("ДВЕРНЫЕ БЛОКИ (АС ЛИСТ-9)", "ДЕМОНТАЖ 1-ЭТАЖ", "НАРУЖНОЙ ОТДЕЛКИ"):
         assert not _BLOCK.search(t), t
     assert block_label("НА АС БЛОК-1") == "АС БЛОК-1"
+
+
+@override_settings(MEDIA_ROOT=TMP_MEDIA)
+class NegativeVolumeTests(TestCase):
+    """Ofyortadagi manfiy hajm («ИСКЛЮЧИТЬ толщ. 10 см»): asosiy ishdan ayiriladi, hajmi ham manfiy yoziladi."""
+
+    def setUp(self):
+        self.user = User.objects.create_user("n@test.uz", "Kuchli-parol-2026", first_name="N", last_name="N")
+        self.client.force_login(self.user)
+        Path(TMP_MEDIA).mkdir(parents=True, exist_ok=True)
+        rows = [[None, None, "ПОКРЫТИЯ"],
+                [1, "Е27-06-002-17", "БЕТОННЫЕ ПОКРЫТИЯ 20 СМ", "1000 М2", 0.364],
+                ["1.1", "1", "ЗАТРАТЫ ТРУДА", "ЧЕЛ-Ч.", 100, 36.4, 1000, None, 36400, 36400],
+                [2, "Е27-06-002-18", "ИСКЛЮЧИТЬ ТОЛЩ. 10 СМ", "1000 М2", -0.364],
+                ["2.1", "1", "ЗАТРАТЫ ТРУДА", "ЧЕЛ-Ч.", 50, -18.2, 1000, None, -18200, -18200]]
+        with open(_mini_ofyorta(f"{TMP_MEDIA}/neg.xlsx", rows), "rb") as f:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.client.post(reverse("texnazor:create"), {"ofyorta": SimpleUploadedFile("neg.xlsx", f.read())})
+        self.obj = SiteObject.objects.get()
+        tasks.run_now(self.obj.pk)
+        self.obj.refresh_from_db()
+        self.base = Item.objects.get(num="1")
+        self.minus = Item.objects.get(num="2")
+        self.client.post(reverse("texnazor:period_add", args=[self.obj.pk]), {"year": 2026, "month": 7})
+        self.july = Period.objects.get()
+
+    def done(self, item, value):
+        return self.client.post(reverse("texnazor:done", args=[self.obj.pk]), json.dumps(
+            {"period": self.july.pk, "item": item.pk, "value": value}), content_type="application/json").json()
+
+    def test_deduction_row_takes_negative_volume(self):
+        self.assertAlmostEqual(self.minus.qty, -0.364)
+        self.assertAlmostEqual(self.obj.contract_totals["J"], 36400 - 18200)
+        self.assertTrue(self.done(self.minus, "0,364")["ok"])  # musbat yozildi — manfiy saqlanadi
+        self.assertAlmostEqual(Done.objects.get(item=self.minus).qty, -0.364)
+        self.assertTrue(self.done(self.minus, "50%")["ok"])
+        self.assertAlmostEqual(Done.objects.get(item=self.minus).qty, -0.182)
+        self.assertIn("Қолдиқ", self.done(self.minus, "-0,5")["error"])  # qoldiqdan oshib bo'lmaydi
+        self.assertIn("манфий", self.done(self.base, "-0,1")["error"])  # oddiy ishga manfiy yozib bo'lmaydi
+        row = services.item_rows(self.july, [self.minus])[0]
+        self.assertEqual(row["base"], self.base)
+        self.assertFalse(row["over"])
+        self.assertContains(self.client.get(reverse("texnazor:section", args=[self.obj.pk, self.base.section_id]),
+                                            {"p": self.july.pk}), "айириш — 1-ишдан")
+
+    def test_fill_section_marks_base_and_deduction(self):
+        services.fill_section(self.july, self.base.section, 100)
+        self.assertAlmostEqual(Done.objects.get(item=self.base).qty, 0.364)
+        self.assertAlmostEqual(Done.objects.get(item=self.minus).qty, -0.364)
+        t = services.period_totals(self.july)
+        self.assertAlmostEqual(t["this"]["J"], 36400 - 18200)
+        self.assertAlmostEqual(t["left"]["J"], 0)
+        row = services.item_rows(self.july, [self.minus])[0]
+        self.assertTrue(row["complete"])
+
+    def test_correction_of_deduction_row(self):
+        self.done(self.minus, "0,2")
+        self.assertIn("Бажарилган", services_error(lambda: services.correct_item(self.user, self.minus, self.july, "-0,1", "ҚК №1")))
+        services.correct_item(self.user, self.minus, self.july, "-0,3", "ҚК №1")
+        self.assertAlmostEqual(Item.objects.get(pk=self.minus.pk).qty, -0.3)
+
+
+def services_error(fn):
+    try:
+        fn()
+    except services.TexnazorError as e:
+        return str(e)
+    return ""

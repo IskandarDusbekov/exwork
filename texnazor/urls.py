@@ -13,6 +13,7 @@ urlpatterns = [
     path("<uuid:obj_id>/section/<int:section_id>/", views.section_items, name="section"),
     path("<uuid:obj_id>/section/<int:section_id>/fill/", views.fill_section, name="fill"),
     path("<uuid:obj_id>/done/", views.set_done, name="done"),
+    path("<uuid:obj_id>/fill/", views.fill_items, name="fill_items"),
     path("<uuid:obj_id>/item/<int:item_id>/correct/", views.correct, name="correct"),
     path("<uuid:obj_id>/period/<int:period_id>/paid/", views.set_paid, name="paid"),
     path("<uuid:obj_id>/period/", views.add_period, name="period_add"),

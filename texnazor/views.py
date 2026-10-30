@@ -217,6 +217,28 @@ def set_paid(request, obj_id, period_id):
 
 
 @require_POST
+def fill_items(request, obj_id):
+    """JSON: ``{"period": 1, "items": [5, 6], "pct": 100}`` — tanlangan ishlar jami shuncha % bajarilgan bo'lsin."""
+    o = _obj(request, obj_id)
+    try:
+        data = json.loads(request.body or b"{}")
+        period = _period(o, request, data)
+        ids = [int(x) for x in data.get("items") or []][:5000]
+        if not ids:
+            raise services.TexnazorError("Аввал ишларни белгиланг")
+        items = list(o.items.filter(pk__in=ids, kind__in=services.ITEM_KINDS))
+        n = services.fill_items(period, items, float(str(data.get("pct", "100")).replace(",", ".").replace("%", "")))
+    except services.TexnazorError as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=400)
+    except (ValueError, TypeError):
+        return JsonResponse({"ok": False, "error": "фоиз нотўғри"}, status=400)
+    stats = services.section_stats(period)
+    secs = [services.section_pct(stats.get(sid) or {"contract": 0.0, "before": 0.0, "this": 0.0}) | {"id": sid}
+            for sid in {it.section_id for it in items if it.section_id}]
+    return JsonResponse({"ok": True, "changed": n, "sections": secs, "summary": _summary(period)})
+
+
+@require_POST
 def fill_section(request, obj_id, section_id):
     o = _obj(request, obj_id)
     section = get_object_or_404(Section, pk=section_id, obj=o)

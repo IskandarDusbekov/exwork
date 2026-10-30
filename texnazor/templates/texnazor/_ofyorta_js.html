@@ -131,7 +131,9 @@
       if (head) {
         head.querySelector(".tn-sec-this").textContent = money(d.this);
         head.querySelector(".tn-sec-pct").textContent = Math.round(d.pct) + "%";
-        head.querySelector(".tn-sec-bar").style.width = Math.min(100, d.pct) + "%";
+        var bar = head.querySelector(".tn-sec-bar");
+        bar.style.width = Math.min(100, d.pct) + "%";
+        bar.style.minWidth = d.pct > 0 ? "3px" : "";  // 0,3% ҳам кўринсин
       }
     }
 
@@ -166,7 +168,7 @@
       if (old) old.remove();
       if (!text) return;
       var row = document.createElement("tr"), td = document.createElement("td");
-      row.className = "tn-msg"; td.colSpan = 9; td.textContent = text;
+      row.className = "tn-msg"; td.colSpan = tr.children.length; td.textContent = text;
       row.appendChild(td);
       tr.parentNode.insertBefore(row, next);
     }
@@ -261,6 +263,51 @@
           }).catch(function (e) { narxDialog.alert(e.message, {title: "Бекор қилинмади", danger: true}); });
         });
       });
+    });
+
+    // ---- ишларни белгилаб бирданига: 100% ёки жами N% бажарилди (Shift — оралиқни белгилаш) ----
+    var lastSel = null;
+    function selBoxes() { return Array.prototype.slice.call(panel.querySelectorAll(".tn-sel")); }
+    function selPaint() {
+      var boxes = selBoxes(), on = boxes.filter(function (b) { return b.checked; });
+      boxes.forEach(function (b) { b.closest("tr").classList.toggle("is-sel", b.checked); });
+      var bar = panel.querySelector(".tn-selbar"), all = panel.querySelector(".tn-selall");
+      if (bar) { bar.classList.toggle("hidden", !on.length); bar.querySelector(".tn-sel-n").textContent = on.length; }
+      if (all) { all.checked = on.length && on.length === boxes.length; all.indeterminate = on.length > 0 && on.length < boxes.length; }
+    }
+    panel.addEventListener("click", function (e) {
+      var b = e.target.closest(".tn-sel");
+      if (b) {
+        var boxes = selBoxes(), i = boxes.indexOf(b);
+        if (e.shiftKey && lastSel !== null) {
+          var a = Math.min(i, lastSel), z = Math.max(i, lastSel);
+          for (var k = a; k <= z; k++) boxes[k].checked = b.checked;
+        }
+        lastSel = i; selPaint(); return;
+      }
+      if (e.target.closest(".tn-selall")) { var v = e.target.checked; selBoxes().forEach(function (x) { x.checked = v; }); lastSel = null; selPaint(); return; }
+      if (e.target.closest(".tn-sel-clear")) { selBoxes().forEach(function (x) { x.checked = false; }); lastSel = null; selPaint(); return; }
+      var go100 = e.target.closest(".tn-sel-100"), go = e.target.closest(".tn-sel-go");
+      if (!go100 && !go) return;
+      var pct = go100 ? "100" : panel.querySelector(".tn-sel-pct").value.trim();
+      if (!pct || isNaN(Number(pct.replace(",", "."))) || Number(pct.replace(",", ".")) < 0 || Number(pct.replace(",", ".")) > 100) {
+        narxDialog.alert("0 дан 100 гача фоиз ёзинг (масалан 50)", {title: "Фоиз нотўғри", danger: true}); return;
+      }
+      var ids = selBoxes().filter(function (x) { return x.checked; }).map(function (x) { return Number(x.closest("tr").dataset.item); });
+      narxDialog.confirm(ids.length + " та иш жами " + pct + "% бажарилган деб белгиланади. Етмаган қисми {{ period.title|default:'' }}га ёзилади, " +
+                         "аввалги ойлар ўзгармайди.", {title: "Белгиланган ишлар", ok: "Белгилаш"}).then(function (yes) {
+        if (!yes) return;
+        post("{% url 'texnazor:fill_items' o.pk %}", {period: PERIOD, items: ids, pct: pct}).then(function (d) {
+          d.sections.forEach(section);
+          summary(d.summary);
+          var q = document.getElementById("tn-q").value.trim(), on = nav.querySelector(".tn-sec.is-on");
+          if (q) document.getElementById("tn-q").dispatchEvent(new Event("input"));
+          else if (on) open(on.dataset.sec, false);
+        }).catch(function (e2) { narxDialog.alert(e2.message, {title: "Белгиланмади", danger: true}); });
+      });
+    });
+    panel.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && e.target.classList.contains("tn-sel-pct")) { e.preventDefault(); panel.querySelector(".tn-sel-go").click(); }
     });
 
     // ---- бўлимни 100% ----
