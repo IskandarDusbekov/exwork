@@ -141,6 +141,106 @@ class TexnazorFlowTests(TestCase):
         return self.client.post(reverse(f"texnazor:{name}", kwargs={"obj_id": self.obj.pk, **kw}), json.dumps(body),
                                 content_type="application/json")
 
+    def test_month_cycle_october_close_november(self):
+        """Октябрь: бир иш 100% (белгилаб), бири қисман 40%, ёпилади; Ноябрда тугагани «тугаган», қисмани қолдиғи билан."""
+        add = lambda m: self.client.post(reverse("texnazor:period_add", args=[self.obj.pk]), {"year": 2026, "month": m})  # noqa: E731
+        add(10)
+        octo = Period.objects.get()
+        self.assertTrue(self._post("fill_items", {"period": octo.pk, "items": [self.free.pk], "pct": "100"}).json()["ok"])
+        self.assertTrue(self._post("done", {"period": octo.pk, "item": self.work.pk, "value": "40%"}).json()["ok"])
+        f2 = services.month_f2(octo)  # Ф-2 жами: 4 м3 × 5 чел-ч, 4 × 0,5 маш-ч
+        self.assertAlmostEqual(f2["hours"]["J"], 20)
+        self.assertAlmostEqual(f2["hours"]["K"], 2)
+        self.assertAlmostEqual(f2["money"]["J"], 20 * 1000)
+        self.client.post(reverse("texnazor:period_close", args=[self.obj.pk, octo.pk]), {"closed": "1"})
+        # Ф-2: faqat shu oy ishlari (resurslari bilan), pastida JAMI va svodka formulalari
+        dl = self.client.get(reverse("texnazor:f2", args=[self.obj.pk, octo.pk]))
+        self.assertEqual(dl.status_code, 200)
+        self.assertIn("attachment", dl["Content-Disposition"])
+        from io import BytesIO
+        from openpyxl import load_workbook
+        ws = load_workbook(BytesIO(dl.content)).active
+        cells = {c.coordinate: c.value for row in ws.iter_rows() for c in row if c.value is not None}
+        self.assertEqual(cells["A8"], "2026 YIL OKTYABR OYI")
+        rows = {v: k for k, v in cells.items() if isinstance(v, str) and k.startswith("C")}
+        w = int(rows["БЕТОН ФУНДАМЕНТОВ"][1:])
+        self.assertEqual(cells[f"E{w}"], 4)  # ish qatorida — shu oydagi hajm
+        self.assertEqual(cells[f"F{w + 1}"], f"=E{w + 1}*E{w}")  # resurs = me'yor × ish hajmi
+        self.assertEqual(cells[f"J{w + 1}"], f"=+I{w + 1}")  # ish haqi ustuniga
+        sh = int(rows["ШВЕЛЛЕР №16"][1:])
+        self.assertEqual((cells[f"E{sh}"], cells[f"I{sh}"], cells[f"L{sh}"]), (2, f"=+G{sh}*E{sh}", f"=+I{sh}"))
+        self.assertNotIn("ТЕПЛОВОЙ НАСОС", rows)  # shu oyda yozilmagan — Ф-2 da yo'q
+        jami = int(rows["JAMI:"][1:])
+        self.assertEqual(cells[f"J{jami}"], f"=+SUM(J13:J{jami - 1})")
+        self.assertIn("PUDRATCHI XARAJATLARI QQS BILAN", rows)
+        # «Ф-2» ko'rinishi sahifaning o'zida: faqat shu oy ishlari, resurslari ochiq, oxirida JAMI (soatlar bilan) va svodka
+        fv = self.client.get(reverse("texnazor:rows", args=[self.obj.pk]), {"p": octo.pk, "view": "f2"}).json()
+        fh = "".join(c["h"] for c in fv["chunks"])
+        self.assertEqual(fv["cols"], 9)
+        self.assertEqual(sorted(i for c in fv["chunks"] for i in c["items"]), sorted([self.work.pk, self.free.pk]))
+        self.assertNotIn("ТЕПЛОВОЙ НАСОС", fh)
+        self.assertIn('class="tn-r is-shown', fh)
+        self.assertIn("20</td>", fh.split("Иш ҳақи (чел-ч)")[1])  # 4 м3 × 5 чел-ч
+        from .templatetags.texnazor_tags import _som as som
+        self.assertIn(som(services.period_totals(octo)["this"]["contractor"]), fh.split("Пудратчи харажатлари ҚҚС билан")[1])
+        page = self.client.get(reverse("texnazor:object", args=[self.obj.pk]), {"p": octo.pk})
+        self.assertContains(page, "Ноябрь 2026 ни очиш")  # ёпилгач — кейинги ой бир тугмада
+        add(11)
+        nov = Period.objects.get(month=11)
+        rows = {r["item"].pk: r for r in services.item_rows(nov, [self.work, self.free])}
+        self.assertEqual(rows[self.free.pk]["prev"], "Октябрь 2026")  # тугаган — ёзилмайди, адашмайди
+        self.assertEqual(rows[self.work.pk]["prev"], "")
+        self.assertAlmostEqual(rows[self.work.pk]["before_pct"], 40)
+        self.assertAlmostEqual(rows[self.work.pk]["left"], 6)
+        full = self.client.get(reverse("texnazor:rows", args=[self.obj.pk]), {"p": nov.pk}).json()
+        html = "".join(c["h"] for c in full["chunks"])
+        self.assertIn("Октябрь 2026да тугаган", html)
+        self.assertEqual([i for c in full["chunks"] for i in c["skip"]], [self.free.pk])  # белгилаб бўлмайди
+        # «Ҳамма ойлар»: har oy alohida ustun — Oktyabrdagi 4 va qoldiq 6 bir qatorda; bo'lim qatorida — so'mda
+        allm = self.client.get(reverse("texnazor:rows", args=[self.obj.pk]), {"p": nov.pk, "view": "months"}).json()
+        self.assertEqual(allm["cols"], 5 + 4 + 2 * (2 + 1))
+        self.assertIn("Октябрь 2026", allm["panel"])
+        self.assertIn("Ноябрь 2026", allm["panel"])
+        html = "".join(c["h"] for c in allm["chunks"])
+
+        def blocks(row_id):  # «Офёрта» — 4 ustun (на ед., по проект., цена, сумма), qolgan bloklar — miqdor va summa
+            row = html.split(row_id)[1].split("</tr>")[0]
+            cells = [c.split(">", 1)[1].split("<")[0] for c in row.split('<td class="num')[1:]]
+            return [cells[:4]] + [cells[i:i + 2] for i in range(4, len(cells), 2)]
+        # ish (1 м3 = 525 000): офёрта, Октябрь, Ноябрь, қолдиқ (Ф-2 dagidek)
+        w = blocks(f'id="tn-i-{self.work.pk}"')
+        self.assertEqual(w[0], ["10", "", "", "5 250 000"])
+        self.assertEqual(w[1:], [["4", "2 100 000"], ["", ""], ["6", "3 150 000"]])
+        # resurs (ish haqi: me'yor 5, narx 1 000): офёртада 50 чел-ч, Oktyabrda 5 × 4 = 20 чел-ч, 20 000 so'm
+        res = blocks(f'data-w="{self.work.pk}"')
+        self.assertEqual((res[0], res[1]), (["5", "50", "1 000", "50 000"], ["20", "20 000"]))
+        # oxirida svodka: Oktyabr blokida pudratchi summasi — Oktyabr akti bilan bir xil
+        from .templatetags.texnazor_tags import _som
+        self.assertIn(_som(services.period_totals(octo)["this"]["contractor"]), html.split("Пудратчи харажатлари ҚҚС билан")[1])
+        # «Ҳамма ойлар»da ham yoziladi: shu ko'rinishdagi qator (yozish katagi bilan) va yangilangan svodka qaytadi
+        d = self._post("done", {"period": nov.pk, "item": self.work.pk, "value": "50%", "view": "months", "fit": 3}).json()
+        self.assertTrue(d["ok"])
+        self.assertIn('class="tn-in num" value="5"', d["row"])
+        self.assertIn("Пудратчи харажатлари ҚҚС билан", d["svodka"])
+        Done.objects.filter(period=nov, item=self.work).delete()
+        # 4 oy, ekranga 3 blok sig'sa — eskilari «Олдинги ойлар» blokida (jadval yonga surilmasin); keng ekranda va
+        # «Ҳар ойни алоҳида» bosilganda — hammasi alohida
+        add(12)
+        self.client.post(reverse("texnazor:period_add", args=[self.obj.pk]), {"year": 2027, "month": 1})
+        dec = Period.objects.get(month=12)
+        url = reverse("texnazor:rows", args=[self.obj.pk])
+        four = self.client.get(url, {"p": dec.pk, "view": "months", "fit": 3}).json()
+        self.assertIn("Олдинги ойлар", four["panel"])  # Oktyabr + Noyabr jamlangan, Dekabr va Yanvar — alohida
+        self.assertEqual(four["cols"], 5 + 4 + 2 * (3 + 1))
+        self.assertEqual(self.client.get(url, {"p": dec.pk, "view": "months", "fit": 5}).json()["cols"], 5 + 4 + 2 * (4 + 1))
+        self.assertEqual(self.client.get(url, {"p": dec.pk, "view": "months", "all": "1"}).json()["cols"], 5 + 4 + 2 * (4 + 1))
+        Period.objects.filter(month__in=(12, 1)).delete()
+        # Ноябрда иккаласини «100%» қилса ҳам — тугагани ўзгармайди, қисманнинг қолган 60% и ёзилади
+        self.assertTrue(self._post("fill_items", {"period": nov.pk, "items": [self.work.pk, self.free.pk], "pct": "100"}).json()["ok"])
+        self.assertAlmostEqual(Done.objects.get(period=nov, item=self.work).qty, 6)
+        self.assertFalse(Done.objects.filter(period=nov, item=self.free).exists())
+        self.assertAlmostEqual(Done.objects.get(period=octo, item=self.free).qty, 2)
+
     def test_import(self):
         self.assertEqual(self.obj.status, "ready")
         self.assertEqual(self.obj.name, "CHILONZOR TUMAN 5-MAKTAB TA'MIRI")  # nomi berilmadi — ofyortadan
@@ -200,11 +300,13 @@ class TexnazorFlowTests(TestCase):
         self.assertContains(self.client.get(reverse("texnazor:index")), "CHILONZOR")
         page = self.client.get(reverse("texnazor:object", args=[self.obj.pk]))
         self.assertContains(page, "Фундамент")  # mundarija; nomlar oddiy yozuvda (readable)
-        self.assertContains(page, "Бетон фундаментов")  # birinchi bo'lim o'ng tomonda darhol ochiq
         self.assertContains(page, "Июль 2026")
-        part = self.client.get(reverse("texnazor:section", args=[self.obj.pk, self.work.section_id]), {"p": july.pk})
-        self.assertContains(part, "Бетон фундаментов")
-        self.assertContains(part, "Кран")  # ishning resurslari shu jadvalda (yopiq), alohida so'rovsiz
+        full = self.client.get(reverse("texnazor:rows", args=[self.obj.pk]), {"p": july.pk}).json()  # butun ofyorta, bo'laklarda
+        rows = "".join(c["h"] for c in full["chunks"])
+        self.assertIn("БЕТОН ФУНДАМЕНТОВ", rows)  # jadvalda nomlar ofyortadagidek (Excel'dagi katta harflar)
+        self.assertIn("КРАН", rows)  # ishning resurslari shu jadvalda (yopiq), alohida so'rovsiz
+        self.assertIn(f'id="tn-s-{self.work.section_id}"', rows)  # bo'lim sarlavhasi — mundarijadan shunga o'tiladi
+        self.assertIn(self.work.pk, [i for c in full["chunks"] for i in c["items"]])
         self.assertContains(self.client.get(reverse("texnazor:search", args=[self.obj.pk]), {"p": july.pk, "q": "швеллер"}), "Швеллер")
         res_row = self.work.resources.first().excel_row  # Excel qatori bo'yicha: resurs qatori -> uning ishi
         self.assertContains(self.client.get(reverse("texnazor:search", args=[self.obj.pk]), {"p": july.pk, "q": str(res_row)}),
@@ -430,8 +532,8 @@ class NegativeVolumeTests(TestCase):
         row = services.item_rows(self.july, [self.minus])[0]
         self.assertEqual(row["base"], self.base)
         self.assertFalse(row["over"])
-        self.assertContains(self.client.get(reverse("texnazor:section", args=[self.obj.pk, self.base.section_id]),
-                                            {"p": self.july.pk}), "айириш — 1-ишдан")
+        full = self.client.get(reverse("texnazor:rows", args=[self.obj.pk]), {"p": self.july.pk}).json()
+        self.assertIn("айириш — 1-ишдан", "".join(c["h"] for c in full["chunks"]))
 
     def test_fill_section_marks_base_and_deduction(self):
         services.fill_section(self.july, self.base.section, 100)

@@ -1,4 +1,4 @@
-{% load narx %}{# офёрта: чапда мундарижа (блок -> бўлим), ўнгда танланган бўлимнинг ишлари #}
+{% load narx %}{# офёрта: чапда мундарижа (блок -> бўлим), ўнгда бутун офёрта битта жадвалда (мундарижа — шу жадвалдаги бўлимга ўтади) #}
 <section class="tn-layout mb-4">
   <nav class="tn-nav" aria-label="Офёрта мундарижаси">
     <label class="tn-search">{% icon "search" "h-4 w-4 text-slate-400" %}
@@ -13,7 +13,7 @@
         <div class="tn-blk-b">
         {% for x in b.items %}
           {% if x.kind == "group" %}<div class="tn-grp">{{ x.s.title|readable }}</div>
-          {% else %}<a href="?p={{ period.pk }}&s={{ x.s.pk }}" class="tn-sec{% if x.s.pk == section.pk %} is-on{% endif %}" data-sec="{{ x.s.pk }}"
+          {% else %}<a href="?p={{ period.pk }}&s={{ x.s.pk }}" class="tn-sec{% if x.s.pk == sel %} is-on{% endif %}" data-sec="{{ x.s.pk }}"
              data-contract="{{ x.contract|stringformat:'.6f' }}" data-before="{{ x.before|stringformat:'.6f' }}" data-this="{{ x.this|stringformat:'.6f' }}">
             <span class="tn-sec-t">{{ x.s.title|readable }}</span>
             <span class="tn-pc num">{% if x.pct >= 99.95 %}{% icon "check" "h-4 w-4 text-emerald-600" %}{% elif x.pct >= 1 %}{{ x.pct|floatformat:0 }}%{% elif x.pct %}&lt;1%{% endif %}</span></a>{% endif %}
@@ -23,5 +23,5 @@
     {% endfor %}
     </div>
   </nav>
-  <div class="tn-panel" id="tn-panel">{% if section %}{% include "texnazor/_panel.html" %}{% endif %}</div>
+  <div class="tn-panel is-loading" id="tn-panel"><p class="px-5 py-12 text-center text-slate-500">Офёрта юкланяпти…</p></div>
 </section>

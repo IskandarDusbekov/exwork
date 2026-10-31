@@ -1,4 +1,16 @@
-{% load narx texnazor_tags %}<table class="w-full min-w-[900px] text-sm">
+{% load narx texnazor_tags %}{# Ф-2 охиридаги «JAMI» қатори каби: шу ойда бажарилганлар турлар бўйича (чел-ч, маш-ч — соатлари ҳам) #}
+<div class="tn-f2">
+  <div class="tn-f2-h">{{ period.title }} — Ф-2 бўйича жами <span>{{ f2.rows }} та қатор ёзилган</span></div>
+  <div class="tn-f2-g">
+    <div class="tn-f2-c tn-lg-j"><span>Иш ҳақи</span><b class="num">{{ f2.money.J|pul }}</b><small class="num">{{ f2.hours.J|pul }} чел-ч</small></div>
+    <div class="tn-f2-c tn-lg-k"><span>Машина ва механизмлар</span><b class="num">{{ f2.money.K|pul }}</b><small class="num">{{ f2.hours.K|pul }} маш-ч</small></div>
+    <div class="tn-f2-c tn-lg-m"><span>Материал (пудратчи)</span><b class="num">{{ f2.money.L|pul }}</b></div>
+    <div class="tn-f2-c"><span>Жиҳоз (пудратчи)</span><b class="num">{{ f2.money.M|pul }}</b></div>
+    <div class="tn-f2-c"><span>Жиҳоз (буюртмачи)</span><b class="num">{{ f2.money.N|pul }}</b></div>
+    <div class="tn-f2-c"><span>Кабель (пудратчи)</span><b class="num">{{ f2.money.O|pul }}</b></div>
+  </div>
+</div>
+<table class="w-full min-w-[900px] text-sm">
   <thead class="bg-slate-100 text-xs text-slate-600"><tr>
     <th class="px-3 py-2 text-left">Кўрсаткич</th>
     <th class="w-44 px-3 py-2 text-right">Шартнома (офёрта)</th>

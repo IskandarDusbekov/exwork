@@ -74,12 +74,14 @@
   .tn-res-all[aria-pressed="true"] svg { transform: none; }
   .tn-bar-hint { font-size: 12.5px; color: #64748b; }
   /* жадвал ўз ичида айланади: сарлавҳа доим кўриниб туради, пастдаги горизонтал айлантиргич ҳам экранда */
+  /* overflow-anchor: none — жадвал жойида туришини JS ўзи таъминлайди (keep); overscroll — жадвал охирида саҳифа сакрамасин */
+  .tn-scroll { overflow-anchor: none; overscroll-behavior: contain; }
   .tn-scroll { overflow: auto; max-height: calc(100vh - 190px); min-height: 260px; scrollbar-width: thin; scrollbar-color: #b6bec9 #f1f5f9; }
   .tn-scroll::-webkit-scrollbar { width: 11px; height: 11px; }
   .tn-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
   .tn-scroll::-webkit-scrollbar-thumb { background: #b6bec9; border: 2px solid #f1f5f9; border-radius: 6px; }
   .tn-scroll::-webkit-scrollbar-thumb:hover { background: #8a94a3; }
-  .tn-t { width: 100%; min-width: 1020px; border-collapse: separate; border-spacing: 0; table-layout: fixed; font: 13.5px/1.4 "Segoe UI", Calibri, Arial, sans-serif; color: #1f2937; }
+  .tn-t { width: 100%; min-width: 1046px; border-collapse: separate; border-spacing: 0; table-layout: fixed; font: 13.5px/1.4 "Segoe UI", Calibri, Arial, sans-serif; color: #1f2937; }
   .tn-t th, .tn-t td { border-right: 1px solid #e3e3e3; border-bottom: 1px solid #e3e3e3; padding: 5px 8px; vertical-align: top; }
   .tn-t th { position: sticky; top: 0; z-index: 2; background: #f3f3f3; color: #444; font-size: 12.5px; font-weight: 600; text-align: center; vertical-align: middle; border-bottom: 1px solid #c8c8c8; white-space: nowrap; }
   .tn-t th small { display: block; font-size: 11px; font-weight: 400; color: #7b8494; }
@@ -165,9 +167,165 @@
   .tn-legend b::before { content: ""; width: 10px; height: 10px; border-radius: 2px; background: currentColor; }
   .tn-lg-w { color: #0b1220; } .tn-lg-j { color: #a3216b; } .tn-lg-k { color: #15803d; } .tn-lg-m { color: #1d5fc4; }
   .tn-msg td { padding: 5px 10px !important; background: #fff1f2 !important; color: #9f1239; font-size: 13px; }
-  .tn-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 20px; }
-  .tn-go { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 14px; font-size: 14px; color: #334155; background: #fff; }
-  .tn-go:hover { background: #f8fafc; border-color: #94a3b8; }
+  /* бутун офёрта: блок, оралиқ сарлавҳа ва бўлим қаторлари жадвал ичида; чизилмаган бўлак — бўш жой */
+  .tn-t tr.tn-ph > td { padding: 0; border: 0; background: transparent; }
+  .tn-t tr.tn-bh > td { padding: 12px 12px 8px; background: #fef2f2; color: #991b1b; font-size: 14.5px; font-weight: 700; border-bottom-color: #fecaca; }
+  .tn-t tr.tn-gh > td { padding: 8px 12px 4px; background: #f8fafc; color: #64748b; font-size: 13px; font-weight: 600; }
+  .tn-t tr.tn-sh > td { padding: 8px 12px; background: #eff6ff; border-bottom-color: #bfdbfe; border-top: 1px solid #bfdbfe; }
+  .tn-sh-in { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+  .tn-sh-t { font-size: 14.5px; font-weight: 700; color: #0c4a6e; }
+  .tn-sh-n { font-size: 12.5px; color: #64748b; }
+  .tn-sh-r { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: #475569; }
+  .tn-sh-r b { color: #0f172a; font-weight: 600; }
+  .tn-sh-r .tn-fill { padding: 2px 10px; font-size: 12.5px; }
+  .tn-crumb .tn-cur-n:not(:empty)::after { content: " · "; }
+  .tn-crumb .tn-all-n { color: #94a3b8; }
   .tn-fill { border-radius: 8px; padding: 7px 14px; font-size: 14px; color: #047857; border: 1px solid #a7f3d0; background: #fff; }
   .tn-fill:hover { background: #ecfdf5; }
+  /* олдинги ойларда тугаган ишлар — хира, ёзилмайди; қисман бажарилганда «Аввал» ёнида фоизи */
+  .tn-prev { display: inline-block; border-radius: 4px; padding: 0 6px; background: #dcfce7; color: #166534; font-size: 11.5px; font-weight: 600; vertical-align: 1px; }
+  .tn-t tr.tn-w.is-prev > td:not(.tn-g):not(.tn-cin) { background: #f6faf7; }
+  .tn-t tr.tn-w.is-prev > td.tn-name, .tn-t tr.tn-w.is-prev > td.tn-n, .tn-t tr.tn-w.is-prev > td.tn-code { color: #64748b; font-weight: 500; }
+  .tn-t tr.tn-w.is-prev > td.tn-cin { background: #f1f5f9; }
+  .tn-bp { margin-left: 4px; border-radius: 3px; padding: 0 3px; background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 600; }
+  /* фильтр: «Қолганлари» — тугаганлар яширин, «Шу ойда» — фақат шу ойга ёзилганлар */
+  .tn-filter { display: inline-flex; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; }
+  .tn-filter button { padding: 4px 10px; font-size: 13px; color: #334155; background: #fff; }
+  .tn-filter button + button { border-left: 1px solid #cbd5e1; }
+  .tn-filter button[aria-pressed="true"] { background: #0f172a; color: #fff; }
+  .tn-t.f-left tr.is-prev, .tn-t.f-left tr.tn-sh.is-full, .tn-t.f-this tr.tn-w:not(.has-this), .tn-t.f-this tr.tn-r:not(.has-this) { display: none !important; }
+  /* сичқонча билан суриб белгилаш (Excel'дагидек) */
+  .tn-t tr.tn-w > td.tn-ck, .tn-t tr.tn-w > td.tn-g { cursor: cell; }
+  body.tn-dragging, body.tn-dragging * { user-select: none !important; cursor: cell !important; }
+  /* Ф-2 бўйича жами (ой охирида) */
+  .tn-f2 { padding: 12px 12px 14px; border-bottom: 1px solid #e2e8f0; }
+  .tn-f2-h { margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #0f172a; }
+  .tn-f2-h span { margin-left: 6px; font-size: 12.5px; font-weight: 400; color: #64748b; }
+  .tn-f2-g { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  .tn-f2-c { display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; color: #334155; }
+  .tn-f2-c span { font-size: 12px; font-weight: 500; }
+  .tn-f2-c b { margin-top: 2px; font-size: 15px; font-weight: 600; color: #0f172a; }
+  .tn-f2-c small { font-size: 12px; color: #64748b; }
+  /* жадвал кўриниши: шу ой / ҳамма ойлар */
+  .tn-view { display: inline-flex; border: 1px solid #0f172a; border-radius: 6px; overflow: hidden; }
+  .tn-view button { padding: 4px 12px; font-size: 13px; font-weight: 600; color: #0f172a; background: #fff; }
+  .tn-view button + button { border-left: 1px solid #0f172a; }
+  .tn-view button[aria-pressed="true"] { background: #0f172a; color: #fff; }
+  /* ҳамма ойлар: танланган ой устуни яшил, жами — қалин, бўлим қаторида сўмлар */
+  .tn-t-m td.tn-mq { font-weight: 600; color: #0b1220; background: #fafafa; }
+  .tn-t-m td.tn-mc.is-sel { background: #e9f6ee; }
+  .tn-t-m tr.tn-sh > td { padding: 8px 8px; font-size: 12.5px; }
+  .tn-t-m tr.tn-sh > td.tn-shm { color: #0c4a6e; font-weight: 600; white-space: nowrap; }
+  .tn-t-m tr.tn-sh > td.tn-shm.is-sel { background: #dbeafe; }
+  .tn-t-m td.tn-ms { color: #4c1d95; font-weight: 600; }  /* summa — Ф-2 dagidek binafsha */
+  .tn-t-m tr.tn-r > td.tn-ms { font-weight: 500; }
+  .tn-t-m td.tn-mp { color: #475569; }
+  .tn-t-m tr.tn-r > td.tn-mq, .tn-t-m tr.tn-r > td:nth-child(6) { font-style: italic; }  /* resursda — me'yor */
+  .tn-allm { border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 10px; font-size: 13px; color: #334155; background: #fff; }
+  .tn-allm:hover { background: #f8fafc; border-color: #94a3b8; }
+  /* «Ҳамма ойлар»да мундарижа яширин — жадвал бутун кенгликни олади */
+  .tn-layout.is-wide { grid-template-columns: minmax(0, 1fr); }
+  .tn-layout.is-wide > .tn-nav { display: none; }
+  .tn-t-m td.is-sel { background: #eef8f1; }
+  .tn-t-m tr.tn-w > td.tn-mq, .tn-t-m tr.tn-w > td.tn-ml { font-weight: 700; }
+  .tn-t-m th.tn-th-left { background: #fef3c7; color: #78350f; }
+  /* блоклар орасида қалин чизиқ — қайси устун қайси ойга тегишли адаштирмасин */
+  .tn-t-m td.tn-mc, .tn-t-m th.tn-th-grp, .tn-t-m .tn-b0 { border-left: 2px solid #94a3b8; }
+  /* Excel'даги «закрепить области»: чапда №, шифр, ном — ойлар кўп бўлса ҳам қайси иш экани кўриниб туради */
+  .tn-t-m tr.tn-w > td:nth-child(-n+4), .tn-t-m tr.tn-r > td:nth-child(-n+4), .tn-t-m tr.tn-sh > td:first-child,
+  .tn-t-m thead tr:first-child > th:nth-child(-n+4) { position: sticky; z-index: 1; }
+  .tn-t-m thead tr:first-child > th:nth-child(-n+4) { z-index: 3; }
+  .tn-t-m tr > :nth-child(1) { left: 0; }
+  .tn-t-m tr.tn-w > td:nth-child(2), .tn-t-m tr.tn-r > td:nth-child(2), .tn-t-m thead tr:first-child > th:nth-child(2) { left: 36px; }
+  .tn-t-m tr.tn-w > td:nth-child(3), .tn-t-m tr.tn-r > td:nth-child(3), .tn-t-m thead tr:first-child > th:nth-child(3) { left: 116px; }
+  .tn-t-m tr.tn-w > td:nth-child(4), .tn-t-m tr.tn-r > td:nth-child(4), .tn-t-m thead tr:first-child > th:nth-child(4) { left: 208px; box-shadow: 2px 0 0 #cbd5e1; }
+  /* «Ҳамма ойлар»да ёзиш: белгилаш катаги № ёнида, ёзиш катаги — танланган ойнинг «Миқдор»ида */
+  .tn-t-m td.tn-n .tn-sel, .tn-t-m th .tn-selall { width: 14px; height: 14px; margin-right: 3px; accent-color: #217346; vertical-align: -2px; cursor: pointer; }
+  .tn-t-m td.tn-mc.tn-cin { padding: 2px 3px; background: #e9f6ee; }
+  .tn-t-m td.tn-mc.tn-cin .tn-in { height: 26px; padding: 2px 5px; }
+  .tn-t-m tr.tn-w.is-sel > td { background: #dbeafe !important; }
+  /* «Ф-2» кўриниши: ресурслар доим очиқ, сумма — бинафша, сводка охирида */
+  .tn-t-f tr.tn-r { display: table-row; }
+  .tn-t-f td.tn-ms { color: #4c1d95; font-weight: 600; }
+  .tn-t-f tr.tn-r > td.tn-ms { font-weight: 500; }
+  .tn-t-f td.tn-mp { color: #475569; }
+  .tn-t-f tr.tn-w > td.tn-mq { font-weight: 700; }
+  .tn-t-f tr.tn-sv > td { background: #f0fdf4; font-size: 12.5px; color: #14532d; }
+  .tn-t-f tr.tn-sv.is-b > td { font-weight: 700; }
+  .tn-t-f tr.tn-sv.is-c > td { background: #dcfce7; font-size: 13.5px; }
+  .tn-t-f tr.tn-sv > td.tn-svv { text-align: right; white-space: nowrap; }
+  .tn-t-f tr.tn-svh > td { background: #dcfce7; color: #14532d; }
+  /* ойлар яққол ажралиб турсин: блоклар навбатма-навбат оч фонда (1-, 3-, 5-ой ...), қолдиқ — оч сариқ.
+     Тартиб: 5 та бош устун, «Офёрта» (4), кейин ҳар блок 2 устун; бўлим ва сводка қаторида биринчи катак 4 устунни эгаллайди */
+  .tn-t-m thead tr:first-child > th:nth-child(2n+7), .tn-t-m thead tr + tr > th:nth-child(4n+5), .tn-t-m thead tr + tr > th:nth-child(4n+6) { background: #e6ecf4; }
+  .tn-t-m tr.tn-w > td:nth-child(4n+10), .tn-t-m tr.tn-w > td:nth-child(4n+11),
+  .tn-t-m tr.tn-r > td:nth-child(4n+10), .tn-t-m tr.tn-r > td:nth-child(4n+11) { background: #f5f8fc; }
+  .tn-t-m tr.tn-sh > td:nth-child(4n+7), .tn-t-m tr.tn-sh > td:nth-child(4n+8) { background: #e3ecf8; }
+  .tn-t-m tr.tn-sv > td:nth-child(4n+7), .tn-t-m tr.tn-sv > td:nth-child(4n+8) { background: #e7f6ec; }
+  .tn-t-m tr.tn-w > td:nth-last-child(-n+2), .tn-t-m tr.tn-r > td:nth-last-child(-n+2) { background: #fffbeb; }
+  .tn-t-m tr.tn-sh > td:nth-last-child(-n+2) { background: #fdf3d7; }
+  .tn-t-m thead tr + tr > th:nth-last-child(-n+2) { background: #fef3c7; }
+  .tn-t-m tr > td.tn-mc.is-sel, .tn-t-m tr > td.tn-ms.is-sel, .tn-t-m tr.tn-w > td.tn-mc.tn-cin { background: #e9f6ee; }
+  .tn-t-m tr.tn-sh > td.is-sel { background: #d7f0df; }
+  .tn-t-m thead tr > th.tn-th-in:nth-child(n) { background: #d9efe1; }
+  .tn-t-m tr.tn-w.is-sel > td { background: #dbeafe !important; }
+  /* «↓ Пастга» / «↑ Тепага»: бир босишда жадвал охирига (сводка) ёки бошига */
+  .tn-panel { position: relative; }
+  .tn-t tfoot.tn-pad td { height: 52px; padding: 0; border: 0; background: transparent; }  /* охирги қатор тугмалар остида қолмасин */
+  .tn-jump { position: absolute; right: 22px; bottom: 18px; z-index: 6; display: flex; gap: 6px; }
+  .tn-panel:has(.tn-selbar:not(.hidden)) .tn-jump { bottom: 66px; }
+  .tn-jump button { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600;
+                    color: #fff; background: rgba(15, 23, 42, .78); box-shadow: 0 4px 12px -4px rgba(15, 23, 42, .5); }
+  .tn-jump button:hover { background: #0f172a; }
+  /* сводка (Ф-2 охиридагидек) */
+  .tn-t-m tr.tn-sv > td { background: #f0fdf4; font-size: 12.5px; color: #14532d; border-bottom-color: #d1fae5; }
+  .tn-t-m tr.tn-sv > td.tn-svl { position: sticky; left: 0; z-index: 1; font-weight: 500; box-shadow: 2px 0 0 #bbf7d0; }
+  .tn-t-m tr.tn-sv.is-b > td { font-weight: 700; }
+  .tn-t-m tr.tn-sv.is-c > td { background: #dcfce7; font-size: 13px; }
+  .tn-t-m tr.tn-sv > td.tn-svv { white-space: nowrap; text-align: right; padding-left: 2px; padding-right: 5px; }
+  .tn-t-m tr.tn-sv > td.is-sel { background: #dcfce7; }
+  .tn-t-m tr.tn-svh > td { background: #dcfce7; color: #14532d; }
+  .tn-t-m tr.tn-sh > td:first-child { box-shadow: 2px 0 0 #bfdbfe; }
+  .tn-t-m tr.tn-w > td:nth-child(-n+4) { background: #fff; }
+  .tn-t-m tr.tn-w > td.tn-g { background: #f3f3f3; }
+  .tn-t-m tr.tn-bh > td, .tn-t-m tr.tn-gh > td { position: static; box-shadow: none; }
+  /* ===== Excel кўриниши: техназор Excel'да ишлашга ўрганган — шрифт, чизиқлар, ранглар ундаги «Ф-2» варағидагидек =====
+     Times New Roman, ихчам қаторлар, аниқ кулранг чизиқ; сарлавҳа ва бўлимлар — #CCFFFF; блок — қизил;
+     ЧЕЛ-Ч — бинафша, МАШ-Ч — тўқ яшил, материал — тўқ кўк; сумма — бинафша қалин, нарх — қалин */
+  .tn-t { font: 13px/1.3 "Times New Roman", Times, serif; color: #000; }
+  .tn-t th, .tn-t td { border-right: 1px solid #a0a0a0; border-bottom: 1px solid #a0a0a0; padding: 2px 5px; }
+  .tn-t th { background: #ccffff; color: #000; font-size: 12.5px; font-weight: 700; border-bottom-color: #808080; }
+  .tn-t th small { color: #1f2937; font-weight: 400; }
+  .tn-t th.tn-th-grp, .tn-t th.tn-th-norm { background: #ccffff; color: #000; }
+  .tn-t .tn-g { background: #e8e8e8; color: #555; font: 11px/1.3 Calibri, "Segoe UI", Arial, sans-serif; border-right-color: #a0a0a0; }
+  .tn-t tr.tn-w > td.tn-name, .tn-t tr.tn-w > td.tn-n, .tn-t tr.tn-w > td.tn-code, .tn-t tr.tn-w > td.tn-unit { color: #000; font-weight: 700; }
+  .tn-t tr.tn-w > td { font-weight: 700; }
+  .tn-t tr.tn-w > td.tn-norm-w, .tn-t tr.tn-w > td.tn-mq { color: #000; font-style: normal; }
+  .tn-t td.tn-norm { background: transparent; color: inherit; }
+  .tn-t tr.tn-r > td { background: #fff; font-size: 13px; padding-top: 1px; padding-bottom: 1px; font-weight: 400; }
+  .tn-t tr.tn-r > td.tn-name { padding-left: 14px; }
+  .tn-t tr.tn-r.tn-c-j > td:not(.tn-g) { color: #800080; }
+  .tn-t tr.tn-r.tn-c-k > td:not(.tn-g) { color: #003300; }
+  .tn-t tr.tn-r.tn-c-m > td:not(.tn-g) { color: #000080; }
+  .tn-t td.tn-ms, .tn-t tr.tn-r > td.tn-ms { color: #800080 !important; font-weight: 700; }
+  .tn-t td.tn-mp, .tn-t tr.tn-r > td.tn-mp { font-weight: 700; }
+  .tn-legend .tn-lg-j { color: #800080; } .tn-legend .tn-lg-k { color: #003300; } .tn-legend .tn-lg-m { color: #000080; }
+  /* бўлим ва блок сарлавҳалари — Excel'дагидек ҳаворанг фонда, ўртада */
+  .tn-t tr.tn-sh > td { background: #ccffff; border-top: 1px solid #808080; border-bottom-color: #808080; padding: 3px 8px; }
+  .tn-t tr.tn-sh .tn-sh-in { justify-content: center; }
+  .tn-t tr.tn-sh .tn-sh-t { color: #000; font-size: 13px; font-weight: 700; text-align: center; }
+  .tn-t tr.tn-sh .tn-sh-n { color: #374151; }
+  .tn-t tr.tn-bh > td { background: #ccffff; color: #ff0000; text-align: center; font-size: 13.5px; font-weight: 700; border-bottom-color: #808080; }
+  .tn-t tr.tn-gh > td { background: #ccffff; color: #000; text-align: center; font-weight: 700; }
+  .tn-t-m tr.tn-sh > td:first-child { text-align: left; }
+  .tn-t-m tr.tn-sh .tn-sh-in { justify-content: flex-start; }
+  /* «Ҳамма ойлар»да бўлим қатори: ойлар ажралиши ҳаворанг ичида сезилсин */
+  .tn-t-m tr.tn-sh > td:nth-child(4n+7), .tn-t-m tr.tn-sh > td:nth-child(4n+8) { background: #b8f0f0; }
+  .tn-t-m tr.tn-sh > td:nth-last-child(-n+2) { background: #f6eec8; }
+  .tn-t-m tr.tn-sh > td.is-sel { background: #bfe8cc; }
+  .tn-t tr.tn-sh > td.tn-shm { color: #000; }
+  /* ёзиш катаги — Excel'даги танланган катак каби */
+  .tn-t .tn-in { font: 700 13px "Times New Roman", Times, serif; height: 24px; border-radius: 2px; }
+  .tn-t-f tr.tn-w > td { font-weight: 700; }
+  .tn-prev, .tn-tag, .tn-warn, .tn-fixed, .tn-where { font-family: "Segoe UI", Calibri, Arial, sans-serif; }
 </style>

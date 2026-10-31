@@ -2,7 +2,7 @@
   (function () {
     var PERIOD = {{ period.pk|default:"null" }}, CLOSED = {{ period.closed|yesno:"true,false" }};
     var DONE_URL = "{% url 'texnazor:done' o.pk %}", SEARCH_URL = "{% url 'texnazor:search' o.pk %}";
-    var SECTION_URL = "{% url 'texnazor:section' o.pk 0 %}", KEY = "tn-blocks-{{ o.pk }}", FIRST = "{{ section.pk|default:'' }}";
+    var ROWS_URL = "{% url 'texnazor:rows' o.pk %}", FILL_URL = "{% url 'texnazor:fill' o.pk 0 %}", KEY = "tn-blocks-{{ o.pk }}";
     var nav = document.querySelector(".tn-nav"), panel = document.getElementById("tn-panel");
     if (!nav || !panel) return;
     var csrf = function () { return document.querySelector("[name=csrfmiddlewaretoken]").value; };
@@ -12,8 +12,11 @@
         return r.json().catch(function () { return {ok: false, error: "Сервер жавоб бермади (" + r.status + "). Қайта уриниб кўринг."}; });
       }).then(function (d) { if (!d.ok) throw new Error(d.error || "Сақланмади"); return d; });
     }
+    function som(v) {  // «Ҳамма ойлар» сарлавҳаси: бутун сўм (Ф-2 даги каби)
+      return Math.abs(v) < 0.5 ? "" : Math.round(v).toLocaleString("ru-RU").replace(/ | /g, " ");
+    }
     function money(v) {  // сервердаги |pul каби: ҳар доим тийингача
-      return (v || 0).toLocaleString("ru-RU", {minimumFractionDigits: 2, maximumFractionDigits: 2}).replace(/ | /g, " ");
+      return (v || 0).toLocaleString("ru-RU", {minimumFractionDigits: 2, maximumFractionDigits: 2}).replace(/ | /g, " ");
     }
     function summary(s) {
       ["this", "cum", "left", "contract"].forEach(function (k) { var el = document.getElementById("k-" + k); if (el) el.textContent = money(s[k]); });
@@ -37,36 +40,271 @@
       var h = e.target.closest(".tn-blk-h");
       if (h) { var b = h.parentNode; setBlock(b, !b.classList.contains("is-open")); saveBlocks(); return; }
       var a = e.target.closest("a.tn-sec");
-      if (a && !e.ctrlKey && !e.metaKey) { e.preventDefault(); open(a.dataset.sec, true); }
+      if (a && !e.ctrlKey && !e.metaKey) { e.preventDefault(); full().then(function () { goSection(a.dataset.sec, true, true); }); }
     });
-    var current = nav.querySelector(".tn-sec.is-on");
-    if (current) current.scrollIntoView({block: "center"});
+    var toc = nav.querySelector(".tn-toc");
+    function markToc(id, remember) {
+      var link = nav.querySelector('.tn-sec[data-sec="' + id + '"]');
+      nav.querySelectorAll(".tn-sec.is-on").forEach(function (x) { x.classList.remove("is-on"); });
+      if (!link) return;
+      link.classList.add("is-on");
+      var blk = link.closest(".tn-blk");
+      if (blk && !blk.classList.contains("is-open")) { setBlock(blk, true); if (remember) saveBlocks(); }
+      var r = link.getBoundingClientRect(), box = toc.getBoundingClientRect();  // фақат мундарижа ичида (саҳифа сакрамасин)
+      if (r.top < box.top) toc.scrollTop += r.top - box.top - 8;
+      else if (r.bottom > box.bottom) toc.scrollTop += r.bottom - box.bottom + 8;
+    }
 
-    // ---- бўлимни ўнг томонда очиш (саҳифа қайта юкланмайди) ----
-    function show(html) {
-      panel.innerHTML = html;
+    // ---- бутун офёрта битта жадвалда. 18 минг қаторни браузер бирдан чизса қотади: жадвал бўлакларга бўлинган,
+    //      экранга яқинлашган бўлак чизилади, узоқлашгани ўлчами сақланиб бўш жойга алмашади ----
+    var V = null, SEARCH = false, DIRTY = false, BACK = null, loading = null;
+    var EST = {w: 46, r: 25, s: 40};  // ҳали чизилмаган бўлак баландлиги — тахминан (чизилгач ўлчанади)
+    function placeholder(c) {
+      var w = FILTER === "left" ? c.w - c.p : FILTER === "this" ? c.t.length : c.w;  // фильтрда кўринадиган ишлар
+      var res = RES_ALL || VIEW === "f2";  // Ф-2 да ресурслар доим очиқ
+      var h = c.height || (w * EST.w + (res && c.w ? c.r * w / c.w * EST.r : 0) + c.s * EST.s);
+      return '<tr class="tn-ph"><td colspan="' + V.cols + '" style="height:' + h + 'px"></td></tr>';
+    }
+    // бўлак кўринадиган жойдан юқорида чизилса / ўлчами ўзгарса — экрандаги қаторлар жойида қолсин (айлантирганда
+    // сакрамасин). Браузернинг ўзи жадвал қаторларида буни қилмайди — шу ерда фарқ қадар суриб қўйилади
+    function keep(i, fn) {
+      var tb = V.bodies[i], above = tb.getBoundingClientRect().bottom <= V.box.getBoundingClientRect().top + thead() + 1;
+      var h0 = above ? tb.offsetHeight : 0;
+      fn();
+      if (above) { var d = tb.offsetHeight - h0; if (d) V.box.scrollTop += d; }
+    }
+    function mount(i) {
+      var c = V.chunks[i], tb = V.bodies[i];
+      if (c.on) return;
+      keep(i, function () {
+        tb.innerHTML = c.h;
+        c.on = true;
+        if (c.epoch !== V.epoch) { resAll(RES_ALL, tb); c.epoch = V.epoch; }
+        tb.querySelectorAll("tr.tn-sh").forEach(paintHead);
+        tb.querySelectorAll("tr.tn-flash").forEach(function (r) { r.classList.remove("tn-flash"); });
+        selApply(tb);
+      });
+    }
+    function unmount(i) {
+      var c = V.chunks[i], tb = V.bodies[i];
+      if (!c.on || tb.contains(document.activeElement)) return;  // ёзаётган катак ўчиб қолмасин
+      keep(i, function () {
+        c.height = tb.offsetHeight;
+        c.h = tb.innerHTML;  // очилган ресурслар, сақланган ҳажмлар шу ерда қолади
+        c.on = false;
+        tb.innerHTML = placeholder(c);
+      });
+    }
+    // ҳали чизилмаган бўлакларнинг аниқ баландлиги — орқа фонда, кўринмас нусха жадвалда ўлчанади: айлантиргич
+    // (scrollbar) тортиб юрилганда ҳам жадвал жойида туради, тахминий баландлик туфайли сакраш бўлмайди
+    function measure() {
+      var v = V;
+      if (!v || v.probe) return;
+      var t = v.box.querySelector("table"), probe = document.createElement("table"), tb = document.createElement("tbody");
+      probe.className = t.className;
+      probe.style.cssText = "position:absolute;left:-20000px;top:0;visibility:hidden;width:" + t.offsetWidth + "px;min-width:0";
+      probe.appendChild(t.querySelector("colgroup").cloneNode(true));
+      probe.appendChild(tb);
+      document.body.appendChild(probe);
+      v.probe = probe;
+      var i = 0, idle = window.requestIdleCallback || function (f) { return setTimeout(function () { f({timeRemaining: function () { return 8; }}); }, 16); };
+      (function step(dl) {
+        if (V !== v || v.probe !== probe) { probe.remove(); return; }
+        for (; i < v.chunks.length && dl.timeRemaining() > 2; i++) {
+          var c = v.chunks[i];
+          if (c.on || c.height) continue;
+          tb.innerHTML = c.h;
+          if (c.epoch !== v.epoch) resAll(RES_ALL, tb);
+          c.height = tb.offsetHeight;
+          keep(i, function () { v.bodies[i].innerHTML = placeholder(c); });
+        }
+        if (i < v.chunks.length) idle(step);
+        else { tb.innerHTML = ""; probe.remove(); v.probe = null; }
+      })({timeRemaining: function () { return 8; }});
+    }
+    function remeasure() {  // фильтр, ресурслар ёки кенглик ўзгарганда — баландликлар қайта ўлчанади
+      if (!V) return;
+      if (V.probe) { V.probe.remove(); V.probe = null; }
+      V.chunks.forEach(function (c) { if (!c.on) c.height = 0; });
+      setTimeout(measure, 50);
+    }
+    function snapshot() {  // қидирувга ўтишдан олдин: чизилган бўлаклар ҳолати сақланади
+      V.io.disconnect();
+      V.data.epoch = V.epoch;
+      V.chunks.forEach(function (c, i) {
+        if (c.on) { c.height = V.bodies[i].offsetHeight; c.h = V.bodies[i].innerHTML; c.on = false; }
+      });
+    }
+    function build(d) {
+      if (V) V.io.disconnect();
+      panel.innerHTML = d.panel;
       panel.classList.remove("is-loading");
-      resAll(RES_ALL);
+      var box = panel.querySelector(".tn-scroll");
+      if (!box) { V = null; return; }
+      V = {data: d, chunks: d.chunks, secs: d.secs, box: box, bodies: [].slice.call(panel.querySelectorAll("tbody.tn-ch")),
+           cols: d.cols, sv: d.sv, epoch: d.epoch || 0, items: {}, sections: {}, all: [], skip: {}, mine: {}, cur: null, raf: 0};
+      V.io = new IntersectionObserver(function (es) {
+        es.forEach(function (e) { var i = Number(e.target.dataset.ch); if (e.isIntersecting) mount(i); else unmount(i); });
+        if (!V.cur) track();  // биринчи чизилганда сарлавҳа бўш қолмасин
+      }, {root: box, rootMargin: "1500px 0px"});
+      V.chunks.forEach(function (c, i) {
+        if (c.epoch === undefined) c.epoch = RES_ALL ? -1 : 0;  // сервер ресурсларни ёпиқ чизади
+        c.on = false;
+        c.items.forEach(function (id) { V.items[id] = i; V.all.push(String(id)); });
+        c.skip.forEach(function (id) { V.skip[id] = 1; });  // олдинги ойларда тугаган — белгиланмайди
+        c.t.forEach(function (id) { V.mine[id] = 1; });     // шу ойда ёзилган
+        c.secs.forEach(function (s) { V.sections[s] = i; });
+        V.bodies[i].dataset.ch = i;
+        V.bodies[i].innerHTML = placeholder(c);
+        V.io.observe(V.bodies[i]);
+      });
+      filter(FILTER);
+      box.addEventListener("scroll", function () {
+        if (!V.raf) V.raf = requestAnimationFrame(function () { V.raf = 0; track(); });
+      }, {passive: true});
+      resButton(RES_ALL);
+      viewButton();
+      setTimeout(measure, 300);
+    }
+    function load() {
+      panel.classList.add("is-loading");
+      loading = fetch(ROWS_URL + "?p=" + PERIOD + (VIEW ? "&view=" + VIEW + (ALLM ? "&all=1" : "&fit=" + fits()) : ""), {credentials: "same-origin"})
+        .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+        .then(function (d) { DIRTY = false; build(d); })
+        .catch(function () { V = null; panel.innerHTML = '<p class="px-5 py-8 text-center text-rose-700">Офёрта очилмади. Саҳифани янгилаб кўринг.</p>'; })
+        .then(function () { loading = null; });
+      return loading;
+    }
+    function fits() {  // «Ҳамма ойлар»: экранга нечта ой блоки сиғади (қолганлари «Олдинги ойлар»да жамланади)
+      var w = (document.querySelector(".tn-layout") || panel).clientWidth - 4;
+      return Math.max(1, Math.floor((w - {{ months_base }} - {{ months_block }}) / {{ months_block }}));
+    }
+    function reload() {  // кўп қатор ўзгарганда: сервердан қайта, айни жойида
+      var a = anchor();
+      return load().then(function () { restore(a); });
+    }
+    // қидирувдан бутун офёртага қайтиш (ҳеч нарса ўзгармаган бўлса — қайта юкламасдан, айни жойига)
+    function full() {
+      if (loading) return loading;
+      if (!SEARCH) return Promise.resolve();
+      SEARCH = false;
+      document.getElementById("tn-q").value = "";
+      selClear();
+      if (DIRTY || !V) return load().then(function () { restore(BACK); });
+      build(V.data);
+      restore(BACK);
+      return Promise.resolve();
+    }
+    function thead() { return V.box.querySelector("thead").offsetHeight; }
+    function scrollToRow(tr, off) {
+      V.box.scrollTop += tr.getBoundingClientRect().top - V.box.getBoundingClientRect().top - thead() - (off || 0);
+    }
+    function rowAtTop() {  // жадвалнинг юқорисида кўриниб турган қатор (жадвал экрандан ташқарида бўлса ҳам)
+      var y = V.box.getBoundingClientRect().top + thead() + 1;
+      for (var i = 0; i < V.bodies.length; i++) {
+        if (!V.chunks[i].on || V.bodies[i].getBoundingClientRect().bottom <= y) continue;
+        var rows = V.bodies[i].rows;
+        for (var k = 0; k < rows.length; k++) {
+          var tr = rows[k];
+          if (!tr.offsetHeight || tr.getBoundingClientRect().bottom <= y) continue;
+          return tr.classList.contains("tn-r") ? document.getElementById("tn-i-" + tr.dataset.w) || tr : tr;
+        }
+      }
+      return null;
+    }
+    function anchor() {
+      if (!V) return null;
+      var tr = rowAtTop();
+      if (!tr || !(tr.dataset.item || tr.dataset.section)) return V.cur ? {sec: V.cur, off: 0} : null;
+      return {item: tr.dataset.item, sec: tr.dataset.section, off: tr.getBoundingClientRect().top - V.box.getBoundingClientRect().top - thead()};
+    }
+    function restore(a) {
+      if (!a || !V) return;
+      var i = a.item ? V.items[a.item] : V.sections[a.sec];
+      if (i === undefined) return;
+      mount(i);
+      var tr = document.getElementById(a.item ? "tn-i-" + a.item : "tn-s-" + a.sec);
+      if (tr) scrollToRow(tr, a.off);
+      track();
+    }
+    // ---- мундарижадан бўлимга ўтиш ----
+    function goSection(id, push, page) {
+      if (!V) return;
+      markToc(id, true);
+      if (push) history.pushState({s: id}, "", "?p=" + PERIOD + "&s=" + id);
+      var i = V.sections[id];
+      if (i === undefined) return;
+      mount(i);
+      scrollToRow(document.getElementById("tn-s-" + id), 0);
+      if (page) {
+        var top = panel.getBoundingClientRect().top;
+        if (top < 0 || top > innerHeight * 0.5) window.scrollBy({top: top - 12});
+      }
+      setCurrent(String(id));
+    }
+    // ---- айлантирганда: юқоридаги бўлим сарлавҳада ва мундарижада белгиланади ----
+    function track() {
+      if (!V || SEARCH) return;
+      var tr = rowAtTop();
+      for (var n = 0; tr && n < 30 && !V.secs[tr.dataset.s]; n++) tr = tr.nextElementSibling;  // блок сарлавҳаси — ундан кейинги бўлим
+      if (tr && V.secs[tr.dataset.s]) setCurrent(tr.dataset.s);
+    }
+    function setCurrent(s) {
+      if (V.cur === s) return;
+      V.cur = s;
+      markToc(s, false);
+      paintCurrent();
+      history.replaceState(history.state, "", "?p=" + PERIOD + "&s=" + s);
+    }
+    function paintCurrent() {
+      var x = V.secs[V.cur], h = panel.querySelector(".tn-head-full");
+      if (!x || !h) return;
+      h.querySelector(".tn-cur-b").textContent = x.b ? x.b + " › " : "";
+      h.querySelector(".tn-cur-n").textContent = x.n + " та иш";
+      h.querySelector(".tn-cur-t").textContent = x.t;
+      h.querySelector(".tn-cur-this").textContent = money(x["this"]);
+      h.querySelector(".tn-cur-pct").textContent = Math.round(x.pct) + "%";
+      bar(h.querySelector(".tn-cur-bar"), x.pct);
+      h.querySelector(".tn-cur-st").classList.remove("hidden");
+    }
+    function bar(el, p) { el.style.width = Math.min(100, p) + "%"; el.style.minWidth = p > 0 ? "3px" : ""; }  // 0,3% ҳам кўринсин
+    function paintHead(tr) {
+      var x = V.secs[tr.dataset.section];
+      if (!x || tr.classList.contains("tn-sh-f")) return;  // Ф-2 да бўлим сарлавҳаси — фақат номи
+      if (tr.classList.contains("tn-sh-m")) {  // «Ҳамма ойлар»: танланган ой суммаси ва қолдиқ (охирги катак)
+        var sel = tr.querySelector("td.tn-shm.is-sel");
+        if (sel) sel.textContent = som(x["this"]);
+        tr.lastElementChild.textContent = som(x.left);
+        return;
+      }
+      tr.querySelector(".tn-sec-this").textContent = money(x["this"]);
+      tr.querySelector(".tn-sec-pct").textContent = Math.round(x.pct) + "%";
+      bar(tr.querySelector(".tn-sec-bar"), x.pct);
     }
 
     // ---- ресурслар: ҳаммасини очиш / ёпиш (шу браузерда эсда қолади) ----
     var RES_KEY = "tn-res-{{ o.pk }}", RES_ALL = false;
     try { RES_ALL = localStorage.getItem(RES_KEY) === "1"; } catch (e) { RES_ALL = false; }
-    setTimeout(function () {  // сервер чизган биринчи бўлим учун ҳам
-      resAll(RES_ALL);
-      focusItem(new URLSearchParams(location.search).get("i"));
-    });
-    function resAll(on) {
-      panel.querySelectorAll("tr.tn-w").forEach(function (w) { if (w.querySelector(".tn-rt")) w.classList.toggle("is-open", on); });
-      panel.querySelectorAll("tr.tn-r").forEach(function (r) { r.classList.toggle("is-shown", on); });
-      var b = panel.querySelector(".tn-res-all");
-      if (b) {
-        b.setAttribute("aria-pressed", on ? "true" : "false");
-        b.querySelector(".tn-res-all-t").textContent = on ? "Ресурсларни ёпиш" : "Ҳамма ресурсларни очиш";
-      }
+    function resAll(on, root) {
+      root = root || panel;
+      root.querySelectorAll("tr.tn-w").forEach(function (w) { if (w.querySelector(".tn-rt")) w.classList.toggle("is-open", on); });
+      root.querySelectorAll("tr.tn-r").forEach(function (r) { r.classList.toggle("is-shown", on); });
     }
-    // ---- огоҳлантиришдан «Жадвалда кўрсатиш»: бўлим очилади, қатор ажралиб туради, ресурслари очилади ----
+    function resButton(on) {
+      var b = panel.querySelector(".tn-res-all");
+      if (!b) return;
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.querySelector(".tn-res-all-t").textContent = on ? "Ресурсларни ёпиш" : "Ҳамма ресурсларни очиш";
+    }
+    function show(html) {  // қидирув натижаси
+      panel.innerHTML = html;
+      panel.classList.remove("is-loading");
+      resAll(RES_ALL);
+      resButton(RES_ALL);
+    }
+    // ---- огоҳлантиришдан «Жадвалда кўрсатиш»: қатор ажралиб туради, ресурслари очилади ----
     function focusItem(id) {
+      if (V && !SEARCH && V.items[id] !== undefined) mount(V.items[id]);
       var tr = id && document.getElementById("tn-i-" + id);
       if (!tr) return;
       if (tr.querySelector(".tn-rt") && !tr.classList.contains("is-open")) {
@@ -77,41 +315,32 @@
       void tr.offsetWidth;
       tr.classList.add("tn-flash");
       tr.scrollIntoView({block: "center"});
+      track();
     }
     document.querySelectorAll(".tn-warn-go").forEach(function (a) {
       a.addEventListener("click", function (e) {
         if (e.ctrlKey || e.metaKey) return;
         e.preventDefault();
-        open(a.dataset.sec, true, a.dataset.item);
+        history.pushState({s: a.dataset.sec}, "", "?p=" + PERIOD + "&s=" + a.dataset.sec + "&i=" + a.dataset.item);
+        full().then(function () { focusItem(a.dataset.item); });
       });
     });
-
-    function open(id, push, item) {
-      var link = nav.querySelector('.tn-sec[data-sec="' + id + '"]');
-      nav.querySelectorAll(".tn-sec.is-on").forEach(function (x) { x.classList.remove("is-on"); });
-      if (link) {
-        link.classList.add("is-on");
-        var blk = link.closest(".tn-blk");
-        if (blk && !blk.classList.contains("is-open")) { setBlock(blk, true); saveBlocks(); }
-        var r = link.getBoundingClientRect(), box = link.closest(".tn-toc").getBoundingClientRect();
-        if (r.top < box.top || r.bottom > box.bottom) link.scrollIntoView({block: "nearest"});
-      }
-      document.getElementById("tn-q").value = "";
-      panel.classList.add("is-loading");
-      if (push) history.pushState({s: id}, "", "?p=" + PERIOD + "&s=" + id + (item ? "&i=" + item : ""));
-      return fetch(SECTION_URL.replace("/0/", "/" + id + "/") + "?p=" + PERIOD, {credentials: "same-origin"})
-        .then(function (r) { if (!r.ok) throw new Error(); return r.text(); })
-        .then(function (html) {
-          show(html);
-          if (item) return focusItem(item);
-          var top = panel.getBoundingClientRect().top;
-          if (top < 0) window.scrollBy({top: top - 12});
-        })
-        .catch(function () { show('<p class="px-5 py-8 text-center text-rose-700">Бўлим очилмади. Саҳифани янгилаб кўринг.</p>'); });
-    }
     window.addEventListener("popstate", function () {
-      var s = new URLSearchParams(location.search).get("s") || FIRST;
-      if (s) open(s, false);
+      var s = new URLSearchParams(location.search).get("s");
+      if (s) full().then(function () { goSection(s, false); });
+    });
+    // ўзгармас изоҳлар ҳар қаторда такрорланмайди (жадвал енгил бўлсин) — сичқонча келганда қўйилади
+    panel.addEventListener("mouseover", function (e) {
+      var t = e.target.closest && e.target.closest(".tn-fix, .tn-in, td.tn-norm");
+      if (!t || t.title) return;
+      var tr = t.closest("tr");
+      if (t.classList.contains("tn-fix")) t.title = "Шартнома ҳажмини тузатиш (асос ҳужжати билан)";
+      else if (t.classList.contains("tn-in")) t.title = "Сон (35) ёки фоиз (60%). Enter — сақлаш";
+      else if (tr.classList.contains("tn-w")) t.title = "Офёртада 5-устун: шартнома бўйича иш ҳажми. Ресурс миқдори = меъёр × " + tr.dataset.qty;
+      else {
+        var w = document.getElementById("tn-i-" + tr.dataset.w);
+        if (w) t.title = t.textContent + " × " + w.dataset.qty + " (" + w.dataset.unit + ") = " + t.nextElementSibling.textContent;
+      }
     });
 
     // ---- мундарижа ва сарлавҳадаги рақамлар ----
@@ -129,14 +358,13 @@
           pc.textContent = c ? pct(100 * done / c) : "";
         }
       }
-      var head = panel.querySelector('.tn-head[data-section="' + d.id + '"]');
-      if (head) {
-        head.querySelector(".tn-sec-this").textContent = money(d.this);
-        head.querySelector(".tn-sec-pct").textContent = Math.round(d.pct) + "%";
-        var bar = head.querySelector(".tn-sec-bar");
-        bar.style.width = Math.min(100, d.pct) + "%";
-        bar.style.minWidth = d.pct > 0 ? "3px" : "";  // 0,3% ҳам кўринсин
-      }
+      if (!V || !V.secs[d.id]) return;
+      if (V.secs[d.id].left !== undefined) V.secs[d.id].left -= d["this"] - V.secs[d.id]["this"];
+      V.secs[d.id]["this"] = d["this"];
+      V.secs[d.id].pct = d.pct;
+      var head = V.box.querySelector('tr.tn-sh[data-section="' + d.id + '"]');
+      if (head) paintHead(head);
+      if (String(V.cur) === String(d.id)) paintCurrent();
     }
 
     // ---- ресурслар ----
@@ -151,11 +379,15 @@
       if (e.target.closest(".tn-res-all")) {
         RES_ALL = !RES_ALL;
         try { localStorage.setItem(RES_KEY, RES_ALL ? "1" : "0"); } catch (err) { /* хотирасиз ҳам ишлайди */ }
+        if (V && !SEARCH) {  // чизилмаган бўлаклар — чизилганда
+          V.epoch++;
+          V.chunks.forEach(function (c) { if (c.on) c.epoch = V.epoch; else c.height = 0; });
+        }
         resAll(RES_ALL);
+        resButton(RES_ALL);
+        if (V && !SEARCH) remeasure();
         return;
       }
-      var go = e.target.closest("a.tn-go");
-      if (go && !e.ctrlKey && !e.metaKey) { e.preventDefault(); open(go.dataset.sec, true); return; }
       var fx = e.target.closest(".tn-fix");
       if (fx) { fixOpen(fx.closest("tr")); return; }
       var fill = e.target.closest(".tn-fill");
@@ -182,7 +414,9 @@
       if (CLOSED || inp.value.trim() === inp.defaultValue) return Promise.resolve(inp);
       var tr = inp.closest("tr"), id = tr.dataset.item, wasOpen = tr.classList.contains("is-open");
       inp.disabled = true;
-      return post(DONE_URL, {period: PERIOD, item: Number(id), value: inp.value}).then(function (d) {
+      var body = {period: PERIOD, item: Number(id), value: inp.value};
+      if (VIEW && V && !SEARCH) { body.view = VIEW; body.all = ALLM ? 1 : 0; body.fit = fits(); }  // «Ҳамма ойлар» қатори қайтсин
+      return post(DONE_URL, body).then(function (d) {
         message(tr, null);
         panel.querySelectorAll('tr.tn-r[data-w="' + id + '"]').forEach(function (r) { r.remove(); });
         var holder = document.createElement("tbody");
@@ -190,9 +424,16 @@
         var fresh = Array.prototype.slice.call(holder.children);
         tr.replaceWith.apply(tr, fresh);
         if (wasOpen) { fresh[0].classList.add("is-open"); fresh.slice(1).forEach(function (r) { r.classList.add("is-shown"); }); }
+        selApply(fresh[0].parentNode);
+        if (V && !SEARCH) { if (fresh[0].classList.contains("has-this")) V.mine[id] = 1; else delete V.mine[id]; }
         var ni = fresh[0].querySelector(".tn-in");
         ni.classList.add("is-saved");
         setTimeout(function () { ni.classList.remove("is-saved"); }, 1200);
+        if (SEARCH) DIRTY = true;
+        if (d.svodka && V && V.sv !== null && V.sv !== undefined) {  // «Ҳамма ойлар» охиридаги сводка
+          var sc = V.chunks[V.sv];
+          if (sc.on) keep(V.sv, function () { V.bodies[V.sv].innerHTML = d.svodka; }); else sc.h = d.svodka;
+        }
         section(d.section);
         summary(d.summary);
         return ni;
@@ -245,8 +486,8 @@
         post("{% url 'texnazor:correct' o.pk 0 %}".replace("/0/", "/" + id + "/"),
              {period: PERIOD, value: f.get("value"), basis: f.get("basis"), note: f.get("note")})
           .then(function () {
-            var sec = (nav.querySelector(".tn-sec.is-on") || {}).dataset;
-            location.href = "?p=" + PERIOD + (sec ? "&s=" + sec.sec : "") + "&i=" + id;
+            var s = document.getElementById("tn-i-" + id);
+            location.href = "?p=" + PERIOD + (s && s.dataset.s ? "&s=" + s.dataset.s : "") + "&i=" + id;
           })
           .catch(function (e2) { err.textContent = e2.message; err.classList.remove("hidden"); });
       });
@@ -268,43 +509,63 @@
     });
 
     // ---- ишларни белгилаб бирданига: 100% ёки жами N% бажарилди (Shift — оралиқни белгилаш) ----
-    var lastSel = null;
-    function selBoxes() { return Array.prototype.slice.call(panel.querySelectorAll(".tn-sel")); }
-    function selPaint() {
-      var boxes = selBoxes(), on = boxes.filter(function (b) { return b.checked; });
-      boxes.forEach(function (b) { b.closest("tr").classList.toggle("is-sel", b.checked); });
-      var bar = panel.querySelector(".tn-selbar"), all = panel.querySelector(".tn-selall");
-      if (bar) { bar.classList.toggle("hidden", !on.length); bar.querySelector(".tn-sel-n").textContent = on.length; }
-      if (all) { all.checked = on.length && on.length === boxes.length; all.indeterminate = on.length > 0 && on.length < boxes.length; }
+    // белгиланганлари рўйхатда сақланади: бутун офёртада чизилмаган бўлакдагилар ҳам эсда қолади
+    var SEL = {}, lastSel = null;
+    function selIds() { return Object.keys(SEL); }
+    function order() {  // белгилаш мумкин бўлган ишлар тартиби (Shift / суриш оралиғи ва «ҳаммасини белгилаш» учун)
+      if (V && !SEARCH) return V.all.filter(function (id) { return !V.skip[id] && (FILTER !== "this" || V.mine[id]); });
+      return [].map.call(panel.querySelectorAll(".tn-sel"), function (b) { return b.closest("tr").dataset.item; });
     }
+    function selApply(root) {
+      root.querySelectorAll(".tn-sel").forEach(function (b) {
+        var tr = b.closest("tr"), on = !!SEL[tr.dataset.item];
+        b.checked = on;
+        tr.classList.toggle("is-sel", on);
+      });
+    }
+    function selPaint() {
+      selApply(panel);
+      var n = selIds().length, total = order().length;
+      var bar = panel.querySelector(".tn-selbar"), all = panel.querySelector(".tn-selall");
+      if (bar) { bar.classList.toggle("hidden", !n); bar.querySelector(".tn-sel-n").textContent = n; }
+      if (all) { all.checked = n > 0 && n === total; all.indeterminate = n > 0 && n < total; }
+    }
+    function selClear() { SEL = {}; lastSel = null; }
     panel.addEventListener("click", function (e) {
       var b = e.target.closest(".tn-sel");
+      if (b && dragged) { e.preventDefault(); dragged = false; selPaint(); return; }  // суриб белгиланди — click қайта алмаштирмасин
       if (b) {
-        var boxes = selBoxes(), i = boxes.indexOf(b);
+        var id = b.closest("tr").dataset.item, ids = order();
         if (e.shiftKey && lastSel !== null) {
-          var a = Math.min(i, lastSel), z = Math.max(i, lastSel);
-          for (var k = a; k <= z; k++) boxes[k].checked = b.checked;
+          var i = ids.indexOf(id), j = ids.indexOf(lastSel), a = Math.min(i, j), z = Math.max(i, j);
+          for (var k = a; k <= z && a >= 0; k++) { if (b.checked) SEL[ids[k]] = 1; else delete SEL[ids[k]]; }
         }
-        lastSel = i; selPaint(); return;
+        if (b.checked) SEL[id] = 1; else delete SEL[id];
+        lastSel = id; selPaint(); return;
       }
-      if (e.target.closest(".tn-selall")) { var v = e.target.checked; selBoxes().forEach(function (x) { x.checked = v; }); lastSel = null; selPaint(); return; }
-      if (e.target.closest(".tn-sel-clear")) { selBoxes().forEach(function (x) { x.checked = false; }); lastSel = null; selPaint(); return; }
+      if (e.target.closest(".tn-selall")) {
+        var v = e.target.checked;
+        selClear();
+        if (v) order().forEach(function (x) { SEL[x] = 1; });
+        selPaint(); return;
+      }
+      if (e.target.closest(".tn-sel-clear")) { selClear(); selPaint(); return; }
       var go100 = e.target.closest(".tn-sel-100"), go = e.target.closest(".tn-sel-go");
       if (!go100 && !go) return;
       var pct = go100 ? "100" : panel.querySelector(".tn-sel-pct").value.trim();
       if (!pct || isNaN(Number(pct.replace(",", "."))) || Number(pct.replace(",", ".")) < 0 || Number(pct.replace(",", ".")) > 100) {
         narxDialog.alert("0 дан 100 гача фоиз ёзинг (масалан 50)", {title: "Фоиз нотўғри", danger: true}); return;
       }
-      var ids = selBoxes().filter(function (x) { return x.checked; }).map(function (x) { return Number(x.closest("tr").dataset.item); });
+      var ids = selIds().map(Number);
       narxDialog.confirm(ids.length + " та иш жами " + pct + "% бажарилган деб белгиланади. Етмаган қисми {{ period.title|default:'' }}га ёзилади, " +
                          "аввалги ойлар ўзгармайди.", {title: "Белгиланган ишлар", ok: "Белгилаш"}).then(function (yes) {
         if (!yes) return;
         post("{% url 'texnazor:fill_items' o.pk %}", {period: PERIOD, items: ids, pct: pct}).then(function (d) {
           d.sections.forEach(section);
           summary(d.summary);
-          var q = document.getElementById("tn-q").value.trim(), on = nav.querySelector(".tn-sec.is-on");
-          if (q) document.getElementById("tn-q").dispatchEvent(new Event("input"));
-          else if (on) open(on.dataset.sec, false);
+          selClear();
+          if (SEARCH) { DIRTY = true; document.getElementById("tn-q").dispatchEvent(new Event("input")); }
+          else reload();
         }).catch(function (e2) { narxDialog.alert(e2.message, {title: "Белгиланмади", danger: true}); });
       });
     });
@@ -312,32 +573,177 @@
       if (e.key === "Enter" && e.target.classList.contains("tn-sel-pct")) { e.preventDefault(); panel.querySelector(".tn-sel-go").click(); }
     });
 
-    // ---- бўлимни 100% ----
+    // ---- сичқонча билан суриб белгилаш (Excel'дагидек): чапдаги катакдан бошлаб юқорига / пастга суринг.
+    //      Белгиланмаган қатордан бошланса — белгилайди, белгилангандан — белгини олади. Четга етса жадвал ўзи айланади ----
+    var drag = null, dragged = false;
+    function rowAt(x, y) {
+      var el = document.elementFromPoint(x, y), tr = el && el.closest("tr");
+      if (!tr || !panel.contains(tr)) return null;
+      if (tr.classList.contains("tn-r")) tr = document.getElementById("tn-i-" + tr.dataset.w);
+      return tr && tr.classList.contains("tn-w") ? tr : null;
+    }
+    function dragTo(tr) {
+      if (!tr || tr.dataset.item === drag.to) return;
+      drag.to = tr.dataset.item;
+      var ids = drag.ids, i = ids.indexOf(drag.from), j = ids.indexOf(drag.to);
+      if (j < 0) {  // тугаган / яширин қатор устида — ундан олдинги энг яқин белгиланадиганигача
+        var all = V && !SEARCH ? V.all : ids, k = all.indexOf(drag.to), down = k > all.indexOf(drag.from);
+        for (var n = 1; j < 0 && n < 400 && k >= 0; n++) j = ids.indexOf(all[k + (down ? -n : n)]);
+      }
+      if (i < 0 || j < 0) return;
+      SEL = Object.assign({}, drag.base);
+      for (var a = Math.min(i, j); a <= Math.max(i, j); a++) { if (drag.on) SEL[ids[a]] = 1; else delete SEL[ids[a]]; }
+      lastSel = drag.to;
+      selPaint();
+    }
+    function live() {  // суриш бошланди: матн белгиланмасин, қатор(лар) белгилансин
+      drag.live = true;
+      document.body.classList.add("tn-dragging");
+      var s = window.getSelection && window.getSelection();
+      if (s) s.removeAllRanges();
+      if (document.activeElement && document.activeElement.blur && panel.contains(document.activeElement)) document.activeElement.blur();
+    }
+    function dragTick() {
+      if (!drag) return;
+      var box = V && !SEARCH ? V.box : panel.querySelector(".tn-scroll"), r = box.getBoundingClientRect();
+      var top = r.top + box.querySelector("thead").offsetHeight, y = drag.y, step = 0;
+      var tr = rowAt(drag.x, Math.max(top + 4, Math.min(r.bottom - 4, y)));
+      if (!drag.live && tr && tr.dataset.item !== drag.from) live();  // бошқа қаторга ўтилди — суриб белгилаш
+      if (drag.live) {
+        if (y > r.bottom - 36) step = Math.min(60, (y - r.bottom + 36) / 2);
+        else if (y < top + 24) step = -Math.min(60, (top + 24 - y) / 2);
+        if (step) box.scrollTop += step;
+        dragTo(tr);
+      }
+      drag.raf = requestAnimationFrame(dragTick);
+    }
+    // қаторнинг истаган жойидан суриш мумкин (ёзиш катаги ва тугмалардан ташқари). Чапдаги рақам ёки катакчани
+    // бир марта босиш — белгилайди; номни ва бошқа катакларни бир марта босиш эса ҳеч нарсани ўзгартирмайди
+    panel.addEventListener("mousedown", function (e) {
+      if (e.button !== 0 || e.shiftKey || CLOSED) return;
+      var tr = e.target.closest("tr.tn-w");
+      if (!tr || !tr.querySelector(".tn-sel") || e.target.closest("input:not(.tn-sel), button, a, select, textarea")) return;
+      var td = e.target.closest("td"), r = td.getBoundingClientRect(), handle = !!e.target.closest("td.tn-ck, td.tn-g, .tn-sel");
+      drag = {from: tr.dataset.item, to: null, on: !SEL[tr.dataset.item], base: Object.assign({}, SEL), ids: order(),
+              x: r.left + Math.min(r.width / 2, 40), y: e.clientY, box: e.target.closest(".tn-sel"), live: false};
+      if (handle) { live(); dragTo(tr); e.preventDefault(); }
+      drag.raf = requestAnimationFrame(dragTick);
+    });
+    document.addEventListener("mousemove", function (e) { if (drag) drag.y = e.clientY; });
+    document.addEventListener("mouseup", function (e) {
+      if (!drag) return;
+      cancelAnimationFrame(drag.raf);
+      document.body.classList.remove("tn-dragging");
+      dragged = !!drag.box && e.target === drag.box && drag.live;  // чек-бокснинг ўзида қўйиб юборилса — унинг click'и қайта алмаштирмасин
+      setTimeout(function () { dragged = false; });
+      lastSel = drag.from === drag.to ? drag.from : drag.to;
+      drag = null;
+    });
+
+    // ---- жадвал кўриниши: шу ой билан ишлаш ёки ҳамма ойлар бир жадвалда (ҳар ой алоҳида устун, охирида қолдиқ) ----
+    var V_KEY = "tn-view-{{ o.pk }}", VIEW = "";
+    try { VIEW = localStorage.getItem(V_KEY) || ""; } catch (e) { VIEW = ""; }
+    var ALLM = false;  // «Ҳамма ойлар»да ҳар ойни алоҳида блокда кўрсатиш (одатда — охирги 3 ой, қолгани жамланган)
+    try { ALLM = localStorage.getItem(V_KEY + "-all") === "1"; } catch (e) { ALLM = false; }
+    function viewButton() {
+      var lay = document.querySelector(".tn-layout");
+      if (lay) lay.classList.toggle("is-wide", VIEW === "months");  // мундарижа яширин, жадвал кенг
+      panel.querySelectorAll(".tn-view button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.v === VIEW ? "true" : "false"); });
+    }
+    panel.addEventListener("click", function (e) {
+      var m = e.target.closest(".tn-allm");
+      if (m && !loading) {
+        ALLM = m.dataset.all === "1";
+        try { localStorage.setItem(V_KEY + "-all", ALLM ? "1" : "0"); } catch (err) { /* хотирасиз ҳам ишлайди */ }
+        var a0 = anchor();
+        load().then(function () { restore(a0); });
+        return;
+      }
+      var b = e.target.closest(".tn-view button");
+      if (!b || b.dataset.v === VIEW || loading) return;
+      VIEW = b.dataset.v;
+      try { localStorage.setItem(V_KEY, VIEW); } catch (err) { /* хотирасиз ҳам ишлайди */ }
+      selClear();
+      var a = anchor();
+      load().then(function () { restore(a); });
+    });
+    // ---- «↓ Пастга» / «↑ Тепага»: охиридаги бўлаклар чизилгач баландлик ўзгарса — яна охирига ----
+    panel.addEventListener("click", function (e) {
+      var j = e.target.closest(".tn-jump button");
+      if (!j || !V) return;
+      var end = j.dataset.j === "end", n = 0;
+      (function go() {
+        V.box.scrollTop = end ? V.box.scrollHeight : 0;
+        if (end && ++n < 4) requestAnimationFrame(go);
+        else track();
+      })();
+      var top = panel.getBoundingClientRect().top;
+      if (top < 0 || top > innerHeight * 0.5) window.scrollBy({top: top - 12});
+    });
+    window.addEventListener("resize", function () { clearTimeout(window.tnRz); window.tnRz = setTimeout(remeasure, 300); });
+
+    // ---- фильтр: ҳаммаси / қолганлари (тугаганлар яширин) / шу ойда ёзилганлар ----
+    var F_KEY = "tn-filter-{{ o.pk }}", FILTER = "";
+    try { FILTER = localStorage.getItem(F_KEY) || ""; } catch (e) { FILTER = ""; }
+    function filter(f) {
+      FILTER = f;
+      try { localStorage.setItem(F_KEY, f); } catch (e) { /* хотирасиз ҳам ишлайди */ }
+      if (!V) return;
+      var t = V.box.querySelector("table");
+      t.classList.toggle("f-left", f === "left");
+      t.classList.toggle("f-this", f === "this");
+      panel.querySelectorAll(".tn-filter button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.f === f ? "true" : "false"); });
+      V.chunks.forEach(function (c, i) { if (!c.on) { c.height = 0; V.bodies[i].innerHTML = placeholder(c); } });
+      remeasure();
+      selPaint();
+      requestAnimationFrame(track);
+    }
+    panel.addEventListener("click", function (e) {
+      var b = e.target.closest(".tn-filter button");
+      if (b) { var a = anchor(); filter(b.dataset.f); restore(a); }
+    });
+
+    // ---- бўлимни 100% (бўлим сарлавҳасидаги тугма) ----
     function fillSection(btn) {
-      var title = panel.querySelector(".tn-h").textContent.trim();
+      var id = btn.dataset.sec, title = (V && V.secs[id] || {}).t || "";
       narxDialog.confirm("«" + title + "» бўлимидаги ҳамма иш тўлиқ бажарилди деб белгиланади. Етмаган қисми {{ period.title|default:'' }}га ёзилади.",
                          {title: "Бўлимни 100% белгилаш", ok: "Белгилаш"}).then(function (yes) {
         if (!yes) return;
         btn.disabled = true;
-        post(btn.dataset.url, {period: PERIOD, pct: 100}).then(function (d) {
-          show(d.panel);
+        post(FILL_URL.replace("/0/", "/" + id + "/"), {period: PERIOD, pct: 100}).then(function (d) {
           section(d.section);
           summary(d.summary);
+          reload();
         }).catch(function (e) { btn.disabled = false; narxDialog.alert(e.message, {title: "Белгиланмади", danger: true}); });
       });
     }
 
-    // ---- қидирув: ном, шифр ёки № бўйича — ҳамма бўлимлардан ----
+    // ---- қидирув: ном, шифр ёки № бўйича — ҳамма бўлимлардан (тозаланса — бутун офёртага, айни жойига) ----
     var q = document.getElementById("tn-q"), timer = null;
     q.addEventListener("input", function () {
       clearTimeout(timer);
       timer = setTimeout(function () {
         var v = q.value.trim();
-        if (!v) { var on = nav.querySelector(".tn-sec.is-on"); if (on) open(on.dataset.sec, false); return; }
+        if (!v) { full(); return; }
+        if (loading) return;
+        if (!SEARCH) {
+          BACK = anchor();
+          if (V) snapshot();
+          SEARCH = true;
+          selClear();
+        }
         panel.classList.add("is-loading");
         fetch(SEARCH_URL + "?p=" + PERIOD + "&q=" + encodeURIComponent(v), {credentials: "same-origin"})
-          .then(function (r) { return r.text(); }).then(show);
+          .then(function (r) { return r.text(); }).then(function (html) { if (SEARCH && q.value.trim() === v) show(html); });
       }, 350);
+    });
+
+    // ---- биринчи очилиш: ?s= — шу бўлимга, ?i= — шу қаторга ----
+    var url = new URLSearchParams(location.search);
+    load().then(function () {
+      if (url.get("i")) focusItem(url.get("i"));
+      else if (url.get("s")) goSection(url.get("s"), false);
+      else track();
     });
   })();
 </script>

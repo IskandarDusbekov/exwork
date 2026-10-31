@@ -3,16 +3,16 @@
   <div class="tn-crumb">Қидирув</div>
   <h2 class="tn-h">«{{ search }}»{% if not hint %} — {{ rows|length }} та иш{% if limited %} (биринчилари, аниқроқ ёзинг){% endif %}{% endif %}</h2>
 </div>
-{% else %}
-<div class="tn-head" data-section="{{ section.pk }}">
-  <div class="tn-crumb">{% if where.block %}{{ where.block|readable }} › {% endif %}{{ section.items_count }} та иш</div>
+{% else %}{# бутун офёрта: сарлавҳада — жадвалда ҳозир кўриниб турган бўлим (айлантирганда алмашади) #}
+<div class="tn-head tn-head-full">
+  <div class="tn-crumb"><span class="tn-cur-b"></span><span class="tn-cur-n"></span><span class="tn-all-n">Бутун офёрта: {{ works }} та иш, {{ res }} та ресурс</span></div>
   <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
-    <h2 class="tn-h">{{ section.title|readable }}</h2>
-    <div class="text-right text-sm text-slate-600">
-      {{ period.title }}да: <b class="num tn-sec-this font-semibold text-slate-900">{{ stats.this|pul }}</b> сўм
+    <h2 class="tn-h tn-cur-t">&nbsp;</h2>
+    <div class="tn-cur-st hidden text-right text-sm text-slate-600">
+      {{ period.title }}да: <b class="num tn-cur-this font-semibold text-slate-900"></b> сўм
       <div class="mt-1 flex items-center justify-end gap-2 text-xs text-slate-500">бажарилди
-        <span class="tn-meter"><span class="tn-sec-bar" style="width:{{ stats.pct|stringformat:'.3f' }}%;{% if stats.pct > 0 %}min-width:3px{% endif %}"></span></span>
-        <b class="num tn-sec-pct font-semibold text-slate-700">{{ stats.pct|floatformat:0 }}%</b></div>
+        <span class="tn-meter"><span class="tn-cur-bar"></span></span>
+        <b class="num tn-cur-pct font-semibold text-slate-700"></b></div>
     </div>
   </div>
 </div>
@@ -21,20 +21,44 @@
 {% if hint %}<p class="px-5 py-8 text-center text-slate-500">{{ hint }}</p>
 {% elif rows %}
 <div class="tn-bar">
-  <button type="button" class="tn-res-all" aria-pressed="false">{% icon "chevron-down" "h-4 w-4" %}<span class="tn-res-all-t">Ҳамма ресурсларни очиш</span></button>
+  {% if full %}<span class="tn-view" role="group" aria-label="Жадвал кўриниши">
+    <button type="button" data-v="" aria-pressed="{{ months|yesno:'false,true' }}" title="Шу ой билан ишлаш: ҳажм ёзиш, белгилаш">{{ period.title }}</button><button type="button" data-v="months" aria-pressed="{{ months|yesno:'true,false' }}" title="Ҳамма ойлар бир жадвалда: ҳар ой алоҳида устун, охирида жами ва қолдиқ">Ҳамма ойлар</button><button type="button" data-v="f2" aria-pressed="{{ f2v|yesno:'true,false' }}" title="{{ period.title }} Ф-2 — бажарилган ишлар далолатномаси: шу ойда ёзилганлар, ресурслари билан, охирида сводка">Ф-2</button></span>{% endif %}
+  {% if f2v %}<a href="{% url 'texnazor:f2' o.pk period.pk %}" class="tn-allm" download>Excel'га юклаб олиш</a>{% endif %}
+  {% if months and hidden %}<button type="button" class="tn-allm" data-all="{{ all_months|yesno:'0,1' }}" title="{% if all_months %}Эски ойлар яна битта блокда жамлансин{% else %}Ҳар ой алоҳида блокда (жадвал ўнгга сурилади){% endif %}">{% if all_months %}Охирги 3 ой{% else %}Ҳар ойни алоҳида{% endif %}</button>{% endif %}
+  {% if not f2v %}<button type="button" class="tn-res-all" aria-pressed="false">{% icon "chevron-down" "h-4 w-4" %}<span class="tn-res-all-t">Ҳамма ресурсларни очиш</span></button>{% endif %}
   <span class="tn-legend"><b class="tn-lg-w">Иш тури</b><b class="tn-lg-j">Иш ҳақи (чел-ч)</b><b class="tn-lg-k">Машина (маш-ч)</b><b class="tn-lg-m">Материал, ускуна</b></span>
-  <span class="tn-bar-hint">Ҳажмни яшил катакка ёзинг: сон (35) ёки фоиз (60%), Enter — сақлаш</span>
+  {% if full and not f2v %}<span class="tn-filter" role="group" aria-label="Қайси ишлар кўринсин">
+    <button type="button" data-f="" aria-pressed="true">Ҳаммаси</button><button type="button" data-f="left" aria-pressed="false" title="Олдинги ойларда тугаганлар яширилади">Қолганлари</button><button type="button" data-f="this" aria-pressed="false">{{ period.title }}да ёзилганлар</button></span>{% endif %}
+  <span class="tn-bar-hint">{% if f2v %}{{ period.title }} — бажарилган ишлар далолатномаси: фақат шу ойда ёзилганлар, ресурслари билан. Пастда — JAMI ва сводка.{% elif months %}Меъёр ва нарх — «Офёрта»да, ойларда — миқдор ва сумма. {% if period.closed %}{{ period.title }} ёпилган.{% else %}{{ period.title }}га шу ерда ҳам ёзинг: сон ёки фоиз, Enter; кўп ишни — № ёнидаги катак ёки чапдаги рақамда суриб белгиланг.{% endif %} Охирида — сводка. Ҳажм ёзиш — «{{ period.title }}» кўринишида.{% else %}Ҳажмни яшил катакка ёзинг: сон (35) ёки фоиз (60%), Enter — сақлаш.{% if not period.closed %} Кўп ишни белгилаш — чапдаги катакда сичқонча билан суринг.{% endif %}{% endif %}</span>
 </div>
-<div class="tn-scroll"><table class="tn-t">
-  <colgroup>{% if not period.closed %}<col style="width:32px">{% endif %}<col style="width:42px"><col style="width:62px"><col style="width:104px"><col><col style="width:78px"><col style="width:92px"><col style="width:106px"><col style="width:92px"><col style="width:104px"><col style="width:104px"></colgroup>
+<div class="tn-scroll{% if full %} tn-scroll-full{% endif %}">{% if f2v %}<table class="tn-t tn-t-f">
+  <colgroup><col style="width:42px"><col style="width:64px"><col style="width:104px"><col><col style="width:104px"><col style="width:96px"><col style="width:104px"><col style="width:96px"><col style="width:124px"></colgroup>
+  <thead><tr><th class="tn-g" title="Excel'даги қатор рақами"></th><th>№ п/п</th><th>Шифр</th><th class="tn-th-l">Наименование работ и затрат</th><th>Ед. изм.</th>
+    <th>на единицу<small>измерения</small></th><th>по проектным<small>данным</small></th><th>Цена<small>подрядчик</small></th><th>Сумма</th></tr></thead>
+  {% for _ in chunks %}<tbody class="tn-ch"></tbody>{% endfor %}<tfoot class="tn-pad"><tr><td colspan="{{ cols }}"></td></tr></tfoot>
+</table>{% elif months %}<table class="tn-t tn-t-m" style="min-width:{{ months_width }}px">
+  <colgroup><col style="width:36px"><col style="width:80px"><col style="width:92px"><col style="width:300px"><col style="width:84px">
+    <col style="width:70px"><col style="width:78px"><col style="width:70px"><col style="width:104px">
+    {% for h in heads %}<col style="width:78px"><col style="width:92px">{% endfor %}<col style="width:78px"><col style="width:104px"></colgroup>
+  <thead><tr><th class="tn-g" rowspan="2" title="Excel'даги қатор рақами"></th><th rowspan="2">{% if not period.closed %}<input type="checkbox" class="tn-selall" title="Ҳамма ишларни белгилаш" aria-label="Ҳамма ишларни белгилаш"> {% endif %}№</th><th rowspan="2">Шифр</th><th class="tn-th-l" rowspan="2">Иш ва ресурс номи</th><th rowspan="2">Бирлик</th>
+    <th colspan="4" class="tn-th-grp">Офёрта (шартнома)</th>
+    {% for title, sub, sel in heads %}<th colspan="2" class="tn-th-grp{% if sel %} tn-th-in{% endif %}">{{ title }}<small>{{ sub }}</small></th>{% endfor %}
+    <th colspan="2" class="tn-th-grp tn-th-left">Қолдиқ<small>бажарилмаган</small></th></tr>
+    <tr><th class="tn-th-sub tn-b0" title="Иш қаторида — ҳажм, ресурс қаторида — меъёр (ишнинг 1 бирлигига)">на ед.<small>изм.</small></th><th class="tn-th-sub" title="Ресурс: меъёр × иш ҳажми">по проект.<small>данным</small></th><th class="tn-th-sub">Цена</th><th class="tn-th-sub">Сумма</th>
+    {% for title, sub, sel in heads %}<th class="tn-th-sub tn-b0{% if sel %} tn-th-in{% endif %}" title="Иш қаторида — ҳажм, ресурс қаторида — миқдор (меъёр × ҳажм)">Миқдор</th><th class="tn-th-sub{% if sel %} tn-th-in{% endif %}">Сумма</th>{% endfor %}
+    <th class="tn-th-sub tn-b0">Миқдор</th><th class="tn-th-sub">Сумма</th></tr></thead>
+  {% for _ in chunks %}<tbody class="tn-ch"></tbody>{% endfor %}<tfoot class="tn-pad"><tr><td colspan="{{ cols }}"></td></tr></tfoot>
+</table>{% else %}<table class="tn-t">
+  <colgroup>{% if not period.closed %}<col style="width:32px">{% endif %}<col style="width:42px"><col style="width:62px"><col style="width:104px"><col><col style="width:104px"><col style="width:92px"><col style="width:106px"><col style="width:92px"><col style="width:104px"><col style="width:104px"></colgroup>
   <thead><tr>{% if not period.closed %}<th class="tn-ck" rowspan="2"><input type="checkbox" class="tn-selall" title="Ҳамма ишларни белгилаш" aria-label="Ҳамма ишларни белгилаш"></th>{% endif %}<th class="tn-g" rowspan="2" title="Excel'даги қатор рақами"></th><th rowspan="2">№</th><th rowspan="2">Шифр</th><th class="tn-th-l" rowspan="2">Иш ва ресурс номи</th><th rowspan="2">Бирлик</th>
     <th rowspan="2" class="tn-th-norm" title="Офёртадаги 5-устун «на единицу»: иш қаторида — шартнома бўйича иш ҳажми (✎ — тузатиш), ресурс қаторида — меъёр (ишнинг 1 бирлигига). Ресурснинг ҳар ойдаги миқдори = меъёр × ишнинг шу ойдаги ҳажми">На единицу<small>измерения</small></th>
     <th rowspan="2" title="Офёртадаги 6-устун «по проектным данным»: ресурс жами = меъёр × иш ҳажми. Иш қаторида бўш (иш ҳажми 5-устунда)">По проектным<small>данным · жами</small></th><th colspan="2" class="tn-th-grp">Бажарилган ҳажм — ойма-ой</th><th rowspan="2">Қолдиқ<small>бажарилмаган</small></th></tr>
     <tr><th class="tn-th-sub" title="{% if earlier %}{% for p in earlier %}{{ p.title }}{% if not forloop.last %} + {% endif %}{% endfor %}{% else %}Бу биринчи ой — олдин бажарилган ҳажм йўқ{% endif %}">Аввал<small>{% if earlier|length == 1 %}{{ earlier.0.title }}{% elif earlier %}{{ earlier|length }} ой жами{% else %}йўқ{% endif %}</small></th>
     <th class="tn-th-sub tn-th-in">{{ period.title }}<small>{% if period.closed %}ёпилган{% else %}шу ойга ёзинг{% endif %}</small></th></tr></thead>
-  <tbody>{% for r in rows %}{% include "texnazor/_item_row.html" %}{% endfor %}</tbody>
-</table></div>
-{% if not period.closed %}
+  {% if full %}{% for _ in chunks %}<tbody class="tn-ch"></tbody>{% endfor %}<tfoot class="tn-pad"><tr><td colspan="{{ cols }}"></td></tr></tfoot>{% else %}<tbody>{% tn_rows rows period warn fixes %}</tbody>{% endif %}
+</table>{% endif %}</div>
+{% if full %}<div class="tn-jump"><button type="button" data-j="top" title="Жадвал бошига">↑ Тепага</button><button type="button" data-j="end" title="Жадвал охирига (сводка)">↓ Пастга</button></div>{% endif %}
+{% if not period.closed and not f2v %}
 <div class="tn-selbar hidden" role="region" aria-label="Белгиланган ишлар">
   <span><b class="tn-sel-n num">0</b> та иш белгиланди</span>
   <button type="button" class="tn-sel-100">100% бажарилди</button>
@@ -45,13 +69,6 @@
   <button type="button" class="tn-sel-clear">Белгини олиш</button>
 </div>
 {% endif %}
-{% else %}<p class="px-5 py-8 text-center text-slate-500">{% if search %}Ҳеч нарса топилмади{% else %}Бу бўлимда иш йўқ{% endif %}</p>{% endif %}
+{% else %}<p class="px-5 py-8 text-center text-slate-500">{% if search %}Ҳеч нарса топилмади{% else %}Офёртада иш йўқ{% endif %}</p>{% endif %}
 
-{% if not search %}
-<div class="tn-foot">
-  {% if where.prev %}<a class="tn-go" data-sec="{{ where.prev.0 }}" href="?p={{ period.pk }}&s={{ where.prev.0 }}" title="{{ where.prev.1|readable }}">{% icon "arrow-left" "h-4 w-4" %} Олдинги бўлим</a>{% else %}<span></span>{% endif %}
-  {% if not period.closed and rows %}<button type="button" class="tn-fill" data-url="{% url 'texnazor:fill' o.pk section.pk %}"
-      title="Бўлимдаги ҳамма иш тўлиқ бажарилди деб белгилаш (етмаган қисми {{ period.title }}га ёзилади)">Ҳаммасини 100% белгилаш</button>{% endif %}
-  {% if where.next %}<a class="tn-go" data-sec="{{ where.next.0 }}" href="?p={{ period.pk }}&s={{ where.next.0 }}" title="{{ where.next.1|readable }}">Кейинги бўлим {% icon "arrow-right" "h-4 w-4" %}</a>{% else %}<span></span>{% endif %}
-</div>
-{% endif %}
+

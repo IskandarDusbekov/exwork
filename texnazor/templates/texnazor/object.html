@@ -51,6 +51,8 @@
     {% if period %}
     <div class="tn-months-act">
       <span class="tn-months-sel">Танланган: <b>{{ period.title }}</b></span>
+      <a href="{% url 'texnazor:f2' o.pk period.pk %}" class="tn-mbtn tn-mbtn-line" download
+         title="{% if period.closed %}Бажарилган ишлар далолатномаси (Excel){% else %}Ой ҳали ёпилмаган — ҳозиргача ёзилганлар бўйича{% endif %}">{% icon "download" "h-4 w-4" %}Ф-2 юклаб олиш</a>
       <form method="post" action="{% url 'texnazor:period_close' o.pk period.pk %}">{% csrf_token %}
         <input type="hidden" name="closed" value="{{ period.closed|yesno:'0,1' }}">
         <button class="tn-mbtn {% if period.closed %}tn-mbtn-line{% else %}tn-mbtn-ok{% endif %}"
@@ -110,7 +112,14 @@
     <div id="k-left" class="num mt-1 text-lg font-semibold text-slate-900">{{ totals.left.contractor|pul }}</div></div>
 </section>
 
-{% if period.closed %}<div class="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">{% icon "lock" "inline h-4 w-4" %} {{ period.title }} ёпилган — ҳажмларни ўзгартириб бўлмайди. Ўзгартириш керак бўлса — «Қайта очиш».</div>{% endif %}
+{% if period.closed %}<div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+  <span>{% icon "lock" "inline h-4 w-4" %} {{ period.title }} ёпилган — ҳажмларни ўзгартириб бўлмайди. Ўзгартириш керак бўлса — «Қайта очиш».</span>
+  {% if is_last %}{# ой ёпилди — кейингиси бир тугмада: тугаганлари унда «тугаган» бўлиб туради, қисманлари қолдиғи билан #}
+  <form method="post" action="{% url 'texnazor:period_add' o.pk %}" class="ml-auto">{% csrf_token %}
+    <input type="hidden" name="year" value="{{ next.0 }}"><input type="hidden" name="month" value="{{ next.1 }}">
+    <button class="tn-mbtn tn-mbtn-ok">{% icon "plus" "h-4 w-4" %}{{ months|slice:next.1|last }} {{ next.0 }} ни очиш</button>
+  </form>{% endif %}
+</div>{% endif %}
 
 {% include "texnazor/_ofyorta.html" %}
 

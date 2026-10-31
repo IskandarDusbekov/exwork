@@ -3,6 +3,7 @@ argon2-cffi>=23
 psycopg[binary]>=3.2  # PostgreSQL (DATABASE_URL)
 redis>=5  # umumiy kesh (REDIS_URL)
 openpyxl>=3.1
+xlsxwriter>=3.2  # Ф-2: formulalar hisoblangan qiymati bilan (Excel'siz ko'ruvchilarda ham summalar ko'rinadi)
 defusedxml>=0.7  # openpyxl o'zi ishlatadi: XML hujumlari (XXE, «billion laughs») — begona Excel fayllar
 rapidfuzz>=3.9  # moslashtirish: difflib ballining aniq yuqori chegarasi (LCS) — natija o'zgarmaydi, tezroq
 whitenoise>=6.8  # static fayllar (CSS, admin)

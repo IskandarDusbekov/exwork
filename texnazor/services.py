@@ -414,9 +414,15 @@ def item_rows(period: Period, items) -> list:
     this = {d.item_id: d.qty for d in Done.objects.filter(period=period, item__in=items)}
     later = {r["item_id"]: r["q"] for r in Done.objects.filter(item__in=items).exclude(_before(period))
              .exclude(period=period).values("item_id").annotate(q=Sum("qty"))}
+    last = {}  # ish -> oxirgi marta yozilgan oldingi oy («Октябрь 2026да тугаган»)
+    for iid, y, m in (Done.objects.filter(_before(period), item__in=items)
+                      .order_by("period__year", "period__month").values_list("item_id", "period__year", "period__month")):
+        last[iid] = (y, m)
     out = []
     for it in items:
         b, t = before.get(it.pk, 0.0), this.get(it.pk)
+        # oldingi oylarda to'liq tugagan: shu oyda yozadigan narsa yo'q (yangi oyda adashmasin)
+        prev = bool(it.qty) and abs(it.qty - b) < max(1e-7, abs(it.qty) * 1e-9) and not t
         cum = b + (t or 0.0)
         left = it.qty - cum - later.get(it.pk, 0.0)
         uc = it.unit_cost
@@ -429,8 +435,43 @@ def item_rows(period: Period, items) -> list:
                     "over": left * sg < -max(1e-7, abs(it.qty) * 1e-9), "complete": bool(it.qty) and abs(left) < max(1e-7, abs(it.qty) * 1e-9),
                     "base": _base(it) if it.qty < 0 else None,
                     "cat": CATEGORY_LABELS.get(it.category, "") if it.kind == Item.Kind.FREE else "",
-                    "pct": 100 * cum / it.qty if it.qty else 0.0, "this_amount": (t or 0.0) * uc, "unit_cost": uc})
+                    "pct": 100 * cum / it.qty if it.qty else 0.0, "this_amount": (t or 0.0) * uc, "unit_cost": uc,
+                    "before_pct": 100 * b / it.qty if it.qty else 0.0,
+                    "prev": Period(year=last[it.pk][0], month=last[it.pk][1]).title if prev and it.pk in last else ("олдинги ой" if prev else "")})
     return out
+
+
+def done_by_period(obj: SiteObject) -> Dict[int, Dict[int, float]]:
+    """Ish -> {oy: hajm} — «Ҳамма ойлар» jadvali (har oy alohida ustun)."""
+    out = {}
+    for iid, pid, q in Done.objects.filter(period__obj=obj).values_list("item_id", "period_id", "qty"):
+        out.setdefault(iid, {})[pid] = q
+    return out
+
+
+def cats_by_period(obj: SiteObject) -> Dict[int, Dict[str, float]]:
+    """Oy -> turlar bo'yicha to'g'ridan-to'g'ri summa (J..O, X) — «Ҳамма ойлар» oxiridagi svodka (har blokka calc.chain)."""
+    rows = (Done.objects.filter(period__obj=obj).values("period_id")
+            .annotate(**{c: Sum(F("qty") * F("item__" + f)) for c, f in COST_FIELDS.items()}))
+    return {r["period_id"]: {c: r[c] or 0.0 for c in COST_FIELDS} for r in rows}
+
+
+def section_money_by_period(obj: SiteObject) -> Dict[int, Dict[int, float]]:
+    """Bo'lim -> {oy: to'g'ridan-to'g'ri summa} (bo'lim sarlavhasida har oy ustunida)."""
+    out = {}
+    for r in Done.objects.filter(period__obj=obj).values("item__section_id", "period_id").annotate(s=Sum(_cost_sum())):
+        out.setdefault(r["item__section_id"], {})[r["period_id"]] = r["s"] or 0.0
+    return out
+
+
+def month_f2(period: Period) -> dict:
+    """Ф-2 охиридаги «JAMI» каби: шу ойнинг турлар бўйича суммаси ва иш ҳақи / машина соатлари (чел-ч, маш-ч)."""
+    money = _cats(Done.objects.filter(period=period))
+    hours = {}
+    for key, word in (("J", "ЧЕЛ"), ("K", "МАШ")):
+        hours[key] = (Item.objects.filter(kind=Item.Kind.RES, unit__contains=word, parent__done__period=period)
+                      .aggregate(h=Sum(F("qty") * F("parent__done__qty")))["h"] or 0.0)
+    return {"money": money, "hours": hours, "rows": Done.objects.filter(period=period).count()}
 
 
 def _tone(r: Item) -> str:
@@ -471,25 +512,6 @@ _NA = re.compile(r"^\s*НА\s+", re.I)
 def block_label(title: str) -> str:
     """«НА АС БЛОК-1» -> «АС БЛОК-1» (mundarijada «НА» ortiqcha)."""
     return _NA.sub("", title, count=1)
-
-
-def section_nav(obj: SiteObject, section: Section) -> dict:
-    """Bo'lim sahifasi uchun: qaysi blokda, oldingi va keyingi bo'lim (ishi borlari, ofyorta tartibida)."""
-    block, prev, found = "", None, None
-    for sid, title, n in obj.sections.values_list("id", "title", "items_count"):
-        if _BLOCK.search(title):
-            if found is None:
-                block = block_label(title)
-            continue
-        if not n:
-            continue
-        if found is not None:
-            return {"block": block, "prev": prev, "next": (sid, title)}
-        if sid == section.pk:
-            found = sid
-        else:
-            prev = (sid, title)
-    return {"block": block, "prev": prev, "next": None}
 
 
 def section_paths(obj: SiteObject) -> Dict[int, tuple]:
