@@ -1,0 +1,33 @@
+{% extends "accounts/_auth.html" %}
+{% block title %}Икки босқичли кириш — Муҳандис лойиҳачи{% endblock %}
+{% block content %}
+<p class="auth-k">Хавфсизлик</p>
+<h1>Икки босқичли кириш</h1>
+{% for m in messages %}<div class="msg msg-ok" role="status">{{ m }}</div>{% endfor %}
+{% if done %}
+<p class="auth-sub">Ёқилган ({{ since|date:"d.m.Y H:i" }} дан). Ҳар киришда пароль ва телефондаги илова коди сўралади.</p>
+<p class="auth-go"><a class="btn btn-p" href="{{ next|default:'/' }}">Давом этиш</a></p>
+{% else %}
+<p class="auth-sub">{% if required %}Бошқарув панели ва админга фақат икки босқичли кириш билан кириш мумкин. {% endif %}Ёқилгач, ҳар киришда паролдан ташқари
+  телефондаги илова кўрсатаётган код сўралади — пароль ўғирланса ҳам ҳисобга кириб бўлмайди.</p>
+{% if error %}<div class="msg msg-err" role="alert">{{ error }}</div>{% endif %}
+<ol style="margin-top: 24px; padding-left: 20px; display: grid; gap: 12px; line-height: 1.55; list-style: decimal;">
+  <li>Телефонга <b>Google Authenticator</b> ёки <b>Microsoft Authenticator</b> иловасини ўрнатинг.</li>
+  <li>Иловада «+» → «Калитни киритиш» (Enter a setup key) ни танланг: ҳисоб номи — {{ request.user.email }}, калит:
+    <div style="margin-top: 8px; padding: 10px 12px; border: 1px solid var(--line-2); background: #fff; font: 600 17px/1.4 ui-monospace, monospace; letter-spacing: .06em; word-break: break-all;"
+         id="secret">{{ secret }}</div>
+    <span style="font-size: 13px; color: var(--mute);">Вақт бўйича (Time based). Телефонда шу саҳифани очган бўлсангиз — <a href="{{ uri }}" style="text-decoration: underline;">иловада очиш</a>.</span></li>
+  <li>Илова кўрсатган 6 рақамли кодни киритинг.</li>
+</ol>
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+  <div class="f">
+    <label class="f-l" for="code"><span>Код</span></label>
+    <input id="code" name="code" class="fld" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required
+           style="letter-spacing: .3em; font-size: 20px;">
+  </div>
+  <button type="submit" class="btn btn-p">Ёқиш</button>
+</form>
+{% endif %}
+{% endblock %}

@@ -41,9 +41,11 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     # Hamma sahifa sukut bo'yicha yopiq: ochiqlari (kirish, ro'yxat, «Тизим ҳақида») @login_not_required
     "django.contrib.auth.middleware.LoginRequiredMiddleware",
+    "panel.middleware.StaffTwoFactorMiddleware",  # панел / админ — фақат икки босқичли кириш билан
     "panel.middleware.SessionTrackMiddleware",  # IP, қурилма, охирги фаоллик
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django.middleware.csp.ContentSecurityPolicyMiddleware",
 ]
 
 ROOT_URLCONF = "web.urls"
@@ -112,6 +114,8 @@ if REDIS_URL:
 # Fondagi ishlar (papka ochish/narxlash): "worker" — alohida ``manage.py run_worker`` jarayoni (production);
 # "thread" — saytning o'zida oqim (ishlab chiqish). Production'da standart — worker.
 # «Менинг офёрталарим» (narxlangan smetalardan ofyorta) — tugmalari hozircha yashirin; sahifalar URL bilan ochiladi
+# Panel va Django admin — faqat ikki bosqichli kirish bilan (is_staff). O'chirish faqat favqulodda: 0
+NARXLASH_STAFF_2FA = os.environ.get("NARXLASH_STAFF_2FA", "1") == "1"
 TEXNAZOR_MY_OFYORTA = os.environ.get("TEXNAZOR_MY_OFYORTA", "0") == "1"
 NARXLASH_TASKS = os.environ.get("NARXLASH_TASKS", "thread" if DEBUG else "worker")
 if NARXLASH_TASKS not in ("thread", "worker"):
@@ -154,6 +158,23 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_HTTPONLY = True  # JS tokenni formadagi yashirin maydondan oladi, cookie'dan emas
 X_FRAME_OPTIONS = "DENY"
+# Content-Security-Policy: skript, uslub, rasm va so'rovlar faqat o'z saytimizdan (shriftlar — Google Fonts).
+# XSS bo'lib qolsa ham begona saytdan skript yuklab bo'lmaydi va ma'lumot boshqa domenga yuborilmaydi (connect-src,
+# form-action). Sahifalardagi kichik ichki <script> / onclick lar hozircha bor — shuning uchun 'unsafe-inline'.
+from django.utils.csp import CSP  # noqa: E402
+
+SECURE_CSP = {
+    "default-src": [CSP.SELF],
+    "script-src": [CSP.SELF, CSP.UNSAFE_INLINE],
+    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE, "https://fonts.googleapis.com"],
+    "font-src": [CSP.SELF, "https://fonts.gstatic.com", "data:"],
+    "img-src": [CSP.SELF, "data:", "blob:"],
+    "connect-src": [CSP.SELF],
+    "object-src": [CSP.NONE],
+    "base-uri": [CSP.SELF],
+    "form-action": [CSP.SELF],
+    "frame-ancestors": [CSP.NONE],
+}
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
@@ -210,6 +231,7 @@ LOGGING = {
 # ===================== email (паролни тиклаш) =====================
 # EMAIL_HOST берилса — SMTP; бўлмаса хатлар консолга чиқади (фақат ишлаб чиқиш учун). Django 6.1+: MAILERS
 _email_host = os.environ.get("EMAIL_HOST", "")
+NARXLASH_EMAIL_ON = bool(_email_host)  # панел «Созламалар» да кўринади
 MAILERS = {"default": {
     "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
     "OPTIONS": {
@@ -241,6 +263,9 @@ MEDIA_ROOT = Path(os.environ.get("NARXLASH_MEDIA_ROOT", BASE_DIR / "media"))
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
 NARXLASH_MAX_UPLOAD = 30 * 1024 * 1024  # bitta fayl uchun
+TEXNAZOR_MAX_UPLOAD = 60 * 1024 * 1024  # техназор офёрта файли
+# Захира нусхалар (deploy/backup.sh ва панелдаги «Захира нусха»): db/ — база, media/<сана>/ — файллар
+NARXLASH_BACKUP_DIR = Path(os.environ.get("NARXLASH_BACKUP_DIR", (BASE_DIR / "backups") if DEBUG else (BASE_DIR.parent / "backups")))
 NARXLASH_MAX_ARCHIVE = 700 * 1024 * 1024  # ZIP/RAR arxiv (ichida PDF, chizmalar ham bo'ladi)
 # Bitta foydalanuvchi serverni (disk, CPU) to'ldira olmasin. Xodimlar (is_staff) — cheklovsiz. 0 — cheklov yo'q.
 NARXLASH_UPLOADS_PER_HOUR = int(os.environ.get("NARXLASH_UPLOADS_PER_HOUR", "30"))

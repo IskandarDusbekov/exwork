@@ -173,9 +173,35 @@ Ochilgan faylga quyidagi qatorni qo'shing:
 15 3 * * *  /srv/narxlash/app/deploy/backup.sh >> /srv/narxlash/logs/backup.log 2>&1
 ```
 
-Har kuni soat 03:15 da baza (`backups/db/`, 14 kun saqlanadi) va `media/` nusxasi olinadi.
+Har kuni soat 03:15 da baza (`backups/db/`, 14 kun saqlanadi, olingach tekshiriladi) va `media/` ning shu kungi
+«surati» (`backups/media/<sana>/`, 7 kun) olinadi. O'zgarmagan fayllar oldingi kunnikiga qattiq havola bo'ladi —
+7 ta surat deyarli bitta nusxa joyini egallaydi, lekin kecha o'chib ketgan fayl bugungi suratda ham bor.
 
-> `backups/` ni haftada kamida bir marta **boshqa joyga** ko'chiring (boshqa server, bulut, tashqi disk).
+> **Boshqa joyga ko'chirish shart** (disk buzilsa, shu serverdagi nusxa ham yo'qoladi). Eng osoni — `.env` ga
+> `BACKUP_REMOTE=backup@ZAXIRA-SERVER:/data/narxlash` yozing va `narxlash` foydalanuvchisining ssh kalitini o'sha
+> serverga qo'shing (`ssh-copy-id`). Skript har kuni nusxani o'sha yerga ham yuboradi.
+>
+> Eski tartibdan o'tganda: `backups/media/` ichida sanasiz qolgan fayllarni birinchi yangi zaxiradan keyin o'chirsa
+> bo'ladi (`backups/media/20*` papkalaridan boshqasini).
+>
+> Oyda bir marta tiklashni sinab ko'ring (boshqa bazaga `pg_restore`) — tekshirilmagan zaxira zaxira emas.
+
+## Panel: ikki bosqichli kirish
+
+Panel va Django admin'ga (`is_staff`) faqat ikki bosqichli kirish bilan kiriladi: birinchi kirishda sayt
+Google Authenticator / Microsoft Authenticator ilovasiga kalit qo'shishni so'raydi, keyin har kirishda ilova kodi
+so'raladi. Telefon yo'qolsa — serverda:
+
+```bash
+sudo -u narxlash /srv/narxlash/app/deploy/manage.sh reset_2fa email@manzil
+```
+
+Favqulodda (masalan, kodni hech kim kirita olmasa) `.env` ga `NARXLASH_STAFF_2FA=0` yozib, xizmatni qayta ishga
+tushirish mumkin — muammo hal bo'lgach albatta qaytaring.
+
+nginx so'rovlarni cheklaydi (`deploy/nginx/narxlash.conf`): kirish / ro'yxatdan o'tish / parol tiklash — bitta IP
+dan daqiqasiga 10 ta, qolgan sahifalar — soniyasiga 20 ta. Oshsa — 429. Config yangilanganda:
+`sudo cp … /etc/nginx/sites-available/narxlash && sudo nginx -t && sudo systemctl reload nginx`.
 
 ## 9. Tekshirish
 

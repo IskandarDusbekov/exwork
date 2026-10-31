@@ -22,6 +22,37 @@ class BlockedIPMiddleware:
         return self.get_response(request)
 
 
+class StaffTwoFactorMiddleware:
+    """Панел ва Django админ — фақат икки босқичли кириш билан (``is_staff``). Ёқилмаган бўлса — ўрнатиш саҳифаси,
+    ёқилган, лекин шу сессияда код киритилмаган бўлса (масалан админнинг ўз кириш формаси орқали) — код саҳифаси.
+    Оддий фойдаланувчига панел барибир 404 (бу ерда ҳеч нарса ошкор бўлмайди)."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+        from django.conf import settings
+        self.prefixes = tuple("/" + u.lstrip("/") for u in (settings.PANEL_URL, settings.ADMIN_URL))
+
+    def __call__(self, request):
+        from django.conf import settings
+        user = getattr(request, "user", None)
+        if (getattr(settings, "NARXLASH_STAFF_2FA", True) and user is not None and user.is_authenticated and user.is_staff
+                and request.path.startswith(self.prefixes)):
+            from django.shortcuts import redirect
+            from django.urls import reverse
+            from django.utils.http import urlencode
+
+            from accounts.models import TwoFactor
+            from accounts.views import PENDING, VERIFIED, _pending
+            if request.session.get(VERIFIED) != user.pk:
+                nxt = request.get_full_path() if request.method == "GET" else ""
+                if TwoFactor.objects.filter(user=user).exists():
+                    _pending(request, user, nxt)
+                    return redirect("login_code")
+                request.session.pop(PENDING, None)
+                return redirect(reverse("twofa_setup") + ("?" + urlencode({"next": nxt}) if nxt else ""))
+        return self.get_response(request)
+
+
 class SessionTrackMiddleware:
     """Кирган фойдаланувчининг сессияси: IP, қурилма, охирги фаоллик (панел учун)."""
 

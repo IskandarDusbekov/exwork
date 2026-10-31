@@ -2,6 +2,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core import mail
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
@@ -237,3 +239,94 @@ class PasswordResetTests(TestCase):
         r = self.client.post(reverse("reset_request"), {"email": "ali@mail.uz"})
         self.assertContains(r, "Жуда кўп уриниш")
         self.assertEqual(len(mail.outbox), RESET_PER_EMAIL)
+
+
+# ======== икки босқичли кириш ========
+@pytest.mark.staff_2fa
+class TwoFactorTests(TestCase):
+    def setUp(self):
+        self.boss = User.objects.create_superuser("boss@mail.uz", PASSWORD, first_name="B", last_name="A")
+        self.panel = reverse("panel:overview")
+
+    def _code(self, secret, shift=0):
+        import time
+        from . import totp
+        return totp.code_at(secret.replace(" ", ""), int(time.time() // totp.STEP) + shift)
+
+    def test_staff_must_enable_then_code_is_required(self):
+        from panel.models import Event
+        from .models import TwoFactor
+        # parol bilan kirdi, lekin panel — avval ikki bosqichli kirishni yoqish
+        r = self.client.post(reverse("login"), {"email": "boss@mail.uz", "password": PASSWORD})
+        self.assertRedirects(r, reverse("index"), fetch_redirect_response=False)
+        r = self.client.get(self.panel)
+        self.assertRedirects(r, f"{reverse('twofa_setup')}?next={self.panel}", fetch_redirect_response=False)
+        page = self.client.get(r.url)
+        secret = page.context["secret"]
+        self.assertContains(page, "Икки босқичли кириш")
+        r = self.client.post(reverse("twofa_setup"), {"code": "000000", "next": self.panel})
+        self.assertContains(r, "Код нотўғри")
+        r = self.client.post(reverse("twofa_setup"), {"code": self._code(secret), "next": self.panel})
+        self.assertRedirects(r, self.panel, fetch_redirect_response=False)
+        self.assertEqual(self.client.get(self.panel).status_code, 200)
+        self.assertTrue(Event.objects.filter(kind=Event.Kind.TWOFA_ON, actor=self.boss).exists())
+
+        # keyingi kirish: parol to'g'ri — hali kirmagan, kod so'raladi
+        self.client.logout()
+        r = self.client.post(reverse("login"), {"email": "boss@mail.uz", "password": PASSWORD, "next": self.panel})
+        self.assertRedirects(r, reverse("login_code"), fetch_redirect_response=False)
+        self.assertNotIn("_auth_user_id", self.client.session)
+        r = self.client.post(reverse("login_code"), {"code": "123456"})
+        self.assertContains(r, "Код нотўғри")
+        self.assertTrue(Event.objects.filter(kind=Event.Kind.TWOFA_FAILED, target=self.boss).exists())
+        tf = TwoFactor.objects.get()
+        used = self._code(tf.secret)  # o'rnatishda ishlatilgan kod qayta o'tmaydi
+        r = self.client.post(reverse("login_code"), {"code": used})
+        self.assertNotIn("_auth_user_id", self.client.session)
+        r = self.client.post(reverse("login_code"), {"code": self._code(tf.secret, 1)})
+        self.assertRedirects(r, self.panel, fetch_redirect_response=False)
+        self.assertEqual(self.client.get(self.panel).status_code, 200)
+
+    def test_too_many_wrong_codes_restart_login(self):
+        from . import totp
+        from .models import TwoFactor
+        TwoFactor.objects.create(user=self.boss, secret=totp.new_secret())
+        self.client.post(reverse("login"), {"email": "boss@mail.uz", "password": PASSWORD})
+        for _ in range(4):
+            self.client.post(reverse("login_code"), {"code": "111111"})
+        r = self.client.post(reverse("login_code"), {"code": "111111"})
+        self.assertRedirects(r, reverse("login"), fetch_redirect_response=False)
+        self.assertRedirects(self.client.get(reverse("login_code")), reverse("login"), fetch_redirect_response=False)
+
+    def test_admin_login_form_does_not_skip_code(self):
+        """Django админнинг ўз кириш формаси орқали кирилса ҳам — панел / админ код сўрайди."""
+        from . import totp
+        from .models import TwoFactor
+        TwoFactor.objects.create(user=self.boss, secret=totp.new_secret())
+        self.client.force_login(self.boss)  # admin login formasi kabi: parol bilan kirgan, kod kiritilmagan
+        self.assertRedirects(self.client.get(reverse("admin:index")), reverse("login_code"), fetch_redirect_response=False)
+        self.assertRedirects(self.client.get(self.panel), reverse("login_code"), fetch_redirect_response=False)
+
+    def test_ordinary_user_unaffected_and_panel_still_hidden(self):
+        u = User.objects.create_user("ali@mail.uz", PASSWORD, first_name="Ali", last_name="V")
+        r = self.client.post(reverse("login"), {"email": "ali@mail.uz", "password": PASSWORD})
+        self.assertRedirects(r, reverse("index"), fetch_redirect_response=False)
+        self.assertEqual(self.client.get(self.panel).status_code, 404)
+        self.assertEqual(u.pk, int(self.client.session["_auth_user_id"]))
+
+    def test_reset_command(self):
+        from django.core.management import call_command
+        from . import totp
+        from .models import TwoFactor
+        TwoFactor.objects.create(user=self.boss, secret=totp.new_secret())
+        call_command("reset_2fa", "BOSS@mail.uz", stdout=open(__import__("os").devnull, "w", encoding="utf8"))
+        self.assertFalse(TwoFactor.objects.exists())
+
+
+def test_totp_rfc6238_vector():
+    import base64
+    from . import totp
+    secret = base64.b32encode(b"12345678901234567890").decode()
+    assert totp.code_at(secret, 59 // 30) == "287082"  # RFC 6238 (SHA1, T=59) oxirgi 6 raqami
+    assert totp.verify(secret, "287 082", now=59) == 1
+    assert totp.verify(secret, "287082", last_step=1, now=59) is None

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_base, views_tn
+from . import views, views_base, views_settings, views_tn
 
 app_name = "panel"
 
@@ -21,6 +21,12 @@ urlpatterns = [
     path("work/<str:kind>/<uuid:work_id>/result/", views.work_result, name="work_result"),
     path("work/folder/<uuid:work_id>/stop/", views.work_stop, name="work_stop"),
     path("processes/", views.processes, name="processes"),
+    path("settings/", views_settings.settings_page, name="settings"),
+    path("settings/save/", views_settings.settings_save, name="settings_save"),
+    path("users/<int:pk>/quota/", views_settings.user_quota, name="user_quota"),
+    path("backups/", views_settings.backups, name="backups"),
+    path("backups/make/", views_settings.backup_make, name="backup_make"),
+    path("backups/<str:name>/", views_settings.backup_download, name="backup_download"),
     path("texnazor/", views_tn.texnazor, name="texnazor"),
     path("texnazor/<uuid:obj_id>/", views_tn.texnazor_object, name="texnazor_object"),
     path("texnazor/<uuid:obj_id>/<str:what>/", views_tn.texnazor_file, name="texnazor_file"),

@@ -31,15 +31,20 @@ def check_quota(user):
     Xodimlar (is_staff) — cheklovsiz. Yuklangan fayl o'qilishidan oldin chaqiriladi."""
     if user.is_staff:
         return
+    from django.db.models import Q
+    from panel import conf
     from panel.data import dir_size
     from panel.models import Event
-    per_hour = settings.NARXLASH_UPLOADS_PER_HOUR
-    if per_hour and Event.objects.filter(kind=Event.Kind.UPLOAD, actor=user,
+    from texnazor.models import MyOfyorta, SiteObject
+    per_hour = conf.get("uploads_per_hour")
+    # yuklashlar (narxlash va texnazor obyekti) va «Менинг офёртам» tuzish — o'nlab Excel ochiladi
+    heavy = Q(kind=Event.Kind.UPLOAD) | Q(kind=Event.Kind.TEXNAZOR, work_kind="tn_my", detail__endswith="тузилмоқда")
+    if per_hour and Event.objects.filter(heavy, actor=user,
                                          created__gte=timezone.now() - dt.timedelta(hours=1)).count() >= per_hour:
         raise UploadError(f"Бир соатда кўпи билан {per_hour} та юклаш мумкин — бироздан кейин қайта уриниб кўринг.")
-    quota = settings.NARXLASH_USER_QUOTA_MB * 1024 * 1024
+    quota = conf.user_quota(user)
     if quota:
-        used = sum(dir_size(o.dir) for model in (Project, Batch, Job)
+        used = sum(dir_size(o.dir) for model in (Project, Batch, Job, SiteObject, MyOfyorta)
                    for o in model.objects.filter(owner=user).only("id"))
         if used >= quota:
             raise UploadError(f"Дискдаги жойингиз тўлди ({used // 2**20} МБ / {quota // 2**20} МБ): "
@@ -50,7 +55,8 @@ def _check_upload(f, label: str) -> str:
     ext = Path(f.name).suffix.lower()
     if ext not in ALLOWED_EXT:
         raise UploadError(f"{label}: фақат .xls, .xlsx, .xlsm файллар қабул қилинади")
-    if f.size > settings.NARXLASH_MAX_UPLOAD:
+    from panel import conf
+    if f.size > conf.get("max_upload_mb"):
         raise UploadError(f"{label}: файл жуда катта ({f.size // (1024 * 1024)} МБ)")
     return ext
 

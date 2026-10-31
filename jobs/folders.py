@@ -22,6 +22,7 @@ from django.utils import timezone
 
 from core import convert
 from core.batch import KIND_LABELS
+from panel import conf
 
 from .templatetags.narx import file_title, hsize, readable
 from .archives import ArchiveError, extract_excel, is_archive, safe_part
@@ -84,7 +85,7 @@ def create_project(owner, files, paths, skipped=()) -> Project:
             if not is_archive(rel.name):
                 items.append((rel, f, f.size))
                 continue
-            if f.size > settings.NARXLASH_MAX_ARCHIVE:
+            if f.size > conf.get("max_archive_mb"):
                 raise UploadError(f"{rel.name}: архив жуда катта ({f.size // (1024 * 1024)} МБ)")
             saved = project.abs(f"unpack/{len(archives)}{rel.suffix.lower()}")
             _save(f, saved)
@@ -113,7 +114,7 @@ def create_project(owner, files, paths, skipped=()) -> Project:
                 continue  # bir xil yo'l ikki marta (masalan, arxiv va papkada) — birinchisi
             seen.add(str(rel).lower())
             reason = skip_reason(str(rel))
-            if not reason and size > settings.NARXLASH_MAX_UPLOAD:
+            if not reason and size > conf.get("max_upload_mb"):
                 reason = f"жуда катта ({size // (1024 * 1024)} МБ)"
             if not reason:
                 dest = project.abs(f"src/{rel}")

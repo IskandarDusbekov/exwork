@@ -190,8 +190,13 @@ def user_detail(request, pk):
         sessions=u.login_sessions.all()[:30], online_since=sessions.online_since(),
         blocked_ips=sessions.blocked_ips(), my_ip=client_ip(request),
         ips=list(u.login_sessions.values_list("ip").annotate(n=Count("id")).order_by("-n")[:10]),
-        tn=_tn_rows(u),
+        tn=_tn_rows(u), disk_info=_disk_info(u),
     ))
+
+
+def _disk_info(u):
+    from .views_settings import user_disk
+    return user_disk(u)
 
 
 def _tn_rows(u):

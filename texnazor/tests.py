@@ -212,7 +212,7 @@ class TexnazorFlowTests(TestCase):
         self.client.get(reverse("texnazor:f2", args=[self.obj.pk, octo.pk]))
         self.client.post(reverse("texnazor:period_close", args=[self.obj.pk, octo.pk]), {"closed": "1"})
         texts = list(Event.objects.filter(kind=Event.Kind.TEXNAZOR, work_id=self.obj.pk).values_list("detail", flat=True))
-        self.assertTrue(any("объект қўшилди" in t for t in texts))
+        self.assertTrue(Event.objects.filter(kind=Event.Kind.UPLOAD, work_kind="texnazor", work_id=self.obj.pk).exists())
         self.assertTrue(any("Октябрь 2026 ойи қўшилди" in t for t in texts))
         self.assertTrue(any("Ф-2 юклаб олинди" in t for t in texts))
         self.assertTrue(any("ёпилди" in t for t in texts))
@@ -233,6 +233,19 @@ class TexnazorFlowTests(TestCase):
         self.client.force_login(boss)
         self.assertEqual(self.client.get(reverse("panel:texnazor_month_file", args=[self.obj.pk, "f3", octo.pk])).status_code, 200)
         self.assertTrue(Event.objects.filter(kind=Event.Kind.ADMIN_DOWNLOAD, actor=boss).exists())
+
+    @override_settings(NARXLASH_UPLOADS_PER_HOUR=1)
+    def test_upload_limit_counts_texnazor(self):
+        """Texnazor yuklashi ham soatlik cheklovga kiradi (setUp'da bittasi yuklandi)."""
+        r = self.client.post(reverse("texnazor:create"), {"ofyorta": SimpleUploadedFile("b.xlsx", b"x")})
+        self.assertContains(r, "Бир соатда кўпи билан 1 та")
+        self.assertEqual(SiteObject.objects.count(), 1)
+
+    @override_settings(NARXLASH_USER_QUOTA_MB=1)
+    def test_disk_quota_counts_texnazor(self):
+        self.obj.abs("big.bin").write_bytes(b"0" * (1024 * 1024 + 1))
+        r = self.client.post(reverse("texnazor:create"), {"ofyorta": SimpleUploadedFile("b.xlsx", b"x")})
+        self.assertContains(r, "Дискдаги жойингиз тўлди")
 
     def test_my_ofyorta_hidden_by_default(self):
         self.assertNotContains(self.client.get(reverse("texnazor:index")), "Менинг офёрталарим")

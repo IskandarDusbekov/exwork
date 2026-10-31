@@ -51,6 +51,11 @@ def _save(request, doc: MyOfyorta, setup: dict) -> MyOfyorta:
         parts.append({"job": p["job"], "title": title, "include": post.get(f"include_{p['job']}") == "1"})
     if not any(p["include"] for p in parts):
         raise ValueError("Камида битта локал танланг")
+    from jobs.services import UploadError, check_quota
+    try:
+        check_quota(request.user)
+    except UploadError as e:
+        raise ValueError(str(e))
     keys = {e["key"] for e in setup["equipment"]}
     doc.name = (post.get("name") or "").strip()[:300] or doc.name or "Офёрта"
     doc.object_type = (post.get("object_type") or "").strip()[:200]

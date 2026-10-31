@@ -25,6 +25,11 @@ class Event(models.Model):
         ADMIN_BASE = "admin_base", "Админ: ресурс базаси"
         BLOCKED_IP = "blocked_ip", "Блокланган IP'дан сўров"
         TEXNAZOR = "texnazor", "Техназор"
+        TWOFA_ON = "2fa_on", "Икки босқичли кириш ёқилди"
+        TWOFA_FAILED = "2fa_failed", "Хато код (иккинчи босқич)"
+        TWOFA_RESET = "2fa_reset", "Икки босқичли кириш ўчирилди"
+        ADMIN_SETTINGS = "admin_settings", "Админ: созламалар"
+        ADMIN_BACKUP = "admin_backup", "Админ: захира нусха"
 
     created = models.DateTimeField(auto_now_add=True, db_index=True)
     kind = models.CharField(max_length=24, choices=Kind.choices, db_index=True)
@@ -52,7 +57,7 @@ class Event(models.Model):
 
     @property
     def is_alarm(self):
-        return self.kind in (self.Kind.LOGIN_FAILED, self.Kind.BLOCKED_IP)
+        return self.kind in (self.Kind.LOGIN_FAILED, self.Kind.BLOCKED_IP, self.Kind.TWOFA_FAILED)
 
 
 class LoginSession(models.Model):
@@ -77,6 +82,18 @@ class LoginSession(models.Model):
     @property
     def device_label(self):
         return {"phone": "Телефон", "tablet": "Планшет", "bot": "Бот"}.get(self.device, "Компьютер")
+
+
+class SiteSetting(models.Model):
+    """Панелдан ўзгартирилган созлама (``panel.conf``). Йўқ бўлса — .env / settings даги стандарт."""
+    key = models.CharField(max_length=64, unique=True)
+    value = models.JSONField()
+    updated = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                   related_name="+")
+
+    def __str__(self):
+        return f"{self.key}={self.value}"
 
 
 class BlockedIP(models.Model):

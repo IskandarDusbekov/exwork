@@ -44,6 +44,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField("Рўйхатдан ўтган", default=timezone.now)
     # кўрилган саҳифа қўлланмалари (jobs.guide.GUIDE_PAGES): янги фойдаланувчига ҳар бири бир марта ўзи очилади
     guides_seen = models.JSONField("Кўрилган қўлланмалар", default=list, blank=True)
+    quota_mb = models.PositiveIntegerField("Диск чегараси (МБ)", null=True, blank=True)  # бўш — умумий (панел созламаси)
 
     objects = UserManager()
 
@@ -84,3 +85,18 @@ class AuthAttempt(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=["kind", "created"])]
+
+
+class TwoFactor(models.Model):
+    """Икки босқичли кириш (телефондаги илова коди). Панел ва админга кирадиганлар (``is_staff``) учун мажбурий."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="two_factor")
+    secret = models.CharField(max_length=64)
+    confirmed = models.DateTimeField(auto_now_add=True)
+    last_step = models.BigIntegerField(default=0)  # охирги ишлатилган код қадами — бир код икки марта ўтмайди
+
+    class Meta:
+        verbose_name = "Икки босқичли кириш"
+        verbose_name_plural = "Икки босқичли кириш"
+
+    def __str__(self):
+        return self.user.email

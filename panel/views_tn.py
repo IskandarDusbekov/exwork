@@ -21,7 +21,7 @@ XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 def _tn_events():
-    return Event.objects.filter(kind=Event.Kind.TEXNAZOR).select_related("actor")
+    return Event.objects.filter(Q(kind=Event.Kind.TEXNAZOR) | Q(kind=Event.Kind.UPLOAD, work_kind="texnazor")).select_related("actor")
 
 
 def _progress(o) -> dict:

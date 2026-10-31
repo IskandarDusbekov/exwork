@@ -20,7 +20,6 @@ from .models import COST_FIELDS, Correction, Done, Item, Period, Section, SiteOb
 from .ofyorta import CATEGORY_LABELS, Ofyorta, OfyortaError, parse
 
 ALLOWED_EXT = (".xls", ".xlsx", ".xlsm")
-MAX_UPLOAD = 60 * 1024 * 1024
 ITEM_KINDS = (Item.Kind.WORK, Item.Kind.FREE, Item.Kind.EXTRA)  # texnazor hajmini belgilaydiganlar
 
 
@@ -33,8 +32,10 @@ def create_object(owner, upload, **fields) -> SiteObject:
     ext = Path(upload.name).suffix.lower()
     if ext not in ALLOWED_EXT:
         raise TexnazorError("Офёрта .xls, .xlsx ёки .xlsm бўлиши керак")
-    if upload.size > MAX_UPLOAD:
-        raise TexnazorError(f"Файл жуда катта ({upload.size // 2**20} МБ) — кўпи билан {MAX_UPLOAD // 2**20} МБ")
+    from panel import conf
+    limit = conf.get("texnazor_max_upload_mb")
+    if upload.size > limit:
+        raise TexnazorError(f"Файл жуда катта ({upload.size // 2**20} МБ) — кўпи билан {limit // 2**20} МБ")
     obj = SiteObject(owner=owner, source_name=Path(upload.name).name[:255], source_path=f"src/ofyorta{ext}",
                      name=(fields.get("name") or Path(upload.name).stem)[:300],
                      **{k: (fields.get(k) or "")[:300] for k in ("address", "customer", "contractor", "contract")})

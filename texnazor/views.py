@@ -21,6 +21,7 @@ from .models import Correction, Item, MyOfyorta, Period, Section, SiteObject
 from .ofyorta import CATEGORY_LABELS
 from .templatetags import texnazor_tags as tn
 from jobs.templatetags.narx import readable
+from panel import conf
 from panel.audit import log as _log
 from panel.models import Event
 
@@ -49,17 +50,22 @@ def _period(obj, request, data=None) -> Period:
 
 def index(request):
     return render(request, "texnazor/index.html", {"nav": "texnazor", "cards": services.object_cards(request.user),
-                                                    "my_ofyorta": settings.TEXNAZOR_MY_OFYORTA})
+                                                    "my_ofyorta": conf.get("my_ofyorta")})
 
 
 def create(request):
     error = None
-    on = settings.TEXNAZOR_MY_OFYORTA  # «Менинг офёрталарим» hozircha yashirin
+    on = conf.get("my_ofyorta")  # «Менинг офёрталарим» hozircha yashirin (panel → Созламалар)
     mine = list(MyOfyorta.objects.filter(owner=request.user, status=MyOfyorta.Status.READY)) if on else []
     if request.method == "POST":
         f = request.FILES.get("ofyorta")
         fields = {k: request.POST.get(k, "").strip() for k in ("name", "address", "customer", "contractor", "contract")}
         try:
+            from jobs.services import UploadError, check_quota
+            try:
+                check_quota(request.user)  # soatiga yuklashlar va disk — narxlashdagi bilan bitta hisob
+            except UploadError as e:
+                raise services.TexnazorError(str(e))
             if on and request.POST.get("source") == "my":  # «Менинг офёрталарим» dan — bloklar tuzilishidan aniq
                 doc = next((d for d in mine if str(d.pk) == request.POST.get("my")), None)
                 if doc is None:
@@ -70,7 +76,9 @@ def create(request):
                     raise services.TexnazorError("Офёрта файлини танланг")
                 obj = services.create_object(request.user, f, **fields)
             tasks.start(obj.pk)
-            audit(request, obj, "объект қўшилди (" + ("«Менинг офёрталарим» дан" if obj.made_from_id else f"файл: {obj.source_name}") + ")")
+            _log(request, Event.Kind.UPLOAD, work=obj, work_kind="texnazor",
+                 detail=f"{obj.name[:200]}: техназор объекти (" + ("«Менинг офёрталарим» дан" if obj.made_from_id
+                                                                   else f"файл: {obj.source_name}") + ")")
             return redirect("texnazor:object", obj_id=obj.pk)
         except services.TexnazorError as e:
             error = str(e)

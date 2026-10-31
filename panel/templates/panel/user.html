@@ -29,6 +29,20 @@
       <dt class="text-slate-500">Юклаган файллар</dt><dd class="num text-right">{{ files_total }} · {{ files_size|hsize }}</dd>
       <dt class="text-slate-500">Дискда жами</dt><dd class="num text-right">{{ disk|hsize }}</dd>
     </dl>
+    <div class="mt-4 border-t border-slate-100 pt-3">
+      <div class="flex items-baseline justify-between text-sm"><span class="text-slate-500">Диск чегараси</span>
+        <span class="num">{{ disk_info.used|hsize }} / {% if u.is_staff %}чексиз (ходим){% elif disk_info.limit %}{{ disk_info.limit|hsize }}{% else %}чексиз{% endif %}</span></div>
+      {% if disk_info.limit and not u.is_staff %}<div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full {% if disk_info.pct >= 90 %}bg-rose-500{% else %}bg-emerald-500{% endif %}" style="width:{{ disk_info.pct|stringformat:'.1f' }}%"></div></div>{% endif %}
+      {% if can_act %}
+      <form method="post" action="{% url 'panel:user_quota' u.pk %}" class="mt-2 flex items-center gap-2">{% csrf_token %}
+        <input name="quota_mb" value="{{ disk_info.own|default_if_none:'' }}" inputmode="numeric" placeholder="умумий: {{ disk_info.default }} МБ"
+               class="num min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1 text-right text-sm outline-none focus:border-slate-400" aria-label="Диск чегараси, МБ">
+        <span class="text-xs text-slate-500">МБ</span>
+        <button class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Сақлаш</button>
+      </form>
+      <p class="mt-1 text-[11px] text-slate-400">Бўш — умумий созлама, 0 — чексиз.</p>
+      {% endif %}
+    </div>
 
     {% if can_act and u.pk != user.pk and not u.is_superuser %}
     <div class="mt-5 space-y-2 border-t border-slate-100 pt-4">

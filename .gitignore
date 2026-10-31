@@ -234,3 +234,4 @@ frontend/node_modules/
 staticfiles/
 # loglar
 logs/
+backups/

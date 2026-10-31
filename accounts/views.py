@@ -1,3 +1,5 @@
+import time
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
@@ -16,9 +18,9 @@ from django.views.decorators.http import require_http_methods, require_POST
 from panel.audit import log as audit
 from panel.models import Event
 
-from . import throttle
+from . import throttle, totp
 from .forms import LoginForm, RegisterForm, ResetRequestForm, SetPasswordForm
-from .models import AuthAttempt, User, normalize_email
+from .models import AuthAttempt, TwoFactor, User, normalize_email
 
 BLOCKED = "Жуда кўп уриниш. 15 дақиқадан кейин қайта уриниб кўринг."
 
@@ -54,10 +56,102 @@ def login_view(request):
                 throttle.record(request, AuthAttempt.Kind.LOGIN, email)
                 error = "Email ёки пароль нотўғри."  # қайси бири нотўғрилигини айтмаймиз
             else:
+                if TwoFactor.objects.filter(user=user).exists():  # иккинчи босқич: телефондаги код
+                    _pending(request, user, _next_url(request))
+                    return redirect("login_code")
                 throttle.clear_login_failures(email)
                 login(request, user)  # сессия калити янгиланади (session fixation'га қарши)
                 return redirect(_next_url(request) or "index")
     return render(request, "accounts/login.html", {"form": form, "error": error, "next": _next_url(request)})
+
+
+# ===================== икки босқичли кириш =====================
+PENDING = "_2fa_pending"  # {"user", "at", "next", "tries"} — пароль тўғри, код кутиляпти
+CODE_TTL = 300
+CODE_TRIES = 5
+VERIFIED = "_2fa_ok"  # шу сессияда код киритилган фойдаланувчи (панел / админ шуни текширади)
+SETUP = "_2fa_setup"  # ўрнатишда кўрсатилган калит (тасдиқлангунча базага ёзилмайди)
+
+
+def _pending(request, user, nxt=""):
+    request.session[PENDING] = {"user": user.pk, "at": int(time.time()), "next": nxt or "", "tries": 0}
+
+
+def verified(request) -> bool:
+    return request.user.is_authenticated and request.session.get(VERIFIED) == request.user.pk
+
+
+@login_not_required
+@never_cache
+@require_http_methods(["GET", "POST"])
+def login_code_view(request):
+    """Иккинчи босқич: илова коди. Пароль аввал текширилган; 5 дақиқа ва 5 уриниш — кейин қайтадан пароль."""
+    p = request.session.get(PENDING)
+    if not p or time.time() - p["at"] > CODE_TTL:
+        request.session.pop(PENDING, None)
+        messages.error(request, "Вақт тугади — қайтадан киринг.")
+        return redirect("login")
+    user = User.objects.filter(pk=p["user"], is_active=True).first()
+    tf = TwoFactor.objects.filter(user=user).first() if user else None
+    if tf is None:
+        request.session.pop(PENDING, None)
+        return redirect("login")
+    error = None
+    if request.method == "POST":
+        step = totp.verify(tf.secret, request.POST.get("code"), tf.last_step)
+        if step is None:
+            p["tries"] += 1
+            request.session[PENDING] = p
+            throttle.record(request, AuthAttempt.Kind.LOGIN, user.email)  # email бўйича блок шу ҳисобга ҳам киради
+            audit(request, Event.Kind.TWOFA_FAILED, actor=False, target=user, email=user.email, detail=f"{p['tries']}-уриниш")
+            if p["tries"] >= CODE_TRIES:
+                request.session.pop(PENDING, None)
+                messages.error(request, "Код кўп марта нотўғри киритилди — қайтадан киринг.")
+                return redirect("login")
+            error = "Код нотўғри ёки эскирган — иловадаги янги кодни киритинг."
+        elif TwoFactor.objects.filter(pk=tf.pk, last_step__lt=step).update(last_step=step):
+            request.session.pop(PENDING, None)
+            throttle.clear_login_failures(user.email)
+            if request.user.is_authenticated and request.user.pk == user.pk:
+                request.session.cycle_key()  # аввал кирган (код сўралмаган) сессия — фақат тасдиқланади
+            else:
+                login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+            request.session[VERIFIED] = user.pk
+            return redirect(p["next"] or "index")
+        else:
+            error = "Бу код ишлатилган — иловадаги кейинги кодни кутинг."
+    return render(request, "accounts/login_code.html", {"error": error, "email": user.email})
+
+
+@never_cache
+@require_http_methods(["GET", "POST"])
+def twofa_setup_view(request):
+    """Икки босқичли киришни ёқиш: калит (QR ўрнига қўлда ёки ҳавола) -> иловадаги код билан тасдиқлаш."""
+    nxt = _next_url(request)
+    tf = TwoFactor.objects.filter(user=request.user).first()
+    if tf is not None:
+        if not verified(request):  # ёқилган, лекин шу сессияда код киритилмаган
+            _pending(request, request.user, nxt)
+            return redirect("login_code")
+        return render(request, "accounts/twofa_setup.html", {"done": True, "since": tf.confirmed, "next": nxt})
+    secret = request.session.get(SETUP) or totp.new_secret()
+    request.session[SETUP] = secret
+    error = None
+    if request.method == "POST":
+        step = totp.verify(secret, request.POST.get("code"))
+        if step is None:
+            error = "Код нотўғри. Телефондаги соат тўғрилигини ва калит тўлиқ киритилганини текширинг."
+        else:
+            TwoFactor.objects.create(user=request.user, secret=secret, last_step=step)
+            request.session.pop(SETUP, None)
+            request.session.cycle_key()
+            request.session[VERIFIED] = request.user.pk
+            audit(request, Event.Kind.TWOFA_ON, detail=request.user.email)
+            messages.success(request, "Икки босқичли кириш ёқилди: энди ҳар киришда иловадаги код сўралади.")
+            return redirect(nxt or "twofa_setup")
+    return render(request, "accounts/twofa_setup.html", {"secret": totp.pretty(secret), "uri": totp.uri(secret, request.user.email),
+                                                         "error": error, "next": nxt,
+                                                         "required": request.user.is_staff})
 
 
 @login_not_required
@@ -67,7 +161,8 @@ def login_view(request):
 def register_view(request):
     if request.user.is_authenticated:
         return redirect("index")
-    if settings.NARXLASH_SIGNUP != "open":
+    from panel import conf
+    if conf.get("signup") != "open":
         # ҳисобни фақат админ очади — форма ҳам, POST ҳам йўқ
         return render(request, "accounts/register.html", {"closed": True}, status=403 if request.method == "POST" else 200)
     form = RegisterForm(request.POST or None)

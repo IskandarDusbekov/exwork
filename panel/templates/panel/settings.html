@@ -1,0 +1,64 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Созламалар — Панел{% endblock %}
+{% block panel %}
+<div class="mb-5">
+  <h1 class="text-2xl font-semibold">Созламалар</h1>
+  <p class="text-sm text-slate-500">Шу ерда ўзгартирилгани дарҳол (ярим дақиқа ичида) ишлайди — сервер қайта ишга туширилмайди. Ҳар ўзгариш журналга ёзилади.
+    Ўзгартирилмагани — сервердаги (.env) стандарт.</p>
+</div>
+{% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-700{% endif %}">{{ m }}</div>{% endfor %}
+
+<form method="post" action="{% url 'panel:settings_save' %}" class="space-y-3">
+  {% csrf_token %}
+  {% for group, rows in groups.items %}
+  <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">{{ group }}</h2></div>
+    <div class="divide-y divide-slate-100">
+      {% for r in rows %}{% with f=r.f %}
+      <div class="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_16rem] sm:items-center">
+        <div>
+          <label for="f-{{ f.key }}" class="text-sm font-medium text-slate-800">{{ f.label }}</label>
+          {% if r.changed %}<span class="ml-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700">ўзгартирилган · стандарт: {% if f.kind == "bool" %}{{ r.default|yesno:"ҳа,йўқ" }}{% else %}{{ r.default }} {{ f.unit }}{% endif %}</span>{% endif %}
+          {% if f.help %}<p class="text-xs text-slate-500">{{ f.help }}</p>{% endif %}
+        </div>
+        <div>
+          {% if f.kind == "bool" %}
+          <label class="inline-flex items-center gap-2 text-sm"><input id="f-{{ f.key }}" type="checkbox" name="{{ f.key }}" value="1" {% if r.value %}checked{% endif %} {% if not can_act %}disabled{% endif %} class="h-4 w-4 rounded border-slate-300"> ёқилган</label>
+          {% elif f.kind == "choice" %}
+          <select id="f-{{ f.key }}" name="{{ f.key }}" {% if not can_act %}disabled{% endif %} class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm">
+            {% for v, label in f.choices %}<option value="{{ v }}" {% if r.value == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          {% else %}
+          <div class="flex items-center gap-2">
+            <input id="f-{{ f.key }}" name="{{ f.key }}" value="{{ r.value }}" inputmode="numeric" {% if not can_act %}disabled{% endif %}
+                   class="num w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-right text-sm outline-none focus:border-slate-400">
+            <span class="w-8 shrink-0 text-xs text-slate-500">{{ f.unit }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endwith %}{% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  {% if can_act %}<button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Сақлаш</button>
+  {% else %}<p class="text-sm text-slate-500">Ўзгартириш — фақат суперфойдаланувчи.</p>{% endif %}
+</form>
+
+<section class="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3">
+    <h2 class="font-semibold">Фақат серверда ўзгаради</h2>
+    <p class="text-xs text-slate-500">Хавфсизликка тегишли — панелдан ўзгармайди (ўғирланган сессия билан ҳам ўчириб бўлмасин). Ўзгартириш: серверда <code>/srv/narxlash/.env</code> ва хизматни қайта ишга тушириш.</p>
+  </div>
+  <ul class="divide-y divide-slate-100 text-sm">
+    {% for label, value, bad, env in fixed %}
+    <li class="flex flex-wrap items-center gap-3 px-4 py-2.5">
+      <span class="min-w-0 flex-1">{{ label }}</span>
+      <code class="text-xs text-slate-400">{{ env }}</code>
+      <span class="font-medium {% if bad %}text-rose-600{% else %}text-slate-800{% endif %}">{{ value }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

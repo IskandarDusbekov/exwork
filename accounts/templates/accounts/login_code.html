@@ -1,0 +1,18 @@
+{% extends "accounts/_auth.html" %}
+{% block title %}Код — Муҳандис лойиҳачи{% endblock %}
+{% block content %}
+<p class="auth-k">Иккинчи босқич</p>
+<h1>Иловадаги код</h1>
+<p class="auth-sub">{{ email }} учун телефондаги илова (Google Authenticator, Microsoft Authenticator…) кўрсатаётган 6 рақамли кодни киритинг.</p>
+{% if error %}<div class="msg msg-err" role="alert">{{ error }}</div>{% endif %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="f">
+    <label class="f-l" for="code"><span>Код</span></label>
+    <input id="code" name="code" class="fld" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*" maxlength="7" required autofocus
+           style="letter-spacing: .3em; font-size: 20px;">
+  </div>
+  <button type="submit" class="btn btn-p">Кириш</button>
+</form>
+<p class="auth-alt">Телефонингиз йўқолдими? Администратор икки босқичли киришни ўчириб беради. <a href="{% url 'login' %}">Қайтадан кириш</a></p>
+{% endblock %}
