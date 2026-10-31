@@ -13,7 +13,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from . import f2, services, tasks
+from . import f2, f3, services, tasks
 from . import calc
 from .calc import STEPS
 from .models import Correction, Item, Period, Section, SiteObject
@@ -78,11 +78,11 @@ def detail(request, obj_id):
             period = periods[-1]
     ctx = {"nav": "texnazor", "o": o, "periods": periods, "period": period, "categories": CATEGORY_LABELS,
            "next": services.next_month(o), "months": Period.MONTHS, "warnings": services.warnings(o),
-           "corrections": _history(o)}
+           "corrections": _history(o), "info": services.f3_settings(o), "info_missing": services.f3_missing(o)}
     if period:
         totals = services.period_totals(period)
         ctx.update(totals=totals, tree=services.section_tree(o, services.section_stats(period)), pay=services.payments(o),
-                   period_info=services.period_info(period), sel=_int(request.GET.get("s")), f2=services.month_f2(period),
+                   period_info=services.period_info(period), sel=_int(request.GET.get("s")), f2=services.month_f2(period), f3=services.f3_data(period),
                    months_base=MONTHS_BASE, months_block=MONTHS_BLOCK,
                    is_last=period == periods[-1],
                    steps=[(k, label, totals["contract"].get(k, 0.0), totals["before"][k], totals["this"][k],
@@ -407,6 +407,81 @@ def f2_download(request, obj_id, period_id):
     resp = HttpResponse(f2.build(p), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     resp["Content-Disposition"] = content_disposition_header(True, f2.file_name(p))
     return resp
+
+
+def f3_download(request, obj_id, period_id):
+    """Ф-3 (справка-счёт-фактура) — shu oy, Excel: texnazor faylidagi varaq bilan bir xil."""
+    o = _obj(request, obj_id)
+    p = get_object_or_404(Period, pk=period_id, obj=o)
+    resp = HttpResponse(f3.build(p), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    resp["Content-Disposition"] = content_disposition_header(True, f3.file_name(p))
+    return resp
+
+
+def _money(text):
+    """«29 630 408 740,15» -> 29630408740.15; bo'sh -> None."""
+    t = (text or "").replace(" ", "").replace(" ", "").replace(",", ".").strip()
+    return float(t) if t else None
+
+
+def _f3_back(o, p):
+    return redirect(f"{reverse('texnazor:object', args=[o.pk])}?p={p.pk}#f3")
+
+
+@require_POST
+def f3_period(request, obj_id, period_id):
+    """Shu oyning Ф-3 si: hujjat raqami, tuzilgan sana, davr boshi (bo'sh — avtomatik)."""
+    o = _obj(request, obj_id)
+    p = get_object_or_404(Period, pk=period_id, obj=o)
+    m = {}
+    num = request.POST.get("num", "").strip()
+    if num:
+        if not num.isdigit():
+            messages.error(request, f"Ф-3 рақами нотўғри: «{num}»")
+            return _f3_back(o, p)
+        m["num"] = int(num)
+    for k in ("date", "start"):
+        v = request.POST.get(k, "").strip()
+        if v and services._date(v) is None:
+            messages.error(request, f"Сана нотўғри: «{v}»")
+            return _f3_back(o, p)
+        if v:
+            m[k] = v
+    p.f3 = m
+    p.save(update_fields=["f3"])
+    return _f3_back(o, p)
+
+
+@require_POST
+def f3_settings(request, obj_id):
+    """Obyekt va pudratchi ma'lumotlari (bir marta, obyektga saqlanadi): nomi, manzili, buyurtmachi / pudratchi va
+    rekvizitlari, shartnoma, imzolovchilar, joriy yilga mo'ljallangan summa."""
+    o = _obj(request, obj_id)
+    url = reverse("texnazor:object", args=[o.pk])
+    back = redirect(f"{url}?p={int(request.POST['period'])}#info" if request.POST.get("period", "").isdigit() else url)
+    P = request.POST
+    try:
+        plan = _money(P.get("year_plan"))
+    except ValueError:
+        messages.error(request, f"Жорий йилга сумма нотўғри: «{P.get('year_plan')}»")
+        return back
+    if P.get("contract_date") and services._date(P["contract_date"]) is None:
+        messages.error(request, f"Шартнома санаси нотўғри: «{P['contract_date']}»")
+        return back
+    if P.get("name", "").strip():
+        o.name = P["name"].strip()[:300]
+    o.address = P.get("address", "").strip()[:300]
+    o.customer = P.get("customer", "").strip()[:300]
+    o.contractor = P.get("contractor", "").strip()[:300]
+    o.f3 = {k: " ".join(P.get(k, "").split())[:300] for k in services.F3_KEYS}
+    o.f3["year_plan"] = plan
+    s = o.f3
+    if s["contract_no"] or s["contract_date"]:  # sarlavhada ko'rinadigan qisqa yozuv
+        d = services._date(s["contract_date"])
+        o.contract = " ".join(x for x in (f"№ {s['contract_no']}" if s["contract_no"] else "", f"{d:%d.%m.%Y}" if d else "") if x)
+    o.save(update_fields=["name", "address", "customer", "contractor", "contract", "f3"])
+    messages.success(request, "Объект маълумотлари сақланди")
+    return back
 
 
 @require_POST

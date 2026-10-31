@@ -1,0 +1,74 @@
+{% load narx texnazor_tags %}{# Ф-3 — справка-счёт-фактура: Ф-2 нима бажарилганини кўрсатади, Ф-3 — шунинг учун қанча тўланади (имзоланади, тўлов шу бўйича) #}
+{% with d=f3 m=f3.meta st=f3.settings %}
+<section id="f3" class="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="flex flex-wrap items-start gap-3 border-b border-slate-100 px-3 py-2.5">
+    <div class="min-w-0 flex-1">
+      <h2 class="font-semibold">Ф-3 №{{ m.num }} — справка-счёт-фактура · {{ period.title }}</h2>
+      <p class="text-xs text-slate-500">Тўлов ҳужжати: шартнома қиймати, бошидан ва шу ойда бажарилган (пудратчи қисми). Суммалар Ф-2 дан, минг сўмда — Excel'дагидек.</p>
+    </div>
+    <a href="{% url 'texnazor:f3' o.pk period.pk %}" class="tn-mbtn tn-mbtn-line" download>{% icon "download" "h-4 w-4" %}Ф-3 юклаб олиш</a>
+  </div>
+
+  {# ---- ҳужжат: рақам, сана, давр — ҳар ой ----#}
+  <form method="post" action="{% url 'texnazor:f3_period' o.pk period.pk %}" class="tn-f3-doc">{% csrf_token %}
+    <label>Ҳужжат №<input name="num" inputmode="numeric" value="{{ m.num }}" class="w-16"></label>
+    <label>Тузилган сана<input type="date" name="date" value="{{ m.date|date:'Y-m-d' }}"></label>
+    <label>Ҳисобот даври: с<input type="date" name="start" value="{{ m.start|date:'Y-m-d' }}"></label>
+    <span class="tn-f3-po">по <b>{% if m.date %}{{ m.date|date:"d.m.Y" }}{% else %}—{% endif %}</b> <small>(тузилган сана)</small></span>
+    <button class="tn-mbtn tn-mbtn-line">Сақлаш</button>
+    {% if not m.date %}<span class="tn-f3-warn">Тузилган сана киритилмаган</span>{% endif %}
+  </form>
+
+  {# ---- кўриниши: унинг варағидаги жадвал (физик кўрсаткич устунлари — фоиз билан бир хил, бу ерда яширин) ----#}
+  <div class="overflow-x-auto">
+  <table class="tn-f3">
+    <thead>
+      <tr><th rowspan="2" class="tn-f3-n">Наименование выполненных работ, оборудование и затрат</th><th rowspan="2">ед.изм.</th>
+        <th colspan="2">Стоимость в договорных ценах (тыс.сум)</th><th colspan="2">С начала строительства</th>
+        <th colspan="2">С начала года по отчетный месяц</th><th colspan="2" class="tn-f3-this">За отчетный месяц</th></tr>
+      <tr><th>всего</th><th>в т.ч. на {{ period.year }} год</th><th>%</th><th>тыс.сум</th><th>%</th><th>тыс.сум</th><th class="tn-f3-this">%</th><th class="tn-f3-this">тыс.сум</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="tn-f3-n">{{ o.name|upper }}</td><td>Объект</td><td>{{ d.obj_total|ming }}</td><td>{{ d.obj_year|ming }}</td>
+        <td>{{ d.pct_obj.cum|foiz }}</td><td>{{ d.cum.total|ming }}</td><td>{{ d.pct_obj.ycum|foiz }}</td><td>{{ d.ycum.total|ming }}</td>
+        <td class="tn-f3-this">{{ d.pct_obj.this|foiz }}</td><td class="tn-f3-this">{{ d.this.total|ming }}</td></tr>
+      <tr><td class="tn-f3-n"><b>Стоимость оборудования, предоставляемого заказчиком</b></td><td></td><td>{{ d.customer|ming }}</td><td>{{ d.customer|ming }}</td>
+        <td></td><td></td><td></td><td></td><td class="tn-f3-this"></td><td class="tn-f3-this"></td></tr>
+      <tr><td class="tn-f3-n">Стоимость подрядных работ без НДС</td><td>СУМ</td><td>{{ d.contract.novat|ming }}</td><td>{{ d.year.novat|ming }}</td>
+        <td>{{ d.pct.cum|foiz }}</td><td>{{ d.cum.novat|ming }}</td><td>{{ d.pct.ycum|foiz }}</td><td>{{ d.ycum.novat|ming }}</td>
+        <td class="tn-f3-this">{{ d.pct.this|foiz }}</td><td class="tn-f3-this">{{ d.this.novat|ming }}</td></tr>
+      <tr><td class="tn-f3-n">НДС {% widthratio d.vat_rate 1 100 %}%</td><td>СУМ</td><td>{{ d.contract.vat|ming }}</td><td>{{ d.year.vat|ming }}</td>
+        <td></td><td>{{ d.cum.vat|ming }}</td><td></td><td>{{ d.ycum.vat|ming }}</td><td class="tn-f3-this"></td><td class="tn-f3-this">{{ d.this.vat|ming }}</td></tr>
+      <tr class="tn-f3-tot"><td class="tn-f3-n">ВСЕГО С НДС</td><td>СУМ</td><td>{{ d.contract.total|ming }}</td><td>{{ d.year.total|ming }}</td>
+        <td>{{ d.pct.cum|foiz }}</td><td>{{ d.cum.total|ming }}</td><td>{{ d.pct.ycum|foiz }}</td><td>{{ d.ycum.total|ming }}</td>
+        <td class="tn-f3-this">{{ d.pct.this|foiz }}</td><td class="tn-f3-this">{{ d.this.total|ming }}</td></tr>
+      <tr class="tn-f3-pay"><td class="tn-f3-n">Всего к оплате</td><td colspan="9">{{ d.words }} <span class="num">({{ d.this.total|pul }} сўм)</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  {% if d.missing %}<p class="tn-f3-miss">Ф-3 учун тўлдирилмаган: <b>{{ d.missing|join:", " }}</b>.
+    <a href="#info" data-open-info>Объект маълумотларини тўлдириш →</a></p>{% endif %}
+  {% if not d.plan_set %}<p class="px-3 pt-2 text-xs text-slate-500">«в т.ч. на {{ period.year }} год» — ҳозирча бутун шартнома. Бу йилга мўлжалланган сумма бошқа бўлса — <a href="#info" data-open-info class="underline">объект маълумотларида</a> киритинг.</p>{% endif %}
+
+  {% include "texnazor/_payments.html" %}
+</section>
+{% endwith %}
+<style>
+  .tn-f3-doc { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 16px; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #334155; }
+  .tn-f3-doc label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: #64748b; }
+  .tn-f3-doc input { border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 8px; font-size: 13.5px; color: #0f172a; }
+  .tn-f3-doc input:focus { outline: none; border-color: #047857; box-shadow: 0 0 0 2px #a7f3d0; }
+  .tn-f3-po { padding-bottom: 6px; } .tn-f3-po small { color: #94a3b8; }
+  .tn-f3-warn { padding: 4px 8px; margin-bottom: 2px; border-radius: 6px; background: #fef3c7; color: #92400e; font-size: 12.5px; }
+  .tn-f3 { width: 100%; min-width: 980px; border-collapse: collapse; font: 13px/1.3 "Times New Roman", Times, serif; color: #000; }
+  .tn-f3 th, .tn-f3 td { border: 1px solid #a0a0a0; padding: 3px 6px; text-align: center; font-variant-numeric: tabular-nums; }
+  .tn-f3 th { background: #ccffff; font-weight: 700; font-size: 12.5px; }
+  .tn-f3 td.tn-f3-n, .tn-f3 th.tn-f3-n { text-align: left; width: 30%; }
+  .tn-f3 .tn-f3-this { background: #eef8ff; }
+  .tn-f3 th.tn-f3-this { background: #b8e6ff; }
+  .tn-f3 tr.tn-f3-tot td { font-weight: 700; }
+  .tn-f3 tr.tn-f3-pay td { font-weight: 700; background: #f8fafc; }
+  .tn-f3 tr.tn-f3-pay td .num { font-weight: 400; color: #475569; }
+  .tn-f3-miss { margin: 10px 12px 0; padding: 8px 12px; border-radius: 8px; background: #fef3c7; color: #78350f; font-size: 13px; }
+  .tn-f3-miss a { margin-left: 6px; font-weight: 600; color: #065f46; text-decoration: underline; }
+</style>

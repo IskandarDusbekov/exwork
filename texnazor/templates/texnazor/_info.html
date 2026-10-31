@@ -1,0 +1,93 @@
+{% load narx texnazor_tags %}{# Объект ва пудратчи маълумотлари — шу объектга бир марта ёзилади, ҳамма ойлардаги Ф-3 га (реквизитлар, шартнома, имзолар) тушади #}
+<details id="info" class="tn-info mb-3"{% if open_info %} open{% endif %}>
+  <summary>
+    <span class="tn-info-h">{% icon "building" "h-4 w-4" %} Объект ва пудратчи маълумотлари</span>
+    {% if info_missing %}<span class="tn-info-miss">Тўлдирилмаган: {{ info_missing|join:", " }}</span>
+    {% else %}<span class="tn-info-ok">{% icon "check" "h-3.5 w-3.5" %} тўлдирилган</span>{% endif %}
+    <span class="tn-info-sub">Бир марта киритилади ва шу объектда сақланади — ҳамма ойлардаги Ф-3 га тушади</span>
+  </summary>
+  <form method="post" action="{% url 'texnazor:f3_settings' o.pk %}">{% csrf_token %}
+    {% if period %}<input type="hidden" name="period" value="{{ period.pk }}">{% endif %}
+    <div class="tn-info-grid">
+      <fieldset>
+        <legend>Объект</legend>
+        <label class="tn-wide">Номи<input name="name" value="{{ o.name }}" maxlength="300" required></label>
+        <label class="tn-wide">Манзили<input name="address" value="{{ o.address }}" maxlength="300" placeholder="масалан Тошкент вилояти, Чиноз тумани"></label>
+      </fieldset>
+      <fieldset>
+        <legend>Шартнома</legend>
+        <label>Рақами<input name="contract_no" value="{{ info.contract_no }}" placeholder="43/Q"></label>
+        <label>Санаси<input type="date" name="contract_date" value="{{ info.contract_date }}"></label>
+        <label>ИД<input name="contract_id" value="{{ info.contract_id }}" inputmode="numeric"></label>
+        <label>Лот<input name="contract_lot" value="{{ info.contract_lot }}" inputmode="numeric"></label>
+        <label class="tn-wide">Жорий йилга мўлжалланган (пудратчи, ҚҚС билан, сўм)
+          <input name="year_plan" inputmode="decimal" value="{% if info.year_plan %}{{ info.year_plan|pul }}{% endif %}"
+                 placeholder="бўш қолса — бутун шартнома{% if o.contract_totals.contractor %}: {{ o.contract_totals.contractor|pul }}{% endif %}">
+          <small>Ф-3 даги «в т.ч. на текущий год» устуни</small></label>
+      </fieldset>
+      <fieldset>
+        <legend>Буюртмачи (заказчик)</legend>
+        <label class="tn-wide">Номи<input name="customer" value="{{ o.customer }}" maxlength="300"></label>
+        <label class="tn-wide">Манзил<input name="customer_address" value="{{ info.customer_address }}"></label>
+        <label>Телефон<input name="customer_phone" value="{{ info.customer_phone }}" inputmode="tel"></label>
+        <label>Банк<input name="customer_bank" value="{{ info.customer_bank }}"></label>
+        <label>СТИР<input name="customer_inn" value="{{ info.customer_inn }}" inputmode="numeric"></label>
+        <label>МФО<input name="customer_mfo" value="{{ info.customer_mfo }}" inputmode="numeric"></label>
+        <label class="tn-wide">Ҳисоб рақами (ШХР)<input name="customer_account" value="{{ info.customer_account }}" inputmode="numeric"></label>
+      </fieldset>
+      <fieldset>
+        <legend>Пудратчи (подрядчик)</legend>
+        <label class="tn-wide">Номи<input name="contractor" value="{{ o.contractor }}" maxlength="300" placeholder="ООО “...”"></label>
+        <label class="tn-wide">Манзил<input name="contractor_address" value="{{ info.contractor_address }}"></label>
+        <label class="tn-wide">Ҳисоб рақами (х/р)<input name="contractor_account" value="{{ info.contractor_account }}" inputmode="numeric"></label>
+        <label class="tn-wide">Банк<input name="contractor_bank" value="{{ info.contractor_bank }}"></label>
+        <label>СТИР<input name="contractor_inn" value="{{ info.contractor_inn }}" inputmode="numeric"></label>
+        <label>МФО<input name="contractor_mfo" value="{{ info.contractor_mfo }}" inputmode="numeric"></label>
+        <label>ОКОНХ<input name="contractor_okonh" value="{{ info.contractor_okonh }}" inputmode="numeric"></label>
+      </fieldset>
+      <fieldset class="tn-info-sign">
+        <legend>Имзолар (Ф.И.Ш.)</legend>
+        <label class="tn-wide">Буюртмачи томони сарлавҳаси<input name="sign_title" value="{{ info.sign_title }}" placeholder="ЗАКАЗЧИК: ёки СТРАТЕГИЧЕСКИЙ КОНСУЛЬТАНТ ПРОЕКТА"></label>
+        <label>Буюртмачи раҳбари<input name="customer_head" value="{{ info.customer_head }}"></label>
+        <label>Буюртмачи бош ҳисобчиси<input name="customer_accountant" value="{{ info.customer_accountant }}"></label>
+        <label>Консультант вакили (ILF)<input name="consultant" value="{{ info.consultant }}"><small>бўш қолса — бу қатор чиқмайди</small></label>
+        <label>Пудратчи раҳбари<input name="contractor_head" value="{{ info.contractor_head }}" placeholder="Ш.Мамараззаков"></label>
+        <label>Пудратчи бош ҳисобчиси<input name="contractor_accountant" value="{{ info.contractor_accountant }}"></label>
+        <label>Техник назорат<input name="texnazor" value="{{ info.texnazor }}" placeholder="А.Шаймарданов"></label>
+      </fieldset>
+    </div>
+    <div class="tn-info-foot"><button class="tn-mbtn tn-mbtn-ok">{% icon "check" "h-4 w-4" %}Сақлаш</button>
+      <span>Ф.И.Ш. бўш бўлса — Ф-3 да чизиқ қолади (қўлда ёзилади).</span></div>
+  </form>
+</details>
+<style>
+  .tn-info { border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+  .tn-info > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 14px; cursor: pointer; list-style: none; }
+  .tn-info > summary::-webkit-details-marker { display: none; }
+  .tn-info-h { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #0f172a; }
+  .tn-info-sub { flex-basis: 100%; font-size: 12px; color: #64748b; }
+  .tn-info-miss { padding: 2px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 12px; }
+  .tn-info-ok { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: #d1fae5; color: #065f46; font-size: 12px; }
+  .tn-info-dot { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #f59e0b; color: #fff; font-size: 11px; font-weight: 700; }
+  .tn-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; padding: 4px 14px 0; }
+  .tn-info fieldset { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; align-content: start; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px 12px; }
+  .tn-info legend { padding: 0 6px; font-size: 13px; font-weight: 700; color: #065f46; }
+  .tn-info label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; font-weight: 600; color: #475569; }
+  .tn-info label.tn-wide { grid-column: 1 / -1; }
+  .tn-info label small { font-weight: 400; color: #94a3b8; }
+  .tn-info input { border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 8px; font-size: 13.5px; font-weight: 400; color: #0f172a; }
+  .tn-info input:focus { outline: none; border-color: #047857; box-shadow: 0 0 0 2px #a7f3d0; }
+  .tn-info-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 14px 14px; font-size: 12px; color: #64748b; }
+  @media (max-width: 520px) { .tn-info fieldset { grid-template-columns: 1fr; } }
+</style>
+<script>
+  // «Объект маълумотлари» тугмаси ва Ф-3 даги ҳаволалар — панелни очиб, унга олиб боради
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest("[data-open-info]");
+    if (!a) return;
+    e.preventDefault();
+    var d = document.getElementById("info");
+    d.open = true;
+    d.scrollIntoView({behavior: "smooth", block: "start"});
+  });
+</script>

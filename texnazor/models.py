@@ -41,6 +41,7 @@ class SiteObject(models.Model):
     file_totals = models.JSONField(default=dict, blank=True)  # ofyortadagi jami summalar (taqqoslash)
     warnings = models.JSONField(default=list, blank=True)  # ofyortadagi xatolar
     contract_totals = models.JSONField(default=dict, blank=True)  # biz hisoblagan shartnoma zanjiri (calc.chain)
+    f3 = models.JSONField(default=dict, blank=True)  # Ф-3 uchun: rekvizitlar, imzolar, joriy yilga mo'ljallangan summa
     worker = models.CharField(max_length=100, blank=True)  # o'qishni egallagan worker (lease)
     heartbeat = models.DateTimeField(null=True, blank=True)
 
@@ -116,6 +117,7 @@ class Period(models.Model):
     closed = models.BooleanField(default=False)
     created = models.DateTimeField(auto_now_add=True)
     paid = models.FloatField(null=True, blank=True)  # Ф-3 bo'yicha haqiqatda to'langan (pudratchi, QQS bilan) — farqi ko'rinadi
+    f3 = models.JSONField(default=dict, blank=True)  # Ф-3: hujjat raqami, tuzilgan sana, davr boshi («с»)
 
     class Meta:
         ordering = ["year", "month"]

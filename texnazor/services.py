@@ -563,3 +563,176 @@ def latest_corrections(obj: SiteObject, items=None) -> Dict[int, Correction]:
 def section_pct(st: dict) -> dict:
     cum = st["before"] + st["this"]
     return {**st, "cum": cum, "pct": 100 * cum / st["contract"] if st["contract"] else 0.0}
+
+
+# ================= Ф-3: справка-счёт-фактура =================
+# Ф-2 — nima bajarildi (minglab qator); Ф-3 — shuning uchun qancha to'lanadi (bitta varaq, imzolanadi).
+# Summalar: shartnoma (jami / joriy yilga), boshidan yig'ma, yil boshidan, shu oy — pudratchi qismi QQSsiz, QQS, QQS bilan.
+
+# Obyekt va pudratchi ma'lumotlari — obyektga bir marta yoziladi (SiteObject.f3), hamma oylardagi Ф-3 ga tushadi.
+# (kalit, nomi, guruh); buyurtmachi / pudratchi nomi va obyekt manzili — SiteObject maydonlarida
+F3_FIELDS = [
+    ("customer_address", "Манзил", "customer"), ("customer_phone", "Телефон", "customer"),
+    ("customer_bank", "Банк", "customer"), ("customer_inn", "СТИР", "customer"), ("customer_mfo", "МФО", "customer"),
+    ("customer_account", "Ҳисоб рақами (ШХР)", "customer"),
+    ("contractor_address", "Манзил", "contractor"), ("contractor_account", "Ҳисоб рақами (х/р)", "contractor"),
+    ("contractor_bank", "Банк", "contractor"), ("contractor_inn", "СТИР", "contractor"), ("contractor_mfo", "МФО", "contractor"),
+    ("contractor_okonh", "ОКОНХ", "contractor"),
+    ("contract_no", "Шартнома рақами", "contract"), ("contract_date", "Шартнома санаси", "contract"),
+    ("contract_id", "ИД", "contract"), ("contract_lot", "Лот", "contract"),
+    ("sign_title", "Буюртмачи томони сарлавҳаси", "sign"), ("customer_head", "Буюртмачи раҳбари", "sign"),
+    ("customer_accountant", "Буюртмачи бош ҳисобчиси", "sign"), ("consultant", "Консультант вакили (ILF)", "sign"),
+    ("contractor_head", "Пудратчи раҳбари", "sign"), ("contractor_accountant", "Пудратчи бош ҳисобчиси", "sign"),
+    ("texnazor", "Техник назорат", "sign"),
+]
+F3_KEYS = [k for k, _, _ in F3_FIELDS]
+F3_DEFAULTS = {"sign_title": "ЗАКАЗЧИК:"}
+MONTHS_RU_GEN = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября",
+                 "ноября", "декабря"]
+LINE = "______________"
+
+
+def _date(v):
+    from datetime import date
+    try:
+        return date.fromisoformat(str(v)) if v else None
+    except ValueError:
+        return None
+
+
+def f3_settings(obj: SiteObject) -> dict:
+    """Obyekt uchun bir marta: rekvizitlar, shartnoma, imzolovchilar, joriy yilga mo'ljallangan summa (bo'sh — butun shartnoma)."""
+    s = {k: "" for k in F3_KEYS}
+    s.update(F3_DEFAULTS)
+    s.update({k: v for k, v in (obj.f3 or {}).items() if k in s or k == "year_plan"})
+    s.setdefault("year_plan", None)
+    return s
+
+
+def f3_missing(obj: SiteObject) -> list:
+    """Ф-3 uchun muhimlari to'ldirilmagan bo'lsa — ularning nomi (sahifada eslatma)."""
+    s = f3_settings(obj)
+    need = [("Буюртмачи", obj.customer), ("Пудратчи", obj.contractor), ("Шартнома рақами", s["contract_no"]),
+            ("Шартнома санаси", s["contract_date"]), ("Пудратчи СТИР", s["contractor_inn"]),
+            ("Пудратчи ҳисоб рақами", s["contractor_account"])]
+    return [name for name, v in need if not str(v or "").strip()]
+
+
+def f3_lines(obj: SiteObject) -> dict:
+    """Ф-3 varag'idagi matnlar — maydonlardan, uning faylidagi ko'rinishda; bo'sh maydon qatori chiqmaydi."""
+    s = f3_settings(obj)
+
+    def put(label, key):
+        return f"{label}{s[key]}" if s[key].strip() else None
+
+    left = [f"Заказчик: {obj.customer}", put("Адрес: ", "customer_address"), put("Тел: ", "customer_phone"),
+            put("", "customer_bank"), put("СТИР  ", "customer_inn"), put("МФО: ", "customer_mfo"), put("ШХР ", "customer_account")]
+    right = [f"Подрядчик:  {obj.contractor}", put("Адрес: ", "contractor_address"), put("Х/р:  ", "contractor_account"),
+             put("", "contractor_bank"), put("СТИР:  ", "contractor_inn"), put("МФО: ", "contractor_mfo"), put("ОКОНХ: ", "contractor_okonh")]
+    d = _date(s["contract_date"])
+    head = "Договор"
+    if d:
+        head += f" от {d.day} {MONTHS_RU_GEN[d.month - 1]} {d.year} г."
+    if s["contract_no"].strip():
+        head += f" № {s['contract_no'].strip()}"
+    contract = [head if head != "Договор" else obj.contract, put("ИД ", "contract_id"), put("Лот ", "contract_lot")]
+    sign_left = [s["sign_title"] or "ЗАКАЗЧИК:", f"Руководитель заказчика:  {LINE}  {s['customer_head']}", "", "",
+                 f"Главный бухгалтер заказчика:  {LINE}  {s['customer_accountant']}"]
+    if s["consultant"].strip():
+        sign_left += ["", "", f"Представитель консультанта заказчика (ILF)  {LINE}  {s['consultant']}"]
+    sign_right = ["ИСПОЛНИТЕЛЬ:", f"Руководитель подрядчика  {LINE}  {s['contractor_head']}", "", "",
+                  f"Гл.Бухгалтер подрядчика:  {LINE}  {s['contractor_accountant']}"]
+    return {"left": [x for x in left if x is not None], "right": [x for x in right if x is not None],
+            "contract": "\n".join(x for x in contract if x), "sign_left": sign_left, "sign_right": sign_right,
+            "texnazor": s["texnazor"]}
+
+
+def f3_meta(period: Period) -> dict:
+    """Hujjat raqami (oylar tartibida), tuzilgan sana, davr «с» — oldingi Ф-3 ning sanasi (o'zgartirsa bo'ladi)."""
+    ps = list(period.obj.periods.all())
+    i = ps.index(period)
+    m = period.f3 or {}
+    prev = _date((ps[i - 1].f3 or {}).get("date")) if i else None
+    return {"num": m.get("num") or i + 1, "date": _date(m.get("date")), "start": _date(m.get("start")) or prev}
+
+
+def _trio(total: float, vat: float) -> dict:
+    nv = total / (1 + vat)
+    return {"novat": nv, "vat": nv * vat, "total": total}
+
+
+def f3_data(period: Period) -> dict:
+    obj = period.obj
+    rates = obj.rates or {}
+    vat = rates.get("vat", 0.12)
+    t = period_totals(period)
+    st = f3_settings(obj)
+    contr, cust = t["contract"].get("contractor", 0.0), t["contract"].get("customer", 0.0)
+    plan = st["year_plan"] if st["year_plan"] else contr
+    ybefore = calc.chain(_cats(Done.objects.filter(_before(period), period__obj=obj, period__year=period.year)), rates)["contractor"]
+    this = t["this"]["contractor"]
+    d = {
+        "contract": _trio(contr, vat), "year": _trio(plan, vat),
+        "before": _trio(t["before"]["contractor"], vat), "cum": _trio(t["cum"]["contractor"], vat),
+        "ybefore": _trio(ybefore, vat), "ycum": _trio(ybefore + this, vat), "this": _trio(this, vat),
+        "customer": cust, "obj_total": cust + contr, "obj_year": cust + plan, "vat_rate": vat,
+        "words": money_words(this), "settings": st, "lines": f3_lines(obj), "missing": f3_missing(obj), "meta": f3_meta(period), "plan_set": bool(st["year_plan"]),
+    }
+    d["pct"] = {"cum": t["cum"]["contractor"] / contr if contr else 0.0,
+                "ycum": (ybefore + this) / plan if plan else 0.0,
+                "this": this / contr if contr else 0.0}
+    q = lambda a, b: a / b if b else 0.0  # noqa: E731 — «Объект» qatori: uskunasi bilan jami qiymatga nisbatan
+    d["pct_obj"] = {"cum": q(t["cum"]["contractor"], d["obj_total"]), "ycum": q(ybefore + this, d["obj_year"]),
+                    "this": q(this, d["obj_total"])}
+    return d
+
+
+_ONES = ["", "один", "два", "три", "четыре", "пять", "шесть", "семь", "восемь", "девять", "десять", "одиннадцать",
+         "двенадцать", "тринадцать", "четырнадцать", "пятнадцать", "шестнадцать", "семнадцать", "восемнадцать", "девятнадцать"]
+_TENS = ["", "", "двадцать", "тридцать", "сорок", "пятьдесят", "шестьдесят", "семьдесят", "восемьдесят", "девяносто"]
+_HUNDREDS = ["", "сто", "двести", "триста", "четыреста", "пятьсот", "шестьсот", "семьсот", "восемьсот", "девятьсот"]
+_SCALES = [(("тысяча", "тысячи", "тысяч"), True), (("миллион", "миллиона", "миллионов"), False),
+           (("миллиард", "миллиарда", "миллиардов"), False), (("триллион", "триллиона", "триллионов"), False)]
+
+
+def _plural(n: int, forms) -> str:
+    n = n % 100
+    if 10 < n < 20:
+        return forms[2]
+    return forms[0] if n % 10 == 1 else forms[1] if 2 <= n % 10 <= 4 else forms[2]
+
+
+def _triad(n: int, female: bool) -> list:
+    out = [_HUNDREDS[n // 100]]
+    n %= 100
+    if n < 20:
+        w = _ONES[n]
+    else:
+        out.append(_TENS[n // 10])
+        w = _ONES[n % 10]
+    if female and w in ("один", "два"):
+        w = {"один": "одна", "два": "две"}[w]
+    return [x for x in out + [w] if x]
+
+
+def money_words(v: float) -> str:
+    """5 526 179 267,29 -> «Пять миллиардов пятьсот двадцать шесть миллионов ... двести шестьдесят семь сум» (Ф-3 «Всего к оплате»)."""
+    n = int(round(v))
+    if n == 0:
+        return "Ноль сум"
+    words, neg, n = [], n < 0, abs(n)
+    groups = []
+    while n:
+        groups.append(n % 1000)
+        n //= 1000
+    for i in range(len(groups) - 1, -1, -1):
+        g = groups[i]
+        if not g:
+            continue
+        if i == 0:
+            words += _triad(g, False)
+        else:
+            forms, female = _SCALES[i - 1]
+            words += _triad(g, female) + [_plural(g, forms)]
+    text = ("минус " if neg else "") + " ".join(words) + " сум"
+    return text[0].upper() + text[1:]

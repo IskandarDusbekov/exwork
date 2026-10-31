@@ -9,6 +9,25 @@ register = template.Library()
 
 
 @register.filter
+def ming(v):
+    """Ф-3 dagidek ming so'mda: 18 390 330 726,71 -> «18 390 330,727»."""
+    try:
+        v = float(v or 0) / 1000
+    except (TypeError, ValueError):
+        return ""
+    return f"{0.0 if abs(v) < 0.0005 else v:,.3f}".replace(",", " ").replace(".", ",")
+
+
+@register.filter
+def foiz(v):
+    """0.8071 -> «80,72%»."""
+    try:
+        return f"{float(v or 0) * 100:.2f}".replace(".", ",") + "%"
+    except (TypeError, ValueError):
+        return ""
+
+
+@register.filter
 def pul(v):
     """Pul — har doim tiyingacha (Ф-2 / Ф-3 dagidek): 2 862 982,69; butun bo'lsa ham 1 000,00. Yaxlitlanmaydi."""
     if v is None or v == "":

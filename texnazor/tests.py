@@ -101,6 +101,13 @@ def test_zero_volume_work_with_wrong_formula_is_reported(tmp_path):
     assert len(of.warnings) == 1 and "ҳажми 0" in w["text"] and "15 000" in w["title"] and w["row"]
 
 
+def test_money_words_russian():
+    assert services.money_words(18390330726.71) == ("Восемнадцать миллиардов триста девяносто миллионов триста тридцать "
+                                                   "тысяч семьсот двадцать семь сум")
+    assert services.money_words(2002) == "Две тысячи два сум"
+    assert services.money_words(11000) == "Одиннадцать тысяч сум"
+
+
 def test_chain_matches_svodka_formula():
     rates = {"tr_material": 0.03, "tr_cable": 0.015, "overhead": 0.17, "tr_eq_customer": 0.02,
              "tr_eq_contractor": 0.02, "insurance": 0.0032, "vat": 0.12}
@@ -140,6 +147,60 @@ class TexnazorFlowTests(TestCase):
     def _post(self, name, body, **kw):
         return self.client.post(reverse(f"texnazor:{name}", kwargs={"obj_id": self.obj.pk, **kw}), json.dumps(body),
                                 content_type="application/json")
+
+    def test_f3_two_months_cumulative_and_settings(self):
+        """Ф-3: шу ой = Ф-2 жами (пудратчи), йиғма — олдинги ойлар + шу ой; рақам, сана, давр «с» — олдингисидан."""
+        from io import BytesIO
+        from openpyxl import load_workbook
+        add = lambda m: self.client.post(reverse("texnazor:period_add", args=[self.obj.pk]), {"year": 2026, "month": m})  # noqa: E731
+        add(10)
+        octo = Period.objects.get()
+        self._post("fill_items", {"period": octo.pk, "items": [self.work.pk], "pct": "40"})
+        self.client.post(reverse("texnazor:f3_period", args=[self.obj.pk, octo.pk]), {"date": "2026-10-28", "start": "2026-09-30"})
+        self.client.post(reverse("texnazor:period_close", args=[self.obj.pk, octo.pk]), {"closed": "1"})
+        add(11)
+        nov = Period.objects.get(month=11)
+        self._post("fill_items", {"period": nov.pk, "items": [self.work.pk], "pct": "100"})
+        r = self.client.post(reverse("texnazor:f3_settings", args=[self.obj.pk]),
+                             {"period": nov.pk, "customer": "Халқ таълими", "contractor": "ООО Қурувчи", "customer_inn": "312 081 448",
+                              "contractor_inn": "305418313", "contractor_account": "2020800", "contract_no": "43/Q",
+                              "contract_date": "2026-04-14", "contract_id": "2501", "contractor_head": "Ш.Мамараззаков",
+                              "texnazor": "А.Шаймарданов", "year_plan": ""})
+        self.assertEqual(r.status_code, 302)
+        self.obj.refresh_from_db()
+        self.assertEqual(self.obj.contract, "№ 43/Q 14.04.2026")
+        self.assertEqual(services.f3_missing(self.obj), [])  # ҳаммаси эслаб қолинди
+        nov = Period.objects.get(pk=nov.pk)
+        d = services.f3_data(nov)
+        t = services.period_totals(nov)
+        vat = self.obj.rates["vat"]
+        self.assertEqual(d["meta"]["num"], 2)
+        self.assertEqual(str(d["meta"]["start"]), "2026-10-28")  # олдинги Ф-3 тузилган санаси
+        self.assertAlmostEqual(d["this"]["total"], t["this"]["contractor"])
+        self.assertAlmostEqual(d["this"]["novat"] * (1 + vat), t["this"]["contractor"])
+        self.assertAlmostEqual(d["cum"]["total"], t["before"]["contractor"] + t["this"]["contractor"])
+        self.assertAlmostEqual(d["year"]["total"], d["contract"]["total"])  # жорий йил киритилмаган — бутун шартнома
+        self.assertGreater(d["before"]["total"], 0)
+        page = self.client.get(reverse("texnazor:object", args=[self.obj.pk]), {"p": nov.pk}).content.decode()
+        self.assertIn("Ф-3 №2", page)
+        self.assertIn(d["words"], page)
+        dl = self.client.get(reverse("texnazor:f3", args=[self.obj.pk, nov.pk]))
+        self.assertEqual(dl.status_code, 200)
+        ws = load_workbook(BytesIO(dl.content), data_only=True).active
+        cells = {c.value: c for row in ws.iter_rows() for c in row if isinstance(c.value, str)}
+        self.assertIn("Заказчик: Халқ таълими", cells)
+        self.assertIn("СТИР  312 081 448", cells)
+        self.assertIn("Договор от 14 апреля 2026 г. № 43/Q\nИД 2501", cells)
+        self.assertIn("Руководитель подрядчика  ______________  Ш.Мамараззаков", cells)
+        self.assertNotIn("МФО: ", cells)  # бўш майдон қатори чиқмайди
+        self.assertIn(d["words"], cells)
+        self.assertIn("А.Шаймарданов", cells)
+        tot = cells["ВСЕГО С НДС"].row
+        self.assertAlmostEqual(ws[f"P{tot}"].value, d["this"]["total"] / 1000, places=6)
+        self.assertAlmostEqual(ws[f"J{tot}"].value, d["cum"]["total"] / 1000, places=6)
+        # жорий йилга алоҳида сумма
+        self.client.post(reverse("texnazor:f3_settings", args=[self.obj.pk]), {"period": nov.pk, "year_plan": "1 000 000,5"})
+        self.assertAlmostEqual(services.f3_data(Period.objects.get(pk=nov.pk))["year"]["total"], 1000000.5)
 
     def test_month_cycle_october_close_november(self):
         """Октябрь: бир иш 100% (белгилаб), бири қисман 40%, ёпилади; Ноябрда тугагани «тугаган», қисмани қолдиғи билан."""

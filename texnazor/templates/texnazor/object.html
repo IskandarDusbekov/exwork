@@ -16,9 +16,12 @@
       <span>Офёрта: {{ o.source_name }}</span>
     </div>
   </div>
+  <a href="#info" data-open-info class="tn-mbtn tn-mbtn-line shrink-0">{% icon "pencil" "h-4 w-4" %}Объект маълумотлари{% if info_missing %} <span class="tn-info-dot" title="Тўлдирилмаган: {{ info_missing|join:', ' }}">{{ info_missing|length }}</span>{% endif %}</a>
 </div>
 
-{% for m in messages %}<div class="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{{ m }}</div>{% endfor %}
+{% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-800{% endif %}">{{ m }}</div>{% endfor %}
+
+{% include "texnazor/_info.html" %}
 
 {% if warnings %}
 <details class="mb-3 rounded-lg border border-amber-300 bg-amber-50 text-sm text-amber-950"{% if warnings|length <= 3 %} open{% endif %}>
@@ -53,6 +56,8 @@
       <span class="tn-months-sel">Танланган: <b>{{ period.title }}</b></span>
       <a href="{% url 'texnazor:f2' o.pk period.pk %}" class="tn-mbtn tn-mbtn-line" download
          title="{% if period.closed %}Бажарилган ишлар далолатномаси (Excel){% else %}Ой ҳали ёпилмаган — ҳозиргача ёзилганлар бўйича{% endif %}">{% icon "download" "h-4 w-4" %}Ф-2 юклаб олиш</a>
+      <a href="{% url 'texnazor:f3' o.pk period.pk %}" class="tn-mbtn tn-mbtn-line" download
+         title="Справка-счёт-фактура (Excel) — тўлов учун">{% icon "download" "h-4 w-4" %}Ф-3 юклаб олиш</a>
       <form method="post" action="{% url 'texnazor:period_close' o.pk period.pk %}">{% csrf_token %}
         <input type="hidden" name="closed" value="{{ period.closed|yesno:'0,1' }}">
         <button class="tn-mbtn {% if period.closed %}tn-mbtn-line{% else %}tn-mbtn-ok{% endif %}"
@@ -130,8 +135,9 @@
   <div class="border-b border-slate-100 px-3 py-2.5"><h2 class="font-semibold">Сводка — {{ period.title }}</h2>
     <p class="text-xs text-slate-500">Офёрта сводкаси билан бир хил ҳисоб: транспорт, пудратчи бошқа харажатлари, суғурта ва ҚҚС фоизлари офёртадан олинган.</p></div>
   <div id="tn-summary" class="overflow-x-auto">{% include "texnazor/_summary.html" %}</div>
-  {% include "texnazor/_payments.html" %}
 </section>
+
+{% include "texnazor/_f3.html" %}
 {% endif %}
 
 <form method="post" action="{% url 'texnazor:delete' o.pk %}" class="mb-8 text-right">{% csrf_token %}<input type="hidden" name="confirm">
