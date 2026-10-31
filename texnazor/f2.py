@@ -172,7 +172,7 @@ def build(period: Period) -> bytes:
     pending = []  # hali yozilmagan sarlavhalar: (nomi, blokmi)
     write_items(by_sec.get(None, []))
     for s in obj.sections.all():
-        block = bool(services._BLOCK.search(s.title))
+        block = s.is_block
         if block:
             pending = [(s.title, True)]
         elif not s.items_count:
@@ -185,6 +185,22 @@ def build(period: Period) -> bytes:
     last = max(first, r - 1)
 
     # ---- JAMI va svodka (uning faylidagi qatorlar va formulalar) ----
+    extras = []  # svodkadagi qo'shimcha qatorlar (masalan «Художественный элемент») — shu oyda yozilgan hajmi bilan
+    for it in obj.items.filter(kind=Item.Kind.EXTRA).order_by("order"):
+        extras.append((it.name, it.unit, done.get(it.pk), it.price))
+    svodka(ws, fmt, r, first, last, sums, rates, extras)
+
+    ws.repeat_rows(9, 11)
+    ws.fit_to_pages(1, 0)
+    ws.set_paper(9)  # A4
+    wb.close()
+    return buf.getvalue()
+
+
+def svodka(ws, fmt, r: int, first: int, last: int, sums: dict, rates: dict, extras=()) -> int:
+    """«JAMI:» qatori (J..O ustunlar yig'indisi) va ostida svodka — uning ofyortasi / Ф-2 dagi qatorlar va formulalar
+    bilan. ``extras`` — sug'urtadan keyingi qo'shimcha qatorlar: (nomi, birligi, hajmi yoki None, narxi).
+    Ф-2 va tizimda yasalgan ofyorta shu bitta funksiyadan foydalanadi. Oxirgi yozilgan qatordan keyingi raqam qaytadi."""
     jami = r
     ws.write(f"C{jami}", "JAMI:", fmt(bold=True, bg=PINK, box=False))
     for cat, col in CAT_COL.items():
@@ -229,18 +245,16 @@ def build(period: Period) -> bytes:
     line("Mf", "JAMI USKUNALAR TRANSPORT XARAJATLARI BILAN", "=SUM(I{M}:I{trM})", val["M"] + val["trM"])
     line("base", "JAMI TO'G'RIDAN TO'G'RI XARAJATLAR USKUNALAR BILAN", "=+I{do}+I{Nf}+I{Mf}", val["do"] + val["Nf"] + val["Mf"])
     rate("ins", "OBYEKTNI SUG'URTALASH", "base", "insurance")
-    # svodkadagi qo'shimcha qatorlar (masalan «Художественный элемент») — shu oyda yozilgan hajmi bilan
     xs = 0.0
-    for it in obj.items.filter(kind=Item.Kind.EXTRA).order_by("order"):
-        q = done.get(it.pk)
-        amount = it.price * q if q else 0.0
-        line(f"x{it.pk}", it.name, None, amount, bold=False, bg="#FFFFFF")
+    for i, (name, unit, q, price) in enumerate(extras):
+        amount = price * q if q else 0.0
+        line(f"x{i}", name, None, amount, bold=False, bg="#FFFFFF")
         xr = r - 1
-        ws.write(f"D{xr}", it.unit, fmt())
+        ws.write(f"D{xr}", unit, fmt())
         ws.write(f"E{xr}", q, fmt()) if q else ws.write_blank(f"E{xr}", None, fmt())
-        ws.write(f"G{xr}", it.price, fmt(money=True))
+        ws.write(f"G{xr}", price, fmt(money=True))
         ws.write_formula(f"I{xr}", f"=+G{xr}*E{xr}", fmt(money=True), amount)
-        ws.set_row(xr - 1, _height((it.name, 72)))
+        ws.set_row(xr - 1, _height((name, 72)))
         xs += amount
     at["x_last"] = r - 1
     line("novat", "JAMI OB'EKT QIYMATI QQS SIZ", "=SUM(I{base}:I{x_last})", val["base"] + val["ins"] + xs)
@@ -256,9 +270,4 @@ def build(period: Period) -> bytes:
     line("pnovat", "PUDRATCHI XARAJATLARI QQS SIZ", "=+I{novat}-I{cnovat}", val["novat"] - val["cnovat"])
     line("pvat", f"PUDRATCHI XARAJATLARI {_pct(rates['vat'])} QQS", "=+I{pnovat}*%s" % rates["vat"], val["pnovat"] * rates["vat"])
     line("ptotal", "PUDRATCHI XARAJATLARI QQS BILAN", "=SUM(I{pnovat}:I{pvat})", val["pnovat"] + val["pvat"])
-
-    ws.repeat_rows(9, 11)
-    ws.fit_to_pages(1, 0)
-    ws.set_paper(9)  # A4
-    wb.close()
-    return buf.getvalue()
+    return r

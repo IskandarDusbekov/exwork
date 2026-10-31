@@ -72,6 +72,7 @@ class Ofyorta:
     title: str = ""
     object_type: str = ""
     sections: List[str] = field(default_factory=list)
+    blocks: set = field(default_factory=set)  # blok sarlavhasi bo'lgan bo'limlar (indeksi) — qizil yoki «НА … / БЛОК-1»
     rows: List[Row] = field(default_factory=list)
     rates: Dict[str, float] = field(default_factory=lambda: dict(DEFAULT_RATES))
     file_totals: Dict[str, float] = field(default_factory=dict)  # svodkadagi summalar (taqqoslash uchun)
@@ -260,7 +261,34 @@ def parse(path: Path, sheet: Optional[str] = None, progress: Callable[[int, int]
     _unit_costs(of)
     _check_amounts(of)
     _svodka(of, rows[end:], cols, end)
+    _mark_blocks(of, path, name, cols["name"])
     return of
+
+
+BLOCK_RE = re.compile(r"^\s*НА\s+|\bБЛОК[\s№-]*\d", re.I)  # «НА АС БЛОК-1», «НА ЭО», «АС БЛОК-2»
+
+
+def _red(cell) -> bool:
+    c = cell.font.color if cell.font is not None else None
+    return bool(c is not None and c.type == "rgb" and isinstance(c.rgb, str) and c.rgb.upper().endswith("FF0000"))
+
+
+def _mark_blocks(of: Ofyorta, path: Path, sheet: str, name_col: int):
+    """Qaysi sarlavha blok: nomi qizil (uning ofyortalarida shunday) yoki nomida «НА …» / «БЛОК-1». Faqat nom
+    ustuni o'qiladi (tez). Tizimda yasalgan ofyortada bu taxmin emas — tuzilish alohida saqlanadi (``MyOfyorta``)."""
+    heads = {r.excel_row: r.section for r in of.rows if r.kind == "section"}
+    red = set()
+    try:
+        wb = load_workbook(path, read_only=True, keep_links=False)
+        try:
+            for (cell,) in wb[sheet].iter_rows(min_col=name_col + 1, max_col=name_col + 1):
+                if getattr(cell, "row", None) in heads and _red(cell):
+                    red.add(heads[cell.row])
+        finally:
+            wb.close()
+    except Exception:  # noqa: BLE001 — rang o'qilmasa ham nomi bo'yicha aniqlanadi
+        pass
+    of.blocks = {i for i, t in enumerate(of.sections) if i in red or BLOCK_RE.search(t)}
 
 
 def _check_amounts(of: Ofyorta):

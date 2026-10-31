@@ -1,0 +1,4 @@
+<div class="mb-4 inline-flex rounded-lg bg-slate-100 p-1 text-sm">
+  <a href="{% url 'texnazor:index' %}" class="rounded-md px-3 py-1 font-medium {% if tab == 'objects' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}">Объектлар</a>
+  <a href="{% url 'texnazor:my_list' %}" class="rounded-md px-3 py-1 font-medium {% if tab == 'my' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}">Менинг офёрталарим</a>
+</div>

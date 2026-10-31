@@ -12,12 +12,47 @@
         data-progress='{"title": "Офёрта юкланмоқда", "steps": ["Файл серверга юборилмоқда", "Объект яратилмоқда", "Офёрта ўқиш навбатига қўйилмоқда"]}'
         class="mt-5 space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
     {% csrf_token %}
-    <label class="block">
-      <span class="text-sm font-medium text-slate-800">Офёрта файли <span class="text-rose-600">*</span></span>
-      <input type="file" name="ofyorta" accept=".xls,.xlsx,.xlsm" required
+    {% if my_ofyorta %}
+    <fieldset>
+      <legend class="text-sm font-medium text-slate-800">Офёрта <span class="text-rose-600">*</span></legend>
+      <div class="mt-1 grid gap-2 sm:grid-cols-2">
+        <label class="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm has-[:checked]:border-slate-900 has-[:checked]:bg-slate-50">
+          <input type="radio" name="source" value="my" {% if data.source == "my" %}checked{% endif %} {% if not mine %}disabled{% endif %} class="mt-0.5">
+          <span><b class="font-medium text-slate-900">Менинг офёрталаримдан</b><br><span class="text-xs text-slate-500">тизимда нархланган сметалардан тузилган — блоклар аниқ</span></span></label>
+        <label class="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm has-[:checked]:border-slate-900 has-[:checked]:bg-slate-50">
+          <input type="radio" name="source" value="file" {% if data.source != "my" %}checked{% endif %} class="mt-0.5">
+          <span><b class="font-medium text-slate-900">Excel файл юклаш</b><br><span class="text-xs text-slate-500">тайёр ёки сметачи ўзгартирган офёрта</span></span></label>
+      </div>
+    </fieldset>
+    <div data-source="my">
+      {% if mine %}
+      <select name="my" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none">
+        <option value="">— офёртани танланг —</option>
+        {% for d in mine %}<option value="{{ d.pk }}" {% if data.my == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }} · {{ d.updated|date:"d.m.Y" }}</option>{% endfor %}
+      </select>
+      {% else %}
+      <p class="text-sm text-slate-500">Тайёр офёрта йўқ — <a href="{% url 'texnazor:my_list' %}" class="text-sky-700 hover:underline">«Менинг офёрталарим»</a> да нархланган сметалардан тузинг.</p>
+      {% endif %}
+    </div>
+    {% else %}
+    <span class="text-sm font-medium text-slate-800">Офёрта файли <span class="text-rose-600">*</span></span>
+    {% endif %}
+    <label data-source="file">
+      <input type="file" name="ofyorta" accept=".xls,.xlsx,.xlsm"
              class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-900 file:px-3 file:py-1.5 file:text-white">
       <span class="mt-1 block text-xs text-slate-500">«ОФЁРТА» листи бўлган файл (бошқа листлар — Ф-2, Ф-3 ва ҳ.к. — бўлса ҳам бўлади).</span>
     </label>
+    <script>
+      (function () {
+        var form = document.currentScript.closest("form");
+        var show = function () {
+          var v = (form.querySelector('input[name="source"]:checked') || {}).value || "file";
+          form.querySelectorAll("[data-source]").forEach(function (el) { el.hidden = el.dataset.source !== v; });
+        };
+        form.querySelectorAll('input[name="source"]').forEach(function (r) { r.addEventListener("change", show); });
+        show();
+      })();
+    </script>
     <label class="block">
       <span class="text-sm font-medium text-slate-800">Объект номи</span>
       <input type="text" name="name" value="{{ data.name|default:'' }}" maxlength="300" placeholder="бўш қолса — офёртадаги номи олинади"

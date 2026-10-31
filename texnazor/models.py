@@ -41,6 +41,7 @@ class SiteObject(models.Model):
     file_totals = models.JSONField(default=dict, blank=True)  # ofyortadagi jami summalar (taqqoslash)
     warnings = models.JSONField(default=list, blank=True)  # ofyortadagi xatolar
     contract_totals = models.JSONField(default=dict, blank=True)  # biz hisoblagan shartnoma zanjiri (calc.chain)
+    made_from = models.ForeignKey("MyOfyorta", null=True, blank=True, on_delete=models.SET_NULL, related_name="site_objects")  # tizimda yasalgan ofyortadan
     f3 = models.JSONField(default=dict, blank=True)  # Ф-3 uchun: rekvizitlar, imzolar, joriy yilga mo'ljallangan summa
     worker = models.CharField(max_length=100, blank=True)  # o'qishni egallagan worker (lease)
     heartbeat = models.DateTimeField(null=True, blank=True)
@@ -63,6 +64,7 @@ class Section(models.Model):
     obj = models.ForeignKey(SiteObject, on_delete=models.CASCADE, related_name="sections")
     order = models.PositiveIntegerField()
     title = models.CharField(max_length=500)
+    is_block = models.BooleanField(default=False)  # blok sarlavhasi («НА АС БЛОК-1», lokal smeta) — ostidagi bo'limlar unga tegishli
     items_count = models.PositiveIntegerField(default=0)  # ichidagi ish/mustaqil resurslar (bo'sh — guruh sarlavhasi)
 
     class Meta:
@@ -139,6 +141,7 @@ class Done(models.Model):
     period = models.ForeignKey(Period, on_delete=models.CASCADE, related_name="done")
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="done")
     qty = models.FloatField()
+    updated = models.DateTimeField(auto_now=True, null=True)  # qachon yozilgan (panel: texnazor nima qilgani)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["period", "item"], name="tn_done_unique")]
@@ -162,3 +165,48 @@ class Correction(models.Model):
 
     class Meta:
         ordering = ["-created", "-pk"]
+
+
+class MyOfyorta(models.Model):
+    """«Менинг офёрталарим»: narxlash loyihasidagi narxlangan lokallardan yig'ilgan ofyorta. Har lokal — blok,
+    ichidagi «РАЗДЕЛ»lar — bo'limlar. Tuzilishi (qaysi sarlavha blok) ``structure`` da aniq yoziladi — texnazor
+    Excel'dagi rang yoki nomga qarab taxmin qilmaydi."""
+    class Status(models.TextChoices):
+        BUILDING = "building", "Тузиляпти"
+        READY = "ready", "Тайёр"
+        FAILED = "failed", "Хато"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    project = models.ForeignKey("jobs.Project", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    name = models.CharField(max_length=300)
+    object_type = models.CharField(max_length=200, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.BUILDING)
+    error = models.TextField(blank=True)
+    # [{"job": id, "title": блок номи, "include": bool}] — тартиби офёртадаги тартиб
+    parts = models.JSONField(default=list, blank=True)
+    customer = models.JSONField(default=list, blank=True)  # buyurtmachi uskunalari: ["<job>:<qator>", ...]
+    rates = models.JSONField(default=dict, blank=True)     # svodka foizlari (calc.chain kalitlari)
+    structure = models.JSONField(default=list, blank=True)  # [{"title", "block"}] — bo'lim sarlavhalari tartibda
+    totals = models.JSONField(default=dict, blank=True)     # calc.chain (shartnoma)
+    problems = models.JSONField(default=list, blank=True)  # narxsiz qatorlar va h.k. — {"part", "row", "name", "text"}
+    rows = models.PositiveIntegerField(default=0)
+    progress = models.JSONField(default=dict, blank=True)  # {"step", "done", "total"}
+    worker = models.CharField(max_length=100, blank=True)  # yasashni egallagan worker (lease)
+    heartbeat = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created"]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def dir(self) -> Path:
+        return Path(settings.MEDIA_ROOT) / "texnazor" / "ofyorta" / str(self.id)
+
+    @property
+    def file(self) -> Path:
+        return self.dir / "ofyorta.xlsx"

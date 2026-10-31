@@ -1,0 +1,123 @@
+{% extends "jobs/base.html" %}
+{% load narx texnazor_tags %}
+{% block title %}Офёрта тузиш · Техназор{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-5xl">
+  <a href="{% if doc %}{% url 'texnazor:my_detail' doc.pk %}{% else %}{% url 'texnazor:my_list' %}{% endif %}" class="text-sm text-slate-500 hover:text-slate-900">← {% if doc %}{{ doc.name }}{% else %}Менинг офёрталарим{% endif %}</a>
+  <h1 class="mt-2 text-xl font-semibold text-slate-900">{% if doc %}Офёртани қайта тузиш{% else %}Офёрта тузиш{% endif %}</h1>
+  <p class="mt-1 text-sm text-slate-500">Лойиҳа: <b class="text-slate-700">{{ project.name }}</b> · {{ s.parts|length }} та нархланган смета.
+    Ҳар локал офёртада <b>блок</b> бўлади (сарлавҳаси қизил), ичидаги «РАЗДЕЛ»лар — бўлимлар. Блок номларини ўзгартириш мумкин.</p>
+  {% if error %}<div class="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">{{ error }}</div>{% endif %}
+
+  <form method="post" class="mt-5 space-y-5" data-busy
+        data-progress='{"title": "Офёрта навбатга қўйилмоқда", "steps": ["Сақланмоқда"]}'>
+    {% csrf_token %}
+    {% if not doc %}<input type="hidden" name="project" value="{{ project.pk }}">{% endif %}
+
+    <section class="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2">
+      <label class="block">
+        <span class="text-sm font-medium text-slate-800">Объект номи</span>
+        <input type="text" name="name" value="{{ name }}" maxlength="300" required
+               class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none">
+      </label>
+      <label class="block">
+        <span class="text-sm font-medium text-slate-800">Объект тури</span>
+        <input type="text" name="object_type" value="{{ object_type }}" maxlength="200" placeholder="масалан: Таълим муассасаси"
+               class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none">
+      </label>
+    </section>
+
+    <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div class="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-3">
+        <h2 class="flex-1 font-semibold text-slate-900">Блоклар (локаллар) — офёртадаги тартибда</h2>
+        <label class="inline-flex items-center gap-1.5 text-sm text-slate-600"><input type="checkbox" data-all="include" checked class="h-4 w-4 rounded border-slate-300"> ҳаммаси</label>
+      </div>
+      <div class="max-h-[32rem] overflow-y-auto">
+        <table class="w-full text-sm">
+          <thead class="sticky top-0 bg-slate-50 text-left text-xs text-slate-500">
+            <tr><th class="w-10 px-3 py-2"></th><th class="px-2 py-2">Блок номи (офёртада)</th><th class="px-2 py-2">Локал</th><th class="px-3 py-2 text-right">Локал жами, ҚҚС билан</th></tr>
+          </thead>
+          <tbody>
+          {% for p in s.parts %}
+            <tr class="border-t border-slate-100 align-top">
+              <td class="px-3 py-2"><input type="checkbox" name="include_{{ p.job }}" value="1" {% if p.include %}checked{% endif %} data-group="include" class="mt-1.5 h-4 w-4 rounded border-slate-300" aria-label="Офёртага олиш"></td>
+              <td class="px-2 py-1.5"><input type="text" name="title_{{ p.job }}" value="{{ p.title }}" maxlength="300"
+                     class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm font-medium uppercase text-rose-700 focus:border-slate-900 focus:outline-none"></td>
+              <td class="px-2 py-2 text-xs text-slate-500"><div class="max-w-xs truncate" title="{{ p.folder }} / {{ p.local }}">{{ p.folder|default:"—" }}</div><div class="max-w-xs truncate">{{ p.local }}</div>
+                {% if p.odd %}<div class="mt-0.5 font-medium text-amber-700">⚠ фоизлари бошқача</div>{% endif %}</td>
+              <td class="num whitespace-nowrap px-3 py-2 text-right text-slate-700">{{ p.total|pul }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="font-semibold text-slate-900">Сводка фоизлари</h2>
+      <p class="mt-1 text-sm text-slate-500">Офёртада битта сводка — фоизлар ҳамма блок учун бир хил. Олдиндан — локалларнинг кўпчилигидаги фоизлар.</p>
+      {% if s.differ %}
+      <div class="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <b>⚠ {{ s.differ|length }} та локалда фоизлар бошқача</b> — офёрта жами локаллар йиғиндисидан фарқ қилади.
+        <details class="mt-1"><summary class="cursor-pointer text-amber-800">Қайсилари</summary>
+          <ul class="mt-1 space-y-0.5 text-xs">{% for d in s.differ %}<li><b>{{ d.title }}</b>: {{ d.text }}</li>{% endfor %}</ul>
+        </details>
+      </div>
+      {% endif %}
+      <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {% for key, label, v in s.labels %}
+        <label class="block">
+          <span class="text-xs font-medium text-slate-700">{{ label }}, %</span>
+          <input type="text" inputmode="decimal" name="rate_{{ key }}" value="{{ v|foiz_son }}" required
+                 class="num mt-1 w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-slate-900 focus:outline-none">
+        </label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div class="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-3">
+        <div class="flex-1">
+          <h2 class="font-semibold text-slate-900">Ускуналар — буюртмачиникини белгиланг</h2>
+          <p class="text-sm text-slate-500">Белгиланмаганлари — пудратчи ускунаси (M устун), белгиланганлари — «ЖИХОЗ ЗАКАЗЧИК» (N устун, нархи «Цена заказчик» да).</p>
+        </div>
+        {% if s.equipment %}<label class="inline-flex items-center gap-1.5 text-sm text-slate-600"><input type="checkbox" data-all="customer" class="h-4 w-4 rounded border-slate-300"> ҳаммаси буюртмачиники</label>{% endif %}
+      </div>
+      {% if s.equipment %}
+      <div class="max-h-96 overflow-y-auto">
+        <table class="w-full text-sm">
+          <thead class="sticky top-0 bg-slate-50 text-left text-xs text-slate-500">
+            <tr><th class="w-10 px-3 py-2"></th><th class="px-2 py-2">Номи</th><th class="px-2 py-2">Блок</th><th class="px-2 py-2 text-right">Миқдор</th><th class="px-3 py-2 text-right">Сумма</th></tr>
+          </thead>
+          <tbody>
+          {% for e in s.equipment %}
+            <tr class="border-t border-slate-100">
+              <td class="px-3 py-1.5"><input type="checkbox" name="customer" value="{{ e.key }}" {% if e.customer %}checked{% endif %} data-group="customer" class="h-4 w-4 rounded border-slate-300" aria-label="Буюртмачиники"></td>
+              <td class="px-2 py-1.5 text-slate-800">{{ e.name }}</td>
+              <td class="max-w-[14rem] truncate px-2 py-1.5 text-xs text-slate-500" title="{{ e.part }}">{{ e.part }}</td>
+              <td class="num whitespace-nowrap px-2 py-1.5 text-right text-slate-700">{{ e.qty|qty }} {{ e.unit }}</td>
+              <td class="num whitespace-nowrap px-3 py-1.5 text-right text-slate-700">{{ e.amount|pul }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="px-5 py-4 text-sm text-slate-500">Сметаларда ускуна (M устун) йўқ.</p>
+      {% endif %}
+    </section>
+
+    <button type="submit" class="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-700">
+      <span class="when-idle">{% if doc %}Қайта тузиш{% else %}Офёртани тузиш{% endif %}</span><span class="when-busy items-center gap-2">Сақланмоқда…</span></button>
+  </form>
+</div>
+<script>
+  document.querySelectorAll("[data-all]").forEach(function (all) {
+    var boxes = document.querySelectorAll('[data-group="' + all.dataset.all + '"]');
+    var sync = function () { var n = 0; boxes.forEach(function (b) { if (b.checked) n++; }); all.checked = n === boxes.length; all.indeterminate = n > 0 && n < boxes.length; };
+    all.addEventListener("change", function () { boxes.forEach(function (b) { b.checked = all.checked; }); });
+    boxes.forEach(function (b) { b.addEventListener("change", sync); });
+    sync();
+  });
+</script>
+{% endblock %}

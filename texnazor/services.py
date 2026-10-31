@@ -47,6 +47,35 @@ def create_object(owner, upload, **fields) -> SiteObject:
     return obj
 
 
+def create_from_my(owner, doc, **fields) -> SiteObject:
+    """«Менинг офёрталарим» dan obyekt: tizimda yasalgan ofyorta fayli nusxalanadi, o'qilganda bloklar
+    ``doc.structure`` dan olinadi (rangga / nomga qarab taxmin qilinmaydi)."""
+    if doc.status != doc.Status.READY or not doc.file.exists():
+        raise TexnazorError("Офёрта ҳали тайёр эмас")
+    obj = SiteObject(owner=owner, source_name=f"{doc.name[:240]}.xlsx", source_path="src/ofyorta.xlsx", made_from=doc,
+                     name=(fields.get("name") or doc.name)[:300],
+                     **{k: (fields.get(k) or "")[:300] for k in ("address", "customer", "contractor", "contract")})
+    obj.save()
+    dest = obj.abs(obj.source_path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(doc.file, dest)
+    return obj
+
+
+def apply_structure(of: Ofyorta, structure: list) -> bool:
+    """Tizimda yasalgan ofyorta: qaysi sarlavha blok — yasalganda yozib qo'yilgan. Sarlavhalar tartibi va matni
+    to'liq mos kelsagina olinadi; mos kelmasa (fayl qo'lda o'zgartirilgan) — taxmin qoladi va ogohlantirish."""
+    if not structure:
+        return False
+    norm = lambda t: " ".join(str(t).split())  # noqa: E731
+    if [norm(t) for t in of.sections] == [norm(s["title"]) for s in structure]:
+        of.blocks = {i for i, s in enumerate(structure) if s.get("block")}
+        return True
+    of.warnings.append({"row": 0, "title": "Блоклар офёрта сарлавҳаларига қараб аниқланди",
+                        "text": "Файлдаги сарлавҳалар тизимда тузилгандагидан фарқ қилади — блокларни текширинг."})
+    return False
+
+
 def import_ofyorta(obj: SiteObject, progress=None):
     """Fonda (worker): .xls -> .xlsx, o'qish, bazaga yozish. Xato — ``obj.status = FAILED`` va sababi."""
     def step(text, done=0, total=0):
@@ -64,6 +93,8 @@ def import_ofyorta(obj: SiteObject, progress=None):
         of = parse(xlsx, progress=lambda d, t: step("Офёрта ўқилмоқда", d, t))
         if not of.items:
             raise OfyortaError("Офёртада иш топилмади (А устунида тартиб рақами, C да номи бўлган қаторлар)")
+        if obj.made_from_id:
+            apply_structure(of, obj.made_from.structure)
         step("Базага ёзилмоқда", 0, len(of.rows))
         _store(obj, of)
     except Exception as e:  # noqa: BLE001 — sabab sahifada ko'rinadi
@@ -77,7 +108,8 @@ def import_ofyorta(obj: SiteObject, progress=None):
 def _store(obj: SiteObject, of: Ofyorta):
     obj.items.all().delete()
     obj.sections.all().delete()
-    sections = Section.objects.bulk_create([Section(obj=obj, order=i, title=t[:500]) for i, t in enumerate(of.sections)])
+    sections = Section.objects.bulk_create([Section(obj=obj, order=i, title=t[:500], is_block=i in of.blocks)
+                                            for i, t in enumerate(of.sections)])
     extra_section = None
     if any(r.kind == "extra" for r in of.rows):
         extra_section = Section.objects.create(obj=obj, order=len(sections), title="Сводкадаги қўшимча қаторлар")
@@ -493,7 +525,7 @@ def section_tree(obj: SiteObject, stats: Dict[int, dict]) -> list:
     Birinchi blokdan oldingi bo'limlar — nomsiz blokda."""
     blocks = [{"s": None, "label": "", "items": [], "contract": 0.0, "before": 0.0, "this": 0.0}]
     for s in obj.sections.all():
-        if _BLOCK.search(s.title):
+        if s.is_block:
             blocks.append({"s": s, "label": block_label(s.title), "items": [], "contract": 0.0, "before": 0.0, "this": 0.0})
         elif not s.items_count:
             blocks[-1]["items"].append({"kind": "group", "s": s})
@@ -505,7 +537,6 @@ def section_tree(obj: SiteObject, stats: Dict[int, dict]) -> list:
     return [{**b, **section_pct(b)} for b in blocks if b["items"] or b["s"]]
 
 
-_BLOCK = re.compile(r"^\s*НА\s+|\bБЛОК[\s№-]*\d", re.I)  # «НА АС БЛОК-1», «НА ЭО» (ofyortada qizil) yoki «АС БЛОК-2»
 _NA = re.compile(r"^\s*НА\s+", re.I)
 
 
@@ -517,8 +548,8 @@ def block_label(title: str) -> str:
 def section_paths(obj: SiteObject) -> Dict[int, tuple]:
     """Bo'lim -> (blok, bo'lim) — qidiruv natijasida qator qayerdanligi."""
     out, block = {}, ""
-    for sid, title in obj.sections.values_list("id", "title"):
-        if _BLOCK.search(title):
+    for sid, title, is_block in obj.sections.values_list("id", "title", "is_block"):
+        if is_block:
             block = block_label(title)
         out[sid] = (block, title)
     return out

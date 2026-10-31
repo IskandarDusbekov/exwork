@@ -111,6 +111,8 @@ if REDIS_URL:
 
 # Fondagi ishlar (papka ochish/narxlash): "worker" — alohida ``manage.py run_worker`` jarayoni (production);
 # "thread" — saytning o'zida oqim (ishlab chiqish). Production'da standart — worker.
+# «Менинг офёрталарим» (narxlangan smetalardan ofyorta) — tugmalari hozircha yashirin; sahifalar URL bilan ochiladi
+TEXNAZOR_MY_OFYORTA = os.environ.get("TEXNAZOR_MY_OFYORTA", "0") == "1"
 NARXLASH_TASKS = os.environ.get("NARXLASH_TASKS", "thread" if DEBUG else "worker")
 if NARXLASH_TASKS not in ("thread", "worker"):
     raise ImproperlyConfigured("NARXLASH_TASKS: thread yoki worker")

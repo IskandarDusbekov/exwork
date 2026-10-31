@@ -190,7 +190,14 @@ def user_detail(request, pk):
         sessions=u.login_sessions.all()[:30], online_since=sessions.online_since(),
         blocked_ips=sessions.blocked_ips(), my_ip=client_ip(request),
         ips=list(u.login_sessions.values_list("ip").annotate(n=Count("id")).order_by("-n")[:10]),
+        tn=_tn_rows(u),
     ))
+
+
+def _tn_rows(u):
+    from texnazor.models import SiteObject
+    from .views_tn import object_rows
+    return object_rows(SiteObject.objects.filter(owner=u).order_by("-created"))
 
 
 USER_FLAGS = {"is_active": ("фаол", "блокланди"), "is_staff": ("панелга рухсат берилди", "панел рухсати олинди")}

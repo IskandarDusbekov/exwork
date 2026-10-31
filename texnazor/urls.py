@@ -1,12 +1,19 @@
 from django.urls import path
 
-from . import views
+from . import views, views_my
 
 app_name = "texnazor"
 
 urlpatterns = [
     path("", views.index, name="index"),
     path("new/", views.create, name="create"),
+    path("my/", views_my.my_list, name="my_list"),
+    path("my/new/", views_my.my_new, name="my_new"),
+    path("my/<uuid:doc_id>/", views_my.my_detail, name="my_detail"),
+    path("my/<uuid:doc_id>/edit/", views_my.my_edit, name="my_edit"),
+    path("my/<uuid:doc_id>/state/", views_my.my_state, name="my_state"),
+    path("my/<uuid:doc_id>/file/", views_my.my_file, name="my_file"),
+    path("my/<uuid:doc_id>/delete/", views_my.my_delete, name="my_delete"),
     path("<uuid:obj_id>/", views.detail, name="object"),
     path("<uuid:obj_id>/state/", views.state, name="state"),
     path("<uuid:obj_id>/search/", views.search, name="search"),

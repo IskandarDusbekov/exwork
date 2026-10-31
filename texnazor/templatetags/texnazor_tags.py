@@ -318,3 +318,12 @@ def svodka_months(steps, cols_label: str, contract: dict, chains: list, sels: li
 def tn_rows(rows, period, warn, fixes):
     """Қидирув натижаси жадвалининг қаторлари (``_panel.html``)."""
     return mark_safe("".join(item_row(r, period, warn or {}, fixes or {}) for r in rows))
+
+
+@register.filter
+def foiz_son(v):
+    """Forma uchun: 0.0032 -> «0.32», 0.12 -> «12»."""
+    try:
+        return f"{round(float(v or 0) * 100, 4):g}"
+    except (TypeError, ValueError):
+        return ""

@@ -2,6 +2,7 @@
 {% load narx texnazor_tags %}
 {% block title %}Техназор · Муҳандис лойиҳачи{% endblock %}
 {% block content %}
+{% if my_ofyorta %}{% include "texnazor/_tabs.html" with tab="objects" %}{% endif %}
 <div class="mb-5 flex flex-wrap items-center gap-3">
   <div class="min-w-0 flex-1">
     <h1 class="text-xl font-semibold text-slate-900">Техназор — объектлар</h1>

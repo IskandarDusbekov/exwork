@@ -24,6 +24,7 @@ class Event(models.Model):
         ADMIN_LOGS = "admin_logs", "Админ: хатолар журнали"
         ADMIN_BASE = "admin_base", "Админ: ресурс базаси"
         BLOCKED_IP = "blocked_ip", "Блокланган IP'дан сўров"
+        TEXNAZOR = "texnazor", "Техназор"
 
     created = models.DateTimeField(auto_now_add=True, db_index=True)
     kind = models.CharField(max_length=24, choices=Kind.choices, db_index=True)
@@ -34,7 +35,7 @@ class Event(models.Model):
     email = models.CharField(max_length=254, blank=True)  # хато киришда киритилган email
     ip = models.GenericIPAddressField(null=True, blank=True)
     device = models.CharField(max_length=120, blank=True)  # «Chrome · Windows · компьютер»
-    work_kind = models.CharField(max_length=10, blank=True)  # folder | object | smeta
+    work_kind = models.CharField(max_length=10, blank=True)  # folder | object | smeta | texnazor | tn_my
     work_id = models.UUIDField(null=True, blank=True)
     detail = models.CharField(max_length=500, blank=True)
 

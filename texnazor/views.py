@@ -4,6 +4,7 @@ Obyekt sahifasi og'ir emas: avval mundarija va jami summalar, butun ofyorta jadv
 (bo'laklarda, brauzer faqat ko'rinib turganini chizadi). Hajm yozilsa faqat shu qator saqlanadi va jami summalar qaytariladi."""
 import json
 
+from django.conf import settings
 from django.contrib import messages
 from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
@@ -16,12 +17,19 @@ from django.views.decorators.http import require_POST
 from . import f2, f3, services, tasks
 from . import calc
 from .calc import STEPS
-from .models import Correction, Item, Period, Section, SiteObject
+from .models import Correction, Item, MyOfyorta, Period, Section, SiteObject
 from .ofyorta import CATEGORY_LABELS
 from .templatetags import texnazor_tags as tn
 from jobs.templatetags.narx import readable
+from panel.audit import log as _log
+from panel.models import Event
 
 SEARCH_LIMIT = 200
+
+
+def audit(request, o, text: str):
+    """Panel jurnaliga: texnazorda kim nima qildi (hajmlar har katakda emas — ``Done.updated`` dan ko'rinadi)."""
+    _log(request, Event.Kind.TEXNAZOR, work=o, work_kind="texnazor", detail=f"{o.name[:200]}: {text}")
 
 
 def _obj(request, obj_id) -> SiteObject:
@@ -40,23 +48,36 @@ def _period(obj, request, data=None) -> Period:
 
 
 def index(request):
-    return render(request, "texnazor/index.html", {"nav": "texnazor", "cards": services.object_cards(request.user)})
+    return render(request, "texnazor/index.html", {"nav": "texnazor", "cards": services.object_cards(request.user),
+                                                    "my_ofyorta": settings.TEXNAZOR_MY_OFYORTA})
 
 
 def create(request):
     error = None
+    on = settings.TEXNAZOR_MY_OFYORTA  # «Менинг офёрталарим» hozircha yashirin
+    mine = list(MyOfyorta.objects.filter(owner=request.user, status=MyOfyorta.Status.READY)) if on else []
     if request.method == "POST":
         f = request.FILES.get("ofyorta")
+        fields = {k: request.POST.get(k, "").strip() for k in ("name", "address", "customer", "contractor", "contract")}
         try:
-            if not f:
-                raise services.TexnazorError("Офёрта файлини танланг")
-            obj = services.create_object(request.user, f, **{k: request.POST.get(k, "").strip()
-                                                            for k in ("name", "address", "customer", "contractor", "contract")})
+            if on and request.POST.get("source") == "my":  # «Менинг офёрталарим» dan — bloklar tuzilishidan aniq
+                doc = next((d for d in mine if str(d.pk) == request.POST.get("my")), None)
+                if doc is None:
+                    raise services.TexnazorError("Офёртани танланг")
+                obj = services.create_from_my(request.user, doc, **fields)
+            else:
+                if not f:
+                    raise services.TexnazorError("Офёрта файлини танланг")
+                obj = services.create_object(request.user, f, **fields)
             tasks.start(obj.pk)
+            audit(request, obj, "объект қўшилди (" + ("«Менинг офёрталарим» дан" if obj.made_from_id else f"файл: {obj.source_name}") + ")")
             return redirect("texnazor:object", obj_id=obj.pk)
         except services.TexnazorError as e:
             error = str(e)
-    return render(request, "texnazor/create.html", {"nav": "texnazor", "error": error, "data": request.POST})
+    data = request.POST if request.method == "POST" else {"source": "my" if on and request.GET.get("my") else "file",
+                                                          "my": request.GET.get("my", "")}
+    return render(request, "texnazor/create.html", {"nav": "texnazor", "error": error, "data": data, "mine": mine,
+                                                    "my_ofyorta": on})
 
 
 def state(request, obj_id):
@@ -167,7 +188,7 @@ def rows(request, obj_id):
     pending = []  # Ф-2: blok / oraliq sarlavha faqat ostida shu oy ishi bo'lsa yoziladi
     for s in o.sections.all():
         if f2v:
-            if services._BLOCK.search(s.title):
+            if s.is_block:
                 pending = [(tn.head_row_f2(s, cols, block=True), None)]
             elif s.pk not in by_sec:
                 pending = pending[:1] + [(tn.head_row("group", s, period, cols), None)] if pending and "tn-bh" in pending[0][0] \
@@ -180,7 +201,7 @@ def rows(request, obj_id):
                 secs[s.pk] = {"t": readable(s.title), "b": "", "n": len(by_sec[s.pk]), "this": st["this"], "pct": st["pct"]}
                 add_rows(by_sec[s.pk])
             continue
-        if services._BLOCK.search(s.title):
+        if s.is_block:
             block = services.block_label(s.title)
             add_head(tn.head_row("block", s, period, cols, block=block))
         elif s.pk not in by_sec:
@@ -335,6 +356,8 @@ def correct(request, obj_id, item_id):
         data = json.loads(request.body or b"{}")
         period = o.periods.filter(pk=data.get("period") or 0).first()
         c = services.correct_item(request.user, item, period, data.get("value"), data.get("basis"), data.get("note", ""))
+        audit(request, o, f"офёртага тузатиш: {item.num} {item.name[:60]} — {services.fmt_qty(c.old_qty)} → "
+                          f"{services.fmt_qty(c.new_qty)} {item.unit} ({c.basis[:80]})")
     except services.TexnazorError as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
     except (ValueError, TypeError):
@@ -354,6 +377,7 @@ def set_paid(request, obj_id, period_id):
         messages.error(request, f"Тўланган сумма нотўғри: «{request.POST.get('paid')}»")
         return _to(o, p)
     p.save(update_fields=["paid"])
+    audit(request, o, f"{p.title}: тўланган сумма " + (f"{p.paid:,.2f}".replace(",", " ") if p.paid is not None else "ўчирилди"))
     return _to(o, p)
 
 
@@ -368,7 +392,9 @@ def fill_items(request, obj_id):
         if not ids:
             raise services.TexnazorError("Аввал ишларни белгиланг")
         items = list(o.items.filter(pk__in=ids, kind__in=services.ITEM_KINDS))
-        n = services.fill_items(period, items, float(str(data.get("pct", "100")).replace(",", ".").replace("%", "")))
+        pct = float(str(data.get("pct", "100")).replace(",", ".").replace("%", ""))
+        n = services.fill_items(period, items, pct)
+        audit(request, o, f"{period.title}: {len(items)} та иш жами {pct:g}% бажарилди деб белгиланди")
     except services.TexnazorError as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
     except (ValueError, TypeError):
@@ -386,7 +412,9 @@ def fill_section(request, obj_id, section_id):
     try:
         data = json.loads(request.body or b"{}")
         period = _period(o, request, data)
-        n = services.fill_section(period, section, float(str(data.get("pct", "100")).replace(",", ".")))
+        pct = float(str(data.get("pct", "100")).replace(",", "."))
+        n = services.fill_section(period, section, pct)
+        audit(request, o, f"{period.title}: «{section.title[:80]}» бўлими {pct:g}% бажарилди деб белгиланди")
     except services.TexnazorError as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
     except (ValueError, TypeError):
@@ -405,6 +433,7 @@ def f2_download(request, obj_id, period_id):
     o = _obj(request, obj_id)
     p = get_object_or_404(Period, pk=period_id, obj=o)
     resp = HttpResponse(f2.build(p), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    audit(request, o, f"{p.title}: Ф-2 юклаб олинди")
     resp["Content-Disposition"] = content_disposition_header(True, f2.file_name(p))
     return resp
 
@@ -414,6 +443,7 @@ def f3_download(request, obj_id, period_id):
     o = _obj(request, obj_id)
     p = get_object_or_404(Period, pk=period_id, obj=o)
     resp = HttpResponse(f3.build(p), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    audit(request, o, f"{p.title}: Ф-3 юклаб олинди")
     resp["Content-Disposition"] = content_disposition_header(True, f3.file_name(p))
     return resp
 
@@ -449,6 +479,7 @@ def f3_period(request, obj_id, period_id):
             m[k] = v
     p.f3 = m
     p.save(update_fields=["f3"])
+    audit(request, o, f"{p.title}: Ф-3 рақами / санаси сақланди")
     return _f3_back(o, p)
 
 
@@ -481,6 +512,7 @@ def f3_settings(request, obj_id):
         o.contract = " ".join(x for x in (f"№ {s['contract_no']}" if s["contract_no"] else "", f"{d:%d.%m.%Y}" if d else "") if x)
     o.save(update_fields=["name", "address", "customer", "contractor", "contract", "f3"])
     messages.success(request, "Объект маълумотлари сақланди")
+    audit(request, o, "объект ва пудратчи маълумотлари сақланди")
     return back
 
 
@@ -492,6 +524,7 @@ def add_period(request, obj_id):
     except (services.TexnazorError, ValueError) as e:
         messages.error(request, str(e))
         return _to(o)
+    audit(request, o, f"{p.title} ойи қўшилди")
     return _to(o, p)
 
 
@@ -501,6 +534,7 @@ def close_period(request, obj_id, period_id):
     p = get_object_or_404(Period, pk=period_id, obj=o)
     p.closed = request.POST.get("closed") == "1"
     p.save(update_fields=["closed"])
+    audit(request, o, f"{p.title} " + ("ёпилди" if p.closed else "қайта очилди"))
     return _to(o, p)
 
 
@@ -511,6 +545,7 @@ def delete(request, obj_id):
     if o.status == SiteObject.Status.READY and not services._confirmed(request.POST.get("confirm"), services.DELETE_WORD):
         messages.error(request, f"Объект ўчирилмади: тасдиқлаш учун «{services.DELETE_WORD}» деб ёзинг")
         return _to(o)
+    audit(request, o, "объект ўчирилди")
     services.delete_object(o)
     return redirect("texnazor:index")
 
@@ -520,10 +555,12 @@ def delete_period(request, obj_id, period_id):
     o = _obj(request, obj_id)
     p = get_object_or_404(Period, pk=period_id, obj=o)
     try:
+        title = p.title
         services.delete_period(p, request.POST.get("confirm"))
     except services.TexnazorError as e:
         messages.error(request, str(e))
         return _to(o, p)
+    audit(request, o, f"{title} ойи ўчирилди")
     return _to(o)
 
 
@@ -533,6 +570,7 @@ def revert_correction(request, obj_id, correction_id):
     c = get_object_or_404(Correction, pk=correction_id, obj=o)
     try:
         services.revert_correction(request.user, c, json.loads(request.body or b"{}").get("confirm"))
+        audit(request, o, f"тузатиш бекор қилинди: {c.item.num} {c.item.name[:60]}")
     except services.TexnazorError as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
     except (ValueError, TypeError):

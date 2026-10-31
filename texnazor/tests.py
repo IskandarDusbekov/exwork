@@ -202,6 +202,42 @@ class TexnazorFlowTests(TestCase):
         self.client.post(reverse("texnazor:f3_settings", args=[self.obj.pk]), {"period": nov.pk, "year_plan": "1 000 000,5"})
         self.assertAlmostEqual(services.f3_data(Period.objects.get(pk=nov.pk))["year"]["total"], 1000000.5)
 
+    def test_actions_logged_and_visible_in_panel(self):
+        """Техназордаги амаллар панел журналига тушади, ҳажм ёзилган вақт сақланади; панел — фақат staff."""
+        from panel.models import Event
+        self.client.post(reverse("texnazor:period_add", args=[self.obj.pk]), {"year": 2026, "month": 10})
+        octo = Period.objects.get()
+        self.assertTrue(self._post("done", {"period": octo.pk, "item": self.work.pk, "value": "4"}).json()["ok"])
+        self.assertIsNotNone(Done.objects.get().updated)
+        self.client.get(reverse("texnazor:f2", args=[self.obj.pk, octo.pk]))
+        self.client.post(reverse("texnazor:period_close", args=[self.obj.pk, octo.pk]), {"closed": "1"})
+        texts = list(Event.objects.filter(kind=Event.Kind.TEXNAZOR, work_id=self.obj.pk).values_list("detail", flat=True))
+        self.assertTrue(any("объект қўшилди" in t for t in texts))
+        self.assertTrue(any("Октябрь 2026 ойи қўшилди" in t for t in texts))
+        self.assertTrue(any("Ф-2 юклаб олинди" in t for t in texts))
+        self.assertTrue(any("ёпилди" in t for t in texts))
+
+        url = reverse("panel:texnazor")
+        self.assertEqual(self.client.get(url).status_code, 404)  # oddiy foydalanuvchi panelni ko'rmaydi
+        viewer = User.objects.create_user("v@test.uz", "Kuchli-parol-2026", first_name="V", last_name="V", is_staff=True)
+        self.client.force_login(viewer)
+        r = self.client.get(url)
+        self.assertContains(r, "5-MAKTAB")
+        self.assertContains(r, "Ф-2 юклаб олинди")
+        r = self.client.get(reverse("panel:texnazor_object", args=[self.obj.pk]))
+        self.assertContains(r, "Октябрь 2026")
+        self.assertContains(r, "БЕТОН ФУНДАМЕНТОВ")  # охирги ёзилган ҳажмлар
+        self.assertEqual(self.client.get(reverse("panel:texnazor_file", args=[self.obj.pk, "src"])).status_code, 403)
+        self.assertEqual(self.client.get(reverse("panel:user", args=[self.user.pk])).status_code, 200)
+        boss = User.objects.create_superuser("b@test.uz", "Kuchli-parol-2026", first_name="B", last_name="B")
+        self.client.force_login(boss)
+        self.assertEqual(self.client.get(reverse("panel:texnazor_month_file", args=[self.obj.pk, "f3", octo.pk])).status_code, 200)
+        self.assertTrue(Event.objects.filter(kind=Event.Kind.ADMIN_DOWNLOAD, actor=boss).exists())
+
+    def test_my_ofyorta_hidden_by_default(self):
+        self.assertNotContains(self.client.get(reverse("texnazor:index")), "Менинг офёрталарим")
+        self.assertNotContains(self.client.get(reverse("texnazor:create") + "?my=1"), "Менинг офёрталаримдан")
+
     def test_month_cycle_october_close_november(self):
         """Октябрь: бир иш 100% (белгилаб), бири қисман 40%, ёпилади; Ноябрда тугагани «тугаган», қисмани қолдиғи билан."""
         add = lambda m: self.client.post(reverse("texnazor:period_add", args=[self.obj.pk]), {"year": 2026, "month": m})  # noqa: E731
@@ -545,7 +581,8 @@ def test_numbered_header_without_unit_or_price_is_a_section(tmp_path):
 
 
 def test_block_titles_with_or_without_na():
-    from .services import _BLOCK, block_label
+    from .ofyorta import BLOCK_RE as _BLOCK
+    from .services import block_label
     for t in ("на АС Блок-1", "НА ЭО", "АС БЛОК-2", "БЛОК №3"):
         assert _BLOCK.search(t), t
     for t in ("ДВЕРНЫЕ БЛОКИ (АС ЛИСТ-9)", "ДЕМОНТАЖ 1-ЭТАЖ", "НАРУЖНОЙ ОТДЕЛКИ"):
@@ -619,3 +656,117 @@ def services_error(fn):
     except services.TexnazorError as e:
         return str(e)
     return ""
+
+
+# ======== «Менинг офёрталарим»: narxlangan lokallardan ofyorta ========
+def _priced_local(job, rows):
+    """Narxlangan lokal: «_ЛРВ» varag'i (A–F) va ``job.result`` (narx, turi, jami miqdor)."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "_ЛРВ"
+    res = []
+    for r, (cells, info) in enumerate(rows, start=5):
+        for j, v in enumerate(cells, start=1):
+            if v is not None:
+                ws.cell(row=r, column=j, value=v)
+        if info:
+            res.append({"row": r, "name": cells[2] if len(cells) > 2 else "", "unit": cells[3] if len(cells) > 3 else "", **info})
+    job.output_path = "out/local_narxlandi.xlsx"
+    job.abs(job.output_path).parent.mkdir(parents=True, exist_ok=True)
+    wb.save(job.abs(job.output_path))
+    job.local_sheet = "_ЛРВ"
+    job.result = {"rows": res, "start_row": 5, "end_row": 4 + len(rows), "totals": {"s_nds": 1}}
+    job.status = job.Status.DONE
+    job.save()
+
+
+@override_settings(MEDIA_ROOT=TMP_MEDIA, NARXLASH_TASKS="worker", TEXNAZOR_MY_OFYORTA=True)
+class MyOfyortaTests(TestCase):
+    def setUp(self):
+        from jobs.models import Batch, Job, Project
+        self.user = User.objects.create_user("my@test.uz", "Kuchli-parol-2026", first_name="M", last_name="O")
+        self.client.force_login(self.user)
+        self.project = Project.objects.create(owner=self.user, name="Нурафшон МТТ")
+        jobs = []
+        for order, (folder, label, pct) in enumerate((("1. Блок-А", "Блок-А", {}),
+                                                      ("2. =№81 склад", "Склад", {"transport_mat": 0.07}))):
+            batch = Batch.objects.create(owner=self.user, name=label, project=self.project, folder=folder)
+            jobs.append(Job.objects.create(owner=self.user, batch=batch, batch_label=label, batch_order=order, percents=pct,
+                                           local_name=f"{label}.xlsx", res_name="r.xlsx", local_path="l", res_path="r"))
+        a, b = jobs
+        _priced_local(a, [
+            ((None, None, "РАЗДЕЛ 1. ФУНДАМЕНТ"), None),
+            (("N п.п.", "Шифр", "Наименование работ и затрат", "Ед."), {"g": "ТОПИЛМАДИ", "qty": None}),  # takrorlangan sarlavha
+            ((1, "Е06-01", "БЕТОН ФУНДАМЕНТОВ", "М3", 10), {"g": None, "qty": 10, "status": "WORK_HEADER", "category": "I"}),
+            (("1.1", "1", "ЗАТРАТЫ ТРУДА", "ЧЕЛ-Ч", 5, 50), {"g": 1000, "qty": 50, "category": "I"}),
+            (("1.2", "22006", "БЕТОН М200", "М3", 1.02, 10.2), {"g": 500000, "qty": 10.2, "category": "K"}),
+            ((2, None, "ТЕПЛОВОЙ НАСОС", "ШТ", 2, 2), {"g": 1000000, "qty": 2, "category": "M"}),
+            ((None, None, "Итого по разделу 1"), None),
+        ])
+        _priced_local(b, [
+            ((1, None, "КАБЕЛЬ ВВГ", "М", 100, 100), {"g": 2000, "qty": 100, "category": "L"}),
+            ((2, None, "ДВЕРЬ", "ШТ", 1, 1), {"g": "ТОПИЛМАДИ", "qty": 1, "category": "K"}),
+        ])
+        self.a, self.b = a, b
+
+    def test_setup_build_and_object_with_exact_blocks(self):
+        from .build import setup
+        from .models import MyOfyorta
+        s = setup(self.project)
+        self.assertEqual([p["title"] for p in s["parts"]], ["БЛОК-А", "=№81 СКЛАД"])
+        self.assertEqual(len(s["equipment"]), 1)
+        self.assertEqual(len(s["differ"]), 1)  # ikkinchi lokalda transport boshqacha
+        r = self.client.get(reverse("texnazor:my_new") + f"?project={self.project.pk}")
+        self.assertContains(r, "фоизлари бошқача")
+
+        data = {"project": self.project.pk, "name": "Нурафшон МТТ", "object_type": "Таълим",
+                f"include_{self.a.pk}": "1", f"include_{self.b.pk}": "1", f"title_{self.a.pk}": "БЛОК-А",
+                f"title_{self.b.pk}": "=№81 СКЛАД", "customer": [s["equipment"][0]["key"]],
+                **{f"rate_{k}": v for k, v in (("tr_material", "5"), ("tr_cable", "1,5"), ("tr_eq_customer", "2"),
+                                               ("tr_eq_contractor", "2"), ("overhead", "19"), ("insurance", "0.32"), ("vat", "12"))}}
+        r = self.client.post(reverse("texnazor:my_new"), data)
+        doc = MyOfyorta.objects.get()
+        self.assertRedirects(r, reverse("texnazor:my_detail", args=[doc.pk]), fetch_redirect_response=False)
+        tasks.run_now(doc.pk)
+        doc.refresh_from_db()
+        self.assertEqual(doc.status, "ready", doc.error)
+        self.assertEqual(doc.structure, [{"title": "БЛОК-А", "block": True}, {"title": "РАЗДЕЛ 1. ФУНДАМЕНТ", "block": False},
+                                         {"title": "=№81 СКЛАД", "block": True}, {"title": "Склад", "block": False}])
+        self.assertEqual(doc.rates["tr_cable"], 0.015)
+        sums = {"J": 50000.0, "K": 0.0, "L": 5100000.0, "M": 0.0, "N": 2000000.0, "O": 200000.0, "X": 0.0}
+        self.assertAlmostEqual(doc.totals["total"], chain(sums, doc.rates)["total"], places=2)
+        self.assertEqual([p["name"] for p in doc.problems], ["ДВЕРЬ"])  # takrorlangan sarlavha muammo emas
+
+        of = parse(doc.file)  # Excel: «=» bilan boshlangan sarlavha formula emas, matn
+        self.assertEqual(of.sections, [x["title"] for x in doc.structure])
+        self.assertAlmostEqual(of.file_totals["total_vat"], doc.totals["total"], places=2)
+        r = self.client.get(reverse("texnazor:my_file", args=[doc.pk]))
+        self.assertEqual(r.status_code, 200)
+
+        r = self.client.post(reverse("texnazor:create"), {"source": "my", "my": str(doc.pk), "name": "Нурафшон"})
+        obj = SiteObject.objects.get()
+        self.assertRedirects(r, reverse("texnazor:object", args=[obj.pk]), fetch_redirect_response=False)
+        tasks.run_now(obj.pk)
+        obj.refresh_from_db()
+        self.assertEqual(obj.status, "ready", obj.error)
+        self.assertEqual(obj.made_from, doc)
+        self.assertEqual(list(obj.sections.order_by("order").values_list("title", "is_block")),
+                         [(x["title"], x["block"]) for x in doc.structure])
+        self.assertAlmostEqual(obj.contract_totals["total"], doc.totals["total"], places=2)
+
+    def test_structure_not_applied_to_changed_file(self):
+        from .ofyorta import Ofyorta
+        of = Ofyorta(sheet="ОФЁРТА", sections=["БЛОК-А", "ФУНДАМЕНТ"], blocks={1})
+        self.assertFalse(services.apply_structure(of, [{"title": "БЛОК-А", "block": True}]))
+        self.assertEqual(of.blocks, {1})
+        self.assertIn("фарқ", of.warnings[0]["text"])
+        self.assertTrue(services.apply_structure(of, [{"title": "БЛОК-А", "block": True}, {"title": " ФУНДАМЕНТ", "block": False}]))
+        self.assertEqual(of.blocks, {0})
+
+    def test_other_user_cannot_open(self):
+        from .models import MyOfyorta
+        doc = MyOfyorta.objects.create(owner=self.user, project=self.project, name="x")
+        other = User.objects.create_user("o@test.uz", "Kuchli-parol-2026", first_name="O", last_name="O")
+        self.client.force_login(other)
+        self.assertEqual(self.client.get(reverse("texnazor:my_detail", args=[doc.pk])).status_code, 404)
+        self.assertEqual(self.client.get(reverse("texnazor:my_new") + f"?project={self.project.pk}").status_code, 404)
