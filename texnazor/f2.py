@@ -21,7 +21,7 @@ MONTHS_UZ = ["YANVAR", "FEVRAL", "MART", "APREL", "MAY", "IYUN", "IYUL", "AVGUST
 CAT_COL = {"J": "J", "K": "K", "L": "L", "M": "M", "N": "N", "O": "O"}  # turi -> summa ustuni (ofyortadagidek)
 WIDTHS = {"A": 6.6, "B": 11.1, "C": 73, "D": 15.3, "E": 11.9, "F": 12.3, "G": 13.1, "H": 13.1, "I": 15.1,
           "J": 13.3, "K": 12.3, "L": 13.4, "M": 12.3, "N": 13, "O": 10.9}
-HIDDEN = ("H", "J", "K", "L", "M", "O")  # uning faylidagidek: yordamchi ustunlar yashirin (bosmaga chiqmaydi)
+HIDDEN = ("H", "J", "K", "L", "M", "N", "O")  # yordamchi ustunlar (turlar bo'yicha summa) yashirin — hisobda qatnashadi, ko'rinmaydi
 PURPLE, GREEN_T, RED = "#800080", "#003300", "#FF0000"
 PINK, GREEN = "#CCFFFF", "#CCFFCC"
 LINE = 12.75  # bitta qator balandligi (Times New Roman 10)

@@ -396,11 +396,11 @@
 
     // ---- ҳажм ёзиш: Enter — сақлаб кейинги ишга, ↑ ↓ — ишлар бўйлаб, Esc — бекор ----
     function message(tr, text) {
+      var old = panel.querySelector("tr.tn-msg");
+      if (old) old.remove();  // аввал эскиси: акс ҳолда у қўйиш жойи бўлиб қолиб, янги хабар чиқмай қоларди
+      if (!text || !tr.parentNode) return;
       var next = tr.nextElementSibling;
       while (next && next.classList.contains("tn-r")) next = next.nextElementSibling;
-      var old = panel.querySelector("tr.tn-msg");
-      if (old) old.remove();
-      if (!text) return;
       var row = document.createElement("tr"), td = document.createElement("td");
       row.className = "tn-msg"; td.colSpan = tr.children.length; td.textContent = text;
       row.appendChild(td);
@@ -411,8 +411,9 @@
       if (next) { next.focus(); next.select(); }
     }
     function save(inp) {
-      if (CLOSED || inp.value.trim() === inp.defaultValue) return Promise.resolve(inp);
-      var tr = inp.closest("tr"), id = tr.dataset.item, wasOpen = tr.classList.contains("is-open");
+      if (CLOSED || inp.dataset.saving || inp.value.trim() === inp.defaultValue) return Promise.resolve(inp);  // бир ёзув — бир сўров
+      var tr = inp.closest("tr"), id = tr.dataset.item, wasOpen = tr.classList.contains("is-open"), typed = inp.value.trim();
+      inp.dataset.saving = "1";
       inp.disabled = true;
       var body = {period: PERIOD, item: Number(id), value: inp.value};
       if (VIEW && V && !SEARCH) { body.view = VIEW; body.all = ALLM ? 1 : 0; body.fit = fits(); }  // «Ҳамма ойлар» қатори қайтсин
@@ -438,10 +439,16 @@
         summary(d.summary);
         return ni;
       }).catch(function (e) {
+        // сақланмади (масалан қолдиқдан ошди) — катакда ёзилган сон қолмасин: аввалги сақланган қиймат қайтади,
+        // акс ҳолда ҳажм ошиб кетгандек кўринади
+        delete inp.dataset.saving;
         inp.disabled = false;
+        inp.value = inp.defaultValue;
         inp.classList.add("is-bad");
+        setTimeout(function () { inp.classList.remove("is-bad"); }, 1800);
         inp.focus();
-        message(tr, e.message);
+        inp.select();
+        message(tr, e.message + (typed ? " — «" + typed + "» сақланмади, аввалги қиймат қолди" + (inp.defaultValue ? " (" + inp.defaultValue + ")" : "") + "." : ""));
         throw e;
       });
     }
