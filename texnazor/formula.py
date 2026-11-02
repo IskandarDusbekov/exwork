@@ -117,9 +117,12 @@ def _cmp(op):
             return a
         if isinstance(b, Err):
             return b
-        a = 0.0 if a is None else a
-        b = 0.0 if b is None else b
-        if isinstance(a, str) != isinstance(b, str):
+        # bo'sh katak: matn bilan solishtirilsa — "" (F41="" → TRUE), son bilan — 0 (Excel kabi)
+        a = ("" if isinstance(b, str) else 0.0) if a is None else a
+        b = ("" if isinstance(a, str) else 0.0) if b is None else b
+        if isinstance(a, str) and isinstance(b, str):
+            a, b = a.lower(), b.lower()  # Excel matnni katta-kichik harfga qaramay solishtiradi
+        elif isinstance(a, str) != isinstance(b, str):
             a, b = str(a), str(b)
         return {"=": a == b, "<>": a != b, "<": a < b, ">": a > b, "<=": a <= b, ">=": a >= b}[op]
     return f
@@ -200,6 +203,26 @@ FUNCS = {
     "INT": lambda x: (lambda v: v if isinstance(v, Err) else float(math.floor(v)))(_n(x)),
     "IF": _if,
 }
+
+
+def _subtotal(code, *args):
+    """SUBTOTAL(9, M2882:M2959): 1 — o'rtacha, 2 — sonlar soni, 3 — bo'sh emaslar, 4 — max, 5 — min, 9 — yig'indi
+    (101…109 — yashirin qatorlarsiz; bu yerda qatorlar yashirilmaydi — bir xil)."""
+    c = _n(code)
+    if isinstance(c, Err):
+        return c
+    c = int(c) % 100
+    if c == 3:
+        return float(sum(1 for v in _flat(args) if v is not None and v != ""))
+    vals = _nums(args)
+    if isinstance(vals, Err):
+        return vals
+    fn = {1: lambda v: sum(v) / len(v) if v else DIV0, 2: lambda v: float(len(v)), 4: lambda v: max(v) if v else 0.0,
+          5: lambda v: min(v) if v else 0.0, 9: sum}.get(c)
+    return fn(vals) if fn else VALUE
+
+
+FUNCS["SUBTOTAL"] = _subtotal
 
 
 class _Range:
@@ -401,6 +424,26 @@ def refs(formula: str) -> List[Tuple[int, int]]:
         return [_cell(t) for k, t, _a, _b in tokens(formula.lstrip("=")) if k == "cell"]
     except ValueError:
         return []
+
+
+def deps(formula: str, limit: int = 20000) -> List[Tuple[int, int]]:
+    """Formula tayanadigan hamma kataklar — oraliqlar ochilgan holda (SUM(H16:H190) → H16 … H190)."""
+    out = []
+    try:
+        toks = tokens(formula.lstrip("="))
+    except ValueError:
+        return out
+    for k, t, _a, _b in toks:
+        if k == "cell":
+            out.append(_cell(t))
+        elif k == "range":
+            (c1, r1), (c2, r2) = (_cell(x) for x in t.split(":"))
+            for r in range(min(r1, r2), max(r1, r2) + 1):
+                for c in range(min(c1, c2), max(c1, c2) + 1):
+                    out.append((c, r))
+                    if len(out) >= limit:
+                        return out
+    return out
 
 
 class Evaluator:

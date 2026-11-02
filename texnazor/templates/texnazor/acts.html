@@ -93,6 +93,20 @@
     </span>
   </div>
 
+  {% if check and not check.ok %}
+  {# ---- o'z-o'zini tekshirish o'tmadi: summalar noto'g'ri bo'lishi mumkin ---- #}
+  <details class="tn-check">
+    <summary>{% icon "alert-circle" "h-5 w-5" %}<b>Тизим бу офёртани тўлиқ тушунмади — далолатнома суммалари нотўғри бўлиши мумкин.</b>
+      <span>{{ check.fails|length }} та муаммо · батафсил</span></summary>
+    <ul>
+      {% for w in check.fails %}<li><b>{{ w.title }}</b><p>{{ w.text }}</p>
+        {% if w.row %}<button type="button" data-goto="{{ w.row }}">Excel'да {{ w.row }}-қатор — жадвалда кўрсатиш</button>{% endif %}</li>{% endfor %}
+    </ul>
+    <p class="tn-check-h">Текширув: ҳажм ёзилмаса — 0, ярим ҳажмда — 50%, тўлиқ ҳажмда — файлдаги жами бўлиши керак.
+      Смета тузувчи билан файлни текширинг; қайта юкланса, тизим яна текширади.</p>
+  </details>
+  {% endif %}
+
   {# ---- o'rtada: faqat jadval suriladi ---- #}
   <div class="tn-sheet" id="tn-sheet"><p class="px-5 py-12 text-center text-slate-500">Офёрта юкланяпти…</p></div>
   {% if blk and active %}
@@ -187,6 +201,15 @@
   .tn-sheet-wrap .tn-view .tn-v-act em { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-weight: 500; }
   .tn-sheet-wrap .tn-view button[aria-pressed="true"] { background: #fff; color: var(--tn-brand-d); box-shadow: 0 1px 2px rgba(15, 23, 42, .12); }
   .tn-sheet { flex: 1; min-height: 0; overflow: auto; background: #fff; }
+  .tn-check { flex: none; border-bottom: 1px solid #fecdd3; background: #fff1f2; color: #881337; font-size: 13.5px; }
+  .tn-check summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 16px; cursor: var(--cur-hand, pointer); list-style: none; }
+  .tn-check summary::-webkit-details-marker { display: none; }
+  .tn-check summary svg { color: #e11d48; }
+  .tn-check summary span { margin-left: auto; padding: 2px 10px; border-radius: 999px; background: #ffe4e6; font-size: 12.5px; font-weight: 600; }
+  .tn-check ul { display: grid; gap: 8px; padding: 0 16px 6px 44px; }
+  .tn-check li p { margin-top: 2px; color: #9f1239; }
+  .tn-check li button { margin-top: 3px; font-size: 12.5px; font-weight: 600; color: #be123c; text-decoration: underline; text-underline-offset: 3px; }
+  .tn-check-h { padding: 0 16px 10px 44px; font-size: 12.5px; color: #be123c; }
   .tn-tb { display: inline-flex; align-items: center; gap: 6px; height: 34px; border: 1px solid #d6dce6; border-radius: 8px; padding: 0 12px; font-size: 14px; font-weight: 500; color: #1e293b; background: #fff; cursor: var(--cur-hand, pointer); white-space: nowrap; list-style: none; transition: background .12s, border-color .12s; }
   .tn-tb::-webkit-details-marker { display: none; }
   .tn-tb:hover { background: #f6f8fb; border-color: #c3cbd8; }

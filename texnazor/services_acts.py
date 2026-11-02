@@ -68,8 +68,12 @@ def import_raw(obj: SiteObject, xlsx, progress=None):
         RawRow.objects.bulk_create([RawRow(obj=obj, row=r["row"], kind=r["kind"], num=r["num"][:20], parent=r["parent"],
                                            vals=r["vals"], fmls={str(k): v for k, v in r["fmls"].items()})
                                     for r in grid.rows], batch_size=1000)
-        obj.layout = dict(grid.layout.as_dict(), stamp=time.time(), reader=READER)
-        obj.warnings = grid.warnings + Book(grid.layout.as_dict(), grid.rows).fixed_money()
+        bk = Book(grid.layout.as_dict(), grid.rows)
+        _step(obj, "Ҳисоб текширилмоқда", beat=progress)
+        check = bk.self_check()  # bo'sh ≈ 0, yarim ≈ 50%, to'liq ≈ fayldagi jami
+        obj.layout = dict(grid.layout.as_dict(), stamp=time.time(), reader=READER,
+                          check={k: v for k, v in check.items() if k != "fails"} | {"fails": check["fails"]})
+        obj.warnings = [dict(w, level="error") for w in check["fails"]] + grid.warnings + bk.total_mismatch() + bk.fixed_money()
         if obj.mode != SiteObject.Mode.ACTS or (not old_acts and obj.periods.exists()):
             obj.warnings += _from_months(obj, grid)
         obj.mode = SiteObject.Mode.ACTS
@@ -151,6 +155,7 @@ def _from_months(obj: SiteObject, grid) -> List[dict]:
 
 
 # ===================== hisob =====================
+LAYOUT_META = ("stamp", "reader", "check")  # ``obj.layout`` dagi ``Layout`` maydoni bo'lmaganlar
 _books: Dict[str, tuple] = {}
 _lock = threading.Lock()
 
@@ -164,7 +169,7 @@ def book(obj: SiteObject) -> Book:
             return hit[1]
     rows = [{"row": r.row, "kind": r.kind, "num": r.num, "parent": r.parent, "vals": r.vals,
              "fmls": {int(k): v for k, v in r.fmls.items()}} for r in obj.raw_rows.all()]
-    lay = {k: v for k, v in (obj.layout or {}).items() if k not in ("stamp", "reader")}
+    lay = {k: v for k, v in (obj.layout or {}).items() if k not in LAYOUT_META}
     b = Book(lay, rows)
     with _lock:
         if len(_books) > 20:
@@ -226,18 +231,15 @@ def rest_rows(b: Book, rest: Dict[int, float], rows=None) -> List[int]:
 
 
 def _final(b: Book, ev) -> float:
-    fc = b.final_cell()
-    v = ev(*fc) if fc else None
-    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else 0.0
+    return b.grand(ev)
 
 
 def totals(obj: SiteObject) -> dict:
-    """Shartnoma (fayldagi oxirgi «ВСЕГО»), har dalolatnoma, jami bajarilgan va qoldiq — so'mda."""
+    """Shartnoma (to'liq hajm bilan qayta hisoblangan «ВСЕГО» — dalolatnomalar bilan bitta hisob, 100% da qoldiq
+    aniq 0), har dalolatnoma, jami bajarilgan va qoldiq — so'mda."""
     b = book(obj)
     fc = b.final_cell()
-    contract = b.values.get(fc) if fc else 0.0
-    if not isinstance(contract, (int, float)) or isinstance(contract, bool):  # keshda yo'q — formulalar bilan
-        contract = _final(b, b.evaluate({r: b.contract_qty(r) for r in b.tops}))
+    contract = b.contract_total()
     per = all_qty(obj)
     rows = []
     for a in obj.acts.all():

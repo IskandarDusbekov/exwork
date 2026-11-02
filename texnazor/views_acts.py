@@ -75,7 +75,8 @@ def detail(request, o: SiteObject):
     return render(request, "texnazor/acts.html", {
         "nav": "texnazor", "o": o, "acts": acts, "totals": t, "view": view, "blk": view != "ofyorta" and bool(acts),
         "has_qty": has_qty,
-        "warnings": o.warnings or [], "today": dt.date.today(),
+        "warnings": [w for w in (o.warnings or []) if w.get("level") != "error"], "check": (o.layout or {}).get("check"),
+        "today": dt.date.today(),
         "info": services.f3_settings(o), "info_missing": services.f3_missing(o),
         "active": next((a for a in reversed(acts) if not a.closed), None)})
 
@@ -96,7 +97,7 @@ def data(request, obj_id):
     rest = b.evaluate(rest_q)
     lay = b.lay
     return JsonResponse({
-        "layout": {k: v for k, v in (o.layout or {}).items() if k not in ("stamp", "reader")},
+        "layout": {k: v for k, v in (o.layout or {}).items() if k not in sa.LAYOUT_META},
         "letters": [col_letter(i) for i in range(max(lay.width, lay.block_end + 1))],
         "rows": [[r["row"], r["kind"], r["num"], r["parent"], r["vals"]] for r in b.rows],
         "contract": {str(r): b.contract_qty(r) for r in b.tops},
