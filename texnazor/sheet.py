@@ -18,12 +18,12 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from openpyxl import load_workbook
 
-from .formula import Evaluator, compile_formula, deps, refs
+from .formula import Err, Evaluator, compile_formula, deps, refs
 
 NUM = re.compile(r"^\s*(\d+)(?:\s*[.,]\s*(\d+))?\s*$")  # «3. 1» (bo'shliq bilan) ham
 MAX_COLS = 80  # undan o'ngdagi ustunlar (tasodifiy yozuvlar) olinmaydi
 PREVIEW = 12
-READER = 4  # o'qish qoidalari o'zgarsa oshiriladi — eski obyektlar o'zi qayta o'qiladi
+READER = 6  # o'qish qoidalari o'zgarsa oshiriladi — eski obyektlar o'zi qayta o'qiladi
 
 
 class SheetError(Exception):
@@ -197,7 +197,7 @@ def _classify(rows: List[tuple], lay: Layout, formulas: Optional[List[dict]] = N
             continue
         if i >= start:
             # bo'limlar ketma-ket: har birining o'z svodkasi, keyin yana ishlar (raqamlash 1 dan) — ular ham ish
-            if not _is_item(r, lay, num, name):
+            if not _is_item(r, lay, num, name, formulas[i - 1] if formulas and i - 1 < len(formulas) else {}, i):
                 kinds[i] = ["svod", "", None]
                 continue
         if num is None or not name or name.replace(".", "").isdigit():
@@ -224,6 +224,17 @@ def _classify(rows: List[tuple], lay: Layout, formulas: Optional[List[dict]] = N
 
 
 _MONEY_UNITS = ("СУМ", "СЎМ", "SO'M", "SUM", "РУБ", "%")
+# ish shifri (me'yor kodi): «E1605-001-01», «Е47-2-99-1», «E22-8-1-3 ШНК.ДОП.3», «Ц1803-001-04ДОП.14» — bitta-ikki harf,
+# keyin «raqam-raqam(-raqam)». Resurs kodi faqat raqam («000001», «43113»), material — «С», «ЦЕНА», «СЦЕНА-72».
+_SHIFR = re.compile(r"^\s*[A-ZА-ЯЁ]{1,2}\s?\d{1,5}(?:\s?[-–.]\s?\d{1,4}){1,4}", re.I)
+
+
+def _shifr(r, lay: Layout) -> bool:
+    """Qatorda ish shifri bormi — raqam va nom ustunlari orasida (odatda B)."""
+    for j in range(lay.num + 1, min(lay.name, len(r))):
+        if _SHIFR.match(_text(r[j])):
+            return True
+    return False
 
 
 def _unnumbered_item(r, lay: Layout, fmls: dict, i: int) -> bool:
@@ -232,8 +243,14 @@ def _unnumbered_item(r, lay: Layout, fmls: dict, i: int) -> bool:
     name = _text(r[lay.name] if lay.name < len(r) else None)
     if not name or _SVOD_NAME.match(name) or not _is_item(r, lay, ("", None), name):
         return False
+    return _qty_formula(fmls, lay, i)
+
+
+def _qty_formula(fmls: dict, lay: Layout, i: int) -> bool:
+    """Shu qatorda «hajm × narx» formulasi bormi (``=E14*G14``, ``=IF(F14="",E14*G14,F14*G14)``)."""
+    from .formula import col_index
     qcols = {lay.qty, lay.total}
-    for f in fmls.values():
+    for f in (fmls or {}).values():
         if "*" in f:
             cols = {col_index(c) for c, rr in _REF.findall(f.upper()) if int(rr) == i}
             if cols & qcols and cols - qcols:
@@ -241,12 +258,17 @@ def _unnumbered_item(r, lay: Layout, fmls: dict, i: int) -> bool:
     return False
 
 
-def _is_item(r, lay: Layout, num, name: str) -> bool:
-    """Svodkadan keyingi qator ish / resursmi: raqami, nomi, birligi (pul / foiz emas) va E yoki F da soni bor."""
+def _is_item(r, lay: Layout, num, name: str, fmls: dict = None, i: int = 0) -> bool:
+    """Svodkadan keyingi qator ish / resursmi: raqami, nomi, birligi (pul / foiz emas) va E yoki F da soni bor.
+    Birligi yozilmagan bo'lsa — shu qatordagi «hajm × narx» formulasi bo'yicha (``fmls`` berilganda)."""
     if num is None or not name or _SVOD_NAME.match(name):
         return False
+    if num[0] and _shifr(r, lay):
+        return True  # me'yor shifri bor — aniq ish (birligi yozilmagan bo'lsa ham)
     unit = _text(r[lay.unit] if lay.unit < len(r) else None).upper()
-    if not unit or unit in _MONEY_UNITS or unit.replace(".", "").replace(",", "").isdigit():
+    if not unit and not (num[0] and _qty_formula(fmls, lay, i)):
+        return False
+    if unit in _MONEY_UNITS or unit.replace(".", "").replace(",", "").isdigit():
         return False
     return any(_num(r[j], text=True) is not None for j in (lay.qty, lay.total) if j < len(r))
 
@@ -330,19 +352,29 @@ def list_sheets(path: Path) -> List[dict]:
                 kinds, _last = _classify(rows, lay)
                 info["items"] = sum(1 for k in kinds.values() if k[0] in ("work", "free"))
                 info["works"] = sum(1 for k in kinds.values() if k[0] == "work")
+                info["shifr"] = sum(1 for i, k in kinds.items() if k[0] in ("work", "free") and _shifr(rows[i - 1], lay))
+                # narxlanganmi: ish / resurs qatorlarida hajm ustunlaridan o'ngda pul soni bor («ЕДИН» kabi narxsiz
+                # lokal smetada faqat hajm — ofyorta emas)
+                info["priced"] = any(_num(rows[i - 1][j], text=True) for i, k in kinds.items()
+                                     if k[0] in ("work", "free", "res")
+                                     for j in range(max(lay.qty, lay.total) + 1, len(rows[i - 1])))
                 for i, k in kinds.items():
                     if k[0] in ("work", "free") and len(info["preview"]) < PREVIEW:
                         r = rows[i - 1]
                         g = lambda j: _cell_value(r[j]) if j < len(r) else None  # noqa: E731
                         info["preview"].append([k[1], _text(g(lay.name))[:140], _text(g(lay.unit)), g(lay.qty)])
             low = ws.title.lower().replace("ё", "е")
-            score = info["items"] + (10 ** 6 if lay else 0)
+            # resurslari bor ish va shifrli qator — ofyortaning asosiy belgisi: «Сводная ресурсная ведомость» (1964 ta
+            # resurs, ishi yo'q) ofyortadan (577 ta ish) ustun chiqmasin
+            score = info["items"] + 5 * info["works"] + 5 * info.get("shifr", 0) + (10 ** 6 if lay else 0)
             if any(g in low for g in _GOOD):
                 score += 10 ** 5
             if any(b in low for b in _BAD):
                 score -= 5 * 10 ** 5
             if hidden:
                 score -= 10 ** 6
+            if lay and not info.get("priced"):
+                score -= 9 * 10 ** 5
             info["score"] = score
             out.append(info)
     finally:
@@ -413,6 +445,7 @@ def read(path: Path, sheet: str, progress: Callable[[int, int], None] = None) ->
         grid.rows.append({"row": i, "kind": k[0], "num": k[1], "parent": k[2], "vals": vals, "fmls": fmls})
     _restore_formulas(grid)
     _check(grid)
+    _fix_cache(grid)
     texts = [_text(v) for r in values[:lay.header - 1] for v in r if _text(v)]
     grid.title = next((t for t in texts if len(t) > 15 and not t.startswith("(")), "")
     return grid
@@ -473,6 +506,32 @@ def _relink_svod(grid: Grid):
                 if isinstance(y, (int, float)) and not isinstance(y, bool) and abs(x - y) <= max(0.01, abs(y) * 1e-6):
                     f[j] = f"={col_letter(j)}{up}"
                     break
+
+
+_ERR = re.compile(r"^#(VALUE!|NAME\?|REF!|DIV/0!|N/A|NUM!|NULL!)$")
+
+
+def _fix_cache(grid: Grid):
+    """Faylda saqlangan formula natijasi xato (``#VALUE!``, ``#NAME?`` …) — odatda .xls ni o'girgan dastur
+    («0,2016» kabi matn-sonni tushunmay) qayta hisoblab buzgan. Ofyortada shu xato ko'rinmasin: o'rniga tizim hisobi
+    (shartnoma hajmlari bilan — fayldagi bilan bir xil). Tizim ham hisoblay olmasa — fayldagidek qoladi."""
+    bad = [(r, j) for r in grid.rows if r["kind"] != "head" for j in r["fmls"]
+           if j < len(r["vals"]) and isinstance(r["vals"][j], str) and _ERR.match(r["vals"][j].strip())]
+    if not bad:
+        return
+    b = Book(grid.layout.as_dict(), grid.rows)
+    ev = b.evaluate({t: b.contract_qty(t) for t in b.tops})
+    fixed, first = 0, bad[0][0]["vals"][bad[0][1]].strip()
+    for r, j in bad:
+        v = ev(j, r["row"])
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and not isinstance(v, Err):
+            r["vals"][j] = v
+            fixed += 1
+    if fixed:
+        grid.warnings.append({"row": bad[0][0]["row"], "title": "Файлда хато қийматлар бор эди",
+                              "text": f"{fixed} та катакда файлда «{first}» каби хато "
+                                      "сақланган эди (одатда .xls очилганда матн кўринишидаги сонлар туфайли). "
+                                      "Тизим уларни формула бўйича қайта ҳисоблади."})
 
 
 def _check(grid: Grid):

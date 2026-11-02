@@ -225,6 +225,79 @@ def _subtotal(code, *args):
 FUNCS["SUBTOTAL"] = _subtotal
 
 
+def _one(v):
+    """Bitta katak kutilgan joyga oraliq berilsa — birinchi katagi."""
+    if isinstance(v, _Range):
+        vals = v.values()
+        return vals[0] if vals else None
+    return v
+
+
+def _bool(v):
+    """AND / OR / NOT uchun: son — 0 dan farqlimi, mantiqiy — o'zi; matn — #VALUE! (Excel kabi)."""
+    if isinstance(v, (Err, bool)):
+        return v
+    if v is None:
+        return False
+    if isinstance(v, (int, float)):
+        return v != 0
+    t = str(v).strip().upper()
+    return True if t == "TRUE" else False if t == "FALSE" else VALUE
+
+
+def _logic(fn):
+    def f(*args):
+        vals = []
+        for v in _flat(args):
+            b = _bool(v)
+            if isinstance(b, Err):
+                return b
+            vals.append(b)
+        return fn(vals)
+    return f
+
+
+def _iferror(v, alt=0.0):
+    return alt if isinstance(_one(v), Err) else v
+
+
+def _product(*args):
+    vals = _nums(args)
+    if isinstance(vals, Err):
+        return vals
+    return math.prod(vals) if vals else 0.0
+
+
+def _trunc(x, digits=0.0):
+    x, digits = _n(x), _n(digits)
+    if isinstance(x, Err):
+        return x
+    if isinstance(digits, Err):
+        return digits
+    k = 10 ** int(digits)
+    return math.trunc(x * k) / k
+
+
+FUNCS.update({
+    # ofyortalarda uchraydi: «=IF(ISNUMBER(G20),IF(F20="",E20*G20,F20*G20),0)», «=IFERROR(H5/E5,0)»
+    "ISNUMBER": lambda v: (lambda x: isinstance(x, (int, float)) and not isinstance(x, bool))(_one(v)),
+    "ISTEXT": lambda v: isinstance(_one(v), str) and not isinstance(_one(v), Err),
+    "ISBLANK": lambda v: _one(v) is None,
+    "ISERROR": lambda v: isinstance(_one(v), Err),
+    "ISERR": lambda v: isinstance(_one(v), Err) and _one(v) != "#N/A",
+    "IFERROR": _iferror,
+    "AND": _logic(lambda v: all(v) if v else VALUE),
+    "OR": _logic(lambda v: any(v) if v else VALUE),
+    "NOT": lambda v: (lambda b: b if isinstance(b, Err) else not b)(_bool(_one(v))),
+    "COUNT": lambda *a: float(sum(1 for v in _flat(a) if isinstance(v, (int, float)) and not isinstance(v, bool))),
+    "COUNTA": lambda *a: float(sum(1 for v in _flat(a) if v is not None and v != "")),
+    "PRODUCT": _product,
+    "VALUE": lambda v: _n(_one(v)),
+    "N": lambda v: (lambda x: x if isinstance(x, Err) else float(x) if isinstance(x, (int, float)) else 0.0)(_one(v)),
+    "TRUNC": _trunc,
+})
+
+
 class _Range:
     def __init__(self, env: Env, c1, r1, c2, r2):
         self.env, self.c1, self.r1, self.c2, self.r2 = env, min(c1, c2), min(r1, r2), max(c1, c2), max(r1, r2)

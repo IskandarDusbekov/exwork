@@ -62,6 +62,7 @@
         <span class="text-base font-semibold text-slate-900">{{ s.name }}</span>
         {% if s.name == guess %}<span class="tn-ch-pill bg-emerald-100 text-emerald-800">★ тизим таклифи</span>{% endif %}
         {% if s.hidden %}<span class="tn-ch-pill bg-slate-100 text-slate-600">яширин лист</span>{% endif %}
+        {% if s.header and s.priced is False %}<span class="tn-ch-pill bg-amber-100 text-amber-800" title="Бу листда нарх ва сумма йўқ — фақат ҳажмлар. Аввал «Смета нархлаш» бўлимида нархланг, кейин нархланган офёртани юкланг.">нархсиз смета</span>{% endif %}
         <span class="ml-auto text-xs text-slate-500">{{ s.rows }} қатор{% if s.header %} · <b class="font-semibold text-slate-700">{{ s.items }}</b> та иш / материал{% else %} · офёрта жадвали йўқ{% endif %}</span>
       </div>
       {% if s.preview %}

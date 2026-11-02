@@ -359,3 +359,25 @@ class ActsFlowTests(TestCase):
         self.assertEqual([sa.qty_of(a) for a in acts], [{w1: 1.0}, {w1: 0.5}])
         self.assertEqual(SiteObject.objects.get(pk=o.pk).mode, SiteObject.Mode.ACTS)
         self.assertFalse(ActQty.objects.filter(qty=0).exists())
+
+
+class ReaderRobustnessTests(TestCase):
+    def test_info_functions_and_broken_cache(self):
+        from .formula import Evaluator, compile_formula
+        from .sheet import Grid, Layout, _fix_cache
+        f = compile_formula('=IF(ISNUMBER(G2),IF(F2="",E2*G2,F2*G2),0)')
+        ev = Evaluator({(4, 2): 2.0, (6, 2): 10.0}, {(7, 2): f}, {})
+        self.assertEqual(ev(7, 2), 20.0)
+        self.assertEqual(compile_formula("=IFERROR(1/0,7)")(ev), 7)
+        self.assertTrue(compile_formula("=AND(1,OR(0,TRUE),NOT(0))")(ev))
+        # .xls ni o'girgan dastur «0,5» matnini tushunmay #VALUE! saqlagan — ofyortada tizim hisobi ko'rinadi
+        lay = Layout(header=1, header_end=1, num=0, name=2, unit=3, qty=4, total=5, price=6, amount=7, width=8,
+                     block_end=7)
+        grid = Grid(sheet="S", layout=lay, rows=[
+            {"row": 1, "kind": "head", "num": "", "parent": None, "vals": ["№"], "fmls": {}},
+            {"row": 2, "kind": "free", "num": "1", "parent": None,
+             "vals": ["1", "", "Иш", "м3", "0,5", None, 100.0, "#VALUE!"], "fmls": {7: "=E2*G2"}},
+        ])
+        _fix_cache(grid)
+        self.assertEqual(grid.rows[1]["vals"][7], 50.0)
+        self.assertEqual(grid.warnings[0]["title"], "Файлда хато қийматлар бор эди")
