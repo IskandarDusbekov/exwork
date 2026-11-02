@@ -31,8 +31,16 @@ def _source(obj: SiteObject):
     for ws in list(wb.worksheets):
         if ws is not src:
             wb.remove(ws)
+    _first_sheet(wb)
     wb.calculation.fullCalcOnLoad = True  # formulalar keshsiz yoziladi — Excel ochganda hisoblaydi
     return wb, src
+
+
+def _first_sheet(wb):
+    """Listlar o'chirilgandan keyin ``workbookView`` da eski ``firstSheet`` / ``activeTab`` (masalan 1) qoladi —
+    bitta listli faylni Excel «buzilgan» deb ochmaydi."""
+    for v in wb.views:
+        v.firstSheet, v.activeTab = 0, 0
 
 
 def _split_cols(ws, upto: int):
@@ -100,6 +108,8 @@ def _write_block(ws, b, start: int, title: str, qty: Dict[int, float], collapsed
 
     over = _act_values(b, qty)
     tops_done = {t for t in b.tops if qty.get(t)}
+    fin = b.final_cell()
+    tail = fin[1] if fin else None  # jamidan pastdagi tekshiruv qatorlari (shartnoma summasi, «ayirma») — blokka emas
     for j in range(lay.qty, lay.block_end + 1):
         letter = get_column_letter(j + 1)
         dim = ws.column_dimensions.get(letter)
@@ -120,7 +130,7 @@ def _write_block(ws, b, start: int, title: str, qty: Dict[int, float], collapsed
             _put(ws.cell(row=r, column=j + shift + 1), s, s.value)
     for row in b.rows:
         kind, r = row["kind"], row["row"]
-        if kind not in ("work", "free", "res", "svod"):
+        if kind not in ("work", "free", "res", "svod") or (kind == "svod" and tail and r > tail):
             continue
         top = row["parent"] if kind == "res" else r
         done = kind == "svod" or top in tops_done
@@ -133,14 +143,17 @@ def _write_block(ws, b, start: int, title: str, qty: Dict[int, float], collapsed
                 v = move_refs(v, mover)
             elif (j, r) in over:
                 v = over[(j, r)] if over[(j, r)] else None
+                if v is not None and s.value is None and j == lay.qty and (lay.total, r) in over:
+                    v = None  # faylda hajm faqat F da (E bo'sh) — blokda ham ikki marta yozilmaydi
             elif kind != "svod" and not done:
                 v = None  # bajarilmagan ishning me'yori / narxi — blokda bo'sh (fayldagidek)
             if v is None and not s.has_style:
                 continue
             _put(ws.cell(row=r, column=j + shift + 1), s, v)
-    # ofyortadagi birlashtirilgan kataklar (sarlavhada) — blokda ham
+    # ofyortadagi birlashtirilgan kataklar (sarlavha va ish qatorlaridagi «E:F» hajm) — blokda ham
     for m in list(ws.merged_cells.ranges):
-        if m.min_col - 1 >= lay.qty and m.max_col - 1 <= lay.block_end and m.max_row <= lay.header_end:
+        if m.min_col - 1 >= lay.qty and m.max_col - 1 <= lay.block_end and m.min_row >= lay.header \
+                and (tail is None or m.max_row <= tail):
             ws.merge_cells(start_row=m.min_row, end_row=m.max_row, start_column=m.min_col + shift,
                            end_column=m.max_col + shift)
 
@@ -296,5 +309,6 @@ def build_f2(obj: SiteObject, act: Act) -> bytes:
     _filter(ws, src, b, qty)
     _hide_types(ws, b.lay)
     wb.remove(src)
+    _first_sheet(wb)
     ws.title = _title(wb, f"Ф-2 {act.title}")
     return _save(wb)

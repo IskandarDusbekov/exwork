@@ -23,7 +23,7 @@ from .formula import Evaluator, compile_formula, deps, refs
 NUM = re.compile(r"^\s*(\d+)(?:\s*[.,]\s*(\d+))?\s*$")  # «3. 1» (bo'shliq bilan) ham
 MAX_COLS = 80  # undan o'ngdagi ustunlar (tasodifiy yozuvlar) olinmaydi
 PREVIEW = 12
-READER = 3  # o'qish qoidalari o'zgarsa oshiriladi — eski obyektlar o'zi qayta o'qiladi
+READER = 4  # o'qish qoidalari o'zgarsa oshiriladi — eski obyektlar o'zi qayta o'qiladi
 
 
 class SheetError(Exception):
@@ -262,17 +262,28 @@ def _money_cols(values: List[tuple], formulas: List[dict], kinds: dict, lay: Lay
 
     from .formula import col_index
     qcols = {lay.qty, lay.total}
-    amount, price = Counter(), Counter()
+    amount, price, flat = Counter(), Counter(), Counter()
     rows = [i for i, k in kinds.items() if k[0] in ("work", "free", "res")][:3000]
     for i in rows:
         for j, f in (formulas[i - 1].items() if i - 1 < len(formulas) else ()):
             if j in qcols or "*" not in f:
                 continue
             refs = {col_index(c) for c, r in _REF.findall(f.upper()) if int(r) == i}
-            if refs & qcols and refs - qcols - {j}:
+            if lay.total != lay.qty and refs == qcols:
+                flat[j] += 1  # «D*E»: ikkinchi «hajm» ustuni aslida narx (oddiy narx ro'yxati / Ф-2)
+            elif refs & qcols and refs - qcols - {j}:
                 amount[j] += 1
                 for k in refs - qcols - {j}:
                     price[(j, k)] += 1
+    if flat and sum(flat.values()) > sum(amount.values()):
+        j, n = flat.most_common(1)[0]
+        if n >= 3:
+            # sarlavhadagi summa o'ngroqda va o'zi ham formula bo'lsa («F*12%», «G+F» — QQS bilan) — o'sha qoladi
+            fml = sum(1 for i in rows if i - 1 < len(formulas) and lay.amount in formulas[i - 1])
+            if not (lay.amount > j and fml >= n):
+                lay.amount = j
+            lay.price, lay.total = lay.total, lay.qty
+        return
     if not amount:
         for i in rows:
             r = values[i - 1]
