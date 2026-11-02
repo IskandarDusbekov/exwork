@@ -1,16 +1,24 @@
 {% extends "jobs/base.html" %}
 {% load narx %}
-{% block title %}{{ project.name }} · Муҳандис лойиҳачи{% endblock %}
-{% block header_class %}px-4 lg:px-6{% endblock %}
+{% block title %}{{ project.name }} · mhisobot{% endblock %}
+{% block side %}rail{% endblock %}
 {% block main_class %}{% endblock %}
 {% block content %}
+<script>
+  // дарахт эни ва яширилгани — саҳифа чизилишидан олдин (ҳамма папкалар учун битта танлов)
+  try {
+    var _w = parseInt(localStorage.getItem("narxlash-tree-w"), 10);
+    if (_w) document.documentElement.style.setProperty("--tree-w", _w + "px");
+    if (localStorage.getItem("narxlash-tree-hidden") === "1") document.documentElement.classList.add("tree-hidden");
+  } catch (e) {}
+</script>
 <div id="project-body" data-viewer-url="{% url 'project_viewer' project.id '00000000-0000-0000-0000-000000000000' %}">{% include "jobs/_project_body.html" %}</div>
 {% include "jobs/_sheet_viewer.html" %}
 
 <style>
   .explorer { font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
   .tree-row { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 2px 10px 2px 6px; color: #1f2937;
-              cursor: pointer; white-space: nowrap; border: 1px solid transparent; }
+              cursor: var(--cur-hand, pointer); white-space: nowrap; border: 1px solid transparent; }
   .tree-row:hover { background: #e8e8e8; }
   .tree-row:focus-visible { outline: none; border-color: #0b74de; }
   summary.tree-row { list-style: none; }
@@ -41,10 +49,58 @@
   .part-chip:hover { border-color: #64748b; }
   .part-chip.is-on { background: #0f172a; border-color: #0f172a; color: #fff; }
   .part-chip.is-on svg { color: inherit; }
-  .stat-filter { cursor: pointer; }
-  .stat-filter[aria-disabled="true"] { cursor: default; }
+  .stat-filter { cursor: var(--cur-hand, pointer); }
+  .stat-filter[aria-disabled="true"] { cursor: var(--cur, default); }
   .stat-filter.is-on { box-shadow: 0 0 0 2px #0f172a; }
+  /* дарахт эни — суриб ўзгаради; яшириш мумкин */
+  .tree-resize, .tree-show { display: none; }
+  @media (min-width: 1024px) {
+    .proj-grid { grid-template-columns: var(--tree-w, 420px) minmax(0, 1fr); }
+    .tree-resize { display: block; position: absolute; top: 0; bottom: 0; right: -4px; width: 8px; z-index: 5; cursor: col-resize; }
+    .tree-resize::after { content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; transition: background .12s; }
+    .tree-resize:hover::after, html.tree-dragging .tree-resize::after { background: #0b74de; }
+    html.tree-dragging, html.tree-dragging * { cursor: col-resize !important; user-select: none; }
+    html.tree-hidden .proj-grid { grid-template-columns: minmax(0, 1fr); }
+    html.tree-hidden .explorer { display: none; }
+    html.tree-hidden .tree-show { display: inline-flex; align-items: center; gap: .375rem; border: 1px solid #e2e8f0; border-radius: .5rem;
+                                  padding: .25rem .625rem; font-size: .75rem; font-weight: 500; color: #475569; background: #fff; }
+    html.tree-hidden .tree-show:hover { background: #f8fafc; color: #0f172a; }
+  }
 </style>
+<script>
+  // дарахт: суриб эни ўзгаради (260 … экран ярми), икки марта босилса — 420; тугма билан яширилади/кўрсатилади.
+  // Ҳодисалар document'да — саҳифа қисми янгиланганда ҳам ишлайди
+  (function () {
+    var d = document.documentElement, MIN = 260, DEF = 420;
+    function clamp(w) { return Math.round(Math.max(MIN, Math.min(w, window.innerWidth * 0.5))); }
+    function setW(w, keep) {
+      d.style.setProperty("--tree-w", w + "px");
+      if (keep) try { if (w === DEF) localStorage.removeItem("narxlash-tree-w"); else localStorage.setItem("narxlash-tree-w", w); } catch (e) {}
+    }
+    document.addEventListener("pointerdown", function (e) {
+      var h = e.target.closest(".tree-resize");
+      if (!h || e.button !== 0) return;
+      e.preventDefault();
+      var left = h.parentElement.getBoundingClientRect().left, w = DEF;
+      d.classList.add("tree-dragging");
+      function move(ev) { w = clamp(ev.clientX - left); setW(w, false); }
+      function up() {
+        d.classList.remove("tree-dragging");
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+        setW(w, true);
+      }
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", up);
+    });
+    document.addEventListener("dblclick", function (e) { if (e.target.closest(".tree-resize")) setW(DEF, true); });
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest("[data-tree-toggle]")) return;
+      var hidden = d.classList.toggle("tree-hidden");
+      try { localStorage.setItem("narxlash-tree-hidden", hidden ? "1" : "0"); } catch (err) {}
+    });
+  })();
+</script>
 <script>
   (function () {
     var KEY = "narxlash-tree-{{ project.id }}";
@@ -208,7 +264,7 @@
         document.title = "✓ Тайёр · " + baseTitle;
         showToast(text);
         if (document.hidden && canNotify() && Notification.permission === "granted") {
-          try { new Notification("Муҳандис лойиҳачи: папка тайёр", {body: baseTitle.split(" · ")[0] + " — " + text, tag: "narx-{{ project.id }}"}); } catch (e) {}
+          try { new Notification("mhisobot: папка тайёр", {body: baseTitle.split(" · ")[0] + " — " + text, tag: "narx-{{ project.id }}"}); } catch (e) {}
         }
       }
       wasWorking = working;
@@ -241,23 +297,33 @@
 {% endblock %}
 {% block guide %}{page: "folder", steps: [
   {sel: '[data-guide="awaiting"]', title: "Файллар очилди — энди текширинг",
-   text: "Тизим ҳар бир папкадаги файлларни очиб, <b>локал</b> (иш ҳажмлари) ва <b>ресурс</b> (нархлар)ни топди ва жуфтлади. <b>Ҳисоблаш ҳали бошланмаган</b> — аввал пастдаги жадвални кўриб чиқинг."},
+   text: "<p>Тизим ҳар бир папкада <b>локал</b> (иш ҳажмлари) ва <b>ресурс</b> (нархлар)ни топиб, жуфтлади.</p>" +
+         "<p><b>Ҳисоблаш ҳали бошланмаган.</b> Аввал пастдаги жадвални кўриб чиқинг.</p>"},
   {sel: '[data-guide="next"]', title: "Нима қилиш керак",
-   text: "Ҳисоблангандан кейин уч қадам: <b>1</b> — ресурс аниқ топилмаган қисмларда уни танлаш, <b>2</b> — нархланмаган қаторларни тўғирлаш, <b>3</b> — юклаб олиш. Тугмани боссангиз — жадвалда фақат ўша қисмлар қолади."},
+   text: "<p>Ҳисоблангандан кейин уч қадам:</p><ol><li>Ресурс аниқ топилмаган қисмларда уни <b>танлаш</b></li>" +
+         "<li>Нархи топилмаган қаторларни <b>тўғирлаш</b></li><li>Натижани <b>юклаб олиш</b></li></ol>" +
+         "<div class='tip'>Тугмани боссангиз — жадвалда фақат ўша қисмлар қолади.</div>"},
   {sel: '[data-guide="progress"]', title: "Жараён ва натижалар",
-   text: "Нечта қисм тайёр, жами сумма (Всего с НДС), нечтасида нархланмаган қатор бор ва нечтаси текширишни кутяпти. Картани боссангиз — жадвалда фақат шулар қолади. Фонда ишлаётганда саҳифа ўзи янгиланади — бошқа саҳифага ўтсангиз ҳам иш тўхтамайди."},
+   text: "<ul><li>Нечта қисм <b>тайёр</b></li><li><b>Жами сумма</b> (Всего с НДС)</li><li>Нечтасида <b>нархсиз қатор</b> бор</li><li>Нечтаси <b>текширишни кутяпти</b></li></ul>" +
+         "<div class='tip'>Ҳисоблаш фонда давом этади — бошқа саҳифага ўтсангиз ҳам тўхтамайди.</div>"},
   {sel: '[data-guide="tree"]', title: "Папка тузилиши",
-   text: "Юкланган папка худди компьютердагидек. <b class='text-emerald-700'>Л</b> — локал, <b class='text-sky-700'>Р</b> — ресурс, <b class='text-emerald-700'>Н</b> — тайёр натижа. Кулранг — олинмаган файллар (олдинги натижа, сводка)."},
+   text: "<p>Юкланган папка — худди компьютердагидек.</p><ul><li><b class='text-emerald-700'>Л</b> — локал</li><li><b class='text-sky-700'>Р</b> — ресурс</li>" +
+         "<li><b class='text-emerald-700'>Н</b> — тайёр натижа</li><li><span class='text-slate-400'>кулранг</span> — олинмаган файл (эски натижа, сводка)</li></ul>" +
+         "<div class='tip'>Четини суриб кенгайтиринг ёки тепадаги тугма билан яширинг.</div>"},
   {sel: '[data-guide="parts"]', title: "Қисмлар — ҳар бир ички папка алоҳида смета",
-   text: "Ҳар бир қаторда: папка, қайси локал қайси ресурс билан ҳисобланади, ҳолати ва суммаси. Қаторни боссангиз — смета (ёки қисм) очилади."},
+   text: "<p>Ҳар бир қаторда: папка, қайси локал қайси ресурс билан ҳисобланади, ҳолати ва суммаси.</p><div class='tip'>Қаторни боссангиз — смета очилади.</div>"},
   {sel: '[data-guide="pairs-col"]', title: "Локал → ресурс ва мослик фоизи",
-   text: "Локал номини боссангиз — Excel кўринишида очилади. <b>→ %</b> ни боссангиз — локал ва ресурс ёнма-ён.<br>" +
-         "<span class='rounded bg-emerald-100 px-1 text-emerald-800'>70%+</span> яхши · <span class='rounded bg-amber-100 px-1 text-amber-800'>40–70%</span> текширинг · <span class='rounded bg-rose-100 px-1 text-rose-800'>кам</span> — эҳтимол бошқа ресурс керак.<br>" +
-         "<span class='rounded bg-rose-50 px-1 text-rose-700'>ресурс топилмади</span> — босиб, ресурсни ўзингиз танланг."},
+   text: "<ul><li>Локал <b>номини</b> боссангиз — Excel кўринишида очилади</li><li><b>→ %</b> ни боссангиз — локал ва ресурс ёнма-ён</li></ul>" +
+         "<p>Фоиз — локалдаги ресурсларнинг қанчаси шу ресурсда топилгани:</p>" +
+         "<ul><li><span class='rounded bg-emerald-100 px-1 text-emerald-800'>70%+</span> яхши</li><li><span class='rounded bg-amber-100 px-1 text-amber-800'>40–70%</span> текшириб кўринг</li>" +
+         "<li><span class='rounded bg-rose-100 px-1 text-rose-800'>кам</span> — эҳтимол бошқа ресурс керак</li></ul>" +
+         "<div class='tip'>«ресурс топилмади» ёзуви бўлса — босиб, ресурсни ўзингиз танланг.</div>"},
   {sel: '[data-guide="state-col"]', title: "Ҳолат",
-   text: "Ҳар бир ҳолат ёнидаги <span class='help-q text-slate-500'>?</span> белгисини боссангиз — нимани билдириши ва нима қилиш кераклиги чиқади. Энг муҳимлари: <b class='text-amber-700'>Текширинг</b> — ресурсни ўзингиз танланг; <b class='text-rose-700'>N та қатор нархланмади</b> — сметани очиб тўғирланг."},
+   text: "<p>Энг муҳимлари:</p><ul><li><b class='text-amber-700'>Текширинг</b> — ресурсни ўзингиз танланг</li>" +
+         "<li><b class='text-rose-700'>N та қатор нархланмади</b> — сметани очиб тўғирланг</li></ul>" +
+         "<div class='tip'>Ҳар бир ҳолат ёнидаги <span class='help-q'>?</span> — нимани билдириши ва нима қилиш керак.</div>"},
   {sel: '[data-guide="price-start"]', title: "Ҳаммаси тўғри бўлса — «Ҳисоблашни бошлаш»",
-   text: "Тизим ҳамма жуфтликларни фонда нархлайди. Жараённи шу саҳифада кузатасиз."},
+   text: "<p>Тизим ҳамма жуфтликларни фонда нархлайди. Жараённи шу саҳифада кузатасиз.</p>"},
   {sel: '[data-guide="download"]', title: "Натижани юклаб олиш",
-   text: "Ҳисоблаб бўлингач, шу тугма ҳамма натижаларни битта ZIP қилиб беради — папкалар тузилиши сақланади. Ҳар бир қисмни алоҳида ҳам юклаб олиш мумкин (жадвалдаги ↓)."}
+   text: "<p>Ҳамма натижалар битта ZIP файлда, папкалар тузилиши сақланади.</p><div class='tip'>Ҳар бир қисмни алоҳида ҳам юклаб олиш мумкин — жадвалдаги ↓ белгиси.</div>"}
 ]}{% endblock %}

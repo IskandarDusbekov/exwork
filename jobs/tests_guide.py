@@ -28,6 +28,15 @@ class GuideTests(TestCase):
             self.assertContains(r, escape(title))
             self.assertContains(r, escape(todo))
 
+    def test_calc_page_in_menu_with_guide(self):
+        r = self.client.get(reverse("calc"))
+        self.assertContains(r, 'id="calc-form"')
+        self.assertContains(r, 'page: "calc"')
+        self.assertContains(r, 'aria-current="page"')  # менюда «Калькулятор» танланган
+        self.assertContains(self.client.get(reverse("dashboard")), reverse("calc"))
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("calc")).status_code, 302)  # фақат кирганларга
+
     def test_new_user_gets_page_guide_once(self):
         r = self.client.get(reverse("index"))
         self.assertContains(r, 'page: "upload"')

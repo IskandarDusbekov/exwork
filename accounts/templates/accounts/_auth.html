@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Муҳандис лойиҳачи{% endblock %}</title>
+  <title>{% block title %}mhisobot{% endblock %}</title>
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   {% include "jobs/_site_css.html" %}
   <style>
+    {% include "jobs/_cursor_css.html" %}
     /* кириш саҳифалари: чапда форма (оқ варақ), ўнгда чизма — бино қирқими, ўқлар ва ўлчам чизиқлари */
     .auth { min-height: calc(100vh / var(--z)); min-height: calc(100dvh / var(--z)); display: grid; grid-template-columns: minmax(0, 1fr); }
     @media (min-width: 1024px) { .auth { grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); } }
@@ -53,7 +54,7 @@
     .auth-draw { position: relative; display: grid; place-items: center; padding: clamp(32px, 4vw, 72px); }
     .auth-draw svg { width: 100%; max-width: 640px; height: auto; }
     .auth-replay { position: absolute; right: clamp(20px, 3vw, 40px); top: clamp(20px, 3vw, 40px); padding: 6px 12px; border: 1px solid rgba(255, 255, 255, .25);
-                   background: transparent; color: #c9d2de; font: 500 12px var(--fm); cursor: pointer; border-radius: 2px; }
+                   background: transparent; color: #c9d2de; font: 500 12px var(--fm); cursor: var(--cur-hand, pointer); border-radius: 2px; }
     .auth-replay:hover { border-color: #34d399; color: #fff; }
     .auth-cap { position: relative; display: grid; gap: 18px; padding: 0 clamp(32px, 4vw, 72px) clamp(32px, 4vw, 56px); }
     .auth-cap h2 { font-size: clamp(1.4rem, 1.1rem + .9vw, 2rem); font-weight: 600; line-height: 1.2; letter-spacing: -.015em; max-width: 22em; color: #fff; }
@@ -73,7 +74,7 @@
         {% block content %}{% endblock %}
       </div>
     </main>
-    <footer class="auth-foot"><a href="{% url 'landing' %}">← Тизим ҳақида</a><span>mloyihachi.uz · {% now "Y" %}</span></footer>
+    <footer class="auth-foot"><a href="{% url 'landing' %}">← Тизим ҳақида</a><span>mhisobot.uz · {% now "Y" %}</span></footer>
   </div>
 
   <aside class="auth-art">

@@ -218,8 +218,10 @@ _ICONS = {
     "grid": '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
     "monitor": '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
     "phone": '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
-    # Муҳандис лойиҳачи: «М» — том/ферма чизиғи, остида чизмадаги ўлчам чизиғи (|——|)
-    "logo": '<path d="M5 14V4l7 6.5L19 4v10"/><path d="M3 19h18M3 17v4M21 17v4"/>',
+    # mhisobot: «М», остида ҳисобот устунчалари
+    "menu": '<path d="M4 6h16M4 12h16M4 18h16"/>',
+    "sidebar": '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>',
+    "logo": '<path d="M5 13V4l7 6 7-6v9"/><path d="M7 21v-3M12 21v-5M17 21v-4"/>',
 }
 _SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
         'stroke-width="{w}" stroke-linecap="round" stroke-linejoin="round" class="{cls}" aria-hidden="true">{body}</svg>')

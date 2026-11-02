@@ -1,6 +1,7 @@
 {% extends "jobs/base.html" %}
 {% load narx texnazor_tags %}
 {% block title %}{{ o.name }} · Техназор{% endblock %}
+{% block side %}rail{% endblock %}
 {% block main_class %}px-4 lg:px-6 py-4{% endblock %}
 {% block content %}
 {% csrf_token %}

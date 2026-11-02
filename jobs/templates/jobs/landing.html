@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Муҳандис лойиҳачи — сметани нархлаш ва техназор</title>
-  <meta name="description" content="Муҳандис лойиҳачи (mloyihachi.uz): локал смета ресурсларини RES нархлари билан сонияларда нархлайди, техназор — офёрта бўйича ойма-ой бажарилган ишлар.">
+  <title>mhisobot — сметани нархлаш ва техназор</title>
+  <meta name="description" content="mhisobot (mhisobot.uz): локал смета ресурсларини RES нархлари билан сонияларда нархлайди, техназор — офёрта бўйича ойма-ой бажарилган ишлар.">
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,6 +13,7 @@
   <script>document.documentElement.classList.add("asm");setTimeout(function(){if(!window.__asmReady)document.documentElement.classList.remove("asm")},3000);</script>
   {% include "jobs/_site_css.html" %}
   <style>
+    {% include "jobs/_cursor_css.html" %}
     /* ===== landing: «чизма варағи» — оқ варақ, ингичка чизиқлар, моно изоҳлар, позиция рақамлари ===== */
     .hero { position: relative; border-bottom: 1px solid var(--line); overflow-x: clip; }
     .hero-in { display: grid; gap: clamp(40px, 5vw, 88px); padding-block: clamp(48px, 7vw, 112px) clamp(56px, 7vw, 104px); }
@@ -364,10 +365,10 @@
   <div class="wrap"><div class="stamp-in">
     <div class="stamp-cell stamp-name">{% include "jobs/_brand.html" %}</div>
     <div class="stamp-cell"><span>Модуллар</span><b>Нархлаш · Техназор</b></div>
-    <div class="stamp-cell"><span>Манзил</span><b>mloyihachi.uz</b></div>
+    <div class="stamp-cell"><span>Манзил</span><b>mhisobot.uz</b></div>
     <div class="stamp-cell"><span>Йил</span><b>{% now "Y" %}</b></div>
     <nav class="stamp-cell stamp-links" aria-label="Пастки ҳаволалар">
-      {% if user.is_authenticated %}<a href="{% url 'index' %}">Юклаш</a><a href="{% url 'dashboard' %}">Дашборд</a><a href="{% url 'texnazor:index' %}">Техназор</a>
+      {% if user.is_authenticated %}<a href="{% url 'index' %}">Юклаш</a><a href="{% url 'dashboard' %}">Иш столи</a><a href="{% url 'texnazor:index' %}">Техназор</a>
       {% else %}<a href="{% url 'login' %}">Кириш</a>{% if signup_open %}<a href="{% url 'register' %}">Рўйхатдан ўтиш</a>{% endif %}{% endif %}
       <a href="#security">Хавфсизлик</a>
     </nav>

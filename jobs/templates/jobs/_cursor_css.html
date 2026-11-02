@@ -1,0 +1,13 @@
+    /* katta, ko'k sichqoncha ko'rsatkichi — oq-kulrang jadvallarda ham tez topiladi */
+    :root {
+      --cur: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22 viewBox=%220 0 32 32%22%3E%3Cpath d=%22M5 3v22l6-5.5 4.2 9.4 4.2-1.9-4.2-9.2H23z%22 fill=%22%232563eb%22 stroke=%22%23ffffff%22 stroke-width=%222.2%22 stroke-linejoin=%22round%22/%3E%3C/svg%3E") 5 3, default;
+      --cur-hand: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22 viewBox=%22-1 -1 26 26%22 fill=%22none%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M22 14a8 8 0 0 1-8 8 M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2 M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1 M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10 M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15%22 stroke=%22%23ffffff%22 stroke-width=%225%22/%3E%3Cpath d=%22M22 14a8 8 0 0 1-8 8 M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2 M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1 M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10 M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15%22 stroke=%22%232563eb%22 stroke-width=%222.2%22/%3E%3C/svg%3E") 11 4, pointer;
+      --cur-text: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22 viewBox=%220 0 32 32%22 fill=%22none%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M11 4h3l2 2 2-2h3 M16 6v20 M11 28h3l2-2 2 2h3 M12.5 16h7%22 stroke=%22%23ffffff%22 stroke-width=%225%22/%3E%3Cpath d=%22M11 4h3l2 2 2-2h3 M16 6v20 M11 28h3l2-2 2 2h3 M12.5 16h7%22 stroke=%22%232563eb%22 stroke-width=%222.4%22/%3E%3C/svg%3E") 16 16, text;
+    }
+    html { cursor: var(--cur); }
+    a[href], button:not(:disabled), summary, select, label:has(input[type=checkbox], input[type=radio]), [role=button], .cursor-pointer,
+    input[type=checkbox], input[type=radio], input[type=submit], input[type=button], input[type=file] { cursor: var(--cur-hand); }
+    input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button]):not([type=file]):not([type=range]), textarea, [contenteditable=true] { cursor: var(--cur-text); }
+    .busy .when-idle { display: none; }
+    .when-busy { display: none; }
+    .busy .when-busy { display: inline-flex; }

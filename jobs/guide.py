@@ -6,7 +6,7 @@
 """
 
 # Саҳифа қўлланмалари: ҳар бирини фойдаланувчи биринчи марта кирганда бир марта кўради
-GUIDE_PAGES = ("upload", "dashboard", "folder", "object", "smeta")
+GUIDE_PAGES = ("upload", "dashboard", "folder", "object", "smeta", "calc")
 
 # Иш тартиби: (рақам, номи, нима қилинади, маслаҳат)
 FLOW = (

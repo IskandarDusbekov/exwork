@@ -1,0 +1,779 @@
+{% extends "jobs/base.html" %}
+{% load narx %}
+{% block title %}Калькулятор — mhisobot{% endblock %}
+{% block main_class %}mx-auto w-full max-w-[1400px] px-4 pb-24 pt-6 lg:px-8 xl:pb-6{% endblock %}
+{% block content %}
+<div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Калькулятор</h1>
+    <p class="mt-0.5 text-sm text-slate-500">Қурилишда ҳар куни керак бўладиган ҳисоблар — формуласи билан. Натижани бир босишда нусхалаб, сметага қўйинг.</p>
+  </div>
+  <label class="relative block w-full sm:w-72">
+    <span class="pointer-events-none absolute inset-y-0 left-2.5 grid place-items-center text-slate-400">{% icon "search" "h-4 w-4" %}</span>
+    <input id="calc-q" type="search" placeholder="Қидириш: арматура, ғишт, ҚҚС…" autocomplete="off"
+           class="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 text-sm outline-none focus:border-slate-400">
+  </label>
+</div>
+
+<div class="grid gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]">
+  {# ===== рўйхат (телефонда — ёнга суриладиган) ===== #}
+  <nav id="calc-list" aria-label="Калькуляторлар"
+       class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:block lg:self-start lg:overflow-visible lg:rounded-xl lg:border lg:border-slate-200 lg:bg-white lg:p-2 lg:shadow-sm"></nav>
+
+  {# ===== танланган калькулятор ===== #}
+  <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-5 py-4">
+      <div id="calc-group" class="text-xs font-medium uppercase tracking-wider text-slate-400"></div>
+      <h2 id="calc-title" class="mt-0.5 text-lg font-semibold text-slate-900"></h2>
+      <p id="calc-hint" class="text-sm text-slate-500"></p>
+    </div>
+    <div class="grid gap-0 xl:grid-cols-[minmax(0,1fr)_minmax(0,27rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,32rem)]">
+      {# чизма — катта экранда ўнгда (натижа тепасида), телефонда — энг тепада #}
+      <div id="calc-pic-box" class="border-b border-slate-100 px-5 py-4 xl:col-start-2 xl:row-start-1 xl:border-b-0 xl:border-l">
+        <div class="flex items-baseline justify-between gap-2">
+          <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Чизма</div>
+          <div class="text-[11px] text-slate-400">масштабсиз · майдонни босинг — ўлчами ёритилади</div>
+        </div>
+        <div id="calc-pic" class="mt-2 rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50 p-2"></div>
+      </div>
+      <div class="px-5 py-4 xl:col-start-1 xl:row-span-2 xl:row-start-1">
+        <div class="mb-4 rounded-lg bg-violet-50 px-3.5 py-2.5">
+          <div class="text-[11px] font-semibold uppercase tracking-wider text-violet-500">Формула</div>
+          <div id="calc-formula" class="calc-formula mt-0.5 text-[15px] text-violet-900"></div>
+        </div>
+        <form id="calc-form" class="grid grid-cols-1 gap-3 sm:grid-cols-2" autocomplete="off" onsubmit="return false"></form>
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <button type="button" id="calc-reset" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">{% icon "undo" "h-4 w-4" %} Бошланғич қийматлар</button>
+          <span class="text-xs text-slate-400">Каср — вергул ёки нуқта билан: <span class="num">2,5</span> ёки <span class="num">2.5</span></span>
+        </div>
+      </div>
+      <div class="border-t border-slate-100 bg-slate-50/60 px-5 py-4 xl:col-start-2 xl:row-start-2 xl:rounded-br-xl xl:border-l">
+        <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Натижа</div>
+        <div id="calc-out" class="mt-2" aria-live="polite"></div>
+        <div id="calc-how-box" class="mt-4 hidden">
+          <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Қандай ҳисобланди</div>
+          <ol id="calc-how" class="calc-how mt-1.5 space-y-1 text-[13px] text-slate-700"></ol>
+        </div>
+        <p id="calc-note" class="mt-3 hidden rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800"></p>
+      </div>
+    </div>
+    <div id="calc-ref" class="hidden border-t border-slate-100 px-5 py-4"></div>
+  </section>
+</div>
+{# тор экранда асосий натижа пастда доим кўриниб туради (форма узун бўлса ҳам) #}
+<a href="#calc-out" id="calc-sticky" class="fixed inset-x-3 bottom-3 z-30 flex items-baseline gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-white shadow-lg xl:hidden">
+  <span id="calc-sticky-l" class="min-w-0 flex-1 truncate text-xs text-slate-300"></span>
+  <span id="calc-sticky-v" class="num text-lg font-semibold"></span></a>
+
+<style>
+  .calc-item { display: block; width: 100%; text-align: left; border-radius: .5rem; padding: .45rem .7rem; font-size: .875rem; color: #475569; white-space: nowrap; }
+  .calc-item:hover { background: #f8fafc; color: #0f172a; }
+  .calc-item.is-on { background: #0f172a; color: #fff; }
+  .calc-item small { display: none; }
+  .calc-grp { display: none; }
+  @media (max-width: 1023.98px) {
+    .calc-item { width: auto; flex-shrink: 0; border: 1px solid #e2e8f0; background: #fff; border-radius: 9999px; padding: .35rem .8rem; }
+  }
+  @media (min-width: 1024px) {
+    .calc-grp { display: block; padding: .75rem .7rem .25rem; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; }
+    .calc-grp:first-child { padding-top: .25rem; }
+    .calc-item { white-space: normal; }
+    .calc-item small { display: block; margin-top: 1px; font-size: 11px; line-height: 1.35; color: #94a3b8; }
+    .calc-item.is-on small { color: #cbd5e1; }
+  }
+  .calc-formula { font-family: "Cambria Math", Cambria, Georgia, serif; }
+  .calc-formula i { font-style: italic; }
+  .calc-input.is-bad { border-color: #fda4af; background: #fff1f2; }
+  .calc-sym { display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.25rem; padding: 0 .3rem; margin-right: .35rem; border-radius: .3rem;
+              background: #ede9fe; color: #6d28d9; font: italic 600 12px/1 "Cambria Math", Cambria, Georgia, serif; }
+  .calc-copy { border-radius: .375rem; padding: .25rem; color: #94a3b8; }
+  .calc-copy:hover { background: #e2e8f0; color: #0f172a; }
+  .calc-copy.done { color: #059669; }
+  .calc-help { margin-top: .25rem; font-size: 12px; line-height: 1.45; color: #64748b; }
+  .calc-how li { font-family: "Cambria Math", Cambria, Georgia, serif; border-left: 2px solid #ddd6fe; padding: .1rem 0 .1rem .6rem; }
+  .calc-how li:last-child { border-color: #10b981; font-weight: 600; }
+  /* чизма */
+  .calc-svg { display: block; width: 100%; height: auto; }
+  .calc-svg .s1 { fill: #f8fafc; stroke: #64748b; stroke-width: 1.4; stroke-linejoin: round; }
+  .calc-svg .s2 { fill: #e2e8f0; stroke: #64748b; stroke-width: 1.4; stroke-linejoin: round; }
+  .calc-svg .s3 { fill: #cbd5e1; stroke: #64748b; stroke-width: 1.4; stroke-linejoin: round; }
+  .calc-svg .earth { fill: #ede3d0; stroke: #a8906b; stroke-width: 1.4; }
+  .calc-svg .sand { fill: #f3e6c4; stroke: #b8975a; stroke-width: 1.4; }
+  .calc-svg .brick { fill: #f6cbb0; stroke: #c4805c; stroke-width: 1; }
+  .calc-svg .glass { fill: #dbeafe; stroke: #64748b; stroke-width: 1.2; }
+  .calc-svg .steel { fill: #94a3b8; stroke: #475569; stroke-width: 1.2; }
+  .calc-svg .coat { fill: #ddd6fe; stroke: #7c3aed; stroke-width: 1.2; }
+  .calc-svg .cut { fill: #fde68a; stroke: #b45309; stroke-width: 1; }
+  .calc-svg .hole { fill: #fff; stroke: #64748b; stroke-width: 1.4; }
+  .calc-svg .dim line { stroke: #7c3aed; stroke-width: 1.1; }
+  .calc-svg text { font: 600 13px system-ui, "Segoe UI", sans-serif; paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; }
+  .calc-svg .dim text, .calc-svg .lbl { fill: #5b21b6; }
+  .calc-svg .note { font-weight: 400; font-size: 12px; fill: #64748b; }
+  .calc-svg .big { font-size: 17px; fill: #0f172a; }
+  .calc-svg .hot line { stroke: #e11d48; stroke-width: 2.2; }
+  .calc-svg .hot text, .calc-svg text.hot { fill: #e11d48; }
+</style>
+
+<script>
+(function () {
+  "use strict";
+  var KEY = "narxlash-calc:";
+
+  // ---------- ёрдамчилар ----------
+  function num(s) {
+    s = String(s == null ? "" : s).replace(/[\s  ]/g, "").replace(",", ".");
+    return /^-?(\d+\.?\d*|\.\d+)$/.test(s) ? parseFloat(s) : NaN;
+  }
+  var NF = {};
+  function fmt(x, d) {
+    if (!isFinite(x)) return "—";
+    d = d == null ? 2 : d;
+    NF[d] = NF[d] || new Intl.NumberFormat("ru-RU", {minimumFractionDigits: 0, maximumFractionDigits: d});
+    return NF[d].format(x).replace(/ /g, " ");
+  }
+  // нусха — Excel'га қўйиш учун: бўш жойсиз, вергул билан
+  function plain(x, d) { return (+x.toFixed(d == null ? 2 : d)).toString().replace(".", ","); }
+  function esc(t) { var e = document.createElement("div"); e.textContent = t; return e.innerHTML; }
+  var PI = Math.PI;
+
+  // ---------- маълумот ----------
+  var MATERIALS = [
+    ["Бетон", "2,4"], ["Темирбетон", "2,5"], ["Қум (қуруқ)", "1,6"], ["Шағал", "1,5"], ["Щебень", "1,5"],
+    ["Тупроқ (зич)", "1,8"], ["Цемент (сочилган)", "1,3"], ["Ғишт терилган девор", "1,8"], ["Асфальтбетон", "2,35"],
+    ["Цемент-қум қоришма", "1,8"], ["Пўлат", "7,85"], ["Ёғоч (қарағай)", "0,5"], ["Сув", "1"]
+  ];
+  var REBAR = [6, 8, 10, 12, 14, 16, 18, 20, 22, 25, 28, 32, 36, 40];
+  var BRICKS = [
+    ["Оддий ғишт 250×120×65", {bl: "250", bw: "120", bh: "65", j: "10"}],
+    ["Қалинлаштирилган ғишт 250×120×88", {bl: "250", bw: "120", bh: "88", j: "10"}],
+    ["Газоблок 600×300×200", {bl: "600", bw: "300", bh: "200", j: "3"}],
+    ["Газоблок 600×200×300", {bl: "600", bw: "200", bh: "300", j: "3"}],
+    ["Шлакоблок 390×190×188", {bl: "390", bw: "190", bh: "188", j: "10"}],
+    ["Ўзингиз киритасиз", {}]
+  ];
+  var UNITS = {
+    "Узунлик": [["мм", 0.001], ["см", 0.01], ["м", 1], ["км", 1000]],
+    "Майдон": [["мм²", 1e-6], ["см²", 1e-4], ["м²", 1], ["100 м²", 100], ["1000 м²", 1000], ["га", 1e4]],
+    "Ҳажм": [["литр", 0.001], ["м³", 1], ["100 м³", 100], ["1000 м³", 1000]],
+    "Масса": [["г", 0.001], ["кг", 1], ["центнер", 100], ["тонна", 1000]]
+  };
+  function unitOpts(cat) { return UNITS[cat].map(function (u) { return [u[0], u[0]]; }); }
+  function unitK(cat, name) { var u = UNITS[cat].filter(function (x) { return x[0] === name; })[0]; return u ? u[1] : NaN; }
+
+  // f(k, белги, ном, бирлик, стандарт)
+  function f(k, sym, label, unit, def) { return {k: k, sym: sym, label: label, unit: unit, def: def}; }
+  function sel(k, label, opts, def, wide) { return {k: k, label: label, opts: opts, def: def == null ? opts[0][1] : def, wide: wide}; }
+
+  var CALCS = [
+    // ===== Ҳажм ва майдон =====
+    {id: "box", group: "Ҳажм ва майдон", title: "Тўғри бурчакли ҳажм", hint: "Фундамент, плита, бетон қатлам, тик деворли хандақ",
+     formula: "<i>V</i> = <i>a</i> × <i>b</i> × <i>h</i> × <i>n</i>",
+     fields: [f("a", "a", "Узунлик", "м", "10"), f("b", "b", "Эни", "м", "0,6"), f("h", "h", "Баландлик / қалинлик", "м", "1,2"), f("n", "n", "Сони", "дона", "1")],
+     calc: function (n) {
+       return [{l: "Ҳажм", v: n.a * n.b * n.h * n.n, u: "м³", d: 3, main: 1},
+               {l: "Устки майдон", v: n.a * n.b * n.n, u: "м²"},
+               {l: "Ён сирт (қолип)", v: 2 * (n.a + n.b) * n.h * n.n, u: "м²"}];
+     }},
+    {id: "cyl", group: "Ҳажм ва майдон", title: "Цилиндр", hint: "Бурғуланган қозиқ, қудуқ, думалоқ устун",
+     formula: "<i>V</i> = π × <i>d</i>² / 4 × <i>h</i> × <i>n</i>",
+     fields: [f("d", "d", "Диаметр", "м", "0,5"), f("h", "h", "Баландлик / чуқурлик", "м", "12"), f("n", "n", "Сони", "дона", "1")],
+     calc: function (n) {
+       var one = PI * n.d * n.d / 4 * n.h;
+       return [{l: "Ҳажм", v: one * n.n, u: "м³", d: 3, main: 1}, {l: "Бир донаси", v: one, u: "м³", d: 3},
+               {l: "Ён сирт (қолип)", v: PI * n.d * n.h * n.n, u: "м²"}];
+     }},
+    {id: "trench", group: "Ҳажм ва майдон", title: "Хандақ (траншея) қиялик билан", hint: "Кесими — трапеция; қиялик 1 : m",
+     formula: "<i>V</i> = (<i>b</i> + <i>B</i>) / 2 × <i>h</i> × <i>L</i>,&nbsp;&nbsp; <i>B</i> = <i>b</i> + 2<i>mh</i>",
+     fields: [f("b", "b", "Туби эни", "м", "0,6"), f("h", "h", "Чуқурлиги", "м", "1,5"), f("m", "m", "Қиялик коэффициенти", "", "0,5"),
+              f("L", "L", "Узунлиги", "м", "100"), f("k", "k", "Юмшаш коэффициенти", "", "1,2")],
+     calc: function (n) {
+       var B = n.b + 2 * n.m * n.h, V = (n.b + B) / 2 * n.h * n.L;
+       return [{l: "Ҳажм (зич тупроқ)", v: V, u: "м³", d: 2, main: 1}, {l: "Юмшатилган ҳажм (ташиш учун)", v: V * n.k, u: "м³"},
+               {l: "Устки эни B", v: B, u: "м", d: 3}];
+     }},
+    {id: "pit", group: "Ҳажм ва майдон", title: "Котлован қиялик билан", hint: "Кесик пирамида: туби a × b, тепаси A × B",
+     formula: "<i>V</i> = <i>h</i> / 6 × (<i>ab</i> + <i>AB</i> + (<i>a</i> + <i>A</i>)(<i>b</i> + <i>B</i>)),&nbsp;&nbsp; <i>A</i> = <i>a</i> + 2<i>mh</i>",
+     fields: [f("a", "a", "Туби узунлиги", "м", "20"), f("b", "b", "Туби эни", "м", "12"), f("h", "h", "Чуқурлиги", "м", "3"),
+              f("m", "m", "Қиялик коэффициенти", "", "0,5"), f("k", "k", "Юмшаш коэффициенти", "", "1,2")],
+     calc: function (n) {
+       var A = n.a + 2 * n.m * n.h, B = n.b + 2 * n.m * n.h;
+       var V = n.h / 6 * (n.a * n.b + A * B + (n.a + A) * (n.b + B));
+       return [{l: "Ҳажм (зич тупроқ)", v: V, u: "м³", main: 1}, {l: "Юмшатилган ҳажм (ташиш учун)", v: V * n.k, u: "м³"},
+               {l: "Тепа ўлчами", text: fmt(A, 2) + " × " + fmt(B, 2) + " м"}];
+     }},
+    {id: "wall", group: "Ҳажм ва майдон", title: "Девор майдони", hint: "Сувоқ, бўёқ, пардоз учун — эшик ва деразалар айрилади",
+     formula: "<i>S</i> = <i>P</i> × <i>h</i> − <i>S</i><sub>эшик</sub> − <i>S</i><sub>дераза</sub>",
+     fields: [f("P", "P", "Девор узунлиги (периметр)", "м", "40"), f("h", "h", "Баландлиги", "м", "3"),
+              f("dn", "", "Эшиклар сони", "дона", "2"), f("dw", "", "Эшик эни × баландлиги", "м", "0,9"), f("dh", "", "", "м", "2,1"),
+              f("wn", "", "Деразалар сони", "дона", "4"), f("ww", "", "Дераза эни × баландлиги", "м", "1,5"), f("wh", "", "", "м", "1,5")],
+     calc: function (n) {
+       var gross = n.P * n.h, holes = n.dn * n.dw * n.dh + n.wn * n.ww * n.wh;
+       return [{l: "Тоза майдон", v: gross - holes, u: "м²", main: 1}, {l: "Жами (тешиклар билан)", v: gross, u: "м²"},
+               {l: "Эшик ва деразалар", v: holes, u: "м²"},
+               {l: "Деразалар откоси (тахминан)", v: n.wn * 2 * (n.ww + n.wh) * 0.25, u: "м²", note: "0,25 м чуқурлик билан"}];
+     }},
+
+    // ===== Масса ва металл =====
+    {id: "mass", group: "Масса ва металл", title: "Ҳажмдан массага (м³ → т)", hint: "Ташиш, тортиш, юк ҳисоби",
+     formula: "<i>m</i> = <i>V</i> × ρ",
+     fields: [sel("mat", "Материал", MATERIALS.map(function (x) { return [x[0] + " — " + x[1] + " т/м³", x[0], {rho: x[1]}]; }), null, true),
+              f("V", "V", "Ҳажм", "м³", "10"), f("rho", "ρ", "Зичлик", "т/м³", "2,4")],
+     note: "Зичлик — ўртача қиймат. Аниқ қиймат лаборатория ёки паспортда бўлса — шуни ёзинг.",
+     calc: function (n) {
+       return [{l: "Масса", v: n.V * n.rho, u: "т", d: 3, main: 1}, {l: "Килограммда", v: n.V * n.rho * 1000, u: "кг", d: 0},
+               {l: "20 тонналик машина", v: Math.ceil(n.V * n.rho / 20), u: "рейс", d: 0}];
+     }},
+    {id: "rebar", group: "Масса ва металл", title: "Арматура", hint: "Диаметр ва узунликдан — килограмм ва тонна",
+     formula: "1 м массаси = 0,00617 × <i>d</i>² &nbsp;(кг, <i>d</i> — мм)",
+     fields: [sel("d", "Диаметр", REBAR.map(function (d) { return ["Ø" + d + " мм — " + fmt(0.00617 * d * d, 3) + " кг/м", String(d)]; }), "12", true),
+              f("L", "L", "Бир донаси узунлиги", "м", "11,7"), f("n", "n", "Сони", "дона", "100"), f("w", "", "Нахлёст ва чиқинди", "%", "0")],
+     calc: function (n, v) {
+       var d = +v.d, kgm = 0.00617 * d * d, len = n.L * n.n * (1 + n.w / 100);
+       return [{l: "Жами масса", v: kgm * len / 1000, u: "т", d: 3, main: 1}, {l: "Килограммда", v: kgm * len, u: "кг", d: 1},
+               {l: "Жами узунлик", v: len, u: "м", d: 1}, {l: "1 метр массаси", v: kgm, u: "кг/м", d: 3}];
+     },
+     ref: function () {
+       return '<div class="text-sm font-semibold text-slate-800">Арматура жадвали</div><div class="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4 lg:grid-cols-7">' +
+         REBAR.map(function (d) { return '<div class="flex justify-between gap-2 border-b border-slate-100 py-1"><span class="text-slate-500">Ø' + d + '</span><span class="num font-medium">' + fmt(0.00617 * d * d, 3) + "</span></div>"; }).join("") +
+         '</div><p class="mt-1.5 text-xs text-slate-400">кг/м · стандарт оғирлик (ГОСТ 5781)</p>';
+     }},
+    {id: "sheet", group: "Масса ва металл", title: "Металл лист", hint: "Пўлат лист массаси",
+     formula: "<i>m</i> = <i>a</i> × <i>b</i> × <i>t</i> × 7,85 &nbsp;(кг; <i>a</i>, <i>b</i> — м, <i>t</i> — мм)",
+     fields: [f("a", "a", "Узунлиги", "м", "6"), f("b", "b", "Эни", "м", "1,5"), f("t", "t", "Қалинлиги", "мм", "4"), f("n", "n", "Сони", "дона", "1")],
+     calc: function (n) {
+       var kg = n.a * n.b * n.t * 7.85 * n.n;
+       return [{l: "Масса", v: kg, u: "кг", d: 1, main: 1}, {l: "Тоннада", v: kg / 1000, u: "т", d: 3},
+               {l: "1 м² массаси", v: n.t * 7.85, u: "кг/м²", d: 2}];
+     }},
+    {id: "pipe", group: "Масса ва металл", title: "Думалоқ қувур", hint: "Пўлат қувур: ташқи диаметр ва девор қалинлиги",
+     formula: "1 м = 0,02466 × <i>t</i> × (<i>D</i> − <i>t</i>) &nbsp;(кг; <i>D</i>, <i>t</i> — мм)",
+     fields: [f("D", "D", "Ташқи диаметр", "мм", "108"), f("t", "t", "Девор қалинлиги", "мм", "4"), f("L", "L", "Узунлиги", "м", "6"), f("n", "n", "Сони", "дона", "1")],
+     calc: function (n) {
+       var kgm = 0.02466 * n.t * (n.D - n.t);
+       return [{l: "Масса", v: kgm * n.L * n.n, u: "кг", d: 1, main: 1}, {l: "Тоннада", v: kgm * n.L * n.n / 1000, u: "т", d: 3},
+               {l: "1 метр массаси", v: kgm, u: "кг/м", d: 3}];
+     }},
+    {id: "profile", group: "Масса ва металл", title: "Профил қувур", hint: "Квадрат ва тўғри бурчакли қувур",
+     formula: "1 м ≈ 0,0157 × <i>t</i> × (<i>a</i> + <i>b</i> − 2,86<i>t</i>) &nbsp;(кг; мм)",
+     fields: [f("a", "a", "Томони a", "мм", "60"), f("b", "b", "Томони b", "мм", "40"), f("t", "t", "Девор қалинлиги", "мм", "3"),
+              f("L", "L", "Узунлиги", "м", "6"), f("n", "n", "Сони", "дона", "1")],
+     calc: function (n) {
+       var kgm = 0.0157 * n.t * (n.a + n.b - 2.86 * n.t);
+       return [{l: "Масса", v: kgm * n.L * n.n, u: "кг", d: 1, main: 1}, {l: "Тоннада", v: kgm * n.L * n.n / 1000, u: "т", d: 3},
+               {l: "1 метр массаси", v: kgm, u: "кг/м", d: 3}];
+     }},
+
+    // ===== Девор ва пардоз =====
+    {id: "brick", group: "Девор ва пардоз", title: "Ғишт ва блок сони", hint: "Девор ҳажмидан — дона ва қоришма",
+     formula: "<i>N</i> = <i>V</i><sub>девор</sub> / ((<i>l</i> + <i>c</i>)(<i>w</i> + <i>c</i>)(<i>h</i> + <i>c</i>))",
+     fields: [sel("type", "Тури", BRICKS.map(function (x) { return [x[0], x[0], x[1]]; }), null, true),
+              f("L", "", "Девор узунлиги", "м", "10"), f("H", "", "Девор баландлиги", "м", "3"), f("T", "", "Девор қалинлиги", "м", "0,38"),
+              f("o", "", "Эшик ва деразалар", "м²", "0"),
+              f("bl", "l", "Ғишт узунлиги", "мм", "250"), f("bw", "w", "Ғишт эни", "мм", "120"), f("bh", "h", "Ғишт баландлиги", "мм", "65"),
+              f("j", "c", "Чок қалинлиги", "мм", "10"), f("w", "", "Чиқинди (синган)", "%", "5")],
+     note: "Тахминий ҳисоб — ҳажм бўйича. Девор қалинлиги: ½ ғишт 0,12 · 1 ғишт 0,25 · 1½ ғишт 0,38 · 2 ғишт 0,51 м.",
+     calc: function (n) {
+       var V = Math.max(0, (n.L * n.H - n.o) * n.T);
+       var cell = (n.bl + n.j) * (n.bw + n.j) * (n.bh + n.j) / 1e9, one = n.bl * n.bw * n.bh / 1e9;
+       var N = V / cell;
+       return [{l: "Керак бўлади", v: Math.ceil(N * (1 + n.w / 100)), u: "дона", d: 0, main: 1},
+               {l: "Чиқиндисиз", v: Math.ceil(N), u: "дона", d: 0},
+               {l: "Девор ҳажми", v: V, u: "м³", d: 3},
+               {l: "Қоришма", v: Math.max(0, V - N * one), u: "м³", d: 3},
+               {l: "1 м³ деворга", v: Math.round(1 / cell), u: "дона", d: 0}];
+     }},
+    {id: "plaster", group: "Девор ва пардоз", title: "Сувоқ ва шпаклёвка", hint: "Қуруқ аралашма: килограмм ва қоп",
+     formula: "<i>m</i> = <i>S</i> × <i>t</i> × <i>q</i> × (1 + чиқинди)",
+     fields: [sel("mat", "Аралашма", [["Цемент-қумли сувоқ — 1,7 кг/м²·мм", "c", {q: "1,7"}], ["Гипсли сувоқ — 0,9 кг/м²·мм", "g", {q: "0,9"}],
+                                     ["Шпаклёвка — 1,1 кг/м²·мм", "s", {q: "1,1"}], ["Ўзингиз киритасиз", "x", {}]], null, true),
+              f("S", "S", "Майдон", "м²", "100"), f("t", "t", "Қатлам қалинлиги", "мм", "15"),
+              f("q", "q", "Сарф: 1 мм га", "кг/м²", "1,7"), f("bag", "", "Қоп оғирлиги", "кг", "25"), f("w", "", "Чиқинди", "%", "5")],
+     note: "Сарф — ўртача. Аниқ қиймат қопда ёзилган бўлади («кг/м² 1 мм қатламга»).",
+     calc: function (n) {
+       var kg = n.S * n.t * n.q * (1 + n.w / 100);
+       return [{l: "Қоп", v: Math.ceil(kg / n.bag), u: "дона", d: 0, main: 1}, {l: "Аралашма", v: kg, u: "кг", d: 0},
+               {l: "Тоннада", v: kg / 1000, u: "т", d: 3}, {l: "Қатлам ҳажми", v: n.S * n.t / 1000, u: "м³", d: 3}];
+     }},
+    {id: "paint", group: "Девор ва пардоз", title: "Бўёқ", hint: "Литр ва банка сони",
+     formula: "<i>Q</i> = <i>S</i> × <i>q</i> × <i>k</i> × (1 + чиқинди)",
+     fields: [f("S", "S", "Майдон", "м²", "100"), f("q", "q", "Сарф: 1 қатламга", "л/м²", "0,12"), f("k", "k", "Қатламлар сони", "", "2"),
+              f("can", "", "Банка ҳажми", "л", "10"), f("w", "", "Чиқинди", "%", "5")],
+     note: "Сарф банкада ёзилади (одатда 0,1–0,15 л/м²). Ғадир-будур ёки биринчи марта бўялаётган юзада кўпроқ кетади.",
+     calc: function (n) {
+       var l = n.S * n.q * n.k * (1 + n.w / 100);
+       return [{l: "Банка", v: Math.ceil(l / n.can), u: "дона", d: 0, main: 1}, {l: "Бўёқ", v: l, u: "литр", d: 1}];
+     }},
+    {id: "tile", group: "Девор ва пардоз", title: "Плитка", hint: "Дона ва қути сони",
+     formula: "<i>N</i> = <i>S</i> / (<i>a</i> × <i>b</i>) × (1 + чиқинди)",
+     fields: [f("S", "S", "Майдон", "м²", "20"), f("a", "a", "Плитка узунлиги", "см", "60"), f("b", "b", "Плитка эни", "см", "30"),
+              f("w", "", "Чиқинди (кесиш)", "%", "10"), f("box", "", "Қутида", "м²", "1,44")],
+     note: "Чиқинди: тўғри териш — 5–10%, диагонал — 15%.",
+     calc: function (n) {
+       var one = n.a * n.b / 1e4, N = Math.ceil(n.S / one * (1 + n.w / 100));
+       return [{l: "Плитка", v: N, u: "дона", d: 0, main: 1}, {l: "Қути", v: Math.ceil(N * one / n.box), u: "дона", d: 0},
+               {l: "Чиқинди билан майдон", v: N * one, u: "м²"}];
+     }},
+
+    // ===== Бирлик ва нарх =====
+    {id: "units", group: "Бирлик ва нарх", title: "Бирликларни ўтказиш", hint: "Сметадаги «100 м²», «1000 м³» каби бирликлар учун",
+     formula: "натижа = қиймат × <i>k</i><sub>дан</sub> / <i>k</i><sub>га</sub>",
+     fields: [sel("cat", "Тури", [["Узунлик", "Узунлик", {from: "м", to: "мм"}], ["Майдон", "Майдон", {from: "м²", to: "100 м²"}],
+                                  ["Ҳажм", "Ҳажм", {from: "м³", to: "1000 м³"}], ["Масса", "Масса", {from: "тонна", to: "кг"}]], "Майдон", true),
+              f("q", "", "Қиймат", "", "1"),
+              {k: "from", label: "Қайси бирликдан", optsFn: function (v) { return unitOpts(v.cat); }, def: "м²"},
+              {k: "to", label: "Қайси бирликка", optsFn: function (v) { return unitOpts(v.cat); }, def: "100 м²"}],
+     calc: function (n, v) {
+       var r = n.q * unitK(v.cat, v.from) / unitK(v.cat, v.to);
+       return [{l: fmt(n.q, 6) + " " + v.from + " =", v: r, u: v.to, d: 6, main: 1}];
+     }},
+    {id: "vat", group: "Бирлик ва нарх", title: "ҚҚС (НДС)", hint: "Қўшиш ёки суммадан ажратиш",
+     formula: "ҚҚС билан = сумма × (1 + <i>r</i>),&nbsp;&nbsp; ҚҚС = ҚҚС билан × <i>r</i> / (1 + <i>r</i>)",
+     fields: [sel("mode", "Киритилган сумма", [["ҚҚСсиз — ҚҚС қўшилади", "add"], ["ҚҚС билан — ҚҚС ажратилади", "out"]], null, true),
+              f("s", "", "Сумма", "сўм", "1 000 000"), f("r", "r", "Ставка", "%", "12")],
+     calc: function (n, v) {
+       var r = n.r / 100, base = v.mode === "add" ? n.s : n.s / (1 + r);
+       return [{l: "ҚҚС билан", v: base * (1 + r), u: "сўм", main: 1}, {l: "ҚҚСсиз", v: base, u: "сўм"}, {l: "ҚҚС", v: base * r, u: "сўм"}];
+     }},
+    {id: "index", group: "Бирлик ва нарх", title: "Индекс ва коэффициент", hint: "Нархни коэффициентга кўпайтириш ёки фоизга ошириш",
+     formula: "янги нарх = нарх × <i>k</i> × (1 + <i>p</i> / 100)",
+     fields: [f("s", "", "Нарх", "сўм", "1 000 000"), f("k", "k", "Коэффициент (индекс)", "", "1"), f("p", "p", "Устама", "%", "0"), f("q", "", "Миқдор", "", "1")],
+     calc: function (n) {
+       var one = n.s * n.k * (1 + n.p / 100);
+       return [{l: "Янги нарх", v: one, u: "сўм", main: 1}, {l: "Миқдорга", v: one * n.q, u: "сўм"}, {l: "Фарқи", v: one - n.s, u: "сўм"}];
+     }},
+    {id: "diff", group: "Бирлик ва нарх", title: "Фарқ ва фоиз", hint: "Смета ва акт, режа ва факт — нечта фоиз фарқ",
+     formula: "фарқ = <i>B</i> − <i>A</i>,&nbsp;&nbsp; % = (<i>B</i> − <i>A</i>) / <i>A</i> × 100",
+     fields: [f("A", "A", "Биринчи (режа, смета)", "", "820"), f("B", "B", "Иккинчи (факт, акт)", "", "640")],
+     calc: function (n) {
+       return [{l: "Фарқ", v: n.B - n.A, u: "", main: 1}, {l: "Фоизда", v: (n.B - n.A) / n.A * 100, u: "%", d: 2},
+               {l: "B — A нинг", v: n.B / n.A * 100, u: "%", d: 2}];
+     }}
+  ];
+
+  // ---------- чизма, «қандай ҳисобланди», майдон изоҳлари ----------
+  // ўлчов чизиғи: учларида қия белги, ёзуви чизиқ бўйлаб (side: 1 / -1 — қайси томонда)
+  function dim(x1, y1, x2, y2, k, text, side) {
+    var dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, px = -uy, py = ux, t = 4;
+    var a = Math.atan2(dy, dx) * 180 / Math.PI;
+    if (a > 90) a -= 180; else if (a <= -90) a += 180;
+    var o = (side || 1) * 11, mx = (x1 + x2) / 2 + px * o, my = (y1 + y2) / 2 + py * o;
+    function tick(x, y) {
+      return '<line x1="' + (x - px * t) + '" y1="' + (y - py * t) + '" x2="' + (x + px * t) + '" y2="' + (y + py * t) + '"/>' +
+             '<line x1="' + (x - (ux + px) * 3) + '" y1="' + (y - (uy + py) * 3) + '" x2="' + (x + (ux + px) * 3) + '" y2="' + (y + (uy + py) * 3) + '"/>';
+    }
+    return '<g class="dim" data-k="' + k + '"><line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '"/>' + tick(x1, y1) + tick(x2, y2) +
+      '<text x="' + mx + '" y="' + my + '" text-anchor="middle" dominant-baseline="middle" transform="rotate(' + a + " " + mx + " " + my + ')">' + esc(text) + "</text></g>";
+  }
+  function txt(x, y, text, cls, k, anchor) {
+    return '<text x="' + x + '" y="' + y + '" class="' + (cls || "lbl") + '"' + (k ? ' data-k="' + k + '"' : "") + ' text-anchor="' + (anchor || "middle") + '">' + esc(text) + "</text>";
+  }
+  function poly(cls, pts) { return '<polygon class="' + cls + '" points="' + pts + '"/>'; }
+  function rect(cls, x, y, w, h, rx) { return '<rect class="' + cls + '" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '"' + (rx ? ' rx="' + rx + '"' : "") + "/>"; }
+  function svg(body, h) { return '<svg class="calc-svg" viewBox="0 0 360 ' + (h || 220) + '" role="img" aria-label="Чизма">' + body + "</svg>"; }
+  function q3(x) { return fmt(x, 3); }
+  function bar(x, y, w, h, cls) { return rect(cls, x, y, Math.max(2, w), h, 4); }
+  function barLabel(x, y, w, text, k) { return w > 140 ? txt(x + w - 8, y, text, "lbl", k, "end") : txt(x + Math.max(2, w) + 6, y, text, "lbl", k, "start"); }
+
+  var EXTRA = {
+    box: {
+      pic: function (n) {
+        return svg(poly("s1", "60,95 240,95 300,55 120,55") + poly("s2", "60,95 240,95 240,175 60,175") + poly("s3", "240,95 300,55 300,135 240,175") +
+          dim(60, 192, 240, 192, "a", "a = " + q3(n.a) + " м", 1) + dim(44, 95, 44, 175, "h", "h = " + q3(n.h) + " м", -1) +
+          dim(252, 187, 312, 147, "b", "b = " + q3(n.b) + " м", 1) + txt(20, 28, "× n = " + fmt(n.n, 0) + " дона", "lbl", "n", "start"));
+      },
+      how: function (n, r) { return ["V = " + q3(n.a) + " × " + q3(n.b) + " × " + q3(n.h) + " × " + fmt(n.n, 0), "V = " + q3(r[0].v) + " м³"]; }
+    },
+    cyl: {
+      pic: function (n) {
+        return svg('<path class="s2" d="M130,55 L130,175 A50,14 0 0 0 230,175 L230,55 Z"/>' + '<ellipse class="s1" cx="180" cy="55" rx="50" ry="14"/>' +
+          dim(130, 26, 230, 26, "d", "d = " + q3(n.d) + " м", -1) + dim(256, 55, 256, 175, "h", "h = " + q3(n.h) + " м", -1) +
+          txt(20, 205, "× n = " + fmt(n.n, 0) + " дона", "lbl", "n", "start"));
+      },
+      how: function (n, r) {
+        return ["π × d² / 4 = 3,1416 × " + q3(n.d) + "² / 4 = " + fmt(PI * n.d * n.d / 4, 4) + " м²",
+                "× h = " + fmt(PI * n.d * n.d / 4, 4) + " × " + q3(n.h) + " = " + q3(r[1].v) + " м³", "× n = " + q3(r[1].v) + " × " + fmt(n.n, 0) + " = " + q3(r[0].v) + " м³"];
+      }
+    },
+    trench: {
+      help: {m: "1 : m — ҳар 1 м чуқурликка девор m метр ётиқ кетади. Тик девор — 0; зич тупроқда 0,5–0,75; қумда 1.",
+             k: "Қазилган тупроқ юмшаб, ҳажми ошади: қум 1,1–1,15 · тупроқ 1,2–1,3 · тош 1,4–1,5. Машина билан ташиш учун керак.",
+             L: "Хандақнинг бўйи (чизмага тик йўналишда)."},
+      pic: function (n) {
+        return svg(poly("earth", "8,60 80,60 140,175 220,175 280,60 352,60 352,205 8,205") +
+          dim(80, 40, 280, 40, "B", "B = " + q3(n.b + 2 * n.m * n.h) + " м", -1) + dim(140, 163, 220, 163, "b", "b = " + q3(n.b) + " м", -1) +
+          dim(180, 60, 180, 150, "h", "h = " + q3(n.h) + " м", -1) + txt(96, 120, "1 : " + q3(n.m), "lbl", "m", "end") +
+          txt(180, 196, "бўйи L = " + fmt(n.L, 2) + " м", "lbl", "L"));
+      },
+      how: function (n, r) {
+        var B = n.b + 2 * n.m * n.h;
+        return ["B = b + 2mh = " + q3(n.b) + " + 2 × " + q3(n.m) + " × " + q3(n.h) + " = " + q3(B) + " м",
+                "кесим = (b + B) / 2 × h = (" + q3(n.b) + " + " + q3(B) + ") / 2 × " + q3(n.h) + " = " + q3((n.b + B) / 2 * n.h) + " м²",
+                "V = кесим × L = " + q3((n.b + B) / 2 * n.h) + " × " + fmt(n.L, 2) + " = " + fmt(r[0].v, 2) + " м³"];
+      }
+    },
+    pit: {
+      help: {m: "1 : m — ҳар 1 м чуқурликка девор m метр ётиқ кетади. Тик девор — 0.",
+             k: "Қазилган тупроқ юмшаб, ҳажми ошади: қум 1,1–1,15 · тупроқ 1,2–1,3 · тош 1,4–1,5."},
+      pic: function (n) {
+        var A = n.a + 2 * n.m * n.h, B = n.b + 2 * n.m * n.h;
+        return svg(poly("earth", "40,32 300,32 300,180 40,180") + poly("s2", "105,72 235,72 235,140 105,140") +
+          '<g stroke="#a8906b" stroke-width="1"><line x1="40" y1="32" x2="105" y2="72"/><line x1="300" y1="32" x2="235" y2="72"/><line x1="40" y1="180" x2="105" y2="140"/><line x1="300" y1="180" x2="235" y2="140"/></g>' +
+          dim(40, 16, 300, 16, "A", "тепаси A = " + q3(A) + " м", 1) + dim(318, 32, 318, 180, "B", "B = " + q3(B) + " м", -1) +
+          dim(105, 152, 235, 152, "a", "туби a = " + q3(n.a) + " м", 1) + dim(93, 72, 93, 140, "b", "b = " + q3(n.b) + " м", 1) +
+          txt(170, 205, "Устидан кўриниш · чуқурлиги h = " + q3(n.h) + " м", "note", "h"));
+      },
+      how: function (n, r) {
+        var A = n.a + 2 * n.m * n.h, B = n.b + 2 * n.m * n.h;
+        return ["A = a + 2mh = " + q3(A) + " м,  B = b + 2mh = " + q3(B) + " м",
+                "ab = " + q3(n.a * n.b) + ",  AB = " + q3(A * B) + ",  (a + A)(b + B) = " + q3((n.a + A) * (n.b + B)),
+                "V = " + q3(n.h) + " / 6 × (" + q3(n.a * n.b) + " + " + q3(A * B) + " + " + q3((n.a + A) * (n.b + B)) + ") = " + fmt(r[0].v, 2) + " м³"];
+      }
+    },
+    wall: {
+      help: {P: "Ҳамма деворлар узунлиги қўшилгани (хона периметри)."},
+      pic: function (n) {
+        return svg(rect("s2", 40, 30, 280, 145) + rect("hole", 66, 100, 34, 75) + rect("glass", 140, 62, 46, 44) + rect("glass", 232, 62, 46, 44) +
+          '<g stroke="#64748b" stroke-width="1"><line x1="163" y1="62" x2="163" y2="106"/><line x1="255" y1="62" x2="255" y2="106"/></g>' +
+          dim(40, 192, 320, 192, "P", "P = " + fmt(n.P, 2) + " м (ёйилган)", 1) + dim(26, 30, 26, 175, "h", "h = " + q3(n.h) + " м", 1) +
+          txt(83, 92, "эшик × " + fmt(n.dn, 0), "lbl", "dn") + txt(209, 124, "дераза × " + fmt(n.wn, 0), "lbl", "wn"));
+      },
+      how: function (n, r) {
+        return ["жами = P × h = " + fmt(n.P, 2) + " × " + q3(n.h) + " = " + fmt(r[1].v, 2) + " м²",
+                "тешиклар = " + fmt(n.dn, 0) + " × " + q3(n.dw) + " × " + q3(n.dh) + " + " + fmt(n.wn, 0) + " × " + q3(n.ww) + " × " + q3(n.wh) + " = " + fmt(r[2].v, 2) + " м²",
+                "S = " + fmt(r[1].v, 2) + " − " + fmt(r[2].v, 2) + " = " + fmt(r[0].v, 2) + " м²"];
+      }
+    },
+    mass: {
+      help: {rho: "Материални тепада танласангиз — ўзи қўйилади."},
+      pic: function (n, v) {
+        return svg(poly("sand", "30,175 140,70 250,175") + txt(140, 140, "V = " + fmt(n.V, 2) + " м³", "lbl", "V") + txt(140, 196, v.mat, "note") +
+          '<g stroke="#7c3aed" stroke-width="1.6" fill="none"><path d="M255,130 C275,120 280,112 290,104"/><path d="M284,100 L292,103 L288,110"/></g>' +
+          txt(272, 92, "× ρ " + fmt(n.rho, 3), "lbl", "rho", "end") +
+          '<path class="s3" d="M290,178 L350,178 L340,128 L300,128 Z"/><circle cx="320" cy="120" r="8" fill="none" stroke="#64748b" stroke-width="2"/>' +
+          txt(320, 160, fmt(n.V * n.rho, 2) + " т", "big"));
+      },
+      how: function (n, r) { return ["m = V × ρ = " + fmt(n.V, 3) + " × " + fmt(n.rho, 3), "m = " + q3(r[0].v) + " т = " + fmt(r[1].v, 0) + " кг"]; }
+    },
+    rebar: {
+      help: {w: "Уланиш жойлари (нахлёст) ва кесиш учун қўшимча. Одатда 3–7%."},
+      pic: function (n, v) {
+        var ribs = "", y, x;
+        for (y = 56; y <= 116; y += 30) {
+          ribs += rect("steel", 20, y, 230, 12, 3);
+          for (x = 28; x < 248; x += 10) ribs += '<line x1="' + x + '" y1="' + y + '" x2="' + (x + 5) + '" y2="' + (y + 12) + '" stroke="#475569" stroke-width="1"/>';
+        }
+        return svg(ribs + dim(20, 150, 250, 150, "L", "L = " + q3(n.L) + " м", 1) + '<circle class="steel" cx="305" cy="92" r="24"/>' +
+          dim(281, 135, 329, 135, "d", "Ø" + v.d + " мм", 1) + txt(305, 30, "кесими", "note") +
+          txt(20, 200, "× n = " + fmt(n.n, 0) + " дона · 1 м = " + q3(0.00617 * v.d * v.d) + " кг", "lbl", "n", "start"));
+      },
+      how: function (n, r, v) {
+        return ["1 м = 0,00617 × " + v.d + "² = " + q3(r[3].v) + " кг",
+                "узунлик = " + q3(n.L) + " × " + fmt(n.n, 0) + (n.w ? " × " + fmt(1 + n.w / 100, 3) : "") + " = " + fmt(r[2].v, 1) + " м",
+                "масса = " + q3(r[3].v) + " × " + fmt(r[2].v, 1) + " = " + fmt(r[1].v, 1) + " кг = " + q3(r[0].v) + " т"];
+      }
+    },
+    sheet: {
+      pic: function (n) {
+        return svg(poly("s1", "50,130 230,130 310,70 130,70") + poly("s3", "50,130 230,130 230,142 50,142") + poly("s2", "230,130 310,70 310,82 230,142") +
+          dim(50, 162, 230, 162, "a", "a = " + q3(n.a) + " м", 1) + dim(244, 150, 324, 90, "b", "b = " + q3(n.b) + " м", 1) +
+          '<line x1="44" y1="136" x2="26" y2="186" stroke="#7c3aed" stroke-width="1.1"/>' + txt(22, 200, "t = " + fmt(n.t, 2) + " мм", "lbl", "t", "start") +
+          txt(20, 28, "× n = " + fmt(n.n, 0) + " дона", "lbl", "n", "start"));
+      },
+      how: function (n, r) { return ["1 м² = t × 7,85 = " + fmt(n.t, 2) + " × 7,85 = " + fmt(r[2].v, 2) + " кг", "m = " + q3(n.a) + " × " + q3(n.b) + " × " + fmt(r[2].v, 2) + " × " + fmt(n.n, 0) + " = " + fmt(r[0].v, 1) + " кг"]; }
+    },
+    pipe: {
+      help: {D: "Ташқи диаметр — қувурнинг бир сиртидан иккинчи сиртигача."},
+      pic: function (n) {
+        return svg('<circle class="steel" cx="115" cy="115" r="70"/><circle class="hole" cx="115" cy="115" r="56"/>' +
+          dim(45, 28, 185, 28, "D", "D = " + fmt(n.D, 1) + " мм", -1) + '<line x1="178" y1="128" x2="205" y2="168" stroke="#7c3aed" stroke-width="1.1"/>' +
+          txt(206, 182, "t = " + fmt(n.t, 2) + " мм", "lbl", "t", "start") +
+          rect("steel", 230, 90, 115, 40, 2) + '<ellipse class="s1" cx="230" cy="110" rx="7" ry="20"/>' +
+          dim(230, 150, 345, 150, "L", "L = " + q3(n.L) + " м", -1) + txt(345, 205, "× n = " + fmt(n.n, 0), "lbl", "n", "end"));
+      },
+      how: function (n, r) { return ["1 м = 0,02466 × " + fmt(n.t, 2) + " × (" + fmt(n.D, 1) + " − " + fmt(n.t, 2) + ") = " + q3(r[2].v) + " кг", "m = " + q3(r[2].v) + " × " + q3(n.L) + " × " + fmt(n.n, 0) + " = " + fmt(r[0].v, 1) + " кг"]; }
+    },
+    profile: {
+      pic: function (n) {
+        return svg(rect("steel", 50, 45, 180, 120, 7) + rect("hole", 62, 57, 156, 96, 3) +
+          dim(50, 28, 230, 28, "a", "a = " + fmt(n.a, 1) + " мм", -1) + dim(250, 45, 250, 165, "b", "b = " + fmt(n.b, 1) + " мм", -1) +
+          '<line x1="56" y1="110" x2="30" y2="186" stroke="#7c3aed" stroke-width="1.1"/>' + txt(26, 200, "t = " + fmt(n.t, 2) + " мм", "lbl", "t", "start") +
+          txt(345, 200, "L = " + q3(n.L) + " м × " + fmt(n.n, 0), "lbl", "L", "end"));
+      },
+      how: function (n, r) { return ["1 м = 0,0157 × " + fmt(n.t, 2) + " × (" + fmt(n.a, 1) + " + " + fmt(n.b, 1) + " − 2,86 × " + fmt(n.t, 2) + ") = " + q3(r[2].v) + " кг", "m = " + q3(r[2].v) + " × " + q3(n.L) + " × " + fmt(n.n, 0) + " = " + fmt(r[0].v, 1) + " кг"]; }
+    },
+    brick: {
+      help: {T: "½ ғишт — 0,12 · 1 ғишт — 0,25 · 1½ ғишт — 0,38 · 2 ғишт — 0,51 м.",
+             j: "Ғишт орасидаги қоришма: ғиштда 10 мм, газоблокда 2–3 мм (елим).",
+             o: "Девордаги эшик ва деразалар майдони (бўлмаса — 0)."},
+      pic: function (n) {
+        var b = '<clipPath id="calc-wall"><rect x="34" y="28" width="170" height="140"/></clipPath><g clip-path="url(#calc-wall)">', r, x;
+        for (r = 0; r < 10; r++) for (x = r % 2 ? 14 : 34; x < 204; x += 40) b += rect("brick", x, 28 + r * 14, 38, 12);
+        return svg(b + "</g>" + '<rect x="34" y="28" width="170" height="140" fill="none" stroke="#64748b" stroke-width="1.4"/>' +
+          dim(34, 180, 204, 180, "L", "L = " + fmt(n.L, 2) + " м", 1) + dim(22, 28, 22, 168, "H", "H = " + q3(n.H) + " м", 1) +
+          poly("brick", "238,118 322,118 342,104 258,104") + poly("brick", "238,118 322,118 322,146 238,146") + poly("brick", "322,118 342,104 342,132 322,146") +
+          dim(238, 162, 322, 162, "bl", "l = " + fmt(n.bl, 0), 1) + dim(228, 118, 228, 146, "bh", "h = " + fmt(n.bh, 0), 1) +
+          dim(326, 100, 346, 86, "bw", "w = " + fmt(n.bw, 0), -1) + txt(290, 58, "ғишт, мм", "note") +
+          txt(290, 200, "чок c = " + fmt(n.j, 0) + " мм", "lbl", "j") + txt(119, 220, "қалинлиги T = " + q3(n.T) + " м", "lbl", "T"), 228);
+      },
+      how: function (n, r) {
+        var cell = (n.bl + n.j) * (n.bw + n.j) * (n.bh + n.j) / 1e9;
+        return ["V = (L × H − тешиклар) × T = (" + fmt(n.L, 2) + " × " + q3(n.H) + " − " + fmt(n.o, 2) + ") × " + q3(n.T) + " = " + q3(r[2].v) + " м³",
+                "чоки билан 1 ғишт = " + fmt(n.bl + n.j, 0) + " × " + fmt(n.bw + n.j, 0) + " × " + fmt(n.bh + n.j, 0) + " мм = " + fmt(cell, 6) + " м³",
+                "N = " + q3(r[2].v) + " / " + fmt(cell, 6) + " = " + fmt(r[1].v, 0) + " дона",
+                "+ " + fmt(n.w, 1) + "% чиқинди = " + fmt(r[0].v, 0) + " дона"];
+      }
+    },
+    plaster: {
+      help: {q: "Қопда ёзилган: «1 мм қатламга … кг/м²»."},
+      pic: function (n) {
+        var hatch = "", y;
+        for (y = 10; y < 230; y += 14) hatch += '<line x1="110" y1="' + y + '" x2="190" y2="' + (y - 60) + '" stroke="#c4805c" stroke-width="1"/>';
+        return svg('<clipPath id="calc-sec"><rect x="110" y="24" width="80" height="170"/></clipPath>' + rect("brick", 110, 24, 80, 170) +
+          '<g clip-path="url(#calc-sec)">' + hatch + "</g>" + rect("coat", 190, 24, 24, 170) +
+          dim(190, 208, 214, 208, "t", "t = " + fmt(n.t, 1) + " мм", 1) + txt(150, 16, "девор", "note") +
+          '<line x1="216" y1="70" x2="246" y2="70" stroke="#7c3aed" stroke-width="1.1"/>' + txt(250, 74, "сувоқ қатлами", "lbl", "", "start") +
+          txt(250, 110, "S = " + fmt(n.S, 2) + " м²", "lbl", "S", "start") + txt(250, 134, "q = " + fmt(n.q, 2) + " кг/м²·мм", "lbl", "q", "start") +
+          txt(60, 110, "кесим", "note"), 232);
+      },
+      how: function (n, r) {
+        return ["S × t × q = " + fmt(n.S, 2) + " × " + fmt(n.t, 1) + " × " + fmt(n.q, 2) + " = " + fmt(n.S * n.t * n.q, 0) + " кг",
+                "+ " + fmt(n.w, 1) + "% чиқинди = " + fmt(r[1].v, 0) + " кг", fmt(r[1].v, 0) + " / " + fmt(n.bag, 1) + " кг = " + fmt(r[0].v, 0) + " қоп"];
+      }
+    },
+    paint: {
+      help: {q: "Банкада ёзилган, одатда 0,1–0,15 л/м². Ғадир-будур юзада кўпроқ."},
+      pic: function (n) {
+        return svg(rect("s1", 40, 30, 210, 150) + poly("coat", "40,30 250,30 250,180 40,180").replace('class="coat"', 'class="coat" fill-opacity=".35" stroke-opacity="0"') +
+          poly("coat", "40,30 250,30 250,110 40,150").replace('class="coat"', 'class="coat" fill-opacity=".55"') +
+          rect("coat", 268, 40, 46, 22, 7) + '<path d="M291,62 L291,82 L312,98 L312,150" fill="none" stroke="#475569" stroke-width="3" stroke-linecap="round"/>' +
+          txt(145, 168, "S = " + fmt(n.S, 2) + " м²", "lbl", "S") + txt(145, 80, fmt(n.k, 0) + " қатлам", "lbl", "k") +
+          txt(300, 175, "q = " + fmt(n.q, 3) + " л/м²", "lbl", "q") + txt(300, 200, "банка " + fmt(n.can, 1) + " л", "note", "can"));
+      },
+      how: function (n, r) { return ["S × q × k = " + fmt(n.S, 2) + " × " + fmt(n.q, 3) + " × " + fmt(n.k, 0) + " = " + fmt(n.S * n.q * n.k, 1) + " л", "+ " + fmt(n.w, 1) + "% = " + fmt(r[1].v, 1) + " л → " + fmt(r[1].v, 1) + " / " + fmt(n.can, 1) + " = " + fmt(r[0].v, 0) + " банка"]; }
+    },
+    tile: {
+      help: {w: "Тўғри териш — 5–10%, диагонал — 15%.", box: "Қутида неча м² борлиги — қути устида ёзилган."},
+      pic: function (n) {
+        var tw = 46, th = Math.max(10, Math.min(46, tw * n.b / n.a)) || 23, X = 44, Y = 40, W = 210, H = 140, t = "", x, y;
+        for (y = Y; y < Y + H; y += th) for (x = X; x < X + W; x += tw) {
+          var cut = x + tw > X + W || y + th > Y + H;
+          t += rect(cut ? "cut" : (x === X && y === Y ? "coat" : "s1"), x, y, Math.min(tw, X + W - x), Math.min(th, Y + H - y));
+        }
+        return svg(t + dim(X, 26, X + tw, 26, "a", "a = " + fmt(n.a, 1) + " см", -1) + dim(30, Y, 30, Y + th, "b", "b = " + fmt(n.b, 1), 1) +
+          txt(264, 70, "S = " + fmt(n.S, 2) + " м²", "lbl", "S", "start") + rect("cut", 264, 92, 14, 14) + txt(284, 104, "кесилади", "note", "", "start") +
+          txt(264, 122, "чиқинди " + fmt(n.w, 1) + "%", "note", "w", "start") + txt(X + W / 2, 200, "Плитка ётқизилган майдон", "note"));
+      },
+      how: function (n, r) {
+        var one = n.a * n.b / 1e4;
+        return ["1 плитка = " + fmt(n.a, 1) + " × " + fmt(n.b, 1) + " см = " + fmt(one, 4) + " м²",
+                "N = " + fmt(n.S, 2) + " / " + fmt(one, 4) + " × " + fmt(1 + n.w / 100, 3) + " = " + fmt(r[0].v, 0) + " дона",
+                "қути = " + fmt(r[0].v, 0) + " × " + fmt(one, 4) + " / " + fmt(n.box, 2) + " = " + fmt(r[1].v, 0)];
+      }
+    },
+    units: {
+      pic: function (n, v, r) {
+        return svg(rect("s1", 20, 60, 130, 70, 10) + txt(85, 102, fmt(n.q, 6) + " " + v.from, "big", "q") +
+          '<g stroke="#7c3aed" stroke-width="2" fill="none"><path d="M158,95 L198,95"/><path d="M190,88 L199,95 L190,102"/></g>' +
+          rect("coat", 206, 60, 134, 70, 10) + txt(273, 102, fmt(r[0].v, 6) + " " + v.to, "big") + txt(180, 165, "1 " + v.from + " = " + fmt(unitK(v.cat, v.from) / unitK(v.cat, v.to), 8) + " " + v.to, "note"), 190);
+      },
+      how: function (n, r, v) { return [fmt(n.q, 6) + " × " + fmt(unitK(v.cat, v.from), 6) + " / " + fmt(unitK(v.cat, v.to), 6) + " = " + fmt(r[0].v, 6) + " " + v.to]; }
+    },
+    vat: {
+      help: {r: "Ўзбекистонда ҳозир 12%."},
+      pic: function (n, v, r) {
+        var W = 300, w1 = W / (1 + n.r / 100);
+        return svg(bar(30, 70, w1, 44, "s2") + bar(30 + w1, 70, W - w1, 44, "coat") + txt(30 + w1 / 2, 97, "ҚҚСсиз", "lbl") +
+          txt(30 + w1 / 2, 60, fmt(r[1].v, 0), "note") + txt(Math.min(325, 30 + w1 + (W - w1) / 2), 60, "ҚҚС " + fmt(n.r, 1) + "%", "lbl", "r") +
+          dim(30, 136, 330, 136, "s", "ҚҚС билан " + fmt(r[0].v, 0) + " сўм", 1), 175);
+      },
+      how: function (n, r, v) {
+        return v.mode === "add" ? ["ҚҚС = " + fmt(n.s, 2) + " × " + fmt(n.r, 2) + "% = " + fmt(r[2].v, 2), "ҚҚС билан = " + fmt(n.s, 2) + " + " + fmt(r[2].v, 2) + " = " + fmt(r[0].v, 2) + " сўм"]
+          : ["ҚҚСсиз = " + fmt(n.s, 2) + " / " + fmt(1 + n.r / 100, 4) + " = " + fmt(r[1].v, 2), "ҚҚС = " + fmt(n.s, 2) + " − " + fmt(r[1].v, 2) + " = " + fmt(r[2].v, 2) + " сўм"];
+      }
+    },
+    index: {
+      help: {k: "Масалан, нархлар 8% ошган бўлса — 1,08.", p: "Қўшимча устама фоизи (бўлмаса — 0)."},
+      pic: function (n, v, r) {
+        var m = Math.max(n.s, r[0].v) || 1, W = 260;
+        return svg(txt(30, 50, "Аввал", "note", "", "start") + bar(80, 36, W * n.s / m, 24, "s2") + barLabel(80, 53, W * n.s / m, fmt(n.s, 0), "s") +
+          txt(30, 104, "Янги", "note", "", "start") + bar(80, 90, W * r[0].v / m, 24, "coat") + barLabel(80, 107, W * r[0].v / m, fmt(r[0].v, 0)) +
+          txt(180, 150, "× " + fmt(n.k, 4) + (n.p ? " × " + fmt(1 + n.p / 100, 4) : ""), "lbl", "k"), 170);
+      },
+      how: function (n, r) { return [fmt(n.s, 2) + " × " + fmt(n.k, 4) + (n.p ? " × " + fmt(1 + n.p / 100, 4) : "") + " = " + fmt(r[0].v, 2) + " сўм"]; }
+    },
+    diff: {
+      pic: function (n) {
+        var m = Math.max(Math.abs(n.A), Math.abs(n.B)) || 1, W = 240, up = n.B >= n.A;
+        return svg(txt(20, 50, "A", "lbl", "A", "start") + bar(44, 34, W * n.A / m, 26, "s2") + barLabel(44, 52, W * n.A / m, fmt(n.A, 2)) +
+          txt(20, 106, "B", "lbl", "B", "start") + bar(44, 90, W * n.B / m, 26, "coat") + barLabel(44, 108, W * n.B / m, fmt(n.B, 2)) +
+          '<rect x="' + (44 + W * Math.min(n.A, n.B) / m) + '" y="128" width="' + Math.max(2, W * Math.abs(n.B - n.A) / m) + '" height="8" rx="3" fill="' + (up ? "#10b981" : "#f43f5e") + '"/>' +
+          txt(180, 160, (up ? "+" : "−") + fmt(Math.abs(n.B - n.A), 2) + "  (" + (up ? "+" : "−") + fmt(Math.abs((n.B - n.A) / n.A * 100), 2) + "%)", "big"), 175);
+      },
+      how: function (n, r) { return ["B − A = " + fmt(n.B, 2) + " − " + fmt(n.A, 2) + " = " + fmt(r[0].v, 2), "(B − A) / A × 100 = " + fmt(r[0].v, 2) + " / " + fmt(n.A, 2) + " × 100 = " + fmt(r[1].v, 2) + "%"]; }
+    }
+  };
+  CALCS.forEach(function (c) { Object.assign(c, EXTRA[c.id] || {}); });
+
+  // ---------- ҳолат ----------
+  var byId = {}, state = {}, cur = null;
+  CALCS.forEach(function (c) { byId[c.id] = c; });
+  function defaults(c) { var o = {}; c.fields.forEach(function (x) { o[x.k] = x.def; }); return o; }
+  function values(c) {
+    if (!state[c.id]) {
+      var saved = {};
+      try { saved = JSON.parse(localStorage.getItem(KEY + c.id)) || {}; } catch (e) {}
+      state[c.id] = Object.assign(defaults(c), saved);
+    }
+    return state[c.id];
+  }
+  function save(c) { try { localStorage.setItem(KEY + c.id, JSON.stringify(state[c.id])); } catch (e) {} }
+
+  // ---------- рўйхат ----------
+  var list = document.getElementById("calc-list"), q = document.getElementById("calc-q");
+  function drawList() {
+    var term = q.value.trim().toLowerCase(), html = "", grp = null;
+    CALCS.forEach(function (c) {
+      if (term && (c.title + " " + c.hint + " " + c.group).toLowerCase().indexOf(term) < 0) return;
+      if (c.group !== grp) { grp = c.group; html += '<div class="calc-grp">' + esc(grp) + "</div>"; }
+      html += '<button type="button" class="calc-item' + (cur && c.id === cur.id ? " is-on" : "") + '" data-id="' + c.id + '">' + esc(c.title) +
+              "<small>" + esc(c.hint) + "</small></button>";
+    });
+    list.innerHTML = html || '<p class="px-3 py-4 text-sm text-slate-400">Топилмади</p>';
+    var on = list.querySelector(".is-on");
+    if (on && window.innerWidth < 1024) list.scrollLeft = on.offsetLeft - 16;
+  }
+  list.addEventListener("click", function (e) {
+    var b = e.target.closest(".calc-item");
+    if (b) { open(b.dataset.id); if (window.innerWidth < 1024) document.getElementById("calc-title").scrollIntoView({behavior: "smooth", block: "center"}); }
+  });
+  q.addEventListener("input", function () {
+    drawList();
+    var first = list.querySelector(".calc-item");
+    if (first && !list.querySelector(".is-on")) open(first.dataset.id);
+  });
+
+  // ---------- форма ----------
+  var form = document.getElementById("calc-form"), out = document.getElementById("calc-out");
+  function drawForm() {
+    var v = values(cur), html = "";
+    cur.fields.forEach(function (x, i) {
+      var opts = x.opts || (x.optsFn && x.optsFn(v));
+      var label = x.label ? '<span class="mb-1 flex items-center text-sm font-medium text-slate-700">' + (x.sym ? '<span class="calc-sym">' + esc(x.sym) + "</span>" : "") + esc(x.label) + "</span>" : '<span class="mb-1 hidden text-sm sm:block">&nbsp;</span>';
+      var wide = x.wide ? " sm:col-span-2" : "";
+      if (opts) {
+        html += '<label class="block' + wide + '">' + label + '<select data-k="' + x.k + '" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400">' +
+          opts.map(function (o) { return '<option value="' + esc(o[1]) + '"' + (String(v[x.k]) === String(o[1]) ? " selected" : "") + ">" + esc(o[0]) + "</option>"; }).join("") + "</select>" +
+          (cur.help && cur.help[x.k] ? '<span class="calc-help">' + esc(cur.help[x.k]) + "</span>" : "") + "</label>";
+      } else {
+        html += '<label class="block' + wide + '">' + label + '<span class="relative block"><input data-k="' + x.k + '" value="' + esc(v[x.k]) + '" inputmode="decimal" ' +
+          'class="calc-input num w-full rounded-lg border border-slate-200 bg-white py-2 pl-3 ' + (x.unit ? "pr-14" : "pr-3") + ' text-right text-[15px] outline-none focus:border-slate-400"' +
+          (x.label ? "" : ' aria-label="' + esc(cur.fields[i - 1].label) + ' (2)"') + ">" +
+          (x.unit ? '<span class="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-xs text-slate-400">' + esc(x.unit) + "</span>" : "") + "</span>" +
+          (cur.help && cur.help[x.k] ? '<span class="calc-help">' + esc(cur.help[x.k]) + "</span>" : "") + "</label>";
+      }
+    });
+    form.innerHTML = html;
+  }
+  function compute() {
+    var v = values(cur), n = {}, bad = 0;
+    cur.fields.forEach(function (x) {
+      if (x.opts || x.optsFn) return;
+      n[x.k] = num(v[x.k]);
+      var inp = form.querySelector('[data-k="' + x.k + '"]'), wrong = isNaN(n[x.k]);
+      if (inp) inp.classList.toggle("is-bad", wrong);
+      if (wrong) bad++;
+    });
+    var sl = document.getElementById("calc-sticky-l"), sv = document.getElementById("calc-sticky-v");
+    if (bad) {
+      document.getElementById("calc-how-box").classList.add("hidden");
+      out.innerHTML = '<p class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">Қизил майдонга рақам ёзинг.</p>';
+      sl.textContent = "Қизил майдонга рақам ёзинг"; sv.textContent = "";
+      return;
+    }
+    var rows = cur.calc(n, v), html = "", top = rows[0];
+    sl.textContent = top.l; sv.textContent = (top.text != null ? top.text : fmt(top.v, top.d)) + " " + (top.u || "");
+    rows.forEach(function (r, i) {
+      var shown = r.text != null ? esc(r.text) : fmt(r.v, r.d), ok = r.text == null && isFinite(r.v);
+      var copy = ok ? '<button type="button" class="calc-copy" data-copy="' + plain(r.v, r.d) + '" title="Нусхалаш (Excel учун)" aria-label="Нусхалаш">' +
+        '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>' : "";
+      if (r.main) {
+        html += '<div class="rounded-xl border border-emerald-200 bg-white px-4 py-3 shadow-sm"><div class="text-sm text-slate-500">' + esc(r.l) + "</div>" +
+          '<div class="mt-0.5 flex items-baseline gap-2"><span class="num text-3xl font-semibold tracking-tight text-slate-900">' + shown + "</span>" +
+          '<span class="text-base text-slate-500">' + esc(r.u || "") + '</span><span class="ml-auto self-center">' + copy + "</span></div></div>";
+      } else {
+        html += '<div class="flex items-center gap-2 border-b border-slate-100 py-2 text-sm' + (i === 1 ? " mt-2" : "") + '"><span class="min-w-0 flex-1 text-slate-500">' + esc(r.l) +
+          (r.note ? ' <span class="text-xs text-slate-400">(' + esc(r.note) + ")</span>" : "") + "</span>" +
+          '<span class="num font-medium text-slate-900">' + shown + '</span><span class="w-10 text-xs text-slate-400">' + esc(r.u || "") + "</span>" + (copy || '<span class="w-6"></span>') + "</div>";
+      }
+    });
+    out.innerHTML = html;
+    var howBox = document.getElementById("calc-how-box");
+    if (cur.how) {
+      document.getElementById("calc-how").innerHTML = cur.how(n, rows, v).map(function (l) { return "<li>" + esc(l) + "</li>"; }).join("");
+      howBox.classList.remove("hidden");
+    } else howBox.classList.add("hidden");
+    document.getElementById("calc-pic").innerHTML = cur.pic ? cur.pic(n, v, rows) : "";
+    document.getElementById("calc-pic-box").classList.toggle("hidden", !cur.pic);
+    hot();
+  }
+  // киритилаётган майдоннинг ўлчами чизмада ёритилади
+  var hotKey = null;
+  function hot() {
+    document.querySelectorAll("#calc-pic [data-k]").forEach(function (g) { g.classList.toggle("hot", g.dataset.k === hotKey); });
+  }
+  form.addEventListener("focusin", function (e) { hotKey = e.target.dataset.k || null; hot(); });
+  form.addEventListener("focusout", function () { hotKey = null; hot(); });
+  form.addEventListener("input", function (e) {
+    var k = e.target.dataset.k;
+    if (!k || e.target.tagName === "SELECT") return;
+    values(cur)[k] = e.target.value; save(cur); compute();
+  });
+  form.addEventListener("change", function (e) {
+    if (e.target.tagName !== "SELECT") return;
+    var x = cur.fields.filter(function (y) { return y.k === e.target.dataset.k; })[0], v = values(cur);
+    v[x.k] = e.target.value;
+    var o = x.opts && x.opts.filter(function (y) { return String(y[1]) === e.target.value; })[0];
+    if (o && o[2]) Object.assign(v, o[2]);  // тайёр қийматлар (зичлик, ғишт ўлчами…)
+    save(cur); drawForm(); compute();
+  });
+  out.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-copy]");
+    if (!b) return;
+    var t = b.dataset.copy, done = function () { b.classList.add("done"); b.title = "Нусхаланди"; setTimeout(function () { b.classList.remove("done"); b.title = "Нусхалаш (Excel учун)"; }, 1200); };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(done, function () {});
+    else { var ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); done(); } catch (err) {} ta.remove(); }
+  });
+  document.getElementById("calc-reset").addEventListener("click", function () {
+    state[cur.id] = defaults(cur);
+    try { localStorage.removeItem(KEY + cur.id); } catch (e) {}
+    drawForm(); compute();
+  });
+
+  function open(id) {
+    cur = byId[id] || CALCS[0];
+    document.getElementById("calc-group").textContent = cur.group;
+    document.getElementById("calc-title").textContent = cur.title;
+    document.getElementById("calc-hint").textContent = cur.hint;
+    document.getElementById("calc-formula").innerHTML = cur.formula;
+    var note = document.getElementById("calc-note"), ref = document.getElementById("calc-ref");
+    note.textContent = cur.note || ""; note.classList.toggle("hidden", !cur.note);
+    ref.innerHTML = cur.ref ? cur.ref() : ""; ref.classList.toggle("hidden", !cur.ref);
+    if (location.hash.slice(1) !== cur.id) history.replaceState(null, "", "#" + cur.id);
+    drawList(); drawForm(); compute();
+  }
+  window.addEventListener("hashchange", function () { if (byId[location.hash.slice(1)]) open(location.hash.slice(1)); });
+  open(location.hash.slice(1));
+})();
+</script>
+{% endblock %}
+{% block guide %}{page: "calc", steps: [
+  {sel: "#calc-list", title: "Калькуляторни танланг",
+   text: "<p>Тўрт гуруҳ:</p><ul><li><b>Ҳажм ва майдон</b> — фундамент, хандақ, котлован, девор</li><li><b>Масса ва металл</b> — м³ → т, арматура, лист, қувур</li>" +
+         "<li><b>Девор ва пардоз</b> — ғишт, сувоқ, бўёқ, плитка</li><li><b>Бирлик ва нарх</b> — 100 м², ҚҚС, индекс, фарқ</li></ul>"},
+  {sel: "#calc-formula", title: "Формула ҳар доим кўриниб туради",
+   text: "<p>Натижа қаердан келгани тушунарли бўлсин. Формуладаги ҳарфлар майдонлар ёнида ҳам ёзилган.</p>"},
+  {sel: "#calc-form", title: "Қийматларни ёзинг",
+   text: "<p>Натижа ёзишингиз билан ўзи ҳисобланади.</p><div class='tip'>Ёзганларингиз эслаб қолинади — кейинги сафар шу ердан давом этасиз.</div>"},
+  {sel: "#calc-out", title: "Натижани нусхаланг",
+   text: "<p>Рақам ёнидаги белгини боссангиз — Excel учун нусхаланади (бўш жойсиз, вергул билан).</p>"}
+]}{% endblock %}

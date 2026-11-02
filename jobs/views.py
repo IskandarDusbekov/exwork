@@ -284,6 +284,23 @@ def _tn_summary(cards) -> dict:
             "pct": 100 * done / contract if contract else 0.0}
 
 
+def _tn_recent(user, limit=8) -> list:
+    """Офёрта ва далолатномалар: объектлар охирги иш бўйича (янги далолатнома ёки юклаш), энг янгиси биринчи.
+    Суммалар ҳисобланмайди — китобни ўқиш оғир; фақат далолатномалар сони ва охиргиси."""
+    from django.db.models import Count, Max, Prefetch as P, Q
+    from texnazor.models import Act, SiteObject
+    objs = (SiteObject.objects.filter(owner=user)
+            .annotate(n_acts=Count("acts"), n_closed=Count("acts", filter=Q(acts__closed=True)), last_act=Max("acts__created"))
+            .prefetch_related(P("acts", Act.objects.order_by("-number"), to_attr="acts_desc")))
+    rows = []
+    for o in objs:
+        last = o.acts_desc[0] if o.acts_desc else None
+        rows.append({"o": o, "when": o.last_act or o.created, "acts": o.n_acts, "closed": o.n_closed, "last": last,
+                     "url": reverse("texnazor:object", args=[o.pk])})
+    rows.sort(key=lambda r: r["when"], reverse=True)
+    return rows[:limit]
+
+
 # «Эътибор керак»: ҳолат -> смета­чи нима қилиши керак (иш маълумотидан)
 def _todo(it) -> str:
     st = it["state"]
@@ -322,6 +339,9 @@ def dashboard(request):
         if d in per_day:
             per_day[d] += 1
     peak = max(per_day.values()) or 1
+    from texnazor.models import Act
+    tn_recent = _tn_recent(request.user)
+    tn_acts = Act.objects.filter(obj__owner=request.user).count()
     return render(request, "jobs/dashboard.html", {
         "nav": "dashboard",
         "items": items,
@@ -340,6 +360,10 @@ def dashboard(request):
         "attention": attention[:6],
         "attention_total": len(attention),
         "tn": _tn_summary(object_cards(request.user)),
+        "tn_recent": tn_recent,
+        "tn_acts": tn_acts,
+        # qaysi bo'lim ochiq turadi (foydalanuvchi tanlamagan bo'lsa): oxirgi ish qayerda bo'lgan bo'lsa — o'sha
+        "pane": "tn" if tn_recent and (not items or tn_recent[0]["when"] > items[0]["created"]) else "smeta",
         "priced_pct": round(100 * (pipes.count("done") + pipes.count("warn")) / len(pipes)) if pipes else 0,
         "any_working": any(it["working"] for it in items),
         "days": [{"date": d, "count": n, "h": round(100 * n / peak)} for d, n in per_day.items()],
@@ -1463,6 +1487,12 @@ def job_download(request, job_id):
         raise Http404("Файл топилмади")
     _audit_download(request, job, "smeta", job.download_name)
     return FileResponse(open(path, "rb"), as_attachment=True, filename=job.download_name)
+
+
+# ===================== калькулятор =====================
+def calc_page(request):
+    """Муҳандис калькулятори: ҳажм, масса, арматура, металл, девор, пардоз, бирликлар, нарх (ҳисоб — браузерда)."""
+    return render(request, "jobs/calc.html", {"nav": "calc"})
 
 
 # ===================== йўриқнома =====================

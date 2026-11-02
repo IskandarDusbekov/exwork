@@ -1,7 +1,7 @@
 {% extends "jobs/base.html" %}
 {% load narx %}
-{% block title %}{{ batch.name }} · Муҳандис лойиҳачи{% endblock %}
-{% block header_class %}px-4 lg:px-6{% endblock %}
+{% block title %}{{ batch.name }} · mhisobot{% endblock %}
+{% block side %}rail{% endblock %}
 {% block main_class %}px-4 lg:px-6 py-5{% endblock %}
 {% block content %}
 <div class="lg:grid lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-6">
@@ -684,24 +684,30 @@
 {% endblock %}
 {% block guide %}{page: "object", steps: [
   {sel: '[data-guide="steps"]', title: "Объект саҳифаси: 4 қадам",
-   text: "<b>1. Юклаш</b> — бажарилди. <b>2. Текшириш</b> — қайси локал қайси ресурс билан ҳисобланишини кўрасиз. <b>3. Тўғирлаш</b> — нархланмаган қаторлар. <b>4. Юклаб олиш</b>.<br>Қора — ҳозирги қадам, яшил ✓ — бажарилган."},
+   text: "<ol><li><b>Юклаш</b> — бажарилди</li><li><b>Текшириш</b> — қайси локал қайси ресурс билан ҳисобланади</li><li><b>Тўғирлаш</b> — нархсиз қаторлар</li><li><b>Юклаб олиш</b></li></ol>" +
+         "<div class='tip'>Қора — ҳозирги қадам, яшил ✓ — бажарилгани.</div>"},
   {sel: '[data-guide="todo"]', title: "Ҳозир нима қилиш керак",
-   text: "Бу блок ҳар доим кейинги ишни айтади. Ранги: <b class='text-sky-700'>кўк</b> — текширинг, <b class='text-rose-700'>қизил</b> — тўғирлаш керак, <b class='text-emerald-700'>яшил</b> — тайёр."},
+   text: "<p>Бу блок ҳар доим кейинги ишни айтади:</p><ul><li><b class='text-sky-700'>кўк</b> — текширинг</li><li><b class='text-rose-700'>қизил</b> — тўғирлаш керак</li><li><b class='text-emerald-700'>яшил</b> — тайёр</li></ul>"},
   {sel: "#results", title: "Натижалар",
-   text: "Ҳар бир қисмнинг суммаси ва ҳолати. <span class='rounded bg-rose-100 px-1 font-semibold text-rose-700'>қизил рақам</span> — нархланмаган қаторлар сони: «Очиш» орқали сметага кириб тўғирланг."},
+   text: "<p>Ҳар бир қисмнинг суммаси ва ҳолати.</p><p><span class='rounded bg-rose-100 px-1 font-semibold text-rose-700'>Қизил рақам</span> — нархсиз қаторлар сони.</p>" +
+         "<div class='tip'>«Очиш» орқали сметага кириб, уларни тўғирланг.</div>"},
   {sel: '[data-guide="pairs-legend"]', before: function () { var d = document.getElementById("structure"); if (d) d.open = true; },
    title: "Жуфтликлар: локал → ресурс",
-   text: "Ҳар бир қаторда чапда <span class='tour-dot bg-emerald-500'></span> <b>локал</b> (нархланадиган смета), ўнгда <span class='tour-dot bg-sky-500'></span> <b>ресурс</b> (нархлар). Лист номини боссангиз — ичини Excel'дагидек кўрасиз."},
+   text: "<ul><li>Чапда <span class='tour-dot bg-emerald-500'></span> <b>локал</b> — нархланадиган смета</li><li>Ўнгда <span class='tour-dot bg-sky-500'></span> <b>ресурс</b> — нархлар</li></ul>" +
+         "<div class='tip'>Лист номини боссангиз — ичини Excel'дагидек кўрасиз.</div>"},
   {sel: ".pair-compare", title: "Мослик фоизи",
-   text: "Локалдаги ресурсларнинг неча фоизи шу ресурс листида топилгани. <span class='rounded bg-emerald-100 px-1 text-emerald-800'>70%+</span> яхши · <span class='rounded bg-amber-100 px-1 text-amber-800'>40–70%</span> текширинг · <span class='rounded bg-rose-100 px-1 text-rose-800'>кам</span> — эҳтимол бошқа ресурс керак.<br>Фоизни боссангиз — иккаласи ёнма-ён очилади."},
+   text: "<p>Локалдаги ресурсларнинг неча фоизи шу ресурс листида топилгани:</p>" +
+         "<ul><li><span class='rounded bg-emerald-100 px-1 text-emerald-800'>70%+</span> яхши</li><li><span class='rounded bg-amber-100 px-1 text-amber-800'>40–70%</span> текшириб кўринг</li>" +
+         "<li><span class='rounded bg-rose-100 px-1 text-rose-800'>кам</span> — эҳтимол бошқа ресурс керак</li></ul><div class='tip'>Фоизни боссангиз — иккаласи ёнма-ён очилади.</div>"},
   {sel: ".pair-change", title: "Ресурс нотўғри бўлса — «алмаштириш»",
-   text: "Рўйхатдан бошқа ресурс листини танланг. <b>★</b> — тизим энг мос деб ҳисоблагани. Ресурс умуман топилмаган бўлса — «Ресурс қидириш»."},
+   text: "<p>Рўйхатдан бошқа ресурс листини танланг. <b>★</b> — тизим энг мос деб ҳисоблагани.</p><div class='tip'>Ресурс умуман топилмаган бўлса — «Ресурс қидириш».</div>"},
   {sel: ".pair-include", title: "Нархланадиганларни белгиланг",
-   text: "Белгиланган жуфтликлар нархланади. Кераксизини (масалан, нусха ёки эски вариант) белгидан чиқаринг."},
+   text: "<p>Белгиланган жуфтликлар нархланади.</p><div class='tip'>Кераксизини (нусха, эски вариант) белгидан чиқаринг.</div>"},
   {sel: '[data-guide="confirm"]', title: "«Тасдиқлаш ва нархлаш»",
-   text: "Ҳаммаси тўғри бўлса — шуни босинг. Ҳар бир белгиланган локал нархланади ва натижалар шу саҳифада чиқади."},
+   text: "<p>Ҳаммаси тўғри бўлса — шуни босинг. Белгиланган локаллар нархланади, натижалар шу саҳифада чиқади.</p>"},
   {sel: "#sheets > summary", title: "Листлар тури — тизим нимани таниди",
-   text: "Ҳар бир лист: <b class='text-emerald-700'>локал</b>, <b class='text-sky-700'>ресурс</b> ёки <b>ўтказилди</b> (сводка, акт…). Тизим нотўғри таниган ёки «устун топилмади» десадагина керак — <b class='text-violet-700'>«Қандай тўғирлайман?»</b> тугмаси қадамма-қадам кўрсатади."},
+   text: "<p>Ҳар бир лист:</p><ul><li><b class='text-emerald-700'>локал</b></li><li><b class='text-sky-700'>ресурс</b></li><li><b>ўтказилди</b> — сводка, акт ва бошқалар</li></ul>" +
+         "<div class='tip'>Тизим нотўғри таниган ёки «устун топилмади» деса — <b>«Қандай тўғирлайман?»</b> тугмаси қадамма-қадам кўрсатади.</div>"},
   {sel: '[data-guide="download"]', title: "Юклаб олиш",
-   text: "Ҳамма қисмлар битта Excel файлда, ҳар бирига ўз «LOG» листи. Қисмларда қилган қўлда ўзгаришларингиз ҳам киради."}
+   text: "<p>Ҳамма қисмлар битта Excel файлда, ҳар бирининг ўз «LOG» листи бор.</p><div class='tip'>Қўлда қилган ўзгаришларингиз ҳам файлга киради.</div>"}
 ]}{% endblock %}

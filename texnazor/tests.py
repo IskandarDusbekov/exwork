@@ -20,6 +20,11 @@ from .ofyorta import parse
 TMP_MEDIA = tempfile.mkdtemp(prefix="narxlash_tn_")
 
 
+def _legacy(obj):
+    """Eski (oylar) tartibi — bu fayldagi testlar shuni tekshiradi; yangi tartib — ``tests_acts``."""
+    SiteObject.objects.filter(pk=obj.pk).update(mode=SiteObject.Mode.MONTHS)
+
+
 def build_ofyorta(path, broken_zero_work=False):
     """Haqiqiy ofyorta tuzilishi: sarlavha, bo'limlar, ish + resurslar, mustaqil resurs, buyurtmachi uskunasi, svodka."""
     wb = Workbook()
@@ -139,6 +144,7 @@ class TexnazorFlowTests(TestCase):
                                                               "address": "Чилонзор"})
         self.obj = SiteObject.objects.get()
         self.assertRedirects(r, reverse("texnazor:object", args=[self.obj.pk]), fetch_redirect_response=False)
+        _legacy(self.obj)
         tasks.run_now(self.obj.pk)  # testda — darhol (thread o'rniga)
         self.obj.refresh_from_db()
         self.work = Item.objects.get(kind="work")
@@ -542,6 +548,7 @@ class ZeroVolumeCorrectionTests(TestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.post(reverse("texnazor:create"), {"ofyorta": SimpleUploadedFile("z.xlsx", f.read())})
         obj = SiteObject.objects.get()
+        _legacy(obj)
         tasks.run_now(obj.pk)
         zero = Item.objects.get(name="УКЛАДКА ПРОГОНОВ")
         self.assertEqual((zero.qty, zero.unit_cost), (0, 0))
@@ -620,6 +627,7 @@ class NegativeVolumeTests(TestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.post(reverse("texnazor:create"), {"ofyorta": SimpleUploadedFile("neg.xlsx", f.read())})
         self.obj = SiteObject.objects.get()
+        _legacy(self.obj)
         tasks.run_now(self.obj.pk)
         self.obj.refresh_from_db()
         self.base = Item.objects.get(num="1")
@@ -759,6 +767,7 @@ class MyOfyortaTests(TestCase):
         r = self.client.post(reverse("texnazor:create"), {"source": "my", "my": str(doc.pk), "name": "Нурафшон"})
         obj = SiteObject.objects.get()
         self.assertRedirects(r, reverse("texnazor:object", args=[obj.pk]), fetch_redirect_response=False)
+        _legacy(obj)
         tasks.run_now(obj.pk)
         obj.refresh_from_db()
         self.assertEqual(obj.status, "ready", obj.error)

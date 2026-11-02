@@ -51,7 +51,11 @@ def run(obj_id, worker: str):
         return
     beat = lambda: SiteObject.objects.filter(pk=obj_id, worker=worker).update(heartbeat=timezone.now())  # noqa: E731
     try:
-        import_ofyorta(obj, progress=beat)
+        if obj.mode == SiteObject.Mode.ACTS:
+            from .services_acts import prepare
+            prepare(obj, progress=beat)
+        else:
+            import_ofyorta(obj, progress=beat)
     except Exception:  # noqa: BLE001
         log.exception("офёртани ўқиш: %s", obj_id)
         SiteObject.objects.filter(pk=obj_id).update(status=SiteObject.Status.FAILED, error="кутилмаган хато")

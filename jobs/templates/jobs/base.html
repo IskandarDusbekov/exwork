@@ -1,55 +1,61 @@
 {% load narx static %}<!doctype html>
-<html lang="uz">
+<html lang="uz" data-side="{% block side %}wide{% endblock %}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   {% if user.is_authenticated %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
-  <title>{% block title %}Муҳандис лойиҳачи{% endblock %}</title>
+  <title>{% block title %}mhisobot{% endblock %}</title>
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">{# frontend/: npm run build #}
   <style>
     .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .busy .when-idle { display: none; }
-    .when-busy { display: none; }
-    .busy .when-busy { display: inline-flex; }
+    {% include "jobs/_cursor_css.html" %}
+    /* чап меню (jobs/_side.html) */
+    .side-link { display: flex; align-items: center; gap: .75rem; border-radius: .5rem; padding: .5rem .625rem; font-weight: 500; white-space: nowrap; }
+    .app-side { display: flex; }
+    .side-backdrop { display: none; }
+    @media (max-width: 1023.98px) {
+      .app-side { position: fixed; inset: 0 auto 0 0; z-index: 60; width: 16rem; transform: translateX(-100%); transition: transform .2s; }
+      html.side-open .app-side { transform: none; box-shadow: 0 10px 40px rgb(15 23 42 / .25); }
+      [data-side-toggle] { display: none; }
+      html.side-open .side-backdrop { display: block; position: fixed; inset: 0; z-index: 59; background: rgb(15 23 42 / .35); }
+    }
+    @media (min-width: 1024px) {
+      .app-side { position: sticky; top: 0; height: 100vh; width: 15rem; flex-shrink: 0; transition: width .15s; }
+      html[data-side=rail] .app-side { width: 4rem; }
+      html[data-side=rail] .app-side .side-label { display: none; }
+      html[data-side=rail] .app-side .side-link { justify-content: center; padding-left: 0; padding-right: 0; }
+    }
   </style>
+  <script>
+    // меню ҳолати саҳифа чизилишидан олдин (сакраш бўлмасин): ҳар тур саҳифа учун ўз танлови
+    (function () {
+      var d = document.documentElement;
+      d.dataset.sideDefault = d.dataset.side;
+      try { var v = localStorage.getItem("narxlash-side:" + d.dataset.side); if (v) d.dataset.side = v; } catch (e) {}
+    })();
+  </script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen"{% if request.viewing_owner %} data-inspect="1"{% endif %}>
   {% icon_sprite %}
+  <div class="{% if user.is_authenticated %}lg:flex{% endif %}">
+  {% if user.is_authenticated %}{% include "jobs/_side.html" %}{% endif %}
+  <div class="min-w-0 flex-1">
   <header class="bg-white border-b border-slate-200">
-    <div class="{% block header_class %}max-w-6xl mx-auto px-4{% endblock %} py-3 flex flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap">
-      <a href="{% url 'index' %}" class="flex items-center gap-2.5 text-slate-900" title="Муҳандис лойиҳачи — бош саҳифа">
+    <div class="{% block header_class %}px-4 lg:px-6{% endblock %} py-3 flex min-h-[61px] flex-wrap items-center gap-x-3 gap-y-2 md:flex-nowrap">
+      {% if user.is_authenticated %}
+      <button type="button" data-side-open class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 lg:hidden" aria-label="Меню" aria-controls="app-side">{% icon "menu" "h-5 w-5" %}</button>
+      {% endif %}
+      <a href="{% url 'index' %}" class="flex items-center gap-2.5 text-slate-900 {% if user.is_authenticated %}lg:hidden{% endif %}" title="mhisobot — бош саҳифа">
         <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-900 text-emerald-400">{% icon "logo" "h-6 w-6" "2.2" %}</span>
         <span class="hidden leading-none sm:block">
-          <span class="block whitespace-nowrap text-[15px] font-bold tracking-tight">Муҳандис лойиҳачи</span>
-          <span class="mt-1 block text-[11px] font-medium tracking-wide text-slate-400">mloyihachi.uz</span></span></a>
+          <span class="block whitespace-nowrap text-[15px] font-bold tracking-tight">mhisobot</span>
+          <span class="mt-1 block text-[11px] font-medium tracking-wide text-slate-400">mhisobot.uz</span></span></a>
       {% if user.is_authenticated %}
       {% if crumbs %}{% include "jobs/_crumbs.html" %}{% endif %}
       {% block header_extra %}{% endblock %}
-      {# бўлимлар ўнгда: чапдаги папка йўлига жой қолсин; йўл бор саҳифада катта экрангача фақат белгилар #}
-      {% with lbl=crumbs|yesno:"hidden 2xl:inline,hidden sm:inline" %}
-      <nav class="ml-auto flex shrink-0 items-center gap-1 rounded-lg bg-slate-100 p-1 text-sm" aria-label="Бўлимлар">
-        <a href="{% url 'dashboard' %}" title="Дашборд" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'dashboard' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'dashboard' %} aria-current="page"{% endif %}>
-          {% icon "chart" "h-4 w-4" %}<span class="{{ lbl }}">Дашборд</span></a>
-        <a href="{% url 'index' %}" title="Юклаш" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'upload' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'upload' %} aria-current="page"{% endif %}>
-          {% icon "upload" "h-4 w-4" %}<span class="{{ lbl }}">Юклаш</span></a>
-        <a href="{% url 'texnazor:index' %}" title="Техназор: объектлар ва ойлик бажарилган ишлар" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'texnazor' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'texnazor' %} aria-current="page"{% endif %}>
-          {% icon "building" "h-4 w-4" %}<span class="{{ lbl }}">Техназор</span></a>
-        <a href="{% url 'landing' %}" title="Тизим ҳақида" class="hidden items-center gap-1.5 rounded-md px-3 py-1 font-medium text-slate-500 hover:text-slate-900 sm:inline-flex">
-          {% icon "help" "h-4 w-4" %}<span class="{{ lbl }}">Тизим ҳақида</span></a>
-        {% if user.is_staff %}<a href="{% url 'panel:overview' %}" title="Панел" class="inline-flex items-center gap-1.5 rounded-md px-3 py-1 font-medium {% if nav == 'panel' %}bg-white text-slate-900 shadow-sm{% else %}text-slate-500 hover:text-slate-900{% endif %}"{% if nav == 'panel' %} aria-current="page"{% endif %}>
-          {% icon "shield" "h-4 w-4" %}<span class="{{ lbl }}">Панел</span></a>{% endif %}
-      </nav>
-      {% if nav != "upload" %}<a href="{% url 'index' %}" title="Янги юклаш" class="hidden shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 md:block"><span class="inline-flex items-center gap-1.5">{% icon "plus" %}<span class="{% if crumbs %}hidden 2xl:inline{% endif %}">Янги юклаш</span></span></a>{% endif %}
-      <div class="flex shrink-0 items-center gap-2 text-sm">
-        <a href="{% url 'help' %}" id="guide-btn" data-guide="help-btn" class="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 font-medium text-violet-700 hover:bg-violet-100" title="Йўриқнома: иш тартиби ва огоҳлантиришлар">
-          {% icon "help" "h-4 w-4" %}<span class="{{ lbl }}">Йўриқнома</span></a>
-        <span class="hidden max-w-[12rem] truncate text-slate-600 {% if crumbs %}2xl:inline{% else %}lg:inline{% endif %}" title="{{ user.email }}">{{ user.get_full_name|default:user.email }}</span>
-        <form method="post" action="{% url 'logout' %}">{% csrf_token %}
-          <button type="submit" class="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900">Чиқиш</button>
-        </form>
-      </div>
-      {% endwith %}
+      <a href="{% url 'help' %}" id="guide-btn" data-guide="help-btn" class="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-sm font-medium text-violet-700 hover:bg-violet-100" title="Йўриқнома: иш тартиби ва огоҳлантиришлар">
+        {% icon "help" "h-4 w-4" %}<span class="hidden sm:inline">Йўриқнома</span></a>
       {% else %}
       <div class="ml-auto flex items-center gap-2 text-sm">
         <a href="{% url 'landing' %}" class="hidden rounded-lg px-3 py-1.5 font-medium text-slate-500 hover:text-slate-900 sm:block">Тизим ҳақида</a>
@@ -71,6 +77,8 @@
   <main class="{% block main_class %}max-w-6xl mx-auto px-4 py-6{% endblock %}">
     {% block content %}{% endblock %}
   </main>
+  </div>
+  </div>
   {% if user.is_authenticated %}{% include "jobs/_progress.html" %}{% endif %}
   <script>
     // Узоқ ишлайдиган формада тугмани блоклаб, «ишланяпти…» кўрсатамиз; data-progress бўлса — жараён ойнаси
@@ -101,6 +109,21 @@
     });
   </script>
   {% if user.is_authenticated %}
+  <script>
+    (function () {
+      var d = document.documentElement;
+      document.querySelectorAll("[data-side-open]").forEach(function (b) { b.addEventListener("click", function () { d.classList.add("side-open"); }); });
+      document.querySelectorAll("[data-side-close]").forEach(function (b) { b.addEventListener("click", function () { d.classList.remove("side-open"); }); });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape") d.classList.remove("side-open"); });
+      document.querySelectorAll("[data-side-toggle]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          d.dataset.side = d.dataset.side === "rail" ? "wide" : "rail";
+          try { localStorage.setItem("narxlash-side:" + d.dataset.sideDefault, d.dataset.side); } catch (e) {}
+          window.dispatchEvent(new Event("resize"));
+        });
+      });
+    })();
+  </script>
   <script>window.narxGuide = {% block guide %}null{% endblock %};</script>
   {% include "jobs/_guide.html" %}
   {% include "jobs/_dialog.html" %}

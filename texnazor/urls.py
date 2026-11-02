@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_my
+from . import views, views_acts, views_my
 
 app_name = "texnazor"
 
@@ -16,6 +16,15 @@ urlpatterns = [
     path("my/<uuid:doc_id>/delete/", views_my.my_delete, name="my_delete"),
     path("<uuid:obj_id>/", views.detail, name="object"),
     path("<uuid:obj_id>/state/", views.state, name="state"),
+    path("<uuid:obj_id>/sheet/", views_acts.choose_sheet, name="choose_sheet"),
+    path("<uuid:obj_id>/sheet/change/", views_acts.change_sheet, name="change_sheet"),
+    path("<uuid:obj_id>/data/", views_acts.data, name="data"),
+    path("<uuid:obj_id>/qty/", views_acts.set_qty, name="qty"),
+    path("<uuid:obj_id>/act-fill/", views_acts.act_fill, name="act_fill"),
+    path("<uuid:obj_id>/act/", views_acts.act_add, name="act_add"),
+    path("<uuid:obj_id>/act/<int:number>/", views_acts.act_edit, name="act_edit"),
+    path("<uuid:obj_id>/act/<int:number>/f2/", views_acts.f2_download, name="act_f2"),
+    path("<uuid:obj_id>/report/", views_acts.report_download, name="report"),
     path("<uuid:obj_id>/search/", views.search, name="search"),
     path("<uuid:obj_id>/rows/", views.rows, name="rows"),
     path("<uuid:obj_id>/section/<int:section_id>/fill/", views.fill_section, name="fill"),

@@ -1,17 +1,19 @@
 {% load narx %}
 <div id="project-state" data-working="{{ working|yesno:'1,0' }}" data-finished="{{ finished }}" data-total="{{ nodes|length }}"
      data-opening="{{ count_opening }}" data-pricing="{{ count_pricing }}" data-ready="{{ count_ready }}"
-     data-result="{% if count_review or count_warn %}{{ count_review|add:count_warn }} та қисмни тўғирлаш керак{% else %}ҳаммаси тайёр{% endif %}" class="lg:grid lg:min-h-[calc(100vh-7.5rem)] lg:grid-cols-[420px_minmax(0,1fr)]">
+     data-result="{% if count_review or count_warn %}{{ count_review|add:count_warn }} та қисмни тўғирлаш керак{% else %}ҳаммаси тайёр{% endif %}" class="proj-grid lg:grid lg:min-h-[calc(100vh-7.5rem)]">
 
 {# ================= Explorer (VS Code каби) ================= #}
-<aside data-guide="tree" class="explorer border-b border-slate-200 bg-[#f8f8f8] lg:border-b-0 lg:border-r">
+<aside data-guide="tree" class="explorer relative border-b border-slate-200 bg-[#f8f8f8] lg:border-b-0 lg:border-r">
   <div class="flex items-center justify-between px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
     <span>Папка</span>
     <span class="flex items-center gap-1">
       <button type="button" class="tree-btn" data-tree="open" title="Ҳаммасини очиш">{% icon "plus" "h-3.5 w-3.5" %}</button>
       <button type="button" class="tree-btn" data-tree="close" title="Ҳаммасини йиғиш">{% icon "minus" "h-3.5 w-3.5" %}</button>
+      <button type="button" class="tree-btn hidden lg:inline-flex" data-tree-toggle title="Дарахтни яшириш (жадвалга кўпроқ жой)">{% icon "sidebar" "h-3.5 w-3.5" %}</button>
     </span>
   </div>
+  <div class="tree-resize" title="Суриб кенгайтиринг ёки торайтиринг · икки марта босилса — асл ҳолига"></div>
   <div class="tree max-h-[60vh] overflow-auto pb-3 lg:sticky lg:top-0 lg:max-h-[calc(100vh-9rem)]">
     {% include "jobs/_tree_node.html" with node=tree %}
   </div>
@@ -26,6 +28,7 @@
 {# ================= асосий қисм ================= #}
 <section class="min-w-0 space-y-5 p-4 lg:p-6">
   <div class="flex flex-wrap items-start gap-4">
+    <button type="button" class="tree-show mt-0.5 shrink-0" data-tree-toggle title="Папка дарахтини кўрсатиш">{% icon "sidebar" "h-4 w-4" %} Дарахт</button>
     <div class="min-w-0 flex-1 basis-72">
       <div class="flex items-center gap-2 text-xs text-slate-500">{% icon "folder" "h-3.5 w-3.5" %} Папка · {{ project.created|date:"d.m.Y H:i" }}</div>
       <div class="mt-0.5 flex items-start gap-2"><h1 class="min-w-0 break-words text-xl font-semibold text-slate-900">{{ project.name }}</h1>

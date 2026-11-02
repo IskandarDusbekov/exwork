@@ -18,13 +18,21 @@ COST_FIELDS = {"J": "cost_j", "K": "cost_k", "L": "cost_l", "M": "cost_m", "N": 
 class SiteObject(models.Model):
     class Status(models.TextChoices):
         PARSING = "parsing", "Офёрта ўқиляпти"
+        CHOOSE = "choose", "Лист танланади"
         READY = "ready", "Тайёр"
         FAILED = "failed", "Хато"
+
+    class Mode(models.TextChoices):
+        MONTHS = "months", "Ойлар (эски)"  # bo'limlarga ajratilgan ofyorta, oyma-oy hajmlar
+        ACTS = "acts", "Далолатномалар"    # list fayldagidek (``RawRow``), №1, №2 … dalolatnomalar
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created = models.DateTimeField(auto_now_add=True)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     name = models.CharField(max_length=300)
+    mode = models.CharField(max_length=8, choices=Mode.choices, default=Mode.ACTS)
+    sheets = models.JSONField(default=list, blank=True)  # yuklangan fayl listlari (``sheet.list_sheets``) — tanlash uchun
+    layout = models.JSONField(default=dict, blank=True)  # ``sheet.Layout``: sarlavha qatori, ustunlar, blok chegarasi
     address = models.CharField(max_length=300, blank=True)
     customer = models.CharField(max_length=300, blank=True)    # буюртмачи
     contractor = models.CharField(max_length=300, blank=True)  # пудратчи
@@ -210,3 +218,53 @@ class MyOfyorta(models.Model):
     @property
     def file(self) -> Path:
         return self.dir / "ofyorta.xlsx"
+
+
+class RawRow(models.Model):
+    """Ofyorta listining bitta qatori — fayldagidek: qiymatlar (Excel saqlagani) va formulalar, o'zgarishsiz.
+
+    ``kind``: head (sarlavha), text (bo'lim, lokal sarlavhasi va h.k.), work / free / res, svod (oxirgi ishdan keyin)."""
+    obj = models.ForeignKey(SiteObject, on_delete=models.CASCADE, related_name="raw_rows")
+    row = models.PositiveIntegerField()  # Excel qatori (1 dan)
+    kind = models.CharField(max_length=5)
+    num = models.CharField(max_length=20, blank=True)
+    parent = models.PositiveIntegerField(null=True, blank=True)  # resurs -> ishning qatori
+    vals = models.JSONField(default=list)  # [A, B, C …] — son, matn yoki null
+    fmls = models.JSONField(default=dict, blank=True)  # {"7": "=G14*F14"} — ustun indeksi (0 dan) -> formula
+
+    class Meta:
+        ordering = ["row"]
+        constraints = [models.UniqueConstraint(fields=["obj", "row"], name="tn_rawrow_unique")]
+
+
+class Act(models.Model):
+    """Dalolatnoma (№1, №2 …): shu dalolatnomada bajarilgan ish hajmlari. Yopilgani o'zgarmaydi."""
+    obj = models.ForeignKey(SiteObject, on_delete=models.CASCADE, related_name="acts")
+    number = models.PositiveIntegerField()
+    date = models.DateField(null=True, blank=True)  # ixtiyoriy (Ф-3 «за месяц» / «с начала года» uchun)
+    name = models.CharField(max_length=120, blank=True, default="")  # ixtiyoriy nom («Пойдевор», «Октябрь» …)
+    closed = models.BooleanField(default=False)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["number"]
+        constraints = [models.UniqueConstraint(fields=["obj", "number"], name="tn_act_unique")]
+
+    @property
+    def title(self) -> str:
+        return f"№{self.number}"
+
+    @property
+    def label(self) -> str:
+        """Ekranda va Хисоботda: «№2 · Пойдевор» (nomi bo'lmasa — «№2»)."""
+        return f"{self.title} · {self.name}" if self.name else self.title
+
+
+class ActQty(models.Model):
+    act = models.ForeignKey(Act, on_delete=models.CASCADE, related_name="qtys")
+    row = models.PositiveIntegerField()  # ish / mustaqil resurs qatori (``RawRow.row``)
+    qty = models.FloatField()
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["act", "row"], name="tn_actqty_unique")]

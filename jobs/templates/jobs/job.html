@@ -1,7 +1,7 @@
 {% extends "jobs/base.html" %}
 {% load narx %}
-{% block title %}{{ job.local_name }} · Муҳандис лойиҳачи{% endblock %}
-{% block header_class %}px-4 lg:px-6{% endblock %}
+{% block title %}{{ job.local_name }} · mhisobot{% endblock %}
+{% block side %}rail{% endblock %}
 {% block main_class %}px-4 lg:px-6 py-4{% endblock %}
 {% block content %}
 <script>try { if (localStorage.getItem("narx-job-mode") === "simple") document.documentElement.classList.add("simple-mode"); } catch (e) {}</script>
@@ -1545,10 +1545,10 @@
   @media (max-width: 639px) { .step-btn:not(.is-active) .step-text { display: none; } .step-btn:not(.is-active) { padding: .375rem; } }
   /* фильтр тугмалари: аниқ кўринадиган, босиладиган */
   .chip { display: inline-flex; align-items: center; gap: .375rem; height: 2rem; padding: 0 .75rem; border: 1px solid #cbd5e1;
-          border-radius: 9999px; background: #fff; font-size: .8125rem; font-weight: 500; color: #334155; cursor: pointer;
+          border-radius: 9999px; background: #fff; font-size: .8125rem; font-weight: 500; color: #334155; cursor: var(--cur-hand, pointer);
           transition: background-color .12s, border-color .12s, box-shadow .12s; }
   .chip:hover:not(:disabled) { border-color: #64748b; background: #f8fafc; box-shadow: 0 1px 2px rgba(15,23,42,.08); }
-  .chip:disabled { opacity: .4; cursor: default; }
+  .chip:disabled { opacity: .4; cursor: var(--cur, default); }
   .chip .cnt { color: #64748b; font-weight: 600; }
   .chip .dot { width: .5rem; height: .5rem; border-radius: 9999px; }
   .chip.is-active { background: #0f172a; border-color: #0f172a; color: #fff; }
@@ -1590,12 +1590,12 @@
   .xs td.xs-sugg-from { text-decoration: line-through; text-decoration-color: #c026d3; }
   .xs .xs-sugg-tag { position: absolute; right: 1px; top: 1px; z-index: 1; border-radius: 3px; background: #c026d3; color: #fff;
                      padding: 0 3px; font: 600 9px/1.35 "Segoe UI", system-ui, sans-serif; text-decoration: none; pointer-events: none; }
-  .xs-selectable .xs tbody th { cursor: pointer; }
+  .xs-selectable .xs tbody th { cursor: var(--cur-hand, pointer); }
   .xs-selectable .xs tbody tr { cursor: cell; user-select: none; }
   .xs-selectable .xs tbody th:hover { background: #dbeafe; color: #1e40af; }
   .xs tr.xs-sel > td { box-shadow: inset 0 0 0 9999px rgba(37, 99, 235, .16); }
   .xs tr.xs-sel > th { background: #2563eb !important; color: #fff !important; font-weight: 600; }
-  .xs td.xs-price-cell { position: relative; cursor: pointer; }
+  .xs td.xs-price-cell { position: relative; cursor: var(--cur-hand, pointer); }
   .xs td.xs-price-cell:hover { outline: 2px solid #2563eb; outline-offset: -2px; }
   .xs .xs-price-tag { position: absolute; left: 1px; bottom: 1px; z-index: 1; border-radius: 3px; background: #f59e0b; color: #fff;
                       padding: 0 3px; font: 600 9px/1.35 "Segoe UI", system-ui, sans-serif; white-space: nowrap; pointer-events: none; }
@@ -2129,25 +2129,33 @@
 {% endblock %}
 {% block guide %}{page: "smeta", steps: [
   {sel: '[data-guide="job-top"]', title: "Нархланган смета",
-   text: "Тепада: смета номи, қайси локал лист ва ресурс билан нархлангани, жами сумма (Всего с НДС). <span class='rounded bg-rose-50 px-1 text-rose-800'>N та нархланмади</span> — RES'дан нархи топилмаган қаторлар; улар суммага кирмаган."},
-  {sel: "#tabs", title: "Смета 3 босқичда якунланади",
-   text: "<b>1. Топилмаганлар</b> — нархи топилмаган қаторлар.<br><b>2. Жадвал</b> — натижани кўриш, кабель ва ускуналарни ўз устунига ажратиш.<br><b>3. Сводка ва фоизлар</b> — устамалар ва юклаб олиш.<br>Яшил ✓ — тайёр. «Қўшимча»да — статистика ва созламалар."},
+   text: "<p>Тепада: смета номи, қайси локал ва ресурс билан нархлангани, жами сумма (Всего с НДС).</p>" +
+         "<p><span class='rounded bg-rose-50 px-1 text-rose-800'>N та нархланмади</span> — нархи топилмаган қаторлар. Улар суммага кирмаган.</p>"},
+  {sel: "#tabs", title: "Смета 3 босқичда тайёр бўлади",
+   text: "<ol><li><b>Топилмаганлар</b> — нархи топилмаган қаторлар</li><li><b>Жадвал</b> — натижани кўриш, кабель ва ускунани ўз устунига ажратиш</li>" +
+         "<li><b>Сводка ва фоизлар</b> — устамалар ва юклаб олиш</li></ol><div class='tip'>Яшил ✓ — босқич тайёр. «Қўшимча»да — статистика ва созламалар.</div>"},
   {sel: "#stage-nf", before: function () { var b = document.querySelector('[data-tab-btn="1"]'); if (b) b.click(); },
    title: "1-босқич: топилмаганлар",
-   text: "Ҳар бир қаторда сабаби ёзилган: <b>топилмади</b>, <b>ўхшаш · текширинг</b>, <b>2 та номзод</b>, <b>бирлик бошқа</b>, <b>нарх йўқ</b> — ёнидаги <span class='help-q text-slate-500'>?</span> нимани билдиришини айтади.<br>" +
-         "Турини танланг → кераксизини белгидан чиқаринг → <b class='text-amber-700'>«Яқин нархни қўйиш»</b> (RES'даги ўхшашининг нархи) ёки <b class='text-rose-700'>ёзувни олиб ташлаш</b> (бўлим номлари)."},
+   text: "<p>Ҳар бир қаторда сабаби ёзилган: <b>топилмади</b>, <b>ўхшаш</b>, <b>2 та номзод</b>, <b>бирлик бошқа</b>, <b>нарх йўқ</b>.</p>" +
+         "<p>Нима қилиш керак:</p><ol><li>Турини танланг</li><li>Кераксизини белгидан чиқаринг</li>" +
+         "<li><b class='text-amber-700'>«Яқин нархни қўйиш»</b> ёки <b class='text-rose-700'>ёзувни олиб ташлаш</b> (бўлим номлари учун)</li></ol>" +
+         "<div class='tip'>Сабаб ёнидаги <span class='help-q'>?</span> — нимани билдиришини айтади.</div>"},
   {sel: "#stage-table", before: function () { var b = document.querySelector('[data-tab-btn="2"]'); if (b) b.click(); },
    title: "2-босқич: кабель ва ускунани ажратиш",
-   text: "Тизим кабель (L) ва ускуна (M) бўлиши мумкин бўлган материалларни таклиф қилади — ўзи кўчирмайди. «Кўриб чиқиш» — жадвалда белгиланади, «Ҳаммасини кабелга / ускунага ажратиш» — ўз устунига ўтказади. Тугагач «текширилди»."},
+   text: "<p>Тизим кабель (L) ва ускуна (M) бўлиши мумкин бўлган материалларни <b>таклиф қилади</b> — ўзи кўчирмайди.</p>" +
+         "<ul><li><b>«Кўриб чиқиш»</b> — жадвалда белгиланади</li><li><b>«Ҳаммасини ажратиш»</b> — ўз устунига ўтказади</li></ul><div class='tip'>Тугагач — «текширилди»ни босинг.</div>"},
   {sel: "#rows-section", before: function () { var b = document.querySelector('[data-tab-btn="2"]'); if (b) b.click(); },
    title: "Жадвал — натижанинг ўзи",
-   text: "Excel'даги каби кўриниш. Тепадаги чиплар билан фильтрланг: <span class='tour-dot bg-rose-500'></span> нархланмади, <span class='tour-dot bg-amber-400'></span> нарх таклифи бор, <span class='tour-dot bg-sky-500'></span> қўлда нархланган.<br>" +
-         "Қаторни босиб белгиланг — пастда панел чиқади: таклифни қабул қилиш, нарх бериш ёки устунга ўтказиш. Қизил G катагини боссангиз — нархни шу ерда ёзасиз."},
+   text: "<p>Excel'дагидек кўриниш. Тепадаги чиплар билан фильтрланг:</p>" +
+         "<ul><li><span class='tour-dot bg-rose-500'></span> нархланмади</li><li><span class='tour-dot bg-amber-400'></span> нарх таклифи бор</li><li><span class='tour-dot bg-sky-500'></span> қўлда нархланган</li></ul>" +
+         "<div class='tip'>Қаторни босинг — пастда панел чиқади. Қизил G катагини боссангиз — нархни шу ерда ёзасиз.</div>"},
   {sel: "#svodka", before: function () { var b = document.querySelector('[data-tab-btn="3"]'); if (b) b.click(); },
    title: "3-босқич: сводка ва фоизлар",
-   text: "Устама фоизлар (накладные, прибыль, НДС…). Ўзгартирсангиз — сумма дарҳол қайта ҳисобланади; <b>сариқ</b> — стандартдан ўзгартирилган. «Эслаб қолинган фоизлар» — олдинги сметангиздагилар."},
+   text: "<p>Устама фоизлар: накладные, прибыль, НДС ва бошқалар. Ўзгартирсангиз — сумма дарҳол қайта ҳисобланади.</p>" +
+         "<ul><li><b>сариқ</b> — стандартдан ўзгартирилган</li><li><b>«Эслаб қолинган фоизлар»</b> — олдинги сметангиздагилар</li></ul>"},
   {sel: '[data-guide="download"]', title: "Юклаб олиш",
-   text: "Тайёр Excel: нархлар, сводка ва «LOG» листи. Сиз қилган ҳамма ўзгаришлар (нарх, устун, фоиз) файлга киради. Нархланмаган қаторлар Excel'да қизил бўлиб қолади — у ерда нарх ёзсангиз, сумма ўзи ҳисобланади."},
+   text: "<p>Тайёр Excel: нархлар, сводка ва «LOG» листи. Ҳамма ўзгаришларингиз (нарх, устун, фоиз) киради.</p>" +
+         "<div class='tip'>Нархсиз қаторлар Excel'да қизил бўлиб қолади — у ерда нарх ёзсангиз, сумма ўзи ҳисобланади.</div>"},
   {sel: '[data-tab-btn="more"]', title: "Қўшимча",
-   text: "Статистика, муаммоли қаторлар рўйхати ва созламалар (бошқа лист ёки режимда қайта нархлаш)."}
+   text: "<ul><li>Статистика</li><li>Муаммоли қаторлар рўйхати</li><li>Созламалар — бошқа лист ёки режимда қайта нархлаш</li></ul>"}
 ]}{% endblock %}

@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import content_disposition_header
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from . import f2, f3, services, tasks
@@ -91,12 +92,26 @@ def create(request):
 def state(request, obj_id):
     """O'qish jarayoni (sahifa so'rab turadi)."""
     o = _obj(request, obj_id)
+    _kick(o)
     return JsonResponse({"status": o.status, "error": o.error, "progress": o.progress})
+
+
+def _kick(o):
+    """O'qilishi kerak, lekin hech kim olmagan obyekt (masalan, yangi tartibga o'tkazilgan eski obyekt yoki server
+    qayta ishga tushganda uzilgan o'qish) — fonda boshlanadi."""
+    if o.status == SiteObject.Status.PARSING:
+        stale = o.heartbeat is None or o.heartbeat < timezone.now() - tasks.STALE_AFTER
+        if not o.worker or stale:
+            tasks.start(o.pk)
 
 
 def detail(request, obj_id):
     o = _obj(request, obj_id)
+    if o.mode == SiteObject.Mode.ACTS and o.status in (SiteObject.Status.READY, SiteObject.Status.CHOOSE):
+        from . import views_acts
+        return views_acts.detail(request, o)
     if o.status != SiteObject.Status.READY:
+        _kick(o)
         return render(request, "texnazor/loading.html", {"nav": "texnazor", "o": o})
     periods = list(o.periods.all())
     period = None

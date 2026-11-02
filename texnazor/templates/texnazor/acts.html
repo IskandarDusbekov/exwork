@@ -1,0 +1,1503 @@
+{% extends "jobs/base.html" %}
+{% load narx texnazor_tags %}
+{% block title %}{{ o.name }} · Техназор{% endblock %}
+{% block side %}rail{% endblock %}
+{% block main_class %}tn-page{% endblock %}
+{% block header_extra %}
+<a href="{% url 'texnazor:index' %}" class="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100" title="Объектлар">{% icon "arrow-left" "h-4 w-4" %}</a>
+<div class="min-w-0 flex-1 leading-tight">
+  <div class="truncate text-[15px] font-semibold text-slate-900" title="{{ o.name }}">{{ o.name }}</div>
+  <div class="truncate text-xs text-slate-500">{% if o.customer %}Буюртмачи: {{ o.customer }} · {% endif %}{% if o.contractor %}Пудратчи: {{ o.contractor }} · {% endif %}{{ o.source_name }} · лист «{{ o.sheet }}»</div>
+</div>
+{% endblock %}
+{% block content %}
+{% csrf_token %}
+{% if messages %}<div class="tn-toasts">{% for m in messages %}<div class="tn-toast{% if m.tags == 'success' %} is-ok{% endif %}"><span>{{ m }}</span><button type="button" aria-label="Ёпиш">×</button></div>{% endfor %}</div>{% endif %}
+
+<section class="tn-sheet-wrap">
+  {# ---- tepada: jadval sarlavhasi — hamma tugmalar ---- #}
+  <div class="tn-bar">
+    <span class="tn-view" role="group" aria-label="Варақ">
+      <button type="button" data-v="ofyorta" aria-pressed="{% if view == 'ofyorta' %}true{% else %}false{% endif %}" title="Офёрта листи — файлдагидек">Офёрта</button>{% for a in acts %}<button type="button" data-v="act" data-n="{{ a.number }}" aria-pressed="false" class="tn-v-act" title="Далолатнома {{ a.label }}{% if a.closed %} (ёпилган){% endif %}: «Остатка» ва шу далолатнома"><span class="tn-dot" data-k="{{ forloop.counter0 }}"></span>{{ a.title }}{% if a.name %} <em>{{ a.name }}</em>{% endif %}{% if a.closed %}{% icon "lock" "h-3 w-3" %}{% endif %}</button>{% endfor %}<button type="button" data-v="report" aria-pressed="{% if view == 'report' %}true{% else %}false{% endif %}" title="Умумий ҳисобот: ҳамма далолатномалар бирга, охирида «Остатка»">Хисобот</button></span>
+
+    <span class="tn-sep"></span>
+    <details class="tn-dd">
+      <summary class="tn-tb" title="Далолатномалар: Ф-2, ёпиш / очиш, сана, янгисини очиш">{% icon "file" "h-4 w-4" %}Далолатномалар <b class="tn-cnt">{{ acts|length }}</b> <span class="tn-car">▾</span></summary>
+      <div class="tn-pop tn-pop-acts">
+        {% for r in totals.acts %}{% with a=r.act %}
+        <div class="tn-ar{% if a.closed %} is-closed{% endif %}">
+          <span class="tn-dot" data-k="{{ forloop.counter0 }}"></span>
+          <b class="tn-ar-t">Далолатнома {{ a.title }}{% if a.name %} <span class="tn-ar-n">{{ a.name }}</span>{% endif %}</b>
+          <span class="tn-ar-st">{% if a.closed %}{% icon "lock" "h-3 w-3" %} ёпилган{% else %}очиқ{% endif %}</span>
+          <form method="post" action="{% url 'texnazor:act_edit' o.pk a.number %}" class="tn-ar-date">{% csrf_token %}<input type="hidden" name="do" value="date">
+            <input type="date" name="date" value="{{ a.date|date:'Y-m-d' }}" aria-label="{{ a.title }} санаси"><button title="Санани сақлаш">✓</button></form>
+          <a href="{% url 'texnazor:act_f2' o.pk a.number %}" download class="tn-ar-b" title="Ф-2 {{ a.title }} — фақат шу далолатнома ишлари (Excel)">Ф-2</a>
+          <form method="post" action="{% url 'texnazor:act_edit' o.pk a.number %}">{% csrf_token %}<input type="hidden" name="do" value="close">
+            <button class="tn-ar-b" title="{% if a.closed %}Қайта очиш — ҳажмни ўзгартириш мумкин бўлади{% else %}Ёпиш — ҳажмлари ўзгармайди{% endif %}">{% if a.closed %}очиш{% else %}ёпиш{% endif %}</button></form>
+          <button type="button" class="tn-ar-b" data-rename="{{ a.number }}" data-name="{{ a.name }}" title="Номини ёзиш / ўзгартириш (Alt+R)">{% icon "pencil" "h-3.5 w-3.5" %}ном</button>
+          {% if not a.closed %}<form method="post" action="{% url 'texnazor:act_edit' o.pk a.number %}" data-keep>{% csrf_token %}<input type="hidden" name="do" value="delete"><input type="hidden" name="view" value="{{ view }}"><input type="hidden" name="confirm">
+            <button type="button" data-confirm1 class="tn-ar-b tn-ar-del" data-del="{{ a.number }}" title="Ўчириш (Alt+Delete)" data-title="Далолатнома {{ a.label }}ни ўчириш"
+                    data-msg="Далолатнома ва унга ёзилган ҳамма ҳажмлар ўчади.{% if not forloop.last %} Кейингилари биттага сурилади (№{{ a.number|add:1 }} → №{{ a.number }} …).{% endif %}" data-warn="Бу амални ортга қайтариб бўлмайди."
+                    data-word="{{ a.title }}" data-ok="Ўчириш">{% icon "trash" "h-3.5 w-3.5" %}</button></form>{% endif %}
+        </div>
+        {% endwith %}{% empty %}<p class="tn-ar-none">Ҳали далолатнома йўқ.</p>{% endfor %}
+        <form method="post" action="{% url 'texnazor:act_add' o.pk %}" class="tn-ar-add">{% csrf_token %}
+          <span>{% icon "plus" "h-3.5 w-3.5" %} Янги далолатнома №{{ acts|length|add:1 }}</span>
+          <input type="date" name="date" aria-label="Сана (ихтиёрий)" title="Сана — ихтиёрий">
+          <button class="tn-mbtn tn-mbtn-ok">Очиш</button>
+        </form>
+      </div>
+    </details>
+    <form method="post" action="{% url 'texnazor:act_add' o.pk %}" data-keep>{% csrf_token %}<input type="hidden" name="view" value="{{ view }}">
+      <button class="tn-tb tn-tb-soft" title="Янги далолатнома №{{ acts|length|add:1 }} очиш (Alt+N)">{% icon "plus" "h-4 w-4" %}<span class="tn-tb-long">Янги далолатнома</span> №{{ acts|length|add:1 }}</button></form>
+    <a href="{% url 'texnazor:report' o.pk %}" class="tn-tb tn-tb-main" id="tn-xlsx" download title="Нархланган офёрта (Excel): офёрта + ҳар далолатнома ва «Остатка» блоклари; йиғилган блоклар Excel'да ҳам йиғилган (+ / − билан очилади)">{% icon "download" "h-4 w-4" %}Excel'га юклаш</a>
+
+    {# jadvalni ko'rish sozlamalari — alohida, neytral guruh (amal emas) #}
+    <span class="tn-tools" role="group" aria-label="Жадвални кўриш">
+      <button type="button" class="tn-tl" id="tn-res" aria-pressed="true" title="Иш остидаги ресурс қаторларини ёпиш / очиш">{% icon "layers" "h-4 w-4" %}<span class="tn-tl-t">Ресурсларни ёпиш</span></button>
+      {% if blk %}<button type="button" class="tn-tl" id="tn-coll" title="Ҳар далолатнома блокини Excel'даги «свернуть»дек йиғиш / ёйиш (блок сарлавҳасидаги − / +)">{% icon "columns" "h-4 w-4" %}<span class="tn-tl-t">Блокларни йиғиш</span></button>{% endif %}
+      <label class="tn-tl tn-tl-chk" title="Фақат ҳажм ёзилган ишлар"><input type="checkbox" id="tn-only">{% icon "filter" "h-4 w-4" %}<span>Фақат ёзилганлар</span></label>
+      <label class="tn-tl tn-tl-in" title="Масштаб">{% icon "search" "h-4 w-4" %}<select id="tn-zoom" aria-label="Масштаб"></select></label>
+      <label class="tn-tl tn-tl-in" title="Excel қатори рақамига ўтиш (Enter)">{% icon "arrow-right" "h-4 w-4" %}<input id="tn-goto" inputmode="numeric" placeholder="Қатор №" class="num" aria-label="Қаторга ўтиш"></label>
+    </span>
+
+    <span class="tn-bar-r">
+      {% if warnings %}
+      <details class="tn-dd tn-dd-r">
+        <summary class="tn-tb tn-tb-warn" title="Офёрта файли ҳақида огоҳлантиришлар">⚠ {{ warnings|length }}</summary>
+        <div class="tn-pop tn-pop-warn">
+        {% for w in warnings %}<div class="tn-w"><div class="font-semibold">{{ w.title }}</div>
+          {% if w.text %}<p>{{ w.text }}</p>{% endif %}
+          {% if w.row %}<button type="button" data-goto="{{ w.row }}">Excel'да {{ w.row }}-қатор — жадвалда кўрсатиш</button>{% endif %}</div>{% endfor %}
+        </div>
+      </details>
+      {% endif %}
+      <a href="#info" data-open-info class="tn-tb tn-tb-ghost{% if info_missing %} tn-tb-warn{% endif %}" title="Объект ва пудратчи маълумотлари (Ф-3 учун){% if info_missing %} — тўлдирилмаган: {{ info_missing|join:', ' }}{% endif %}">{% icon "building" "h-4 w-4" %}Объект</a>
+      <details class="tn-dd tn-dd-r">
+        <summary class="tn-tb tn-tb-ghost tn-tb-ico" title="Ёрдам, клавиатура ва бошқа амаллар" aria-label="Ёрдам">{% icon "help" "h-[18px] w-[18px]" %}</summary>
+        <div class="tn-pop tn-pop-help">
+          <p>{% if blk %}{% if active %}Ҳажмни очиқ далолатноманинг яшил ҳошияли катагига сон (0,08) ёки фоиз (60%) қилиб ёзинг, Enter — сақлаш. Кўп ишни бирданига: қаторни босиб юқорига / пастга тортинг (ёки чапдаги ☐, Shift — оралиқ) ва «100% бажарилди».</p>
+          <p><b>Клавиатура билан:</b> ишни бир марта босинг (ёки ↓) — сариқ рамка чиқади. ↓ / ↑ — кейинги / олдинги иш, → — шу иш 100% ва кейингисига, ← ёки рақам — миқдор ёзиш (50% ёки 0,8, Enter — кейингисига), ↓↓ (тез икки марта) — пастга ўзи 100% қилиб боради (исталган тугма ёки сичқонча — тўхтайди), Ctrl+Z — орқага, Esc — чиқиш ва белгиланганларни олиш.</p>
+          <p><b>Далолатнома:</b> пастки қаторда қайси далолатномага ёзилиши танланади (сариқ ✎), ёнидаги «ёпиш / очиш» ва «+ №…». Клавиатурада: Alt+1…9 ёки Alt+← / → — алмаштириш, Alt+L — ёпиш / очиш, Alt+R — номини ёзиш, Alt+N — янги далолатнома, Alt+Delete — ўчириш. Блок сарлавҳасидаги − / + — далолатномани йиғиш / ёйиш.{% else %}Ҳажм ёзиш учун «Далолатномалар» менюсидан янги далолатнома очинг.{% endif %}{% else %}Лист файлдагидек: ҳеч нарса ўзгартирилмаган.{% endif %}</p>
+          <p>Ҳар далолатнома — офёртанинг ўзи, фақат иш ҳажмлари шу далолатномадагиси. Пул файлнинг ўз формулалари билан ҳисобланади.</p>
+          {% if not has_qty %}<form method="post" action="{% url 'texnazor:change_sheet' o.pk %}">{% csrf_token %}
+            <button class="tn-ar-b">Бошқа листни танлаш</button></form>{% endif %}
+          <form method="post" action="{% url 'texnazor:delete' o.pk %}">{% csrf_token %}<input type="hidden" name="confirm">
+            <button type="button" data-confirm2 class="tn-ar-b tn-ar-del"
+                    data-title="Объектни ўчириш" data-msg="«{{ o.name }}» бутунлай ўчади."
+                    data-list="Офёрта ва унинг ҳамма қаторлари|Ҳамма далолатномалар ва ёзилган ҳажмлар ({{ acts|length }} та)"
+                    data-warn="Бу амални ортга қайтариб бўлмайди." data-word="ЎЧИРИШ" data-ok="Объектни ўчириш">{% icon "trash" "h-3.5 w-3.5" %} Объектни ўчириш</button>
+          </form>
+        </div>
+      </details>
+    </span>
+  </div>
+
+  {# ---- o'rtada: faqat jadval suriladi ---- #}
+  <div class="tn-sheet" id="tn-sheet"><p class="px-5 py-12 text-center text-slate-500">Офёрта юкланяпти…</p></div>
+  {% if blk and active %}
+  <div class="tn-selbar hidden" id="tn-selbar" role="region" aria-label="Белгиланган ишлар">
+    <span><b class="tn-sel-n num">0</b> та иш белгиланди</span>
+    <label class="tn-sel-hint">далолатнома <select id="tn-sel-act" class="tn-sel-actsel">{% for a in acts %}{% if not a.closed %}<option value="{{ a.number }}" {% if a.number == active.number %}selected{% endif %}>{{ a.title }}</option>{% endif %}{% endfor %}</select></label>
+    <button type="button" class="tn-sel-100">100% бажарилди</button>
+    <span class="tn-sel-or">ёки жами</span>
+    <input class="tn-sel-pct num" inputmode="decimal" placeholder="50" aria-label="Жами бажарилган фоиз"><span>%</span>
+    <button type="button" class="tn-sel-go">Қўллаш</button>
+    <span class="tn-sel-hint">етмаган қисми танланган далолатномага ёзилади, олдингилари ўзгармайди</span>
+    <button type="button" class="tn-sel-clear">Белгини олиш</button>
+  </div>
+  {% endif %}
+
+  {% if view == 'act' and acts %}
+  <button type="button" class="tn-fab" id="tn-fab" hidden></button>
+  {% endif %}
+
+  {# ---- pastda: hamma dalolatnomalar summasi ---- #}
+  <div class="tn-foot" aria-label="Жамлар">
+    {% if blk %}
+    <span class="tn-acts{% if view == 'act' %} is-one{% endif %}" role="group" aria-label="Қайси далолатномага ёзилади">
+      <span class="tn-acts-l">{% if view == 'act' %}Далолатнома:{% else %}Ёзиш:{% endif %}</span>
+      {% for r in totals.acts %}{% with a=r.act %}
+      <span class="tn-wa{% if a.closed %} is-closed{% endif %}" data-wa="{{ a.number }}" data-label="{{ a.label }}" data-f2="{% url 'texnazor:act_f2' o.pk a.number %}">
+        <button type="button" class="tn-wa-b" data-work="{{ a.number }}" title="Далолатнома {{ a.title }}га ёзиш (Alt+{{ a.number }}){% if a.closed %} — ёпилган, аввал очинг{% endif %}"><span class="tn-dot" data-k="{{ forloop.counter0 }}"></span>{{ a.title }}{% if a.name %}<em class="tn-wa-n">{{ a.name }}</em>{% endif %}{% if a.closed %}{% icon "lock" "h-3 w-3" %}{% endif %}<b class="num" data-act-sum="{{ a.number }}">{{ r.sum|pul }}</b></button>
+        <form method="post" action="{% url 'texnazor:act_edit' o.pk a.number %}" data-keep>{% csrf_token %}<input type="hidden" name="do" value="close"><input type="hidden" name="view" value="{{ view }}">
+          <button class="tn-wa-x{% if a.closed %} is-open{% endif %}" data-lock="{{ a.number }}" title="{% if a.closed %}Қайта очиш — ҳажм ёзиш мумкин бўлади{% else %}Ёпиш — ҳажмлари ўзгармайди{% endif %} (Alt+L)">{% if a.closed %}очиш{% else %}ёпиш{% endif %}</button></form>
+        <button type="button" class="tn-wa-i" data-rename="{{ a.number }}" data-name="{{ a.name }}" title="Номини ёзиш / ўзгартириш (Alt+R)">{% icon "pencil" "h-3.5 w-3.5" %}</button>
+        {% if not a.closed %}<form method="post" action="{% url 'texnazor:act_edit' o.pk a.number %}" data-keep>{% csrf_token %}<input type="hidden" name="do" value="delete"><input type="hidden" name="view" value="{{ view }}"><input type="hidden" name="confirm">
+            <button type="button" data-confirm1 class="tn-wa-i tn-wa-del" data-del="{{ a.number }}" title="Ўчириш (Alt+Delete)" data-title="Далолатнома {{ a.label }}ни ўчириш"
+                    data-msg="Далолатнома ва унга ёзилган ҳамма ҳажмлар ўчади.{% if not forloop.last %} Кейингилари биттага сурилади (№{{ a.number|add:1 }} → №{{ a.number }} …).{% endif %}" data-warn="Бу амални ортга қайтариб бўлмайди."
+                    data-word="{{ a.title }}" data-ok="Ўчириш">{% icon "trash" "h-3.5 w-3.5" %}</button></form>{% endif %}
+        <form method="post" action="{% url 'texnazor:act_edit' o.pk a.number %}" class="hidden" data-keep data-rename-form="{{ a.number }}">{% csrf_token %}<input type="hidden" name="do" value="name"><input type="hidden" name="view" value="{{ view }}"><input type="hidden" name="name"></form>
+      </span>
+      {% endwith %}{% endfor %}
+      <form method="post" action="{% url 'texnazor:act_add' o.pk %}" data-keep data-add>{% csrf_token %}<input type="hidden" name="view" value="{{ view }}">
+        <button class="tn-wa-add" title="Янги далолатнома №{{ acts|length|add:1 }} очиш (Alt+N)">+ №{{ acts|length|add:1 }}</button></form>
+      <span class="tn-acts-k" title="Клавиатура"><kbd>Alt+1…{{ acts|length }}</kbd> ёки <kbd>Alt+←→</kbd> алмаштириш · <kbd>Alt+L</kbd> ёпиш / очиш · <kbd>Alt+R</kbd> ном · <kbd>Alt+N</kbd> янги · <kbd>Alt+Del</kbd> ўчириш</span>
+    </span>
+    {% else %}
+    <span class="tn-chip" title="Офёрта (шартнома){% if totals.label %}: {{ totals.label }}{% endif %}"><i>Офёрта жами</i><b class="num">{{ totals.contract|pul }}</b></span>
+    {% endif %}
+    {% if not blk %}{% for r in totals.acts %}{% with a=r.act %}
+    <button type="button" class="tn-chip tn-chip-a" data-blk="a{{ a.number }}" title="Далолатнома {{ a.title }}{% if a.date %} · {{ a.date|date:'d.m.Y' }}{% endif %}{% if a.closed %} · ёпилган{% endif %} — жадвалда кўрсатиш"><span class="tn-dot" data-k="{{ forloop.counter0 }}"></span><i>{{ a.title }}{% if a.closed %} {% icon "lock" "h-3 w-3" %}{% endif %}</i><b class="num" data-act-sum="{{ a.number }}">{{ r.sum|pul }}</b></button>
+    {% endwith %}{% endfor %}{% endif %}
+    <button type="button" class="tn-chip tn-chip-a" data-blk="rest" title="Остатка — бажарилмаган қисми; жадвалда кўрсатиш"><span class="tn-dot" data-k="rest"></span><i>Остатка</i><b class="num" id="k-rest">{{ totals.left|pul }}</b></button>
+    <span class="tn-foot-r">
+      {% if blk %}<span class="tn-chip" title="Офёрта (шартнома){% if totals.label %}: {{ totals.label }}{% endif %}"><i>Офёрта</i><b class="num">{{ totals.contract|pul }}</b></span>{% endif %}
+      {% if view != 'act' %}<span class="tn-chip"><i>Ҳамма далолатномалар</i><b class="num" id="k-done">{{ totals.done|pul }}</b></span>{% endif %}
+      <span class="tn-chip tn-chip-pct"><i>Бажарилди</i><b class="num" id="k-pct">{{ totals.pct|floatformat:2 }}%</b></span>
+    </span>
+  </div>
+</section>
+
+<div class="tn-done" id="tn-done" hidden role="dialog" aria-modal="true" aria-labelledby="tn-done-t">
+  <div class="tn-done-box">
+    <span class="tn-done-ic">{% icon "check" "h-7 w-7" %}</span>
+    <h3 id="tn-done-t"></h3>
+    <p class="tn-done-sub">Далолатнома ёпилди — ҳажмлари энди ўзгармайди.</p>
+    <p class="tn-done-sum"><span>Бажарилди</span><b class="num"></b></p>
+    <a href="{% url 'texnazor:report' o.pk %}" class="tn-done-dl" data-dl download>{% icon "download" "h-5 w-5" %}Excel'ни юклаб олиш</a>
+    <span class="tn-done-hint">Нархланган офёрта: офёрта, далолатномалар ва «Остатка»</span>
+    <div class="tn-done-r">
+      <a href="#" data-f2 download>{% icon "file" "h-4 w-4" %}Ф-2</a>
+      <button type="button" data-reopen>{% icon "undo" "h-4 w-4" %}Қайта очиш</button>
+      <button type="button" data-x>Ёпиш</button>
+    </div>
+  </div>
+</div>
+
+<div class="tn-modal" id="tn-info-modal" hidden>
+  <div class="tn-modal-box">
+    <button type="button" class="tn-modal-x" aria-label="Ёпиш">×</button>
+    {% include "texnazor/_info.html" %}
+  </div>
+</div>
+
+{% include "texnazor/_confirm2.html" %}
+{% include "texnazor/_ofyorta_css.html" %}
+<style>
+  /* bitta oyna: tepada tugmalar, o'rtada jadval (faqat u suriladi), pastda jamlar — sahifaning o'zi surilmaydi */
+  body.tn-fit { overflow: hidden; }
+  .tn-page { --tn-brand: #2563eb; --tn-brand-d: #1d4ed8; --tn-tint: #eff6ff; --tn-line: #e3e8f0; display: flex; flex-direction: column; padding: 10px 12px; overflow: hidden; background: #f4f6fa; }
+  .tn-sheet-wrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; background: #fff; border: 1px solid var(--tn-line); border-radius: 12px; box-shadow: 0 1px 3px rgba(15, 23, 42, .06), 0 1px 2px rgba(15, 23, 42, .03); }
+  .tn-sheet-wrap > .tn-bar { flex: none; gap: 8px; padding: 8px 10px; font-size: 14px; border-bottom: 1px solid var(--tn-line); }
+  .tn-sheet-wrap .tn-view { border: 0; border-radius: 9px; padding: 3px; background: #eef1f6; gap: 2px; }
+  .tn-sheet-wrap .tn-view button { height: 28px; padding: 0 14px; font-size: 14px; font-weight: 600; border: 0 !important; border-radius: 7px; color: #475569; background: transparent; }
+  .tn-sheet-wrap .tn-view button:hover { color: #0f172a; }
+  .tn-sheet-wrap .tn-view .tn-v-act { display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; }
+  .tn-sheet-wrap .tn-view .tn-v-act em { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-weight: 500; }
+  .tn-sheet-wrap .tn-view button[aria-pressed="true"] { background: #fff; color: var(--tn-brand-d); box-shadow: 0 1px 2px rgba(15, 23, 42, .12); }
+  .tn-sheet { flex: 1; min-height: 0; overflow: auto; background: #fff; }
+  .tn-tb { display: inline-flex; align-items: center; gap: 6px; height: 34px; border: 1px solid #d6dce6; border-radius: 8px; padding: 0 12px; font-size: 14px; font-weight: 500; color: #1e293b; background: #fff; cursor: var(--cur-hand, pointer); white-space: nowrap; list-style: none; transition: background .12s, border-color .12s; }
+  .tn-tb::-webkit-details-marker { display: none; }
+  .tn-tb:hover { background: #f6f8fb; border-color: #c3cbd8; }
+  /* asosiy amal — brend rangi; ikkinchi darajali — yumshoq ko'k; yordamchi — ramkasiz */
+  .tn-tb-main { border-color: var(--tn-brand); background: var(--tn-brand); color: #fff; font-weight: 600; box-shadow: 0 1px 2px rgba(37, 99, 235, .3); }
+  .tn-tb-main:hover { background: var(--tn-brand-d) !important; border-color: var(--tn-brand-d) !important; }
+  .tn-tb-soft { border-color: #bfd4fb; background: var(--tn-tint); color: var(--tn-brand-d); font-weight: 600; }
+  .tn-tb-soft:hover { background: #dbeafe !important; border-color: #93b4f5 !important; }
+  .tn-tb-ghost { border-color: transparent; color: #475569; }
+  .tn-tb-ghost:hover { background: #eef1f6; border-color: transparent; color: #0f172a; }
+  .tn-tb-ico { width: 34px; padding: 0; justify-content: center; }
+  .tn-tb-warn { border-color: #fcd34d; background: #fffbeb; color: #92400e; }
+  .tn-cnt { min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--tn-tint); color: var(--tn-brand-d); font-size: 11px; font-weight: 700; text-align: center; }
+  /* ko'rish sozlamalari — bitta neytral panel, ixcham */
+  .tn-tools { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 9px; background: #eef1f6; }
+  .tn-tl { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 9px; border-radius: 7px; font-size: 13px; color: #475569; white-space: nowrap; cursor: var(--cur-hand, pointer); }
+  .tn-tl:hover { background: #fff; color: #0f172a; }
+  .tn-tl svg { flex: none; color: #64748b; }
+  .tn-tl[aria-pressed="false"], .tn-tl-chk:has(input:checked) { background: #fff; color: var(--tn-brand-d); box-shadow: 0 1px 2px rgba(15, 23, 42, .1); }
+  .tn-tl[aria-pressed="false"] svg, .tn-tl-chk:has(input:checked) svg { color: var(--tn-brand); }
+  .tn-tl-chk input { width: 15px; height: 15px; accent-color: var(--tn-brand); }
+  .tn-tl-in { padding: 0 4px 0 8px; cursor: var(--cur, default); }
+  .tn-tl-in select, .tn-tl-in input { height: 24px; border: 1px solid transparent; border-radius: 6px; background: transparent; font-size: 13px; color: #1e293b; }
+  .tn-tl-in input { width: 70px; padding: 0 6px; }
+  /* tor ekranda ko'rish sozlamalari faqat ikonka (nomi — sichqoncha ustida) — panel bir qatorda qolsin */
+  .tn-bar.is-tight1 .tn-tl .tn-tl-t, .tn-bar.is-tight1 .tn-tl-chk > span { display: none; }
+  .tn-bar.is-tight1 .tn-tl { padding: 0 7px; }
+  .tn-bar.is-tight2 .tn-tb-long, .tn-bar.is-tight2 .tn-v-act em { display: none; }
+  .tn-tl-in:hover select, .tn-tl-in:hover input, .tn-tl-in select:focus, .tn-tl-in input:focus { border-color: #d6dce6; background: #fff; outline: none; }
+  .tn-car { font-size: 10px; color: #64748b; }
+  .tn-sep { width: 1px; height: 20px; background: #e2e8f0; }
+  .tn-chk { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: #334155; white-space: nowrap; }
+  .tn-chk input[type=checkbox] { width: 16px; height: 16px; accent-color: #16a34a; }
+  .tn-chk select, .tn-chk input:not([type]), .tn-chk input[inputmode] { height: 32px; border: 1px solid #cbd5e1; border-radius: 7px; padding: 0 6px; font-size: 14px; }
+  .tn-chk input[inputmode] { width: 76px; padding: 0 8px; }
+  .tn-bar-r { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+  .tn-dd { position: relative; }
+  .tn-dd[open] > .tn-tb { background: #eef1f6; border-color: #c3cbd8; }
+  .tn-pop { position: absolute; z-index: 40; top: 38px; left: 0; min-width: 260px; max-height: 70vh; overflow: auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 6px; box-shadow: 0 10px 30px rgba(15, 23, 42, .16); font-size: 13px; color: #334155; }
+  .tn-dd-r .tn-pop { left: auto; right: 0; }
+  .tn-ar { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 6px; white-space: nowrap; }
+  .tn-ar:hover { background: #f8fafc; }
+  .tn-ar-t { font-weight: 600; color: #0f172a; }
+  .tn-ar-st { display: inline-flex; align-items: center; gap: 3px; min-width: 64px; font-size: 12px; color: #16a34a; }
+  .tn-ar.is-closed .tn-ar-st { color: #64748b; }
+  .tn-ar-date { display: inline-flex; align-items: center; gap: 2px; }
+  .tn-ar-date input, .tn-ar-add input { height: 24px; border: 1px solid #cbd5e1; border-radius: 5px; padding: 0 4px; font-size: 12.5px; }
+  .tn-ar-date button { width: 22px; height: 24px; border-radius: 5px; color: #047857; }
+  .tn-ar-date button:hover { background: #ecfdf5; }
+  .tn-ar-b { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 12.5px; color: #0369a1; background: #fff; white-space: nowrap; }
+  .tn-ar-b:hover { background: #f0f9ff; }
+  .tn-ar-del { color: #be123c; border-color: #fecdd3; }
+  .tn-ar-del:hover { background: #fff1f2; }
+  .tn-ar-none { padding: 6px; color: #64748b; }
+  .tn-ar-add { display: flex; align-items: center; gap: 8px; margin-top: 4px; padding: 8px 6px 4px; border-top: 1px solid #f1f5f9; white-space: nowrap; }
+  .tn-ar-add span { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: #065f46; }
+  .tn-ar-add .tn-mbtn { padding: 3px 12px; }
+  .tn-pop-warn { width: min(520px, 90vw); padding: 0; }
+  .tn-w { padding: 8px 12px; border-bottom: 1px solid #fde68a; background: #fffbeb; color: #78350f; }
+  .tn-w p { margin-top: 3px; line-height: 1.45; }
+  .tn-w button { margin-top: 3px; font-size: 12px; text-decoration: underline; color: #92400e; }
+  .tn-pop-help { width: min(420px, 90vw); padding: 10px 12px; line-height: 1.45; }
+  .tn-pop-help p { margin-bottom: 8px; color: #475569; }
+  .tn-pop-help form { display: inline-block; margin: 2px 6px 2px 0; }
+  .tn-foot { flex: none; display: flex; align-items: center; gap: 4px 6px; padding: 5px 8px; border-top: 1px solid var(--tn-line); background: #f8fafc; border-radius: 0 0 12px 12px; overflow-x: auto; white-space: nowrap; }
+  .tn-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; font-size: 12.5px; }
+  .tn-chip i { font-style: normal; display: inline-flex; align-items: center; gap: 3px; color: #64748b; }
+  .tn-chip b { font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums; }
+  .tn-chip-a { cursor: var(--cur-hand, pointer); }
+  .tn-chip-a:hover { border-color: #94a3b8; }
+  .tn-chip-a.is-coll { opacity: .65; }
+  .tn-chip-pct b { color: #047857; }
+  /* qaysi dalolatnomaga yozilyapti — tanlash, yopish / ochish, yangi */
+  .tn-acts { display: inline-flex; align-items: center; gap: 5px; }
+  .tn-acts-l { font-size: 12px; font-weight: 600; color: #475569; }
+  .tn-wa { display: inline-flex; align-items: stretch; height: 28px; border: 1px solid #cbd5e1; border-radius: 7px; background: #fff; overflow: hidden; }
+  .tn-wa-b { display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; font-size: 13px; font-weight: 600; color: #334155; }
+  .tn-wa-b b { font-weight: 500; color: #64748b; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .tn-wa-b:hover { background: #f1f5f9; }
+  .tn-wa form { display: flex; }
+  .tn-wa-x { padding: 0 8px; border-left: 1px solid #e2e8f0; font-size: 12px; color: #b45309; }
+  .tn-wa-x:hover { background: #fffbeb; }
+  .tn-wa-x.is-open { color: #047857; }
+  .tn-wa-x.is-open:hover { background: #ecfdf5; }
+  .tn-wa.is-closed .tn-wa-b { color: #94a3b8; }
+  .tn-wa-n { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-weight: 500; color: #475569; }
+  .tn-wa-i { display: inline-grid; place-items: center; width: 28px; border-left: 1px solid #e2e8f0; color: #475569; }
+  .tn-wa-i:hover { background: #f1f5f9; color: #0f172a; }
+  .tn-wa-del { color: #be123c; }
+  .tn-wa-del:hover { background: #fff1f2; color: #9f1239; }
+  .tn-ar-n { font-weight: 500; color: #475569; }
+  .tn-fab { position: absolute; z-index: 30; right: 22px; bottom: 54px; display: inline-flex; align-items: center; gap: 8px; height: 46px; padding: 0 20px 0 16px; border-radius: 999px; background: #16a34a; color: #fff; font-size: 15px; font-weight: 700; box-shadow: 0 10px 24px rgba(22, 163, 74, .35), 0 2px 6px rgba(15, 23, 42, .15); transition: transform .15s, box-shadow .15s; }
+  .tn-fab:hover { transform: translateY(-2px); background: #15803d; box-shadow: 0 14px 30px rgba(22, 163, 74, .4), 0 2px 6px rgba(15, 23, 42, .15); }
+  .tn-fab.is-done { background: var(--tn-brand); box-shadow: 0 10px 24px rgba(37, 99, 235, .35), 0 2px 6px rgba(15, 23, 42, .15); }
+  .tn-fab.is-done:hover { background: var(--tn-brand-d); }
+  .tn-selbar:not(.hidden) ~ .tn-fab { display: none; }
+  .tn-done { position: fixed; z-index: 80; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(15, 23, 42, .5); backdrop-filter: blur(4px); animation: tn-fade .2s ease-out; }
+  .tn-done[hidden] { display: none; }
+  .tn-done-box { width: min(440px, 100%); display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 28px 18px; border-radius: 18px; background: #fff; text-align: center; box-shadow: 0 30px 60px rgba(15, 23, 42, .3); animation: tn-pop .25s cubic-bezier(.2, .9, .3, 1.2); }
+  .tn-done-ic { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 999px; background: #dcfce7; color: #16a34a; }
+  .tn-done h3 { margin-top: 4px; font-size: 20px; font-weight: 700; color: #0f172a; }
+  .tn-done-sub { font-size: 14px; color: #64748b; }
+  .tn-done-sum { display: flex; gap: 8px; align-items: baseline; margin: 4px 0 8px; padding: 8px 16px; border-radius: 10px; background: #f1f5f9; font-size: 14px; color: #475569; }
+  .tn-done-sum b { font-size: 18px; color: #0f172a; }
+  .tn-done-dl { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 52px; border-radius: 12px; background: var(--tn-brand, #2563eb); color: #fff; font-size: 17px; font-weight: 700; box-shadow: 0 8px 20px rgba(37, 99, 235, .35); }
+  .tn-done-dl:hover { background: #1d4ed8; }
+  .tn-done-hint { font-size: 12.5px; color: #94a3b8; }
+  .tn-done-r { display: flex; gap: 6px; margin-top: 10px; }
+  .tn-done-r > * { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #475569; }
+  .tn-done-r > *:hover { background: #f1f5f9; color: #0f172a; }
+  @keyframes tn-fade { from { opacity: 0; } }
+  @keyframes tn-pop { from { opacity: 0; transform: scale(.92) translateY(10px); } }
+  .tn-acts.is-one .tn-wa:not(.is-work), .tn-acts.is-one .tn-acts-k { display: none; }
+  .tn-wa.is-work { border: 2px solid #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, .2); }
+  .tn-wa.is-work .tn-wa-b { background: #fffbeb; color: #000; }
+  .tn-wa.is-work .tn-wa-b::before { content: "✎"; color: #b45309; }
+  .tn-wa-add { height: 28px; padding: 0 10px; border: 1px dashed #93b4f5; border-radius: 7px; color: var(--tn-brand-d); font-size: 13px; font-weight: 600; background: #fff; }
+  .tn-wa-add:hover { background: var(--tn-tint); }
+  .tn-acts-k { margin-left: 4px; font-size: 11.5px; color: #64748b; }
+  .tn-acts-k kbd { font: 600 11px "Segoe UI", Arial, sans-serif; padding: 1px 4px; border: 1px solid #cbd5e1; border-bottom-width: 2px; border-radius: 4px; background: #fff; color: #334155; }
+  .tn-x th.blk-h.is-work { box-shadow: inset 0 -3px 0 #f59e0b; }
+  .tn-x th.blk-h[data-blk^="a"] { cursor: var(--cur-hand, pointer); }
+  .tn-x th.blk-h[data-blk^="a"]:not(.is-work):hover { filter: brightness(.95); text-decoration: underline; }
+  .tn-x th.blk-h.is-work::after { content: "ёзиляпти"; display: inline-block; margin-left: 10px; padding: 3px 10px; border-radius: 999px; background: #fef3c7; color: #92400e; font: 600 12px/1.2 "Segoe UI", Arial, sans-serif; vertical-align: middle; }
+  .tn-x th.blk-h.is-lock::after { content: "ёпилган"; display: inline-block; margin-left: 10px; padding: 3px 10px 3px 24px; border-radius: 999px; border: 1px solid #fecdd3; background: #fff1f2 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23be123c' stroke-width='2.4' stroke-linecap='round'%3E%3Crect x='4' y='11' width='16' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E") no-repeat 8px center / 12px; color: #be123c; font: 600 12px/1.2 "Segoe UI", Arial, sans-serif; vertical-align: middle; }
+  .tn-foot-r { margin-left: auto; display: inline-flex; gap: 6px; }
+  .tn-dot { flex: none; width: 10px; height: 10px; border-radius: 3px; border: 1px solid transparent; }
+  .tn-sheet-wrap .tn-selbar { position: absolute; left: 8px; right: 8px; bottom: 40px; border-radius: 8px; padding: 6px 12px; box-shadow: 0 8px 24px rgba(15, 23, 42, .25); }
+  .tn-toasts { position: fixed; z-index: 70; top: 70px; right: 16px; display: grid; gap: 6px; max-width: min(460px, 90vw); }
+  .tn-toast { display: flex; align-items: start; gap: 10px; padding: 8px 12px; border-radius: 8px; border: 1px solid #fecdd3; background: #fff1f2; color: #9f1239; font-size: 13.5px; box-shadow: 0 8px 24px rgba(15, 23, 42, .12); }
+  .tn-toast.is-ok { border-color: #a7f3d0; background: #ecfdf5; color: #065f46; }
+  .tn-toast button { margin-left: auto; font-size: 18px; line-height: 1; opacity: .6; }
+  .tn-modal { position: fixed; z-index: 65; inset: 0; display: grid; place-items: start center; padding: 4vh 12px; background: rgba(15, 23, 42, .45); overflow: auto; }
+  .tn-modal[hidden] { display: none; }
+  .tn-modal-box { position: relative; width: min(1100px, 100%); }
+  .tn-modal-box .tn-info { margin: 0; }
+  .tn-modal-x { position: absolute; z-index: 2; top: 6px; right: 10px; width: 30px; height: 30px; border-radius: 8px; font-size: 22px; line-height: 1; color: #475569; }
+  .tn-modal-x:hover { background: #f1f5f9; }
+  /* dalolatnoma bloki — Excel'dagi «свернуть»dek yig'iladi */
+  .tn-x .tn-bt { display: inline-flex; align-items: center; gap: 4px; height: 24px; margin-right: 10px; padding: 0 9px 0 6px; vertical-align: middle; border: 1.5px solid currentColor; border-radius: 6px; background: #fff; font: 600 12.5px/1 "Segoe UI", Arial, sans-serif; cursor: var(--cur-hand, pointer); box-shadow: 0 1px 2px rgba(15, 23, 42, .12); }
+  .tn-x .tn-bt b { font-size: 17px; line-height: 1; font-weight: 700; }
+  .tn-x .tn-bt:hover { background: #f8fafc; box-shadow: 0 0 0 3px rgba(15, 23, 42, .08); }
+  .tn-x th.is-coll { padding: 4px 0; text-overflow: clip; text-align: center; }
+  .tn-x th.is-coll .tn-bt { margin: 0; flex-direction: column; gap: 1px; height: auto; padding: 3px 4px; }
+  .tn-x th.is-coll .tn-bt span { font-size: 11px; }
+  .tn-x th.blk-h .blk-t { font-size: 16px; font-weight: 700; vertical-align: middle; }
+  .tn-x td.bx { border-right: 1px solid rgba(0, 0, 0, .08); }
+  /* Excel'dagidek: kataklar uslubi fayldan (fon, shrift, chegara, tekislash), bu yerda faqat to'r chiziqlari */
+  .tn-x { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: 14.7px; color: #000; line-height: 1.2; }
+  .tn-x td { border-right: 1px solid #e1e1e1; border-bottom: 1px solid #e1e1e1; padding: 1px 3px; vertical-align: bottom; overflow: hidden; white-space: pre; }
+  .tn-x td.ov { overflow: visible; }
+  .tn-x td.wr { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .tn-x td .clip { overflow: hidden; }
+  .tn-x td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tn-x thead th { position: sticky; top: 0; z-index: 3; background: #efefef; color: #444; font: 500 12px/1.2 "Segoe UI", Arial, sans-serif; text-align: center; padding: 3px 2px; border-right: 1px solid #d0d0d0; border-bottom: 1px solid #c4c4c4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tn-x thead tr.tn-x-b th { top: 38px; }  /* blok sarlavhasi qatori balandligi (.blk-h) */
+  .tn-x .rn { position: sticky; left: 0; z-index: 2; background: #efefef; color: #555; text-align: center; font: 11px/1.2 "Segoe UI", Arial, sans-serif; vertical-align: middle; border-right: 1px solid #c4c4c4; border-bottom: 1px solid #d0d0d0; white-space: nowrap; }
+  .tn-x thead .rn { z-index: 4; }
+  /* pastda — har blok tagida o'z jami (jadval bilan birga suriladi, doim ko'rinadi) */
+  .tn-x tfoot td { position: sticky; bottom: 0; z-index: 3; background: #f1f5f9; border-top: 2px solid #94a3b8; padding: 4px 8px; font: 13px/1.25 "Segoe UI", Arial, sans-serif; color: #334155; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tn-x tfoot td b { font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; }
+  .tn-x tfoot td.rn { z-index: 4; text-align: center; font-weight: 700; }
+  /* yozish katagi: o'z blokining rangida, ramka ham blok rangida; hajm — qalin qora */
+  /* yozish katagi bir qarashda ko'rinsin: blokning to'qroq rangida, o'z rangidagi ramka; yozilayotgan dalolatnomada — qalinroq */
+  .tn-x td.in { padding: 0; box-shadow: inset 0 0 0 1.5px var(--bc, #94a3b8); cursor: var(--cur-text, text); }
+  .tn-x td.in.is-w { box-shadow: inset 0 0 0 2px var(--bc, #94a3b8), inset 4px 0 0 var(--bc, #94a3b8); }
+  .tn-x td.in:hover { box-shadow: inset 0 0 0 2.5px var(--bc, #94a3b8); }
+  .tn-x td.in input::placeholder { color: #64748b; font-weight: 400; font-size: 11px; }
+  .tn-x td.in:not(.is-w) input::placeholder { color: #94a3b8; }
+  .tn-x td.rn label { display: flex; align-items: center; gap: 3px; cursor: var(--cur-hand, pointer); user-select: none; }
+  .tn-x td.rn label b { margin-left: auto; font-weight: 400; }
+  .tn-x .tn-rt { flex: none; width: 14px; border: 0; padding: 0; background: none; color: #475569; font-size: 10px; line-height: 1; cursor: var(--cur-hand, pointer); }
+  .tn-x .tn-rt:hover { color: #0f172a; }
+  .tn-x .tn-rt.is-off { transform: rotate(-90deg); }
+  body.tn-dragging, body.tn-dragging * { user-select: none !important; cursor: ns-resize !important; }
+  .tn-res-btn { border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 10px; font-size: 13px; color: #334155; background: #fff; }
+  .tn-res-btn:hover { background: #f1f5f9; }
+  .tn-x td.rn input { width: 13px; height: 13px; accent-color: #217346; cursor: var(--cur-hand, pointer); margin: 0; }
+  .tn-x tr.is-sel td { background: #d3e5ff !important; }
+  /* klaviatura kursori — joriy ish */
+  .tn-x tr.is-cur td { box-shadow: inset 0 2px 0 #f59e0b, inset 0 -2px 0 #f59e0b; }
+  .tn-x tr.is-cur td.rn { background: #fcd34d !important; color: #000; }
+  .tn-x tr.is-cur td.in { box-shadow: inset 0 0 0 2px #f59e0b; }
+  .tn-x tr.tn-flash td { animation: tnFlash .95s ease-out; }
+  .tn-x tr.tn-flash td.in { animation: tnFlashIn .95s ease-out; }
+  .tn-x tr.tn-flash-skip td { animation: tnSkip .6s ease-out; }
+  .tn-x tr.tn-flash-undo td { animation: tnUndo .9s ease-out; }
+  @keyframes tnFlash { 0% { background-color: #bbf7d0; } 100% { } }
+  @keyframes tnFlashIn { 0% { background-color: #22c55e; } 35% { background-color: #86efac; } 100% { } }
+  @keyframes tnSkip { 0% { background-color: #e2e8f0; } 100% { } }
+  @keyframes tnUndo { 0% { background-color: #fecaca; } 100% { } }
+  .tn-kb { position: fixed; z-index: 55; pointer-events: none; max-width: min(640px, 90vw); padding: 8px 12px; border-radius: 10px; border-left: 4px solid #f59e0b; background: rgba(15, 23, 42, .94); color: #e2e8f0; font: 13px/1.4 "Segoe UI", Arial, sans-serif; box-shadow: 0 10px 30px rgba(15, 23, 42, .35); transition: top .14s ease-out, left .14s ease-out; transform-origin: top left; }
+  .tn-kb.is-pop { animation: tnPop .28s ease-out; }
+  @keyframes tnPop { 0% { transform: scale(.88); opacity: .4; } 70% { transform: scale(1.03); opacity: 1; } 100% { transform: none; } }
+  .tn-kb .kb-t { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .tn-kb .kb-row { flex: none; padding: 0 7px; border-radius: 5px; background: #f59e0b; color: #000; font-weight: 800; font-size: 15px; }
+  .tn-kb .kb-num { flex: none; color: #fcd34d; font-weight: 700; }
+  .tn-kb .kb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: #fff; }
+  .tn-kb .kb-q { margin-top: 3px; color: #cbd5e1; white-space: nowrap; }
+  .tn-kb .kb-q b { color: #fff; }
+  .tn-kb .kb-pct.is-full { color: #4ade80; }
+  .tn-kb .kb-k { margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(148, 163, 184, .3); font-size: 12px; white-space: nowrap; }
+  .tn-kb[hidden] { display: none; }
+  .tn-lens { position: fixed; z-index: 54; overflow: hidden; pointer-events: none; background: #fff; border-top: 3px solid #f59e0b; border-bottom: 3px solid #f59e0b; box-shadow: 0 14px 36px rgba(15, 23, 42, .38), 0 0 0 9999px rgba(15, 23, 42, .06); box-sizing: content-box; margin-top: -3px; }
+  .tn-lens[hidden] { display: none; }
+  .tn-lens.is-pop { animation: tnLens .26s ease-out; }
+  @keyframes tnLens { 0% { transform: scale(.94); opacity: .3; } 70% { transform: scale(1.01); opacity: 1; } 100% { transform: none; } }
+  .tn-lens-in { position: absolute; top: 0; }
+  .tn-lens td.in, .tn-lens td.in input { pointer-events: auto; }
+  .tn-lens.is-edit { border-color: #16a34a; }
+  .tn-lens .tn-x tr.is-cur td { box-shadow: none; }
+  .tn-kb.is-auto { background: rgba(120, 53, 15, .96); border-left-color: #fbbf24; color: #fff; }
+  .tn-kb.is-auto .kb-k { color: #fde68a; }
+  .tn-kb kbd { font: inherit; font-weight: 700; padding: 0 4px; margin: 0 2px 0 6px; border-radius: 3px; background: #334155; color: #fff; }
+  .tn-kb kbd:first-child { margin-left: 0; }
+
+  .tn-x tr.is-sel td.rn { background: #9ec5fe !important; }
+  .tn-sel-actsel { color: #0f172a; border-radius: 6px; padding: 3px 4px; margin-left: 4px; }
+  .tn-x td.in input { width: 100%; height: 100%; min-height: 20px; border: 0; background: transparent; padding: 1px 3px 1px 6px; text-align: right; font: inherit; color: #000; font-weight: 700; font-variant-numeric: tabular-nums; outline: none; }
+  .tn-x td.in input:focus { background: #fff; box-shadow: inset 0 0 0 2px #f59e0b; }
+  .tn-x td.in.is-err { background: #fff1f2 !important; }
+  .tn-x td.in.is-saving input { color: #94a3b8; }
+  .tn-x td.neg { color: #be123c !important; }
+  .tn-x tr.is-hit td { background: #fff3bf !important; }
+  .tn-x tr.is-hit td.rn { background: #facc15; color: #000; }
+  .tn-x th.blk-h { box-sizing: border-box; font-size: 13px; font-weight: 600; height: 38px; padding: 4px 8px; text-align: left; }
+  .tn-x tbody.ch { content-visibility: auto; }
+  .tn-zoom { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #475569; }
+  .tn-zoom select { border: 1px solid #cbd5e1; border-radius: 6px; padding: 1px 4px; }
+  .tn-err-tip { position: fixed; z-index: 60; max-width: 360px; background: #881337; color: #fff; font-size: 12.5px; padding: 6px 10px; border-radius: 8px; }
+</style>
+<script>
+(function () {
+  var DATA_URL = "{% url 'texnazor:data' o.pk %}", QTY_URL = "{% url 'texnazor:qty' o.pk %}";
+  var VIEW = "{{ view|escapejs }}", ACTIVE = {{ active.number|default:"null" }}, BLK = {{ blk|yesno:"true,false" }};
+  // qaysi dalolatnomaga yozilyapti (pastki qatorda tanlanadi, Alt+1…9 / Alt+←→); shu brauzerda eslab qolinadi
+  var ACTS = [{% for a in acts %}{n: {{ a.number }}, closed: {{ a.closed|yesno:"true,false" }}}{% if not forloop.last %}, {% endif %}{% endfor %}];
+  // kirganda — oxirgi ochiq dalolatnoma; shu oynada tanlangani (yopish / ochish / yangi dan keyin) saqlanadi
+  var WORK_KEY = "tn-work-{{ o.pk }}", WORK = ACTIVE;
+  try { var w0 = +sessionStorage.getItem(WORK_KEY); if (ACTS.some(function (a) { return a.n === w0; })) WORK = w0; } catch (e) { /* bo'lmasa — oxirgi ochiq */ }
+  if (WORK === null && ACTS.length) WORK = ACTS[ACTS.length - 1].n;
+  var box = document.getElementById("tn-sheet");
+  // sarlavhaning pastki cheti ekranda: <thead> o'zi surilib ketadi (faqat kataklari yopishqoq) — oxirgi sarlavha katagi bo'yicha
+  function headBottom() {
+    var th = box.querySelector("thead tr:last-child th:last-child") || box.querySelector("thead th");
+    return th ? th.getBoundingClientRect().bottom : box.getBoundingClientRect().top;
+  }
+  var csrf = function () { return document.querySelector("[name=csrfmiddlewaretoken]").value; };
+  var D = null, CHUNK = 150, ZOOM = 0.9, CONTRACT = {{ totals.contract|stringformat:".6f" }};
+  var FILL_URL = "{% url 'texnazor:act_fill' o.pk %}", CAN_SEL = !!document.getElementById("tn-selbar"), RN = CAN_SEL ? 78 : 62;
+  var SEL = {}, lastSel = null;
+  // resurslar: hammasi ochiq / yopiq (shu brauzerda eslab qolinadi) + alohida ochilgan / yopilgan ishlar
+  var RES_KEY = "tn-res-{{ o.pk }}", RES_ALL = true, RES_X = {};
+  try { RES_ALL = localStorage.getItem(RES_KEY) !== "0"; } catch (e) { RES_ALL = true; }
+  function resOpen(top) { return RES_ALL !== !!RES_X[top]; }
+  try { ZOOM = +localStorage.getItem("tn-zoom") || 0.9; } catch (e) { /* saqlab bo'lmasa — 90% */ }
+  // yig'ilgan (Excel'dagi «свернуть») dalolatnoma bloklari — shu brauzerda eslab qolinadi
+  var COLL_KEY = "tn-coll-{{ o.pk }}", COLL = {}, CW = 46;
+  try { COLL = JSON.parse(localStorage.getItem(COLL_KEY) || "{}") || {}; } catch (e) { COLL = {}; }
+  function collSave() { try { localStorage.setItem(COLL_KEY, JSON.stringify(COLL)); } catch (e) { /* bo'lmasa — faqat shu sahifada */ } }
+  document.querySelectorAll("[data-confirm1]").forEach(function (b) {  // bitta tasdiq: «Ўчириш» — tamom
+    b.addEventListener("click", function () {
+      narxDialog.confirm(b.dataset.msg, {title: b.dataset.title, ok: b.dataset.ok || "Ўчириш", danger: true}).then(function (ok) {
+        if (ok) b.closest("form").submit();
+      });
+    });
+  });
+  // yuqori panel bir qatorda qolsin: sig'masa — avval ko'rish sozlamalari faqat ikonka, keyin qisqa yozuvlar
+  var BAR = document.querySelector(".tn-sheet-wrap > .tn-bar");
+  function barFit() {
+    if (!BAR) return;
+    var wraps = function () { var k = BAR.children, end = k[0].offsetTop + k[0].offsetHeight; for (var i = 1; i < k.length; i++) if (k[i].offsetTop >= end) return true; return false; };
+    BAR.classList.remove("is-tight1", "is-tight2");
+    if (wraps()) BAR.classList.add("is-tight1");
+    if (wraps()) BAR.classList.add("is-tight2");
+  }
+  barFit();
+  window.addEventListener("resize", barFit);
+  var XLSX = document.getElementById("tn-xlsx");
+  if (XLSX) XLSX.addEventListener("click", function () {  // yig'ilgan bloklar Excel'da ham yig'ilgan
+    var u = new URL(XLSX.href, location.href);
+    u.searchParams.set("coll", Object.keys(COLL).filter(function (k) { return COLL[k]; }).join(","));
+    XLSX.href = u.toString();
+  });
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]; }); }
+  function fmt(v, money) {
+    if (v === null || v === undefined || v === "") return "";
+    if (typeof v !== "number") return esc(v);
+    if (money) return v.toLocaleString("ru-RU", {minimumFractionDigits: 2, maximumFractionDigits: 2}).replace(/\s/g, " ");
+    var a = Math.abs(v);
+    return v.toLocaleString("ru-RU", {maximumFractionDigits: a >= 1000 ? 2 : a >= 1 ? 4 : 6}).replace(/\s/g, " ");
+  }
+  function sumTxt(v) { return (v || 0).toLocaleString("ru-RU", {minimumFractionDigits: 2, maximumFractionDigits: 2}).replace(/\s/g, " "); }
+
+  function load() {
+    var x = box.scrollLeft, y = box.scrollTop;
+    fetch(DATA_URL, {credentials: "same-origin"}).then(function (r) { return r.json(); }).then(function (d) {
+      D = d; prep(); draw(); box.scrollLeft = x; box.scrollTop = y; totals(); collButton(); workPaint();
+      var pos = null;
+      try { pos = JSON.parse(sessionStorage.getItem(POS_KEY) || "null"); sessionStorage.removeItem(POS_KEY); } catch (e) { pos = null; }
+      if (pos) {  // yopish / ochish / yangi dalolatnomadan keyin — o'sha joyga qaytadi
+        box.scrollLeft = pos.x; box.scrollTop = pos.y;
+        if (pos.cur !== null && pos.cur !== undefined) setCur(pos.cur, false);
+      }
+    })
+      .catch(function () { box.innerHTML = '<p class="px-5 py-12 text-center text-rose-700">Офёртани юклаб бўлмади. Саҳифани янгиланг.</p>'; });
+  }
+
+  function prep() {
+    var L = D.layout, K = D.look || {styles: [["", null]], pats: [], rows: {}, cols: [], heights: {}, merges: [], default_h: 20};
+    D.K = K;
+    D.w = Math.max(D.letters.length, L.block_end + 1);
+    D.S = K.styles.map(function (s) { return parseStyle(s[0], s[1]); });
+    D.colw = [];
+    for (var j = 0; j < D.w; j++) D.colw.push(j < K.cols.length ? K.cols[j] : 64);
+    D.vc = [];  // ko'rinadigan ustunlar (Excel'da yashirilgani — yo'q)
+    for (j = L.amount + 1; j <= L.block_end; j++) D.colw[j] = 0;  // turlar (ЧЕЛ-Ч, МАШ-Ч, МАТРИАЛ, ЖИХОЗ …) — kerak emas
+    for (j = 0; j < D.w; j++) if (D.colw[j] > 0) D.vc.push(j);
+    D.bc = D.vc.filter(function (j) { return j >= L.qty && j <= L.block_end; });
+    D.blocks = [];
+    if (BLK) {
+      if (VIEW === "act") D.blocks.push({key: "rest", title: "Остатка", short: "Ост", v: D.rest, rest: true});  // alohida: qoldiq oldin
+      D.acts.forEach(function (a, i) {
+        if (VIEW === "act" && a.n !== WORK) return;  // bitta dalolatnoma: bajarilgani va qoldiq
+        D.blocks.push({k: i, key: "a" + a.n, title: "№" + a.n + (a.name ? " · " + a.name : "") + (a.date ? " · " + a.date : ""), short: "№" + a.n, act: a, v: a.v, open: !a.closed});
+      });
+      if (VIEW !== "act") D.blocks.push({key: "rest", title: "Остатка", short: "Ост", v: D.rest, rest: true});  // Хисобот: oxirida
+    }
+    var width = L.block_end - L.qty + 1;
+    D.blocks.forEach(function (b, k) {
+      b.start = L.block_end + 2 + k * width;  // «Хисобот» listidagi ustuni (0 dan) — harflar Excel'dagidek ketma-ket
+      // rang: Хисобот — har dalolatnoma o'z rangida; alohida dalolatnomada — bajarilgani och ko'k, Остатка doim yashil
+      var c = b.rest ? REST_COLOR : VIEW === "act" ? COLORS[0] : COLORS[b.k % COLORS.length];
+      b.bg = c[0]; b.color = c[1]; b.hd = c[2];
+      b.css = "background:" + b.bg;
+    });
+    chips();
+    D.byRow = {}; D.kids = {};
+    D.rows.forEach(function (r, i) { D.byRow[r[0]] = i; if (r[1] === "res") D.kids[r[3]] = (D.kids[r[3]] || 0) + 1; });
+    D.done = {};  // ish -> hamma dalolatnomalar jami
+    D.acts.forEach(function (a) { for (var k in a.qty) D.done[k] = (D.done[k] || 0) + a.qty[k]; });
+  }
+
+  // Excel uslubi; chegaralar alohida: katakning o'ng / pastki chizig'i — o'zi yoki qo'shnisining chap / yuqori chizig'i
+  function parseStyle(css, nf) {
+    var s = {base: [], l: "", r: "", t: "", b: "", fmt: nf, wrap: false, align: ""};
+    css.split(";").forEach(function (p) {
+      if (!p) return;
+      var i = p.indexOf(":"), k = p.slice(0, i), v = p.slice(i + 1);
+      if (k === "border-left") s.l = v; else if (k === "border-right") s.r = v;
+      else if (k === "border-top") s.t = v; else if (k === "border-bottom") s.b = v;
+      else if (k === "white-space") s.wrap = true;
+      else { if (k === "text-align") s.align = v; s.base.push(p); }
+    });
+    s.base = s.base.join(";");
+    return s;
+  }
+  function st(row, j) {
+    var p = D.K.rows[row];
+    return (p === undefined ? null : D.S[D.K.pats[p][j] || 0]) || D.S[0];
+  }
+  function nextVis(j, list) { var i = list.indexOf(j); return i >= 0 && i + 1 < list.length ? list[i + 1] : null; }
+
+  function numTxt(v, f) {
+    if (!f) return fmt(v);
+    var x = f[2] ? v * 100 : v;
+    var t = x.toLocaleString("ru-RU", {minimumFractionDigits: f[0], maximumFractionDigits: f[0], useGrouping: !!f[1]}).replace(/\s/g, " ");
+    return t + (f[2] ? "%" : "");
+  }
+
+  // bitta katak: qiymat + fayldagi uslub. ``list`` — shu bo'lakdagi ustunlar, ``get`` — qo'shni qiymati, ``m`` — birlashma
+  // har dalolatnoma — o'z rangida (Excel'dagi «Хисобот»dagidek to'liq bo'yalgan), «Остатка» — yashil
+  // [jadval foni (och), chegara / matn, sarlavha foni]
+  var COLORS = [["#f1f7fd", "#2f75b5", "#ddebf7"], ["#fffaeb", "#bf8f00", "#fff2cc"], ["#fef5ef", "#c65911", "#fce4d6"],
+                ["#f5f3f8", "#7030a0", "#e4dfec"], ["#f0fafb", "#1f8a96", "#dbf1f3"], ["#f7f7f7", "#595959", "#ededed"]],
+      REST_COLOR = ["#eef7e8", "#375623", "#c6e0b4"];
+  function rgba(hex, a) { var n = parseInt(hex.slice(1), 16); return "rgba(" + (n >> 16) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + a + ")"; }
+  function colName(i) { var t = ""; for (i++; i > 0; i = Math.floor((i - 1) / 26)) t = String.fromCharCode(65 + (i - 1) % 26) + t; return t; }
+  function blockColor(k) { return k === "rest" ? REST_COLOR : COLORS[+k % COLORS.length]; }
+  function chips() {  // pastdagi jamlar: rang va yig'ilganlik
+    document.querySelectorAll(".tn-foot [data-blk]").forEach(function (c) { c.classList.toggle("is-coll", !!COLL[c.dataset.blk]); });
+  }
+  document.querySelectorAll(".tn-dot[data-k]").forEach(function (d) { var c = blockColor(d.dataset.k); d.style.background = c[2]; d.style.borderColor = c[1]; });
+  function bw(b) { if (COLL[b.key]) return CW; var w = 0; D.bc.forEach(function (j) { w += D.colw[j]; }); return w; }
+  function edge(b, n, cs) {  // blok chegarasi — chapda va o'ngda o'z rangida
+    var line = "2px solid " + b.color;
+    return b.css + (n === 0 ? ";border-left:" + line : "") + (n + (cs || 1) >= D.bc.length ? ";border-right:" + line : "");
+  }
+
+  function td(row, j, v, list, get, m, extra, attrs, xcss) {
+    var s = st(row, j), endC = m ? m.c2 : j, endR = m ? m.r2 : row;
+    var nj = nextVis(endC, list), right = st(row, endC).r || (nj !== null ? st(row, nj).l : "");
+    var bottom = st(endR, j).b || st(endR + 1, j).t;
+    var num = typeof v === "number", empty = v === null || v === undefined || v === "", cls = extra || "";
+    if (num) cls += " n";
+    if (s.wrap) cls += " wr";
+    else if (!num && !empty && (!s.align || s.align === "left") && !m) {
+      var after = nj !== null ? get(nj) : null;
+      if (after === null || after === undefined || after === "") cls += " ov";  // Excel'dagidek bo'sh qo'shniga oqib o'tadi
+    }
+    var css = s.base + (num && !s.align ? ";text-align:right" : "") + (right ? ";border-right:" + right : "") + (bottom ? ";border-bottom:" + bottom : "") + (xcss ? ";" + xcss : "");
+    var span = m ? (m.cs > 1 ? ' colspan="' + m.cs + '"' : "") + (m.rs > 1 ? ' rowspan="' + m.rs + '"' : "") : "";
+    var txt = empty ? "" : num ? numTxt(v, s.fmt) : esc(v);
+    var ht = D.K.heights[row];
+    if (s.wrap && !num && !empty && ht && !(m && m.rs > 1)) txt = '<div class="clip" style="max-height:' + (ht - 2) + 'px" title="' + esc(v) + '">' + txt + "</div>";  // Excel'dagidek qator balandligida qirqiladi
+    return '<td class="' + cls.trim() + '"' + span + (css ? ' style="' + css.replace(/"/g, "'") + '"' : "") + (attrs || "") + ">" + txt + "</td>";
+  }
+
+  function colLabel(j) {  // blok ustuni sarlavhasi — fayldagi sarlavha qatorlaridan (E..L)
+    var L = D.layout, parts = [];
+    D.rows.forEach(function (r) {
+      if (r[1] !== "head" || r[0] < L.header || r[0] > L.header_end) return;
+      var v = r[4][j];
+      if (typeof v === "string" && v.trim()) parts.push(v.trim());
+    });
+    return parts.join(" · ");
+  }
+
+  function head() {
+    var h = '<colgroup><col style="width:' + RN + 'px">';
+    D.vc.forEach(function (j) { h += '<col style="width:' + D.colw[j] + 'px">'; });
+    D.blocks.forEach(function (b) {
+      if (COLL[b.key]) h += '<col style="width:' + CW + 'px">';
+      else D.bc.forEach(function (j) { h += '<col style="width:' + D.colw[j] + 'px">'; });
+    });
+    var two = D.blocks.length ? ' rowspan="2"' : "";
+    h += '</colgroup><thead><tr><th class="rn"' + two + "></th>";
+    D.vc.forEach(function (j) { h += "<th" + two + ">" + colName(j) + "</th>"; });
+    D.blocks.forEach(function (b) {
+      var bs = "background:" + b.hd + ";color:" + b.color + ";border-left:2px solid " + b.color + ";border-right:2px solid " + b.color;
+      if (COLL[b.key]) {
+        h += '<th class="blk-h is-coll" data-blk="' + b.key + '" style="' + bs + '"><button type="button" class="tn-bt is-plus" data-key="' + b.key + '" title="' + esc(b.title) + ' — ёйиш (очиш)"><b>+</b><span>' + esc(b.short) + "</span></button></th>";
+        return;
+      }
+      h += '<th colspan="' + D.bc.length + '" class="blk-h' + (b.act && b.act.n === WORK ? " is-work" : "") + (b.act && !b.open ? " is-lock" : "") + '" data-blk="' + b.key + '" style="' + bs + '"><button type="button" class="tn-bt" data-key="' + b.key + '" title="Блокни йиғиш (свернуть) — фақат тор устун қолади"><b>−</b>йиғиш</button><span class="blk-t">' + (b.open ? "✎ " : "") + esc(b.title) + "</span></th>";
+    });
+    if (D.blocks.length) {
+      h += '</tr><tr class="tn-x-b">';
+      D.blocks.forEach(function (b) {
+        if (COLL[b.key]) {
+          h += '<th class="is-coll" style="background:' + b.hd + ";color:" + b.color + ";border-left:2px solid " + b.color + ";border-right:2px solid " + b.color + '" title="' + esc(b.title) + '">' + esc(b.short) + "</th>";
+          return;
+        }
+        D.bc.forEach(function (j, n) {
+          h += '<th style="background:' + b.hd + ";color:" + b.color + (n === 0 ? ";border-left:2px solid " + b.color : "") + (n === D.bc.length - 1 ? ";border-right:2px solid " + b.color : "") + '" title="' + esc(colLabel(j)) + '">' + colName(b.start + j - D.layout.qty) + "</th>";
+        });
+      });
+    }
+    return h + "</tr></thead>";
+  }
+
+  function foot() {
+    if (!D.blocks.length) return "";
+    var h = '<tfoot><tr><td class="rn">Σ</td><td colspan="' + D.vc.length + '">Офёрта жами: <b>' + sumTxt(CONTRACT) + "</b></td>";
+    D.blocks.forEach(function (b) {
+      var c = COLL[b.key], line = "2px solid " + b.color;
+      h += '<td colspan="' + (c ? 1 : D.bc.length) + '" style="background:' + b.hd + ";color:" + b.color + ";border-left:" + line + ";border-right:" + line + '" title="' + esc(b.title) + '">' +
+        (c ? "" : (b.rest ? "Остатка" : "№" + b.act.n) + ' жами: <b data-bsum="' + b.key + '">' + sumTxt(b.act ? b.act.sum : D.rest_sum) + "</b>") + "</td>";
+    });
+    return h + "</tr></tfoot>";
+  }
+
+  // birlashtirilgan kataklar: faqat ko'rinadigan, ketma-ket va bitta bo'lakdagi qatorlar bo'yicha
+  function merges(info) {
+    var pos = {};
+    info.forEach(function (x, i) { pos[x.row] = i; });
+    D.mtop = {}; D.cover = {};
+    D.K.merges.forEach(function (g) {
+      var r1 = g[0], c1 = g[1], r2 = g[2], c2 = g[3], i0 = pos[r1];
+      if (i0 === undefined) return;
+      var rs = 1;
+      while (r1 + rs <= r2 && pos[r1 + rs] === i0 + rs && info[i0 + rs].ch === info[i0].ch) rs++;
+      var m = {r2: r1 + rs - 1, c1: c1, c2: c2, rs: rs};
+      D.mtop[r1 + ":" + c1] = m;
+      for (var r = r1; r < r1 + rs; r++) for (var c = c1; c <= c2; c++) if (r !== r1 || c !== c1) D.cover[r + ":" + c] = m;
+    });
+  }
+  function spanIn(m, list) {  // birlashma shu ustunlar ichida bo'lsa — nechta ko'rinadigan ustunni egallaydi
+    if (!list.length || list[0] > m.c1 || list[list.length - 1] < m.c2) return 0;
+    return list.filter(function (j) { return j >= m.c1 && j <= m.c2; }).length;
+  }
+  function span(m, list) { if (!m) return null; var cs = spanIn(m, list); return cs ? {r2: m.r2, c2: m.c2, rs: m.rs, cs: cs} : null; }
+
+  function rowHtml(r) {
+    var row = r[0], vals = r[4], ht = D.K.heights[row] || D.K.default_h;
+    var get = function (j) { return j < vals.length ? vals[j] : null; };
+    var pick = CAN_SEL && (r[1] === "work" || r[1] === "free"), kids = r[1] === "work" && D.kids[row];
+    var caret = kids ? '<button type="button" class="tn-rt' + (resOpen(row) ? "" : " is-off") + '" data-top="' + row + '" title="' +
+      (resOpen(row) ? "Ресурсларни ёпиш" : "Ресурсларни очиш (" + kids + " та)") + '">▼</button>' : "";
+    var cls = (pick && SEL[row] ? "is-sel " : "") + (row === CUR ? "is-cur" : "");
+    var h = '<tr data-r="' + row + '"' + (cls ? ' class="' + cls.trim() + '"' : "") + ' style="height:' + ht + 'px"><td class="rn">' +
+      (pick || caret ? "<label>" + caret + (pick ? '<input type="checkbox" class="tn-sel" data-row="' + row + '"' + (SEL[row] ? " checked" : "") + ">" : "") +
+       "<b>" + row + "</b></label>" : row) + "</td>";
+    D.vc.forEach(function (j) {
+      var key = row + ":" + j;
+      if (D.cover[key]) return;
+      h += td(row, j, get(j), D.vc, get, span(D.mtop[key], D.vc));
+    });
+    D.blocks.forEach(function (b) { h += blockCells(b, r); });
+    return h + "</tr>";
+  }
+
+  function blockCells(b, r) {
+    var L = D.layout, row = r[0], kind = r[1], vals = b.v[row] || [], h = "";
+    var get = function (j) { return kind === "head" ? (j < r[4].length ? r[4][j] : null) : vals[j - L.qty]; };
+    if (COLL[b.key]) return '<td class="bx" data-b="' + b.key + '" style="' + edge(b, 0, D.bc.length) + '"></td>';
+    D.bc.forEach(function (j, n) {
+      var attrs = ' data-b="' + b.key + '"', key = row + ":" + j;
+      if (b.act && b.open && j === L.qty && (kind === "work" || kind === "free")) {
+        var q = b.act.qty[row], s = st(row, j), bottom = s.b || st(row + 1, j).t, mi = span(D.mtop[key], D.bc);
+        h += '<td class="in' + (b.act.n === WORK ? " is-w" : "") + '"' + attrs + (mi && mi.cs > 1 ? ' colspan="' + mi.cs + '"' : "") + ' style="' + (s.base + (bottom ? ";border-bottom:" + bottom : "") + ";" + edge(b, n, mi ? mi.cs : 1) + ";background:" + b.hd + ";--bc:" + b.color).replace(/"/g, "'") + '"><input inputmode="decimal" data-act="' + b.act.n + '" data-row="' + row + '" value="' + (q ? fmt(q) : "") +
+          '" placeholder="✎ ёзинг" aria-label="№' + b.act.n + " — " + row + '-қатор ҳажми"></td>';
+        return;
+      }
+      var c = D.cover[key];
+      if (c && spanIn(c, D.bc)) return;
+      var v = get(j), cls = "";
+      if (typeof v === "number" && v < -1e-7 && (j === L.qty || j === L.total) && b.rest) cls += " neg";
+      var sm = span(D.mtop[key], D.bc);
+      h += td(row, j, v, D.bc, get, sm, cls, attrs, edge(b, n, sm ? sm.cs : 1));
+    });
+    return h;
+  }
+
+  function visibleRows() {
+    var rows = D.rows.filter(function (r) { return r[1] !== "res" || resOpen(r[3]); });
+    if (!document.getElementById("tn-only").checked) return rows;
+    var keep = {};
+    D.rows.forEach(function (r) {
+      var top = r[1] === "res" ? r[3] : r[0];
+      if (r[1] === "head" || r[1] === "svod" || ((r[1] === "work" || r[1] === "free" || r[1] === "res") && D.done[top])) keep[r[0]] = 1;
+    });
+    return rows.filter(function (r) { return keep[r[0]]; });
+  }
+  function redraw() {  // joyni saqlab qayta chizish (resurslar ochildi / yopildi, filtr)
+    var x = box.scrollLeft, y = box.scrollTop;
+    draw(); box.scrollLeft = x; box.scrollTop = y;
+  }
+  function resButton() {
+    var b = document.getElementById("tn-res");
+    b.querySelector(".tn-tl-t").textContent = RES_ALL ? "Ресурсларни ёпиш" : "Ресурсларни очиш";
+    b.setAttribute("aria-pressed", RES_ALL ? "true" : "false");
+  }
+
+  var io = null;
+  function draw() {
+    var rows = visibleRows(), L = D.layout, top = [], body = [];
+    rows.forEach(function (r) { (r[0] <= L.header_end ? top : body).push(r); });
+    merges(top.map(function (r) { return {row: r[0], ch: -1}; }).concat(body.map(function (r, i) { return {row: r[0], ch: Math.floor(i / CHUNK)}; })));
+    var width = RN;
+    D.vc.forEach(function (j) { width += D.colw[j]; });
+    D.blocks.forEach(function (b) { width += bw(b); });
+    var h = '<table class="tn-x" style="width:' + width + 'px;zoom:' + ZOOM + '">' + head() + "<tbody>" + top.map(rowHtml).join("") + "</tbody>";
+    for (var i = 0; i < body.length; i += CHUNK) {
+      var est = 0;
+      body.slice(i, i + CHUNK).forEach(function (r) { est += D.K.heights[r[0]] || D.K.default_h; });
+      h += '<tbody class="ch" data-i="' + i + '" style="height:' + est + 'px"></tbody>';
+    }
+    box.innerHTML = h + foot() + "</table>";
+    var h1 = box.querySelector("thead th.blk-h");  // 2-qator sarlavha blok sarlavhasi tagiga yopishsin (balandligi o'zgaruvchan)
+    if (h1) box.querySelectorAll("thead tr.tn-x-b th").forEach(function (th) { th.style.top = h1.offsetHeight + "px"; });
+    D.vis = body;
+    if (io) io.disconnect();
+    io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting && !e.target.dataset.on) fill(e.target); });
+    }, {root: box, rootMargin: "1200px 0px"});
+    box.querySelectorAll("tbody.ch").forEach(function (t) { io.observe(t); });
+    if (typeof CUR !== "undefined" && CUR !== null) lensLater();
+  }
+  function fill(t) {
+    var i = +t.dataset.i, h = "";
+    D.vis.slice(i, i + CHUNK).forEach(function (r) { h += rowHtml(r); });
+    t.innerHTML = h;
+    t.style.height = "";
+    t.dataset.on = "1";
+  }
+  function fillAll() { box.querySelectorAll("tbody.ch:not([data-on])").forEach(fill); }
+
+  function goto(row) {
+    var gi = D.byRow[row];
+    if (gi !== undefined && D.rows[gi][1] === "res" && !resOpen(D.rows[gi][3])) { RES_X[D.rows[gi][3]] = !RES_X[D.rows[gi][3]]; draw(); }
+    fillAll();
+    var tr = box.querySelector('tr[data-r="' + row + '"]');
+    if (!tr) return;
+    box.querySelectorAll("tr.is-hit").forEach(function (x) { x.classList.remove("is-hit"); });
+    tr.classList.add("is-hit");
+    tr.scrollIntoView({block: "center"});
+  }
+
+  // ---------------- hajm yozish ----------------
+  var tip = null;
+  function showErr(el, text) {
+    hideErr();
+    tip = document.createElement("div");
+    tip.className = "tn-err-tip";
+    tip.textContent = text;
+    document.body.appendChild(tip);
+    var r = el.getBoundingClientRect();
+    tip.style.left = Math.max(8, r.left) + "px";
+    tip.style.top = (r.bottom + 4) + "px";
+  }
+  function hideErr() { if (tip) { tip.remove(); tip = null; } }
+
+  // bitta ishning hajmini saqlash (katakdan, «→ 100%» yoki Ctrl+Z dan): blok va «Остатка» qayta chiziladi
+  function put(act, row, text, keep) {
+    var a = D.acts.find(function (x) { return x.n === act; }), old = a.qty[row] || 0;
+    var inp = box.querySelector('tr[data-r="' + row + '"] td.in input[data-act="' + act + '"]'), td = inp && inp.parentNode;
+    if (td) td.classList.add("is-saving");
+    return fetch(QTY_URL, {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-CSRFToken": csrf()},
+                           body: JSON.stringify({act: act, row: row, qty: text})})
+      .then(function (r) { return r.json().catch(function () { return {ok: false, error: "Сервер жавоб бермади (" + r.status + ")"}; }); })
+      .then(function (d) {
+        if (td) td.classList.remove("is-saving");
+        if (!d.ok) { if (td) { td.classList.add("is-err"); showErr(td, d.error || "Сақланмади"); } return false; }
+        if (td) td.classList.remove("is-err");
+        hideErr();
+        if (d.qty) a.qty[row] = d.qty; else delete a.qty[row];
+        D.done[row] = (D.done[row] || 0) - old + (d.qty || 0);
+        if (inp) inp.value = d.qty ? fmt(d.qty) : "";
+        var rows = d.rows.map(String);
+        rows.forEach(function (k) {  // bo'shab qolgan qatorlar serverdan kelmaydi — o'chiriladi
+          if (k in d.v) a.v[k] = d.v[k]; else delete a.v[k];
+          if (k in d.rest) D.rest[k] = d.rest[k]; else delete D.rest[k];
+        });
+        a.sum = d.sum; D.rest_sum = d.rest_sum;
+        repaint(rows, ["a" + act, "rest"]);
+        if (CUR !== null) lensLater();
+        totals();
+        if (CUR !== null) kbShow();
+        if (!keep && Math.abs((d.qty || 0) - old) > 1e-12) { UNDO.push({act: act, row: row, old: old}); if (UNDO.length > 200) UNDO.shift(); }
+        return true;
+      })
+      .catch(function () {
+        if (td) { td.classList.remove("is-saving"); td.classList.add("is-err"); showErr(td, "Интернет узилди — қайта уриниб кўринг"); }
+        return false;
+      });
+  }
+  function save(inp) {
+    var act = +inp.dataset.act, row = +inp.dataset.row, a = D.acts.find(function (x) { return x.n === act; });
+    var old = a.qty[row] || 0, text = inp.value.trim();
+    if (text === (old ? fmt(old) : "") || inp._pend === text) return Promise.resolve();
+    inp._pend = text;
+    return put(act, row, text).then(function () { inp._pend = null; });
+  }
+  function repaint(rows, keys) {
+    var seen = {};
+    rows.forEach(function (k) {
+      if (seen[k]) return; seen[k] = 1;
+      var tr = box.querySelector('tr[data-r="' + k + '"]'), i = D.byRow[k];
+      if (!tr || i === undefined) return;
+      var r = D.rows[i];
+      keys.forEach(function (key) {
+        var b = D.blocks.find(function (x) { return x.key === key; });
+        if (!b) return;
+        var cells = tr.querySelectorAll('td[data-b="' + key + '"]');
+        var tmp = document.createElement("tbody");
+        tmp.innerHTML = "<tr>" + blockCells(b, r) + "</tr>";
+        var fresh = tmp.querySelectorAll("td");
+        cells.forEach(function (c, n) {
+          if (c.classList.contains("in")) return;  // yozilayotgan katak — tegilmaydi
+          if (fresh[n]) c.replaceWith(fresh[n].cloneNode(true));
+        });
+      });
+    });
+  }
+  function totals() {
+    var done = 0;
+    D.acts.forEach(function (a) {
+      done += a.sum || 0;
+      document.querySelectorAll('[data-act-sum="' + a.n + '"], [data-bsum="a' + a.n + '"]').forEach(function (x) { x.textContent = sumTxt(a.sum); });
+    });
+    document.querySelectorAll('#k-rest, #k-left, [data-bsum="rest"]').forEach(function (x) { x.textContent = sumTxt(D.rest_sum); });
+    var kd = document.getElementById("k-done"); if (kd) kd.textContent = sumTxt(done);
+    var kp = document.getElementById("k-pct");
+    if (kp) kp.textContent = (CONTRACT ? (100 * done / CONTRACT) : 0).toFixed(2).replace(".", ",") + "%";
+  }
+
+  box.addEventListener("keydown", function (e) {  // katak ichida: Enter / ↓ — saqlab keyingi ishga, ↑ — oldingisiga, Esc — bekor
+    var inp = e.target.closest("td.in input");
+    if (!inp) return;
+    if (e.key === "Enter" || e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      save(inp);
+      inp.blur();
+      setCur(+inp.dataset.row, false);
+      step(e.key === "ArrowUp" ? -1 : 1);
+    } else if (e.key === "Escape") {
+      var a = D.acts.find(function (x) { return x.n === +inp.dataset.act; }), q = a.qty[inp.dataset.row];
+      inp.value = q ? fmt(q) : ""; hideErr(); inp.blur();
+      setTimeout(lensLater);
+    }
+  });
+  box.addEventListener("change", function (e) { var inp = e.target.closest("td.in input"); if (inp) save(inp); });
+
+  // ---------------- belgilash: ishlarni tanlab «100% бажарилди» yoki «жами N%» ----------------
+  var bar = document.getElementById("tn-selbar");
+  function pickable() {  // ko'rinadigan (filtrga mos) ish qatorlari — Shift bilan oraliq uchun
+    var vis = {};
+    D.vis.forEach(function (r) { vis[r[0]] = 1; });
+    return D.rows.filter(function (r) { return (r[1] === "work" || r[1] === "free") && vis[r[0]]; }).map(function (r) { return r[0]; });
+  }
+  function selPaint() {
+    box.querySelectorAll("input.tn-sel").forEach(function (c) {
+      var on = !!SEL[c.dataset.row];
+      c.checked = on;
+      c.closest("tr").classList.toggle("is-sel", on);
+    });
+    var n = Object.keys(SEL).length;
+    bar.classList.toggle("hidden", !n);
+    bar.querySelector(".tn-sel-n").textContent = n;
+  }
+  if (bar) {
+    // belgilash: chapdagi katakni bosish — bitta, Shift — oraliq; qatorning istalgan joyidan (yozish katagidan tashqari)
+    // bosib turib yuqoriga / pastga tortish — ko'p qator (boshlangan ish belgilanmagan bo'lsa — belgilaydi, belgilangan bo'lsa —
+    // belgini oladi; resurs qatori — o'z ishi; chetda jadval o'zi suriladi). Nomni bir marta bosish hech narsani o'zgartirmaydi
+    var drag = null;
+    function pickRow(row) {
+      var i = D.byRow[row], r = i === undefined ? null : D.rows[i];
+      return !r ? null : (r[1] === "work" || r[1] === "free") ? row : r[1] === "res" ? r[3] : null;
+    }
+    function live() {
+      drag.live = true;
+      document.body.classList.add("tn-dragging");
+      var sel = window.getSelection && window.getSelection();
+      if (sel) sel.removeAllRanges();
+      if (document.activeElement && box.contains(document.activeElement)) document.activeElement.blur();
+    }
+    function dragTo(row) {
+      row = pickRow(row);
+      if (row === null) return;
+      if (drag.from === null) { drag.from = row; drag.on = !SEL[row]; }
+      var i = drag.ids.indexOf(drag.from), j = drag.ids.indexOf(row);
+      if (i < 0 || j < 0 || row === drag.to) return;
+      drag.to = row;
+      SEL = Object.assign({}, drag.base);
+      for (var k = Math.min(i, j); k <= Math.max(i, j); k++) { if (drag.on) SEL[drag.ids[k]] = 1; else delete SEL[drag.ids[k]]; }
+      selPaint();
+    }
+    function dragTick() {
+      if (!drag) return;
+      var r = box.getBoundingClientRect(), head = headBottom();
+      var y = Math.max(head + 3, Math.min(r.bottom - 3, drag.y)), step = 0;
+      if (drag.y > r.bottom - 30) step = Math.min(50, (drag.y - r.bottom + 30) / 2);
+      else if (drag.y < head + 20) step = -Math.min(50, (head + 20 - drag.y) / 2);
+      if (step && drag.live) box.scrollTop += step;
+      var el = document.elementFromPoint(r.left + 8, y), tr = el && el.closest("tr[data-r]");
+      if (tr && !drag.live && +tr.dataset.r !== drag.start) { live(); dragTo(drag.start); }  // boshqa qatorga o'tildi — matn emas, qatorlar belgilanadi
+      if (tr && drag.live) dragTo(+tr.dataset.r);
+      drag.raf = requestAnimationFrame(dragTick);
+    }
+    box.addEventListener("mousedown", function (e) {
+      if (e.button !== 0 || e.target.closest(".tn-rt, td.in, button, a, select, textarea, thead")) return;
+      var tr = e.target.closest("tr[data-r]");
+      if (!tr || pickRow(+tr.dataset.r) === null) return;
+      var c = e.target.closest("td.rn") && tr.querySelector("input.tn-sel");
+      var row = +tr.dataset.r;
+      if (c) e.preventDefault();
+      if (c && e.shiftKey && lastSel !== null) {
+        row = +c.dataset.row;
+        var ids = pickable(), i = ids.indexOf(row), j = ids.indexOf(lastSel), on = !SEL[row];
+        for (var k = Math.min(i, j); k <= Math.max(i, j) && Math.min(i, j) >= 0; k++) { if (on) SEL[ids[k]] = 1; else delete SEL[ids[k]]; }
+        lastSel = row; selPaint(); return;
+      }
+      if (e.shiftKey) return;
+      drag = {start: row, from: null, to: null, on: true, base: Object.assign({}, SEL), ids: pickable(), y: e.clientY, live: false};
+      if (c) { live(); dragTo(row); }  // chapdagi katak — darhol belgilaydi
+      drag.raf = requestAnimationFrame(dragTick);
+    });
+    document.addEventListener("mousemove", function (e) { if (drag) drag.y = e.clientY; });
+    document.addEventListener("mouseup", function () {
+      if (!drag) return;
+      cancelAnimationFrame(drag.raf);
+      document.body.classList.remove("tn-dragging");
+      if (drag.live) lastSel = drag.to || drag.from;
+      else setCur(pickRow(drag.start), false, true);
+      drag = null;
+    });
+    box.addEventListener("click", function (e) {  // katakchaning o'z almashuvi o'chiriladi — holatni yuqoridagilar boshqaradi
+      if (e.target.closest("td.rn") && !e.target.closest(".tn-rt") && e.target.closest("tr").querySelector("input.tn-sel")) {
+        e.preventDefault();
+        setTimeout(selPaint);
+      }
+    });
+    function apply(pct) {
+      var v = Number(String(pct).replace(",", "."));
+      if (!pct || isNaN(v) || v < 0 || v > 100) { narxDialog.alert("0 дан 100 гача фоиз ёзинг (масалан 50)", {title: "Фоиз нотўғри", danger: true}); return; }
+      var rows = Object.keys(SEL).map(Number), act = +document.getElementById("tn-sel-act").value;
+      if (act !== WORK) setWork(act, true);
+      narxDialog.confirm(rows.length + " та иш жами " + pct + "% бажарилган деб белгиланади. Етмаган қисми №" + act + " далолатномага ёзилади, " +
+                         "олдинги далолатномалар ўзгармайди.", {title: "Белгиланган ишлар", ok: "Белгилаш"}).then(function (yes) {
+        if (!yes) return;
+        fetch(FILL_URL, {method: "POST", credentials: "same-origin", headers: {"Content-Type": "application/json", "X-CSRFToken": csrf()},
+                         body: JSON.stringify({act: act, rows: rows, pct: pct})})
+          .then(function (r) { return r.json().catch(function () { return {ok: false, error: "Сервер жавоб бермади (" + r.status + ")"}; }); })
+          .then(function (d) {
+            if (!d.ok) { narxDialog.alert(d.error || "Белгиланмади", {title: "Белгиланмади", danger: true}); return; }
+            SEL = {}; lastSel = null; bar.classList.add("hidden");
+            load();
+          })
+          .catch(function () { narxDialog.alert("Интернет узилди — қайта уриниб кўринг", {title: "Белгиланмади", danger: true}); });
+      });
+    }
+    bar.querySelector(".tn-sel-100").addEventListener("click", function () { apply("100"); });
+    bar.querySelector(".tn-sel-go").addEventListener("click", function () { apply(bar.querySelector(".tn-sel-pct").value.trim()); });
+    bar.querySelector(".tn-sel-pct").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); apply(this.value.trim()); } });
+    bar.querySelector(".tn-sel-clear").addEventListener("click", function () { SEL = {}; lastSel = null; selPaint(); });
+  }
+  box.addEventListener("focusin", function (e) {
+    var inp = e.target.closest("td.in input");
+    if (!inp) return;
+    inp.select();
+    if (+inp.dataset.act !== WORK) setWork(+inp.dataset.act, true);
+    setCur(+inp.dataset.row, false, true);
+    var li = lensInput();
+    if (li) { li.focus(); li.select(); }
+  });
+
+  // ---------------- klaviatura bilan ishlash: joriy ish (sariq ramka) ----------------
+  // ↓ / ↑ — keyingi / oldingi ish (hech narsa yozilmaydi); → — shu ish 100% (qolgani tanlangan dalolatnomaga) va keyingisiga;
+  // ← yoki raqam — miqdor yozish (50% yoki 0,8; Enter — saqlab keyingisiga); ↓↓ (tez ikki marta) — pastga qarab o'zi 100% qilib
+  // boradi, istalgan tugma yoki sichqoncha — to'xtaydi; Ctrl+Z — oxirgi amalni qaytarish (ketma-ket bosilsa — yana bittasi); Esc — chiqish
+  var CUR = null, UNDO = [], AUTO = null, lastDown = 0, kb = null, kbMsg = null;
+  function curAct() { return WORK; }
+  function actClosed(n) { var a = ACTS.find(function (x) { return x.n === n; }); return !a || a.closed; }
+  function workPaint() {
+    box.querySelectorAll("td.in").forEach(function (td) { td.classList.toggle("is-w", td.dataset.b === "a" + WORK); });
+    document.querySelectorAll(".tn-wa").forEach(function (w) { w.classList.toggle("is-work", +w.dataset.wa === WORK); });
+    if (typeof fabPaint === "function") fabPaint();
+    document.querySelectorAll(".tn-view .tn-v-act").forEach(function (b) { b.setAttribute("aria-pressed", VIEW === "act" && +b.dataset.n === WORK ? "true" : "false"); });
+    box.querySelectorAll("thead th.blk-h").forEach(function (th) { th.classList.toggle("is-work", th.dataset.blk === "a" + WORK); });
+    var sa = document.getElementById("tn-sel-act");
+    if (sa && sa.querySelector('option[value="' + WORK + '"]')) sa.value = WORK;
+  }
+  function setWork(n, quiet) {
+    if (!ACTS.some(function (a) { return a.n === n; })) return;
+    WORK = n;
+    try { sessionStorage.setItem(WORK_KEY, n); } catch (e) { /* bo'lmasa — faqat shu sahifada */ }
+    if (VIEW === "act" && D) {  // «Далолатнома» ko'rinishida — jadvalda shu dalolatnoma va Остатка
+      var x = box.scrollLeft, y = box.scrollTop;
+      prep(); draw(); box.scrollLeft = x; box.scrollTop = y; collButton();
+    }
+    workPaint();
+    if (COLL["a" + n] && D) { delete COLL["a" + n]; collSave(); redraw(); collButton(); chips(); }
+    if (CUR !== null) setCur(CUR, true);
+    if (!quiet) note("✎ Энди №" + n + " далолатномага ёзилади" + (actClosed(n) ? " — у ёпилган: очиш учун Alt+L" : ""));
+  }
+  function ensureRow(row) {  // qator hali chizilmagan bo'lakda bo'lsa — chizib qo'yadi
+    var i = D.vis.findIndex(function (r) { return r[0] === row; });
+    if (i < 0) return null;
+    var t = box.querySelector('tbody.ch[data-i="' + Math.floor(i / CHUNK) * CHUNK + '"]');
+    if (t && !t.dataset.on) fill(t);
+    return box.querySelector('tr[data-r="' + row + '"]');
+  }
+  function cellOf(row) { var i = box.querySelector('tr[data-r="' + row + '"] td.in input[data-act="' + curAct() + '"]'); return i && i.parentNode; }
+  function keepInView(tr, smooth) {  // joriy ish doim ko'rinsin: yuqori / pastki chetga yaqinlashsa — o'rtaroqqa suriladi
+    var b = box.getBoundingClientRect(), r = tr.getBoundingClientRect(), dy = 0, dx = 0;
+    // qalqib chiqadigan qator (lupa) qator o'rtasida turadi — tepada ham, pastda ham yarmi + zaxira joy qolsin
+    var half = Math.max(lens && !lens.hidden ? lens.offsetHeight : 0, r.height * LK) / 2 + 36, cy = (r.top + r.bottom) / 2;
+    var top = headBottom() + half;
+    var tf = box.querySelector("tfoot td"), bottom = Math.min(b.bottom, tf ? tf.getBoundingClientRect().top : b.bottom) - half;
+    if (cy < top || cy > bottom) dy = cy - (b.top + b.height * 0.45);
+    var c = cellOf(CUR);
+    if (c) {
+      var cr = c.getBoundingClientRect();
+      if (cr.left < b.left + RN * ZOOM + 12 || cr.right > b.right - 16) dx = cr.left - (b.left + b.width * 0.45);
+    }
+    if (dy || dx) box.scrollBy({top: dy, left: dx, behavior: smooth ? "smooth" : "auto"});
+  }
+  function setCur(row, smooth, quiet) {
+    if (!CAN_SEL || row === null || row === undefined || !D) return;
+    box.querySelectorAll("tr.is-cur").forEach(function (x) { x.classList.remove("is-cur"); });
+    CUR = row;
+    var tr = ensureRow(row);
+    if (!tr) { CUR = null; kbHide(); return; }
+    tr.classList.add("is-cur");
+    if (!quiet) keepInView(tr, smooth);
+    kbShow();
+    kbPop();
+    lensShow(true);
+  }
+  function clearCur() {
+    lensHide();
+    box.querySelectorAll("tr.is-cur").forEach(function (x) { x.classList.remove("is-cur"); });
+    CUR = null; kbHide();
+  }
+  function firstInView(ids) {
+    var top = headBottom();
+    for (var k = 0; k < ids.length; k++) {
+      var tr = box.querySelector('tr[data-r="' + ids[k] + '"]');
+      if (tr && tr.getBoundingClientRect().top >= top) return k;
+    }
+    return 0;
+  }
+  function step(dir) {
+    var ids = pickable(), i = ids.indexOf(CUR), j = i < 0 ? firstInView(ids) : i + dir;
+    if (j < 0 || j >= ids.length) { flash(CUR, "skip"); return false; }
+    setCur(ids[j], true);
+    return true;
+  }
+  function flash(row, kind) {
+    var tr = row !== null && box.querySelector('tr[data-r="' + row + '"]');
+    if (!tr) return;
+    var cls = kind === "ok" ? "tn-flash" : kind === "undo" ? "tn-flash-undo" : "tn-flash-skip";
+    tr.classList.remove("tn-flash", "tn-flash-undo", "tn-flash-skip");
+    void tr.offsetWidth;  // animatsiya qaytadan boshlansin
+    tr.classList.add(cls);
+    setTimeout(function () { tr.classList.remove(cls); }, 1000);
+  }
+  function full(row) {  // «100%»: ofyortadagi hajm − boshqa dalolatnomalardagisi (ishorasi bilan, oshib ketmaydi)
+    var a = D.acts.find(function (x) { return x.n === curAct(); }), base = D.contract[row] || 0;
+    var other = (D.done[row] || 0) - (a.qty[row] || 0), sg = base < 0 ? -1 : 1;
+    return sg * Math.max(sg * (base - other), 0);
+  }
+  function mark(row) {
+    if (actClosed(curAct())) { note("№" + curAct() + " ёпилган — ёзиш учун Alt+L билан очинг"); return Promise.resolve(false); }
+    var act = curAct(), a = D.acts.find(function (x) { return x.n === act; }), want = full(row);
+    if (Math.abs(want - (a.qty[row] || 0)) <= 1e-9 * Math.max(1, Math.abs(want))) { flash(row, "skip"); return Promise.resolve(true); }
+    return put(act, row, String(+want.toPrecision(12))).then(function (ok) { flash(row, ok ? "ok" : "skip"); return ok; });
+  }
+  function undo() {
+    var u = UNDO.pop();
+    if (!u) { note("Қайтариладиган амал йўқ"); return; }
+    put(u.act, u.row, u.old ? String(u.old) : "", true).then(function (ok) {
+      if (!ok) { UNDO.push(u); return; }
+      setCur(u.row, true);
+      flash(u.row, "undo");
+      note("↶ " + u.row + "-қатор олдинги ҳолига қайтди" + (UNDO.length ? " · яна Ctrl+Z — яна биттаси" : ""));
+    });
+  }
+  function autoStart() {
+    if (AUTO || CUR === null) return;
+    AUTO = {n: 0};
+    kbShow();
+    (function next() {
+      if (!AUTO) return;
+      mark(CUR).then(function (ok) {
+        if (!AUTO) return;
+        if (!ok) return autoEnd();
+        AUTO.n++;
+        kbShow();
+        setTimeout(function () {
+          if (!AUTO) return;
+          if (!step(1)) return autoEnd();
+          setTimeout(next, 280);  // ko'z ilg'asin: qaysi qatorga o'tgani ko'rinib tursin
+        }, 220);
+      });
+    })();
+  }
+  function autoEnd() {
+    if (!AUTO) return;
+    var n = AUTO.n;
+    AUTO = null;
+    note("■ Тўхтади: " + n + " та иш 100% қилинди · Ctrl+Z — биттадан қайтариш");
+  }
+  function note(t) { kbMsg = t; kbShow(); clearTimeout(note.t); note.t = setTimeout(function () { kbMsg = null; kbShow(); }, 2600); }
+  function kbShow() {  // qora oyna faqat qisqa xabar va avto-yurish uchun (ish ma'lumoti / klavishlar ro'yxati — kerak emas)
+    if (!kbMsg && !AUTO) { if (kb) kb.hidden = true; return; }
+    if (!kb) { kb = document.createElement("div"); kb.className = "tn-kb"; kb.setAttribute("role", "status"); document.body.appendChild(kb); }
+    kb.classList.toggle("is-auto", !!AUTO);
+    var text = kbMsg ? esc(kbMsg) : "<b>▶ Авто 100%</b> · " + AUTO.n + " та · тўхтатиш — исталган тугма ёки сичқонча";
+    kb.innerHTML = '<div class="kb-k">' + text + "</div>";
+    kb.hidden = false;
+    kbPlace();
+  }
+  function kbPop() { if (!kb) return; kb.classList.remove("is-pop"); void kb.offsetWidth; kb.classList.add("is-pop"); }
+  // joriy qator kattalashtirilib jadval ustida qalqib turadi; miqdor shu qalqib chiqqan qatorning o'zida yoziladi
+  var lens = null, LK = 1.15, lensRaf = 0;
+  // qalqib chiqadigan qator alohida chiziladi: yuqoridagi qatordan tushib kelgan birlashmalar (rowspan) hisobga olinmaydi —
+  // aks holda kataklar chapga surilib, narx / summa ko'rinmay qoladi; shu qatorning o'zidagi gorizontal birlashmalar qoladi
+  function rowAlone(r) {
+    var row = r[0], mt = D.mtop, cv = D.cover, m2 = {}, c2 = {}, j, k;
+    for (j = 0; j < D.w; j++) {
+      k = row + ":" + j;
+      if (mt[k]) m2[k] = {r2: row, c1: mt[k].c1, c2: mt[k].c2, rs: 1};
+    }
+    for (j = 0; j < D.w; j++) {
+      k = row + ":" + j;
+      var c = cv[k];
+      if (c && mt[row + ":" + c.c1] === c) c2[k] = m2[row + ":" + c.c1];
+    }
+    D.mtop = m2; D.cover = c2;
+    try { return rowHtml(r); } finally { D.mtop = mt; D.cover = cv; }
+  }
+  function lensHide() { if (lens && !lensEditing()) lens.hidden = true; }
+  function lensEditing() { return !!(lens && !lens.hidden && lens.contains(document.activeElement) && document.activeElement.closest("td.in")); }
+  function lensInput() { return lens && !lens.hidden && lens.querySelector('td.in input[data-act="' + curAct() + '"]'); }
+  function realInput(li) { return box.querySelector('tr[data-r="' + li.dataset.row + '"] td.in input[data-act="' + li.dataset.act + '"]'); }
+  function lensCommit(li) {  // qalqib chiqqan katakdagi yozuv jadvaldagi asl katak orqali saqlanadi
+    var ri = realInput(li);
+    if (!ri) return;
+    ri.value = li.value;
+    save(ri);
+  }
+  function lensKey(e) {  // qalqib chiqqan katakda: Enter / ↓ — saqlab keyingisiga, ↑ — oldingisiga, Esc — bekor
+    var li = e.target.closest("td.in input");
+    if (!li) return;
+    if (e.key === "Enter" || e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      lensCommit(li);
+      li.blur();
+      step(e.key === "ArrowUp" ? -1 : 1);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      var ri = realInput(li);
+      li.value = ri ? ri.value : "";
+      hideErr();
+      li.blur();
+    }
+  }
+  function editAt(ch) {  // ← yoki raqam: yozish qalqib chiqqan qatorning o'zida
+    var li = lensInput();
+    if (!li) { var c = cellOf(CUR); if (!c) return false; li = c.querySelector("input"); }
+    li.focus();
+    li.select();
+    if (ch) li.value = ch;  // Excel'dagidek: raqam bosilsa — darhol yozila boshlaydi
+    return true;
+  }
+  function lensLater() { cancelAnimationFrame(lensRaf); lensRaf = requestAnimationFrame(lensShow); }
+  function lensShow(pop) {
+    var tr = CUR !== null && D && box.querySelector('tr[data-r="' + CUR + '"]'), t = box.querySelector("table.tn-x");
+    if (!tr || !t) { lensHide(); kbPlace(); return; }
+    var b = box.getBoundingClientRect(), r = tr.getBoundingClientRect(), head = headBottom();
+    var editing = lensEditing();
+    if (!editing && (r.bottom < head || r.top > b.bottom - 20)) { lensHide(); kbPlace(); return; }
+    if (!lens) {
+      lens = document.createElement("div"); lens.className = "tn-lens"; document.body.appendChild(lens);
+      lens.addEventListener("keydown", lensKey);
+      lens.addEventListener("change", function (e) { var li = e.target.closest("td.in input"); if (li) lensCommit(li); });
+      lens.addEventListener("focusout", function () { setTimeout(lensLater); });
+      lens.addEventListener("focusin", function (e) { var li = e.target.closest("td.in input"); if (li) { li.select(); lens.classList.add("is-edit"); } });
+    }
+    if (!editing) {
+      // matn LK marta katta, lekin ustunlar kengligi ÷ LK — ekranda har katak jadvaldagi o'z ustuni ustida turadi
+      var cg = "<colgroup>";
+      t.querySelectorAll("colgroup col").forEach(function (c) { cg += '<col style="width:' + (parseFloat(c.style.width) || 0) / LK + 'px">'; });
+      lens.innerHTML = '<div class="tn-lens-in"><table class="tn-x" style="width:' + (parseFloat(t.style.width) || t.offsetWidth) / LK + "px;zoom:" + ZOOM * LK + '">' +
+        cg + "</colgroup><tbody>" + rowAlone(D.rows[D.byRow[CUR]]) + "</tbody></table></div>";
+      lens.querySelectorAll("input").forEach(function (x) {
+        var ri = x.classList.contains("tn-sel") ? null : realInput(x);
+        if (ri) x.value = ri.value;
+        if (x.classList.contains("tn-sel")) x.tabIndex = -1;
+      });
+      lens.classList.remove("is-edit");
+    }
+    // gorizontal — jadvaldagi qatorning o'zi (ko'rinadigan qismi, jadval tugagan joydan oshmaydi); vertikal — qator o'rtasida
+    var tb = t.getBoundingClientRect(), foot = box.querySelector("tfoot td"), low = Math.min(b.bottom - 4, foot ? foot.getBoundingClientRect().top - 2 : b.bottom - 4);
+    var x1 = Math.max(b.left, tb.left), x2 = Math.min(b.left + box.clientWidth, tb.right);
+    lens.hidden = false;  // o'lchash uchun ko'rinsin (matn kattalashib qator balandlashishi mumkin)
+    var h = lens.firstChild.firstChild.getBoundingClientRect().height || r.height * LK;
+    lens.style.left = x1 + "px"; lens.style.width = Math.max(0, x2 - x1) + "px";
+    lens.style.top = Math.max(head + 2, Math.min(low - h, r.top + r.height / 2 - h / 2)) + "px";
+    lens.style.height = h + "px";
+    lens.firstChild.style.left = (tb.left - x1) + "px";
+    lens.hidden = false;
+    if (pop === true) { lens.classList.remove("is-pop"); void lens.offsetWidth; lens.classList.add("is-pop"); }
+    kbPlace();
+  }
+  function kbPlace() {
+    if (!kb || kb.hidden) return;
+    var b = box.getBoundingClientRect(), tr = CUR !== null && box.querySelector('tr[data-r="' + CUR + '"]');
+    var c = tr && (cellOf(CUR) || tr.querySelector("td.rn"));
+    if (!c) { kb.style.left = (b.left + 12) + "px"; kb.style.top = (b.bottom - 70) + "px"; return; }
+    var r = c.getBoundingClientRect(), x = Math.max(b.left + 4, Math.min(r.left, b.right - kb.offsetWidth - 8));
+    if (lens && !lens.hidden) {  // kattalashgan qator ostiga
+      var lr = lens.getBoundingClientRect();
+      r = {top: lr.top, bottom: lr.bottom};
+    }
+    var y = r.bottom + 4;
+    if (y + kb.offsetHeight > b.bottom - 34) y = r.top - kb.offsetHeight - 4;  // pastda joy yo'q — tepasiga
+    kb.style.left = x + "px"; kb.style.top = Math.max(b.top + 30, y) + "px";
+    kb.style.visibility = r.bottom < b.top + 30 || r.top > b.bottom - 20 ? "hidden" : "";
+  }
+  function kbHide() { if (kb && !kbMsg) kb.hidden = true; }
+  box.addEventListener("scroll", lensLater, {passive: true});
+  window.addEventListener("resize", lensLater);
+  box.addEventListener("focusout", function () { setTimeout(lensLater); });
+  document.addEventListener("mousedown", function (e) {
+    if (AUTO) { autoEnd(); e.preventDefault(); e.stopPropagation(); }
+  }, true);
+  document.addEventListener("keydown", function (e) {
+    if (!CAN_SEL || !D) return;
+    if (AUTO) { e.preventDefault(); e.stopPropagation(); autoEnd(); return; }
+    var t = e.target;
+    if (t.closest && t.closest("input, select, textarea, [contenteditable], details[open]")) return;
+    if (!document.getElementById("tn-info-modal").hidden || document.querySelector("#narx-dialog:not(.hidden), #tn-c2:not(.hidden)")) return;
+    if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ" && !e.shiftKey) { e.preventDefault(); undo(); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "Escape" && (CUR !== null || Object.keys(SEL).length)) {  // kursor ham, noto'g'ri belgilanganlar ham olinadi
+      if (Object.keys(SEL).length) { SEL = {}; lastSel = null; selPaint(); }
+      clearCur();
+      return;
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      var now = Date.now();
+      if (e.key === "ArrowDown" && !e.repeat && CUR !== null && now - lastDown < 330) { lastDown = 0; autoStart(); return; }
+      lastDown = e.key === "ArrowDown" && !e.repeat ? now : 0;
+      step(e.key === "ArrowDown" ? 1 : -1);
+      return;
+    }
+    if (CUR === null) return;
+    if (e.key === "ArrowRight") { e.preventDefault(); if (actClosed(curAct())) { mark(CUR); return; } mark(CUR); step(1); return; }
+    if (e.key === "ArrowLeft" || e.key === "Enter" || /^[0-9.,%-]$/.test(e.key)) {
+      e.preventDefault();
+      if (actClosed(curAct())) { note("№" + curAct() + " ёпилган — ёзиш учун Alt+L билан очинг"); return; }
+      if (!editAt(e.key.length === 1 ? e.key : "")) flash(CUR, "skip");
+    }
+  });
+
+  document.querySelectorAll(".tn-view button").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      if (btn.dataset.n) {
+        if (VIEW === "act") { setWork(+btn.dataset.n, true); return; }
+        try { sessionStorage.setItem(WORK_KEY, btn.dataset.n); } catch (e) { /* bo'lmasa — oxirgi ochiq */ }
+      }
+      var u = new URL(location.href); u.searchParams.set("view", btn.dataset.v); location.href = u.toString();
+    });
+  });
+  var zs = document.getElementById("tn-zoom");
+  [0.5, 0.6, 0.75, 0.9, 1, 1.25].forEach(function (z) {
+    var o = document.createElement("option"); o.value = z; o.textContent = Math.round(z * 100) + "%";
+    if (Math.abs(z - ZOOM) < 1e-6) o.selected = true;
+    zs.appendChild(o);
+  });
+  zs.addEventListener("change", function () {
+    ZOOM = +zs.value;
+    try { localStorage.setItem("tn-zoom", ZOOM); } catch (e) { /* bo'lmasa — faqat shu sahifada */ }
+    var t = box.querySelector("table.tn-x"); if (t) t.style.zoom = ZOOM;
+    lensLater();
+  });
+  document.getElementById("tn-only").addEventListener("change", function () { if (D) redraw(); });
+  box.addEventListener("click", function (e) {
+    var t = e.target.closest(".tn-rt");
+    if (!t) return;
+    e.preventDefault();
+    var top = +t.dataset.top;
+    RES_X[top] = !RES_X[top];
+    redraw();
+  });
+  resButton();
+  document.getElementById("tn-res").addEventListener("click", function () {
+    RES_ALL = !RES_ALL; RES_X = {};
+    try { localStorage.setItem(RES_KEY, RES_ALL ? "1" : "0"); } catch (e) { /* bo'lmasa — faqat shu sahifada */ }
+    resButton();
+    if (D) redraw();
+  });
+  function collButton() {
+    var b = document.getElementById("tn-coll");
+    if (!b || !D) return;
+    var any = D.blocks.some(function (x) { return !COLL[x.key]; });
+    b.querySelector(".tn-tl-t").textContent = any ? "Блокларни йиғиш" : "Блокларни ёйиш";
+  }
+  function showBlock(key) {  // pastdagi summa bosilsa — o'sha blokka (yig'ilgan bo'lsa ochib)
+    if (!D || !D.blocks.some(function (x) { return x.key === key; })) return;
+    if (COLL[key]) { delete COLL[key]; collSave(); redraw(); collButton(); chips(); }
+    var th = box.querySelector('thead th[data-blk="' + key + '"]');
+    if (!th) return;
+    box.scrollLeft += th.getBoundingClientRect().left - box.getBoundingClientRect().left - RN * ZOOM - 8;
+  }
+  box.addEventListener("click", function (e) {  // dalolatnoma sarlavhasini bosish — shu dalolatnomaga yoziladi
+    var th = !e.target.closest(".tn-bt") && e.target.closest('thead th.blk-h[data-blk^="a"]');
+    if (th) setWork(+th.dataset.blk.slice(1));
+  });
+  box.addEventListener("click", function (e) {
+    var t = e.target.closest(".tn-bt");
+    if (!t) return;
+    var k = t.dataset.key;
+    if (COLL[k]) delete COLL[k]; else COLL[k] = 1;
+    collSave(); redraw(); collButton(); chips();
+  });
+  var cb = document.getElementById("tn-coll");
+  if (cb) cb.addEventListener("click", function () {
+    if (!D) return;
+    var any = D.blocks.some(function (x) { return !COLL[x.key]; });
+    D.blocks.forEach(function (x) { if (any) COLL[x.key] = 1; else delete COLL[x.key]; });
+    collSave(); redraw(); collButton(); chips();
+  });
+  document.querySelectorAll(".tn-foot [data-blk]").forEach(function (c) {
+    c.addEventListener("click", function () {
+      if (!BLK) { var u = new URL(location.href); u.searchParams.set("view", "report"); location.href = u.toString(); return; }
+      showBlock(c.dataset.blk);
+    });
+  });
+  // dalolatnomani almashtirish / yopish / ochish / yangi — pastki qatorda va klaviaturada (Alt+1…9, Alt+←→, Alt+L, Alt+N)
+  document.querySelectorAll("[data-work]").forEach(function (b) { b.addEventListener("click", function () { setWork(+b.dataset.work); }); });
+  var POS_KEY = "tn-pos-{{ o.pk }}";
+  document.querySelectorAll("form[data-keep]").forEach(function (f) {
+    f.addEventListener("submit", function () {  // sahifa qayta ochilgach — o'sha joy va o'sha ish
+      try { sessionStorage.setItem(POS_KEY, JSON.stringify({x: box.scrollLeft, y: box.scrollTop, cur: CUR})); } catch (e) { /* bo'lmasa — boshidan */ }
+    });
+  });
+  function rename(n) {
+    var b = document.querySelector('[data-rename="' + n + '"]'), f = document.querySelector('form[data-rename-form="' + n + '"]');
+    if (!b || !f) return;
+    narxDialog.prompt("Далолатнома №" + n + " номи (бўш қолса — фақат рақам)", b.dataset.name || "",
+                      {title: "№" + n + " номи", ok: "Сақлаш", placeholder: "масалан: Пойдевор ёки Октябрь 2026"}).then(function (v) {
+      if (v === null || v.trim() === (b.dataset.name || "")) return;
+      f.elements.name.value = v.trim();
+      f.requestSubmit ? f.requestSubmit() : f.submit();
+    });
+  }
+  document.querySelectorAll("[data-rename]").forEach(function (b) { b.addEventListener("click", function () { rename(+b.dataset.rename); }); });
+  // «Тугатиш»: ish dalolatnomasi yopiladi, keyin xira oynada Excel yuklab olish
+  var FAB = document.getElementById("tn-fab"), DONE = document.getElementById("tn-done"), DONE_KEY = "tn-done-{{ o.pk }}";
+  function fabPaint() {
+    if (!FAB) return;
+    var shut = actClosed(WORK);
+    FAB.hidden = WORK === null;
+    FAB.classList.toggle("is-done", shut);
+    FAB.innerHTML = shut ? '{% filter escapejs %}{% icon "download" "h-5 w-5" %}{% endfilter %}№' + WORK + " тугатилган · Excel"
+                         : '{% filter escapejs %}{% icon "check-circle" "h-5 w-5" %}{% endfilter %}№' + WORK + "ни тугатиш";
+    FAB.title = shut ? "Excel'ни юклаб олиш" : "Далолатнома №" + WORK + "ни тугатиш (ёпиш) ва Excel'ни юклаб олиш";
+  }
+  function doneShow(n) {
+    var w = document.querySelector('.tn-wa[data-wa="' + n + '"]'), s = document.querySelector('[data-act-sum="' + n + '"]');
+    if (!DONE || !w) return;
+    DONE.querySelector("h3").textContent = "Далолатнома " + w.dataset.label + " тугатилди";
+    DONE.querySelector(".tn-done-sum b").textContent = s ? s.textContent : "";
+    DONE.querySelector("[data-f2]").href = w.dataset.f2;
+    DONE.querySelector("[data-f2]").lastChild.textContent = "Ф-2 №" + n;
+    DONE.querySelector("[data-reopen]").hidden = !actClosed(n);
+    DONE.hidden = false;
+    DONE.querySelector("[data-dl]").focus();
+  }
+  if (FAB) FAB.addEventListener("click", function () {
+    if (actClosed(WORK)) { doneShow(WORK); return; }
+    try { sessionStorage.setItem(DONE_KEY, WORK); sessionStorage.setItem(WORK_KEY, WORK); } catch (e) { /* bo'lmasa — oynasiz */ }
+    lockWork();
+  });
+  if (DONE) {
+    var doneHide = function () { DONE.hidden = true; };
+    DONE.querySelector("[data-x]").addEventListener("click", doneHide);
+    DONE.addEventListener("mousedown", function (e) { if (e.target === DONE) doneHide(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !DONE.hidden) { e.stopPropagation(); doneHide(); } }, true);
+    DONE.querySelector("[data-dl]").addEventListener("click", function () {  // yig'ilgan bloklar ham — tepadagi tugmadek
+      var u = new URL(this.href, location.href);
+      u.searchParams.set("coll", Object.keys(COLL).filter(function (k) { return COLL[k]; }).join(","));
+      this.href = u.toString();
+    });
+    DONE.querySelector("[data-reopen]").addEventListener("click", function () { doneHide(); lockWork(); });
+    var d0 = null;
+    try { d0 = +sessionStorage.getItem(DONE_KEY); sessionStorage.removeItem(DONE_KEY); } catch (e) { d0 = null; }
+    if (d0 && actClosed(d0)) doneShow(d0);
+  }
+  function lockWork() {
+    var b = document.querySelector('[data-lock="' + WORK + '"]');
+    if (!b) return;
+    note(actClosed(WORK) ? "№" + WORK + " очиляпти…" : "№" + WORK + " ёпиляпти…");
+    b.form.requestSubmit ? b.form.requestSubmit() : b.form.submit();
+  }
+  document.addEventListener("keydown", function (e) {
+    if (!BLK || !ACTS.length || !e.altKey || e.ctrlKey || e.metaKey) return;
+    var t = e.target;
+    if (t.closest && t.closest("textarea, select, #tn-info-modal")) return;
+    var i = ACTS.findIndex(function (a) { return a.n === WORK; }), d = /^Digit([1-9])$/.exec(e.code);
+    if (d) { e.preventDefault(); setWork(+d[1]); }
+    else if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      e.preventDefault();
+      var j = Math.max(0, Math.min(ACTS.length - 1, i + (e.key === "ArrowRight" ? 1 : -1)));
+      setWork(ACTS[j].n);
+    } else if (e.code === "KeyL") { e.preventDefault(); lockWork(); }
+    else if (e.code === "KeyR") { e.preventDefault(); rename(WORK); }
+    else if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      var del = document.querySelector('[data-del="' + WORK + '"]');
+      if (del) del.click(); else note("№" + WORK + " ёпилган — ўчириш учун аввал очинг (Alt+L)");
+    }
+    else if (e.code === "KeyN") {
+      e.preventDefault();
+      var f = document.querySelector("form[data-add]");
+      if (f) { note("Янги далолатнома очиляпти…"); f.requestSubmit ? f.requestSubmit() : f.submit(); }
+    }
+  }, true);
+  document.addEventListener("keyup", function (e) { if (e.key === "Alt") e.preventDefault(); });  // Alt yolg'iz — brauzer menyusiga o'tmasin
+  workPaint();
+
+  // menyular: tashqarisini bosganda yopiladi; ichidagi «жадвалда кўрсатиш» ham yopadi
+  document.addEventListener("click", function (e) {
+    document.querySelectorAll("details.tn-dd[open]").forEach(function (d) {
+      if (!d.contains(e.target) || e.target.closest("[data-goto]")) d.open = false;
+    });
+  });
+  var modal = document.getElementById("tn-info-modal");
+  function infoOpen(on) { modal.hidden = !on; if (on) document.getElementById("info").open = true; }
+  document.addEventListener("click", function (e) {  // _info.html'dagi «pastga surish» o'rniga — oyna ustida ochiladi
+    if (!e.target.closest("[data-open-info]")) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    infoOpen(true);
+  }, true);
+  modal.querySelector(".tn-modal-x").addEventListener("click", function () { infoOpen(false); });
+  modal.addEventListener("mousedown", function (e) { if (e.target === modal) infoOpen(false); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !modal.hidden) infoOpen(false); });
+  if (location.hash === "#info" || document.querySelector("#info[open]")) infoOpen(true);
+  document.querySelectorAll(".tn-toast").forEach(function (t, i) {
+    t.querySelector("button").addEventListener("click", function () { t.remove(); });
+    if (t.classList.contains("is-ok")) setTimeout(function () { t.remove(); }, 6000 + i * 1000);
+  });
+  // bitta oyna: asosiy sahifa surilmaydi, balandlik — oynaning qolgan qismi (juda past oynada — oddiy surish)
+  var main = box.closest("main");
+  function fit() {
+    var top = main.getBoundingClientRect().top + window.scrollY, h = window.innerHeight - top;
+    var ok = h >= 360;
+    document.body.classList.toggle("tn-fit", ok);
+    main.style.height = (ok ? h : 560) + "px";
+  }
+  fit();
+  window.addEventListener("resize", fit);
+  document.getElementById("tn-goto").addEventListener("keydown", function (e) { if (e.key === "Enter" && D) { e.preventDefault(); goto(+this.value); } });
+  document.querySelectorAll("[data-goto]").forEach(function (b) { b.addEventListener("click", function () { if (D) goto(+b.dataset.goto); }); });
+  load();
+})();
+</script>
+{% endblock %}

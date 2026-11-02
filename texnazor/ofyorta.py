@@ -30,7 +30,7 @@ DEFAULT_RATES = {"tr_material": 0.03, "tr_cable": 0.015, "overhead": 0.17, "tr_e
 # sarlavha matni -> ustun ma'nosi (kichik harfda, birinchi mos keladigan)
 _HEADERS = [
     ("code", ("шифр",)), ("name", ("наименование",)), ("unit", ("единица",)),
-    ("qty", ("на единицу",)), ("total", ("по проектным",)), ("price", ("цена подр",)),
+    ("qty", ("на единицу", "на. ед", "на ед.")), ("total", ("по проектным",)), ("price", ("цена подр",)),
     ("price_customer", ("цена заказ",)), ("amount", ("сумма",)),
     ("J", ("чел-ч",)), ("K", ("маш-ч",)), ("L", ("матриал", "материал")),
     ("M", ("жихоз подр", "оборудование подр")), ("N", ("жихоз заказ", "оборудование заказ")), ("O", ("кабель",)),
@@ -70,6 +70,8 @@ class Row:
 class Ofyorta:
     sheet: str
     title: str = ""
+    svodka: dict = field(default_factory=dict)  # fayldagi svodka formulalari (``formula.read``) — bo'lsa, hisob shu bilan
+    sheet_rows: List[list] = field(default_factory=list)  # varaq aynan (qator raqami, kataklar) — saytda o'zgarishsiz ko'rsatish
     object_type: str = ""
     sections: List[str] = field(default_factory=list)
     blocks: set = field(default_factory=set)  # blok sarlavhasi bo'lgan bo'limlar (indeksi) — qizil yoki «НА … / БЛОК-1»
@@ -100,22 +102,57 @@ def _num(v) -> Optional[float]:
 
 
 def _text(v) -> str:
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)  # 4.0 -> «4» (A ustunidagi raqam son bo'lib yozilgan)
     return " ".join(str(v).split()) if v is not None else ""
+
+
+def _numtext(v) -> str:
+    """A ustunidagi tartib raqami: «6,1» -> «6.1» (ba'zi ofyortalarda vergul bilan)."""
+    t = _text(v)
+    return t.replace(",", ".") if re.fullmatch(r"\d+,\d+", t) else t
+
+
+def _is_ofyorta_name(name: str) -> bool:
+    low = name.lower().replace("ё", "е")
+    return any(w in low for w in ("офер", "oferta", "ofyorta", "оферт"))
 
 
 def pick_sheet(wb) -> str:
     for name in wb.sheetnames:
-        low = name.lower().replace("ё", "е")
-        if "офер" in low or "oferta" in low or "ofyorta" in low or "оферт" in low:
+        if _is_ofyorta_name(name):
             return name
     return wb.sheetnames[0]
 
 
+def _is_header_row(r) -> bool:
+    """Jadval sarlavhasi: «Наименование работ…» va yonida «Шифр» / «Единица» / «№ п/п». Tepadagi «(наименование
+    стройки)» kabi izoh sarlavha emas."""
+    texts = [_text(v).lower() for v in r if isinstance(v, str)]
+    return any("наименование" in t and "стройки" not in t and "объекта" not in t for t in texts) and \
+        any(("шифр" in t or "единиц" in t or "п/п" in t or "п.п" in t) for t in texts)
+
+
 def _find_header(rows: List[tuple]) -> Optional[int]:
+    for i, r in enumerate(rows[:80]):
+        if _is_header_row(r):
+            return i
     for i, r in enumerate(rows[:60]):
         if any("наименование" in _text(v).lower() for v in r):
             return i
     return None
+
+
+def _is_digits_row(r) -> bool:
+    """Sarlavha ostidagi «1 2 3 4 5 …» qatori (har lokal smeta boshida takrorlanadi)."""
+    vals = [v for v in r if v is not None and _text(v)]
+    if len(vals) < 3:
+        return False
+    try:
+        nums = [int(float(_text(v))) for v in vals]
+    except ValueError:
+        return False
+    return nums == list(range(nums[0], nums[0] + len(nums)))
 
 
 def _columns(rows: List[tuple], h: int) -> Dict[str, int]:
@@ -131,9 +168,33 @@ def _columns(rows: List[tuple], h: int) -> Dict[str, int]:
                     cols[key] = j
                     break
     out = {k: v - 1 for k, v in _FALLBACK.items()}
+    if "amount" in cols and "price_customer" not in cols:
+        out["price_customer"] = 10 ** 6  # «Цена заказчик» ustuni yo'q (H — summa bo'lishi mumkin)
     out.update(cols)
     out["num"] = 0
+    out["_by_header"] = any(c in cols for c in CATEGORIES)
     return out
+
+
+def _split_columns(rows: List[tuple], start: int, end: int, cols: Dict[str, int]) -> Dict[int, str]:
+    """Turlar ustunlari sarlavhada yozilmagan ofyorta (masalan I–L: иш ҳақи, машина, материал, ускуна): summa
+    ustunidan o'ngdagi, summa nusxasi tushadigan ustunlar. Turi — qatorlar birligidan (чел-ч / маш-ч), qolgani material;
+    svodkada «ОБОРУДОВАНИЕ» shu ustunga havola qilsa — uskuna (``_svodka_kinds``)."""
+    a = cols["amount"]
+    hits: Dict[int, Dict[str, int]] = {}
+    for r in rows[start:end]:
+        amount = _num(r[a]) if a < len(r) else None
+        if not amount:
+            continue
+        unit = _text(r[cols["unit"]]).upper() if cols["unit"] < len(r) else ""
+        kind = "J" if "ЧЕЛ" in unit else "K" if "МАШ" in unit else "L"
+        for j in range(a + 1, min(len(r), a + 9)):
+            v = _num(r[j])
+            if v and abs(v - amount) <= max(0.01, abs(amount) * 1e-9):
+                hits.setdefault(j, {}).setdefault(kind, 0)
+                hits[j][kind] += 1
+                break
+    return {j: max(k, key=k.get) for j, k in sorted(hits.items())}
 
 
 _SVODKA_START = re.compile(r"ISH\s*HAQQI|ИШ\s*ҲАҚИ|ЗАРАБОТНАЯ\s+ПЛАТА", re.I)

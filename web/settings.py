@@ -179,8 +179,8 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
-# Berilmasa — production'da ALLOWED_HOSTS dagi domenlardan: mloyihachi.uz → https://mloyihachi.uz,
-# .mloyihachi.uz → https://*.mloyihachi.uz (localhost va IP — kerak emas)
+# Berilmasa — production'da ALLOWED_HOSTS dagi domenlardan: mhisobot.uz → https://mhisobot.uz,
+# .mhisobot.uz → https://*.mhisobot.uz (localhost va IP — kerak emas)
 if not CSRF_TRUSTED_ORIGINS and not DEBUG:
     CSRF_TRUSTED_ORIGINS = [
         "https://" + ("*" + h if h.startswith(".") else h) for h in ALLOWED_HOSTS
@@ -243,7 +243,7 @@ MAILERS = {"default": {
         "timeout": 15,
     },
 } if _email_host else {"BACKEND": "django.core.mail.backends.console.EmailBackend"}}
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Муҳандис лойиҳачи <noreply@localhost>")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "mhisobot <noreply@localhost>")
 PASSWORD_RESET_TIMEOUT = 2 * 3600  # ҳавола 2 соат амал қилади
 
 STATIC_URL = "static/"

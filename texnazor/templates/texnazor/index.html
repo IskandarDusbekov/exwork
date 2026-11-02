@@ -1,6 +1,7 @@
 {% extends "jobs/base.html" %}
 {% load narx texnazor_tags %}
-{% block title %}Техназор · Муҳандис лойиҳачи{% endblock %}
+{% block title %}Техназор · mhisobot{% endblock %}
+{% block main_class %}mx-auto w-full max-w-[1680px] px-4 py-6 lg:px-8{% endblock %}
 {% block content %}
 {% if my_ofyorta %}{% include "texnazor/_tabs.html" with tab="objects" %}{% endif %}
 <div class="mb-5 flex flex-wrap items-center gap-3">

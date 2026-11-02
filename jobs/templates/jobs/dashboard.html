@@ -1,32 +1,136 @@
 {% extends "jobs/base.html" %}
 {% load narx %}
-{% block title %}Дашборд — Муҳандис лойиҳачи{% endblock %}
+{% block title %}Иш столи — mhisobot{% endblock %}
+{% block main_class %}mx-auto w-full max-w-[1680px] px-4 py-6 lg:px-8{% endblock %}
 {% block content %}
 {% csrf_token %}
+<style>
+  .ds-card { position: relative; display: flex; flex-direction: column; gap: 14px; padding: 22px 22px 18px; border: 1.5px solid #e3e8f0; border-radius: 20px; background: #fff; text-align: left; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); transition: border-color .15s, box-shadow .15s, transform .15s; cursor: var(--cur-hand, pointer); }
+  .ds-card:hover { transform: translateY(-2px); border-color: #c7d4ea; box-shadow: 0 10px 26px rgba(15, 23, 42, .08); }
+  .ds-card[aria-selected="true"] { border-color: var(--ds-c); box-shadow: 0 0 0 4px var(--ds-ring), 0 12px 28px rgba(15, 23, 42, .08); }
+  .ds-card[aria-selected="true"]::after { content: ""; position: absolute; left: 50%; bottom: -11px; width: 18px; height: 18px; margin-left: -9px; transform: rotate(45deg); background: #fff; border-right: 1.5px solid var(--ds-c); border-bottom: 1.5px solid var(--ds-c); }
+  .ds-ic { display: grid; place-items: center; flex: none; width: 56px; height: 56px; border-radius: 16px; background: var(--ds-tint); color: var(--ds-c); }
+  .ds-stat { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 12px; background: #f8fafc; }
+  .ds-stat b { font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.1; }
+  .ds-stat span { font-size: 12px; color: #64748b; }
+  .ds-go { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 10px; background: var(--ds-c); color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 6px 16px var(--ds-ring); }
+  .ds-go:hover { filter: brightness(.93); }
+  .ds-open { display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 12px; border-radius: 10px; color: #475569; font-size: 14px; font-weight: 500; }
+  .ds-open:hover { background: #f1f5f9; color: #0f172a; }
+  .ds-smeta { --ds-c: #059669; --ds-tint: #ecfdf5; --ds-ring: rgba(5, 150, 105, .16); }
+  .ds-tn { --ds-c: #2563eb; --ds-tint: #eff6ff; --ds-ring: rgba(37, 99, 235, .16); }
+  [data-pane][hidden] { display: none; }
+</style>
+
 <div class="mb-5 flex flex-wrap items-end gap-x-4 gap-y-3">
   <div class="min-w-0">
-    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Дашборд</h1>
-    <p class="mt-0.5 text-sm text-slate-500">Нархлаш ва техназор ишлари: нима тайёр ва нима сизни кутяпти</p>
+    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Иш столи</h1>
+    <p class="mt-0.5 text-sm text-slate-500">Бўлимни танланг — пастда унинг охирги ишлари чиқади</p>
   </div>
-  <div class="ml-auto flex flex-wrap items-center gap-2">
-    {% if any_working %}<span class="inline-flex items-center gap-2 rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-800 ring-1 ring-inset ring-sky-200">
-      <span class="h-2 w-2 rounded-full bg-sky-500"></span>Фонда иш бор — саҳифа ўзи янгиланади</span>{% endif %}
-    <a href="{% url 'texnazor:index' %}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">{% icon "building" "h-4 w-4" %} Техназор</a>
-    <a href="{% url 'index' %}" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">{% icon "upload" "h-4 w-4" %} Юклаш</a>
+  {% if any_working %}<span class="ml-auto inline-flex items-center gap-2 rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-800 ring-1 ring-inset ring-sky-200">
+    <span class="h-2 w-2 rounded-full bg-sky-500"></span>Фонда иш бор — саҳифа ўзи янгиланади</span>{% endif %}
+</div>
+
+{# ================= иккита бўлим: смета нархлаш ва офёрта / далолатнома ================= #}
+<div class="grid grid-cols-1 gap-4 md:grid-cols-2" role="tablist" aria-label="Бўлимлар" id="ds-tabs" data-guide="sections">
+  <div class="ds-card ds-smeta" role="tab" tabindex="0" data-tab="smeta" aria-selected="{% if pane == 'smeta' %}true{% else %}false{% endif %}" aria-controls="pane-smeta">
+    <div class="flex items-start gap-4">
+      <span class="ds-ic">{% icon "calculator" "h-7 w-7" "1.9" %}</span>
+      <div class="min-w-0">
+        <h2 class="text-lg font-bold text-slate-900">Смета нархлаш</h2>
+        <p class="mt-0.5 text-sm text-slate-500">Смета файлларини ресурс базасидаги жорий нархлар билан нархлаш</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-3 gap-2">
+      <div class="ds-stat"><b class="num">{{ count_smetas }}</b><span>смета</span></div>
+      <div class="ds-stat"><b class="num" style="color:#059669">{{ count_done }}</b><span>тайёр</span></div>
+      <div class="ds-stat"><b class="num"{% if attention_total %} style="color:#be123c"{% endif %}>{{ attention_total }}</b><span>эътибор керак</span></div>
+    </div>
+    <div class="flex flex-wrap items-center gap-1">
+      <a href="{% url 'index' %}" class="ds-go">{% icon "upload" "h-4 w-4" %}Смета юклаш</a>
+      <span class="ml-auto text-xs text-slate-400">{% if items %}охирги: {{ items.0.created|date:"d.m.Y H:i" }}{% else %}ҳали иш йўқ{% endif %}</span>
+    </div>
+  </div>
+
+  <div class="ds-card ds-tn" role="tab" tabindex="0" data-tab="tn" aria-selected="{% if pane == 'tn' %}true{% else %}false{% endif %}" aria-controls="pane-tn">
+    <div class="flex items-start gap-4">
+      <span class="ds-ic">{% icon "building" "h-7 w-7" "1.9" %}</span>
+      <div class="min-w-0">
+        <h2 class="text-lg font-bold text-slate-900">Офёрта ва далолатнома</h2>
+        <p class="mt-0.5 text-sm text-slate-500">Объект офёртаси бўйича бажарилган ишлар: далолатномалар, Ф-2, Ф-3, қолдиқ</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-3 gap-2">
+      <div class="ds-stat"><b class="num">{{ tn.count }}</b><span>объект</span></div>
+      <div class="ds-stat"><b class="num" style="color:#2563eb">{{ tn_acts }}</b><span>далолатнома</span></div>
+      <div class="ds-stat"><b class="num">{% if tn_recent %}{{ tn_recent.0.when|date:"d.m" }}{% else %}—{% endif %}</b><span>охирги иш</span></div>
+    </div>
+    <div class="flex flex-wrap items-center gap-1">
+      <a href="{% url 'texnazor:create' %}" class="ds-go">{% icon "plus" "h-4 w-4" %}Янги офёрта</a>
+      <a href="{% url 'texnazor:index' %}" class="ds-open">Барча объектлар {% icon "chevron-right" "h-4 w-4" %}</a>
+    </div>
   </div>
 </div>
 
+{# ================= офёрта ва далолатнома: охирги объектлар ================= #}
+<section class="mt-5" data-pane="tn" id="pane-tn" role="tabpanel" {% if pane != 'tn' %}hidden{% endif %}>
+  <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="flex items-baseline justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
+      <h2 class="font-semibold text-slate-900">Охирги объектлар <span class="text-sm font-normal text-slate-400">— охирги ишлаганингиз биринчи</span></h2>
+      <a href="{% url 'texnazor:index' %}" class="text-xs font-medium text-slate-500 hover:text-slate-900">Барчаси {{ tn.count }} →</a>
+    </div>
+    {% if tn_recent %}
+    <ol class="divide-y divide-slate-100">
+      {% for r in tn_recent %}
+      <li><a href="{{ r.url }}" class="group flex items-center gap-4 px-5 py-3.5 hover:bg-blue-50/40">
+        <span class="num grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-500">{{ forloop.counter }}</span>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate font-medium text-slate-900" title="{{ r.o.name }}">{{ r.o.name }}</span>
+          <span class="mt-0.5 block truncate text-xs text-slate-500">{{ r.o.source_name }}{% if r.o.contractor %} · {{ r.o.contractor }}{% endif %}</span>
+        </span>
+        <span class="hidden shrink-0 flex-col items-end gap-1 sm:flex">
+          {% if r.o.status == "ready" %}
+            {% if r.acts %}
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold {% if r.last.closed %}bg-slate-100 text-slate-600{% else %}bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200{% endif %}">
+              {% if r.last.closed %}{% icon "lock" "h-3 w-3" %}{% else %}{% icon "pencil" "h-3 w-3" %}{% endif %}{{ r.last.title }}{% if r.last.name %} «{{ r.last.name }}»{% endif %} · {% if r.last.closed %}ёпилган{% else %}ёзиляпти{% endif %}</span>
+            <span class="text-xs text-slate-400">{{ r.acts }} та далолатнома{% if r.closed %} · {{ r.closed }} таси ёпилган{% endif %}</span>
+            {% else %}
+            <span class="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">Офёрта тайёр</span>
+            <span class="text-xs text-slate-400">далолатнома ҳали йўқ</span>
+            {% endif %}
+          {% elif r.o.status == "choose" %}<span class="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-semibold text-violet-700 ring-1 ring-inset ring-violet-200">Листни танланг</span>
+          {% elif r.o.status == "failed" %}<span class="rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700">Хато</span>
+          {% else %}<span class="rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-semibold text-sky-700">Ўқиляпти…</span>{% endif %}
+        </span>
+        <span class="w-24 shrink-0 text-right text-xs text-slate-400">{{ r.when|date:"d.m.Y" }}<br>{{ r.when|date:"H:i" }}</span>
+        <span class="text-slate-300 group-hover:text-blue-600">{% icon "chevron-right" "h-5 w-5" %}</span>
+      </a></li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <div class="px-6 py-14 text-center">
+      <span class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-blue-50 text-blue-600">{% icon "building" "h-7 w-7" "1.75" %}</span>
+      <h3 class="mt-4 font-semibold text-slate-900">Ҳали объект йўқ</h3>
+      <p class="mt-1 text-sm text-slate-500">Офёртани юкланг — далолатномаларни шу ерда юритасиз.</p>
+      <a href="{% url 'texnazor:create' %}" class="mt-5 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">{% icon "plus" "h-4 w-4" %} Офёрта юклаш</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+{# ================= смета нархлаш ================= #}
+<section class="mt-5" data-pane="smeta" id="pane-smeta" role="tabpanel" {% if pane != 'smeta' %}hidden{% endif %}>
 {% if not items %}
 <div class="rounded-xl border-2 border-dashed border-slate-300 bg-white px-6 py-16 text-center">
   <span class="mx-auto grid h-14 w-14 place-items-center rounded-full bg-slate-100 text-slate-500">{% icon "chart" "h-7 w-7" "1.75" %}</span>
   <h2 class="mt-4 font-semibold">Ҳали ҳеч нарса юкланмаган</h2>
   <p class="mt-1 text-sm text-slate-500">Биринчи папка ёки сметани юкланг — статистика шу ерда пайдо бўлади.</p>
-  <a href="{% url 'index' %}" class="mt-5 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">{% icon "upload" %} Юклаш</a>
+  <a href="{% url 'index' %}" class="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">{% icon "upload" %} Смета юклаш</a>
 </div>
 {% else %}
 
 {# ================= асосий кўрсаткичлар: битта қатор ================= #}
-<section data-guide="kpi" class="grid grid-cols-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:grid-cols-3 xl:grid-cols-5">
+<section data-guide="kpi" class="grid grid-cols-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:grid-cols-4">
   <div class="border-b border-r border-slate-100 p-4 xl:border-b-0">
     <div class="text-xs font-medium text-slate-500">Сметалар</div>
     <div class="num mt-1.5 text-2xl font-semibold text-slate-900">{{ count_smetas }}</div>
@@ -42,16 +146,11 @@
     <div class="num mt-1.5 text-2xl font-semibold {% if count_warn %}text-rose-700{% else %}text-slate-900{% endif %}">{{ count_warn }}</div>
     <div class="mt-1 text-xs text-slate-400">айрим қаторлар нархсиз</div>
   </div>
-  <div class="border-b border-slate-100 p-4 md:border-b-0 md:border-r">
+  <div class="border-b border-slate-100 p-4 md:border-b-0">
     <div class="flex items-center gap-1.5 text-xs font-medium text-slate-500"><span class="h-2 w-2 rounded-full bg-violet-500"></span>Кутяпти</div>
     <div class="num mt-1.5 text-2xl font-semibold text-slate-900">{{ count_pending }}</div>
     <div class="mt-1 text-xs text-slate-400">{% if count_active %}{{ count_active }} таси ҳозир ишланяпти{% else %}бошлаш ёки текшириш керак{% endif %}</div>
   </div>
-  <a href="{% url 'texnazor:index' %}" class="col-span-2 block p-4 hover:bg-slate-50 md:col-span-2 xl:col-span-1">
-    <div class="flex items-center gap-1.5 text-xs font-medium text-slate-500">{% icon "building" "h-3.5 w-3.5" %} Техназор</div>
-    <div class="mt-1.5 flex items-baseline gap-2"><span class="num text-2xl font-semibold text-slate-900">{{ tn.count }}</span><span class="text-sm text-slate-400">объект</span></div>
-    <div class="mt-1 text-xs text-slate-400">{% if tn.count %}бажарилди <b class="num font-semibold text-slate-600">{{ tn.pct|floatformat:1 }}%</b>{% else %}объект қўшилмаган{% endif %}</div>
-  </a>
 </section>
 
 <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
@@ -105,36 +204,7 @@
   </section>
 </div>
 
-<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-  {# ================= техназор ================= #}
-  <section class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-    <div class="flex items-baseline justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
-      <h2 class="font-semibold text-slate-900">Техназор объектлари <span class="num ml-1 text-sm font-normal text-slate-400">{{ tn.count }}</span></h2>
-      <a href="{% url 'texnazor:index' %}" class="text-xs font-medium text-slate-500 hover:text-slate-900">Барчаси →</a>
-    </div>
-    {% if tn.cards %}
-    <ul class="divide-y divide-slate-100">
-      {% for c in tn.cards %}
-      <li><a href="{% url 'texnazor:object' c.o.pk %}" class="group block px-5 py-3 hover:bg-slate-50">
-        <div class="flex items-baseline gap-3">
-          <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-800" title="{{ c.o.name }}">{{ c.o.name }}</span>
-          <span class="num shrink-0 text-sm font-semibold text-slate-800">{{ c.pct|floatformat:1 }}%</span>
-        </div>
-        <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width: {{ c.pct|stringformat:'.2f' }}%;{% if c.pct > 0 %}min-width:3px{% endif %}"></div></div>
-        <div class="mt-1.5 flex flex-wrap gap-x-4 text-xs text-slate-400">
-          <span>бажарилди <span class="num text-slate-600">{{ c.done|som }}</span></span>
-          <span>қолдиқ <span class="num text-slate-600">{{ c.left|som }}</span></span>
-          <span>{% if c.last %}{{ c.months }} ой · охирги {{ c.last.title }}{% else %}ой қўшилмаган{% endif %}</span>
-        </div>
-      </a></li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <div class="flex flex-wrap items-center gap-3 px-5 py-8 text-sm text-slate-500">Ҳали объект йўқ.
-      <a href="{% url 'texnazor:create' %}" class="font-medium text-slate-900 underline underline-offset-4">Офёртани юклаб объект қўшинг</a></div>
-    {% endif %}
-  </section>
-
+<div class="mt-4 grid grid-cols-1 gap-4">
   {# ================= юклашлар: охирги 14 кун ================= #}
   <section class="flex min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
     <div class="flex items-baseline justify-between gap-3">
@@ -188,8 +258,30 @@
   <p id="work-empty" class="hidden rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">Танланган шартга мос иш йўқ</p>
 </section>
 {% endif %}
+</section>
 
 <script>
+  // ===== иккита бўлим: карта босилса — пастда шу бўлимнинг ишлари (танлов эсда қолади) =====
+  (function () {
+    var tabs = document.querySelectorAll("#ds-tabs [data-tab]"), KEY = "mh-dash-pane";
+    function pick(key, save) {
+      tabs.forEach(function (t) { t.setAttribute("aria-selected", t.dataset.tab === key ? "true" : "false"); });
+      document.querySelectorAll("[data-pane]").forEach(function (p) { p.hidden = p.dataset.pane !== key; });
+      if (save) try { localStorage.setItem(KEY, key); } catch (e) { /* бўлмаса — эслаб қолмаймиз */ }
+    }
+    tabs.forEach(function (t) {
+      t.addEventListener("click", function (e) { if (!e.target.closest("a")) pick(t.dataset.tab, true); });
+      t.addEventListener("keydown", function (e) {
+        if (e.target !== t) return;
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(t.dataset.tab, true); }
+        if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+          var o = [].find.call(tabs, function (x) { return x !== t; });
+          o.focus(); pick(o.dataset.tab, true);
+        }
+      });
+    });
+    try { var k = localStorage.getItem(KEY); if (k === "smeta" || k === "tn") pick(k, false); } catch (e) { /* — */ }
+  })();
   // ===== фильтр: ҳолат, тур, ном =====
   (function () {
     var chips = document.getElementById("work-states");
@@ -233,12 +325,18 @@
 </script>
 {% endblock %}
 {% block guide %}{page: "dashboard", steps: [
-  {sel: '[data-guide="kpi"]', title: "Асосий кўрсаткичлар",
-   text: "Жами сметалар, нечтаси тўлиқ нархланди, нечтасида қўлда нарх керак, нечтаси кутяпти ва техназор объектлари."},
+  {sel: '[data-guide="sections"]', title: "Иккита бўлим",
+   text: "<ul><li><b>Смета нархлаш</b> — сметаларни жорий нархлар билан нархлаш</li><li><b>Офёрта ва далолатнома</b> — объект офёртаси бўйича бажарилган ишлар</li></ul>" +
+         "<div class='tip'>Картани босинг — пастда шу бўлимнинг охирги ишлари тартиб билан чиқади.</div>"},
+  {sel: '[data-guide="kpi"]', title: "Ҳамма ишларингиз — бир қарашда",
+   text: "<ul><li><b>Сметалар</b> — жами нечта юклагансиз</li><li><b>Тайёр</b> — тўлиқ нархланган, юклаб олса бўлади</li>" +
+         "<li><b>Қўлда нарх керак</b> — айрим қаторларнинг нархи топилмаган</li><li><b>Кутяпти</b> — сиз бошлашингиз ёки текширишингиз керак</li></ul>"},
   {sel: '[data-guide="latest"]', title: "Эътибор керак",
-   text: "Сизни кутаётган ишлар ва ҳар бирида нима қилиш кераклиги: <b class='text-rose-700'>нарх ёзиш</b>, <b class='text-violet-700'>ҳисоблашни бошлаш</b>, <b class='text-amber-700'>текшириш</b>. Босинг — иш очилади."},
+   text: "<p>Сизни кутаётган ишлар. Ҳар бирининг ёнида нима қилиш кераклиги ёзилган:</p>" +
+         "<ul><li><b class='text-rose-700'>нарх ёзиш</b> — нархсиз қаторлар бор</li><li><b class='text-violet-700'>ҳисоблашни бошлаш</b> — файллар очилди, сизни кутяпти</li>" +
+         "<li><b class='text-amber-700'>текшириш</b> — ресурсни ўзингиз танлашингиз керак</li></ul><div class='tip'>Қаторни босинг — иш очилади.</div>"},
   {sel: '[data-guide="pipeline"]', title: "Сметалар қайси босқичда",
-   text: "Ҳар бир смета юклашдан тайёр бўлгунча қайси босқичда тургани."},
+   text: "<p>Ҳар бир смета юкланганидан тайёр бўлгунча қаерда тургани.</p><div class='tip'><b class='text-emerald-700'>Яшил</b> — тўлиқ нархланган. <b class='text-amber-700'>Сариқ</b> ва <b class='text-rose-700'>қизил</b> — сизни кутяпти.</div>"},
   {sel: '[data-guide="all"]', title: "Барча ишлар",
-   text: "Ҳамма папка, объект ва сметалар. Номи бўйича қидиринг ёки ҳолат бўйича фильтрланг."}
+   text: "<p>Ҳамма папка, объект ва сметаларингиз.</p><ul><li>Номи бўйича <b>қидиринг</b></li><li>Ҳолати бўйича <b>фильтрланг</b></li></ul>"}
 ]}{% endblock %}

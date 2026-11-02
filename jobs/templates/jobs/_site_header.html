@@ -10,7 +10,7 @@
     </nav>
     <div class="site-act">
       {% if user.is_authenticated %}
-      <a class="plain hide-s" href="{% url 'dashboard' %}">Дашборд</a>
+      <a class="plain hide-s" href="{% url 'dashboard' %}">Иш столи</a>
       <a class="btn btn-p" href="{% url 'index' %}">Смета юклаш</a>
       {% else %}
       <a class="plain" href="{% url 'login' %}">Кириш</a>
