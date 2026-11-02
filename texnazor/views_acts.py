@@ -1,9 +1,12 @@
 """Texnazor — dalolatnomalar tartibi sahifalari: list tanlash, ofyorta «fayldagidek», №1, №2 … va «Остатка»,
 hajm yozish, Excel («Хисобот» va Ф-2 №N)."""
 import datetime as dt
+import hashlib
 import json
+import time
 
 from django.contrib import messages
+from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import content_disposition_header
@@ -250,15 +253,43 @@ def _xlsx(content: bytes, name: str) -> HttpResponse:
     return r
 
 
+def _built(o: SiteObject, kind: str, build) -> bytes:
+    """Katta ofyortada Excel bir necha soniya (sekin serverda — o'nlab soniya) yasaladi. Natija holat bo'yicha keshda:
+    hajmlar, dalolatnomalar va o'qilgan fayl o'zgarmasa — qayta yasalmaydi. Tugma qayta-qayta bosilsa, ikkinchi so'rov
+    birinchisini kutadi (har biri alohida yasab, serverni band qilmaydi)."""
+    acts = [(a.pk, a.number, a.label, str(a.date), a.closed) for a in o.acts.all()]
+    state = repr((kind, str(o.pk), o.sheet, o.layout.get("stamp"), o.layout.get("reader"), o.layout.get("manual"),
+                  acts, sorted((k, sorted(v.items())) for k, v in sa.all_qty(o).items())))
+    key = "tn-xlsx:" + hashlib.sha1(state.encode()).hexdigest()
+    data = cache.get(key)
+    if data is not None:
+        return data
+    if not cache.add(key + ":busy", 1, 180):
+        for _ in range(240):  # 2 daqiqagacha — birinchi so'rov tugatsin
+            time.sleep(0.5)
+            data = cache.get(key)
+            if data is not None:
+                return data
+            if cache.get(key + ":busy") is None:
+                break  # birinchisi xato bilan tugadi — o'zimiz yasaymiz
+    try:
+        data = build()
+        cache.set(key, data, 600)
+    finally:
+        cache.delete(key + ":busy")
+    return data
+
+
 def report_download(request, obj_id):
     from . import hisobot
     o = _obj(request, obj_id)
     coll = {k for k in request.GET.get("coll", "").split(",") if k}  # saytda yig'ilgan bloklar
-    return _xlsx(hisobot.build_report(o, coll), f"Офёрта (нархланган) — {o.name}"[:150] + ".xlsx")
+    data = _built(o, "report:" + ",".join(sorted(coll)), lambda: hisobot.build_report(o, coll))
+    return _xlsx(data, f"Офёрта (нархланган) — {o.name}"[:150] + ".xlsx")
 
 
 def f2_download(request, obj_id, number):
     from . import hisobot
     o = _obj(request, obj_id)
     a = get_object_or_404(Act, obj=o, number=number)
-    return _xlsx(hisobot.build_f2(o, a), f"Ф-2 {a.title} — {o.name}"[:150] + ".xlsx")
+    return _xlsx(_built(o, f"f2:{a.pk}", lambda: hisobot.build_f2(o, a)), f"Ф-2 {a.title} — {o.name}"[:150] + ".xlsx")

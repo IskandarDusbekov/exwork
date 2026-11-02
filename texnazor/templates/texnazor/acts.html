@@ -366,6 +366,9 @@
   .tn-done-sum b { font-size: 18px; color: #0f172a; }
   .tn-done-dl { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 52px; border-radius: 12px; background: var(--tn-brand, #2563eb); color: #fff; font-size: 17px; font-weight: 700; box-shadow: 0 8px 20px rgba(37, 99, 235, .35); }
   .tn-done-dl:hover { background: #1d4ed8; }
+  a.is-busy { cursor: progress; opacity: .85; }
+  .tn-spin { flex: none; width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 999px; animation: tn-rot .7s linear infinite; }
+  @keyframes tn-rot { to { transform: rotate(360deg); } }
   .tn-done-hint { font-size: 12.5px; color: #94a3b8; }
   .tn-done-r { display: flex; gap: 6px; margin-top: 10px; }
   .tn-done-r > * { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #475569; }
@@ -543,6 +546,33 @@
     var u = new URL(XLSX.href, location.href);
     u.searchParams.set("coll", Object.keys(COLL).filter(function (k) { return COLL[k]; }).join(","));
     XLSX.href = u.toString();
+  });
+
+  // Excel yuklash (hisobot, Ф-2): katta ofyortada bir necha soniya yasaladi — tugma «Тайёрланмоқда…» bo'ladi va
+  // tayyor bo'lguncha qayta bosilmaydi (har bosish serverda yangi hisobot yasamasin). Tugmalarning o'z click'i
+  // (yig'ilgan bloklar ?coll=) avval ishlaydi — bu document darajasida.
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest('a[download][href*="/report/"], a[download][href*="/f2/"]');
+    if (!a || e.defaultPrevented || e.ctrlKey || e.metaKey || e.shiftKey || !window.fetch || !window.URL) return;
+    e.preventDefault();
+    if (a.classList.contains("is-busy")) return;
+    var label = a.innerHTML;
+    a.classList.add("is-busy");
+    a.setAttribute("aria-busy", "true");
+    a.innerHTML = '<span class="tn-spin" aria-hidden="true"></span>Тайёрланмоқда…';
+    fetch(a.href, {credentials: "same-origin"}).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      var cd = r.headers.get("Content-Disposition") || "", m = /filename\*=utf-8''([^;]+)/i.exec(cd) || /filename="?([^";]+)/i.exec(cd);
+      return r.blob().then(function (b) { return {b: b, name: m ? decodeURIComponent(m[1]) : "ofyorta.xlsx"}; });
+    }).then(function (x) {
+      var u = URL.createObjectURL(x.b), t = document.createElement("a");
+      t.href = u; t.download = x.name; document.body.appendChild(t); t.click(); t.remove();
+      setTimeout(function () { URL.revokeObjectURL(u); }, 60000);
+    }).catch(function () {
+      note("Excel'ни тайёрлаб бўлмади — бир оздан кейин қайта уриниб кўринг");
+    }).then(function () {
+      a.classList.remove("is-busy"); a.removeAttribute("aria-busy"); a.innerHTML = label;
+    });
   });
 
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]; }); }

@@ -290,6 +290,24 @@ class ActsFlowTests(TestCase):
         self.assertIn("УСТРОЙСТВО ОСНОВАНИЙ ИЗ ЩЕБНЯ", names)
         self.assertNotIn("ОБЛИЦОВКА ФАСАДА", names)
 
+    def test_report_built_once_per_state(self):
+        """Tugma qayta-qayta bosilsa — Excel qayta yasalmaydi (keshdan); hajm o'zgarsa — yangisi."""
+        from . import hisobot
+        b = self.ready()
+        w1 = next(r["row"] for r in b.rows if r["kind"] == "work")
+        a = sa.add_act(self.obj)
+        sa.set_qty(a, w1, 1.0)
+        url = reverse("texnazor:report", args=[self.obj.pk])
+        with patch.object(hisobot, "build_report", wraps=hisobot.build_report) as build:
+            first = self.client.get(url).content
+            self.assertEqual(self.client.get(url).content, first)
+            self.assertEqual(build.call_count, 1)
+            sa.set_qty(a, w1, 0.5)
+            self.assertNotEqual(self.client.get(url).content, first)
+            self.assertEqual(build.call_count, 2)
+            self.client.get(url + "?coll=rest")  # yig'ilgan bloklar — boshqa fayl
+            self.assertEqual(build.call_count, 3)
+
     def test_sheet_look_like_excel_and_old_objects_reread(self):
         """Saytda list Excel'dagidek: ustun kengligi, fon / shrift rangi, birlashtirilgan kataklar. Eski qoidalar bilan
         o'qilgan obyekt ochilganda o'zi qayta o'qiladi (dalolatnomalar saqlanadi)."""

@@ -12,7 +12,10 @@ from typing import Dict, List, Optional, Tuple
 
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill
+from openpyxl.styles.cell_style import StyleArray
+from openpyxl.cell.cell import MergedCell
 from openpyxl.utils import column_index_from_string, get_column_letter
+from openpyxl.worksheet.merge import MergedCellRange
 
 from . import services_acts as sa
 from .formula import move_refs
@@ -82,6 +85,23 @@ def _put(dst, src_cell, value):
     dst.value = value
     if src_cell.has_style:
         dst._style = copy(src_cell._style)
+
+
+def _merge(ws, min_row: int, max_row: int, min_col: int, max_col: int):
+    """``ws.merge_cells`` ning tez varianti: openpyxl har birlashtirishda hamma mavjudlari bilan solishtiradi va chegara
+    uslubini qayta quradi (minglab birlashtirishda o'nlab soniya). Bu yerda kataklar uslubi manbadan ko'chirilgan —
+    faqat ro'yxatga qo'shiladi va ichki kataklar MergedCell bo'ladi (uslubi saqlanadi)."""
+    mcr = MergedCellRange(ws, f"{get_column_letter(min_col)}{min_row}:{get_column_letter(max_col)}{max_row}")
+    ws.merged_cells.ranges.add(mcr)
+    for r in range(min_row, max_row + 1):
+        for c in range(min_col, max_col + 1):
+            if r == min_row and c == min_col:
+                continue
+            old = ws._cells.get((r, c))
+            m = MergedCell(ws, row=r, column=c)
+            if old is not None and old.has_style:
+                m._style = copy(old._style)
+            ws._cells[(r, c)] = m
 
 
 def _act_values(b, qty: Dict[int, float]) -> Dict[Tuple[int, int], float]:
@@ -154,8 +174,7 @@ def _write_block(ws, b, start: int, title: str, qty: Dict[int, float], collapsed
     for m in list(ws.merged_cells.ranges):
         if m.min_col - 1 >= lay.qty and m.max_col - 1 <= lay.block_end and m.min_row >= lay.header \
                 and (tail is None or m.max_row <= tail):
-            ws.merge_cells(start_row=m.min_row, end_row=m.max_row, start_column=m.min_col + shift,
-                           end_column=m.max_col + shift)
+            _merge(ws, m.min_row, m.max_row, m.min_col + shift, m.max_col + shift)
 
 
 def _clear_right(ws, col: int):
@@ -187,10 +206,14 @@ def build_report(obj: SiteObject, collapsed=()) -> bytes:
     last = ws.max_row
     for k, (start, (title, qty, act)) in enumerate(zip(starts, blocks)):
         _write_block(ws, b, start, title, qty, (f"a{act.number}" if act else "rest") in collapsed)
-        fill = PatternFill("solid", fgColor=BLOCK_FILLS[k % len(BLOCK_FILLS)] if act else REST_FILL)
+        # rang indeksi bir marta — har katakka ``.fill =`` uslublar ro'yxatini qayta xeshlaydi (sekin)
+        fid = wb._fills.add(PatternFill("solid", fgColor=BLOCK_FILLS[k % len(BLOCK_FILLS)] if act else REST_FILL))
         for r in range(max(1, lay.header - 1), last + 1):
             for c in range(start + 1, start + width + 1):
-                ws.cell(row=r, column=c).fill = fill
+                cell = ws.cell(row=r, column=c)
+                if not cell._style:
+                    cell._style = StyleArray()
+                cell._style.fillId = fid
     _hide_types(ws, lay, [None] + starts)
     wb.active = 0
     return _save(wb)
