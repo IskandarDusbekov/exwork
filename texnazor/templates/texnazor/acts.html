@@ -80,6 +80,7 @@
           <p><b>Клавиатура билан:</b> ишни бир марта босинг (ёки ↓) — сариқ рамка чиқади. ↓ / ↑ — кейинги / олдинги иш, → — шу иш 100% ва кейингисига, ← ёки рақам — миқдор ёзиш (50% ёки 0,8, Enter — кейингисига), ↓↓ (тез икки марта) — пастга ўзи 100% қилиб боради (исталган тугма ёки сичқонча — тўхтайди), Ctrl+Z — орқага, Esc — чиқиш ва белгиланганларни олиш.</p>
           <p><b>Далолатнома:</b> пастки қаторда қайси далолатномага ёзилиши танланади (сариқ ✎), ёнидаги «ёпиш / очиш» ва «+ №…». Клавиатурада: Alt+1…9 ёки Alt+← / → — алмаштириш, Alt+L — ёпиш / очиш, Alt+R — номини ёзиш, Alt+N — янги далолатнома, Alt+Delete — ўчириш. Блок сарлавҳасидаги − / + — далолатномани йиғиш / ёйиш.{% else %}Ҳажм ёзиш учун «Далолатномалар» менюсидан янги далолатнома очинг.{% endif %}{% else %}Лист файлдагидек: ҳеч нарса ўзгартирилмаган.{% endif %}</p>
           <p>Ҳар далолатнома — офёртанинг ўзи, фақат иш ҳажмлари шу далолатномадагиси. Пул файлнинг ўз формулалари билан ҳисобланади.</p>
+          <button type="button" class="tn-ar-b" data-fix-open>Устунлар ва жами қаторни қўлда кўрсатиш</button>
           {% if not has_qty %}<form method="post" action="{% url 'texnazor:change_sheet' o.pk %}">{% csrf_token %}
             <button class="tn-ar-b">Бошқа листни танлаш</button></form>{% endif %}
           <form method="post" action="{% url 'texnazor:delete' o.pk %}">{% csrf_token %}<input type="hidden" name="confirm">
@@ -103,9 +104,37 @@
         {% if w.row %}<button type="button" data-goto="{{ w.row }}">Excel'да {{ w.row }}-қатор — жадвалда кўрсатиш</button>{% endif %}</li>{% endfor %}
     </ul>
     <p class="tn-check-h">Текширув: ҳажм ёзилмаса — 0, ярим ҳажмда — 50%, тўлиқ ҳажмда — файлдаги жами бўлиши керак.
-      Смета тузувчи билан файлни текширинг; қайта юкланса, тизим яна текширади.</p>
+      Кўпинча сабаб — тизим устунларни адаштирган: қуйидаги тугма билан ҳажм, нарх, сумма устунлари ва жами қаторни
+      ўзингиз кўрсатинг. Файлнинг ўзида хато бўлса — смета тузувчи билан текширинг.</p>
+    <p class="tn-check-h"><button type="button" class="tn-lfix-open" data-fix-open>Устунлар ва жами қаторни ўзим кўрсатаман</button></p>
   </details>
+  {% elif fix.manual %}
+  <div class="tn-manual">{% icon "check" "h-4 w-4" %} Устунлар қўлда белгиланган{% if fix.memo %} (шу шаблондаги аввалги файлдан){% endif %} — текширувдан ўтди.
+    <button type="button" data-fix-open>ўзгартириш</button></div>
   {% endif %}
+
+  {# ---- tuzatish oynasi: tizim adashsa — ustunlar va jami qatorni foydalanuvchi ko'rsatadi ---- #}
+  <dialog class="tn-lfix" id="tn-lfix" aria-labelledby="tn-lfix-h">
+    <form method="post" action="{% url 'texnazor:layout_save' o.pk %}" id="tn-lfix-form">{% csrf_token %}
+      <h2 id="tn-lfix-h">Устунлар ва жами қатор</h2>
+      <p class="tn-lfix-sub">Тизим топганлари танланган. Нотўғрисини ўзгартиринг ва «Текшириш»ни босинг: ҳажм ёзилмаса 0, ярим ҳажмда
+        50%, тўлиқ ҳажмда файлдаги жами чиқса — тўғри. Сақлангач, шу шаблондаги кейинги файлларга ҳам ўзи қўлланади.</p>
+      {% for f in fix.fields %}
+      <label class="tn-lfix-row"><span><b>{{ f.title }}</b><em>{{ f.hint }}</em></span>
+        <select name="{{ f.key }}">{% for c in fix.cols %}<option value="{{ c.i }}" {% if c.i == f.cur %}selected{% endif %}>{{ c.letter }}{% if c.label %} · {{ c.label }}{% endif %}</option>{% endfor %}</select></label>
+      {% endfor %}
+      <label class="tn-lfix-row"><span><b>Жами сумма қатори</b><em>Excel'даги қатор рақами («ВСЕГО с НДС»); бўш — тизим ўзи топади</em></span>
+        <input name="final" inputmode="numeric" class="num" value="{% if fix.final %}{{ fix.final }}{% endif %}" placeholder="автоматик"></label>
+      <div class="tn-lfix-res" id="tn-lfix-res" aria-live="polite"></div>
+      <div class="tn-lfix-btns">
+        {% if fix.manual %}<button type="submit" name="reset" value="1" class="tn-lfix-b tn-lfix-ghost" formnovalidate>Автоматикка қайтариш</button>{% endif %}
+        <span class="ml-auto"></span>
+        <button type="button" class="tn-lfix-b tn-lfix-ghost" data-fix-close>Бекор</button>
+        <button type="button" class="tn-lfix-b" id="tn-lfix-test">Текшириш</button>
+        <button type="submit" class="tn-lfix-b tn-lfix-main">Сақлаш ва қайта ўқиш</button>
+      </div>
+    </form>
+  </dialog>
 
   {# ---- o'rtada: faqat jadval suriladi ---- #}
   <div class="tn-sheet" id="tn-sheet"><p class="px-5 py-12 text-center text-slate-500">Офёрта юкланяпти…</p></div>
@@ -201,6 +230,27 @@
   .tn-sheet-wrap .tn-view .tn-v-act em { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-weight: 500; }
   .tn-sheet-wrap .tn-view button[aria-pressed="true"] { background: #fff; color: var(--tn-brand-d); box-shadow: 0 1px 2px rgba(15, 23, 42, .12); }
   .tn-sheet { flex: 1; min-height: 0; overflow: auto; background: #fff; }
+  .tn-lfix-open { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; background: #be123c; color: #fff; font-weight: 600; }
+  .tn-lfix-open:hover { background: #9f1239; }
+  .tn-manual { flex: none; display: flex; align-items: center; gap: 6px; padding: 6px 16px; border-bottom: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; font-size: 13px; }
+  .tn-manual button { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+  .tn-lfix { width: min(620px, calc(100vw - 32px)); margin: auto; padding: 0; border: 0; border-radius: 14px; box-shadow: 0 20px 50px rgba(15, 23, 42, .25); color: #0f172a; }
+  .tn-lfix::backdrop { background: rgba(15, 23, 42, .45); }
+  .tn-lfix form { display: grid; gap: 10px; padding: 20px; }
+  .tn-lfix h2 { font-size: 18px; font-weight: 700; }
+  .tn-lfix-sub { font-size: 13px; color: #475569; }
+  .tn-lfix-row { display: grid; grid-template-columns: 1fr minmax(0, 260px); align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid #eef1f6; font-size: 14px; }
+  .tn-lfix-row em { display: block; font-style: normal; font-size: 12px; color: #64748b; }
+  .tn-lfix-row select, .tn-lfix-row input { width: 100%; height: 36px; padding: 0 8px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; font-size: 14px; }
+  .tn-lfix-res:empty { display: none; }
+  .tn-lfix-res { padding: 10px 12px; border-radius: 10px; font-size: 13.5px; }
+  .tn-lfix-res.is-ok { background: #f0fdf4; color: #166534; }
+  .tn-lfix-res.is-bad { background: #fff1f2; color: #9f1239; }
+  .tn-lfix-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 6px; }
+  .tn-lfix-b { height: 38px; padding: 0 14px; border-radius: 9px; border: 1px solid #cbd5e1; background: #fff; font-weight: 600; font-size: 14px; }
+  .tn-lfix-ghost { border-color: transparent; color: #475569; }
+  .tn-lfix-main { border-color: #1d4ed8; background: #1d4ed8; color: #fff; }
+  @media (max-width: 560px) { .tn-lfix-row { grid-template-columns: 1fr; gap: 6px; } }
   .tn-check { flex: none; border-bottom: 1px solid #fecdd3; background: #fff1f2; color: #881337; font-size: 13.5px; }
   .tn-check summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 16px; cursor: var(--cur-hand, pointer); list-style: none; }
   .tn-check summary::-webkit-details-marker { display: none; }
@@ -1519,6 +1569,30 @@
   fit();
   window.addEventListener("resize", fit);
   document.getElementById("tn-goto").addEventListener("keydown", function (e) { if (e.key === "Enter" && D) { e.preventDefault(); goto(+this.value); } });
+  (function () {  // tuzatish oynasi
+    var dlg = document.getElementById("tn-lfix");
+    if (!dlg) return;
+    var res = document.getElementById("tn-lfix-res"), form = document.getElementById("tn-lfix-form");
+    var fmt = function (v) { return v == null ? "—" : Math.round(v).toLocaleString("ru-RU"); };
+    document.querySelectorAll("[data-fix-open]").forEach(function (b) {
+      b.addEventListener("click", function () { var dd = b.closest("details.tn-dd"); if (dd) dd.open = false; res.textContent = ""; res.className = "tn-lfix-res"; dlg.showModal(); });
+    });
+    dlg.querySelector("[data-fix-close]").addEventListener("click", function () { dlg.close(); });
+    form.addEventListener("change", function () { res.textContent = ""; });
+    document.getElementById("tn-lfix-test").addEventListener("click", function () {
+      res.className = "tn-lfix-res"; res.textContent = "Текширилмоқда…";
+      var body = new FormData(form); body.delete("reset");
+      fetch("{% url 'texnazor:layout_check' o.pk %}", {method: "POST", credentials: "same-origin", body: body})
+        .then(function (r) { return r.json(); }).then(function (d) {
+          if (d.error) { res.className = "tn-lfix-res is-bad"; res.textContent = d.error; return; }
+          res.className = "tn-lfix-res " + (d.ok ? "is-ok" : "is-bad");
+          res.innerHTML = (d.ok ? "<b>✓ Тўғри:</b> " : "<b>✗ Ҳали тўғри эмас:</b> ") +
+            "тўлиқ ҳажмда " + fmt(d.full) + " (файлда " + fmt(d.file) + "), ярим ҳажмда " + (d.half == null ? "—" : d.half.toFixed(1) + "%") +
+            ", бўш далолатномада " + fmt(d.empty) + "." +
+            (d.fails.length ? "<br>" + d.fails.map(function (t) { return "· " + t.replace(/</g, "&lt;"); }).join("<br>") : "");
+        }).catch(function () { res.className = "tn-lfix-res is-bad"; res.textContent = "Текшириб бўлмади — қайта уриниб кўринг"; });
+    });
+  })();
   document.querySelectorAll("[data-goto]").forEach(function (b) { b.addEventListener("click", function () { if (D) goto(+b.dataset.goto); }); });
   load();
 })();

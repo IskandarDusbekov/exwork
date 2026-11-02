@@ -11,6 +11,7 @@ Dalolatnoma (№1, №2 …) — xuddi shu list, faqat ish hajmlari dalolatnomad
 (F) ish hajmiga mutanosib, qolgan hamma katak (summa, turlar, svodka foizlari, QQS) — **faylning o'z formulasi**
 bilan qayta hisoblanadi (``formula``). «Хисобот»dagi №1 / №2 / Остатка bloklari shu.
 """
+import hashlib
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -78,9 +79,29 @@ class Layout:
     amount: int = 7
     width: int = 12        # listdagi ustunlar soni
     block_end: int = 11    # dalolatnoma bloki: qty .. block_end (fayldagi «Хисобот»dagidek)
+    final: int = 0         # jami summa qatori (1 dan) — foydalanuvchi ko'rsatgan; 0 — avtomatik («ИТОГО … НДС»)
 
     def as_dict(self) -> dict:
         return dict(self.__dict__)
+
+
+# foydalanuvchi tuzatish oynasida ko'rsatadigan maydonlar (tizim adashganda): hajm, jami, narx, summa ustunlari va jami qator
+MANUAL_KEYS = ("qty", "total", "price", "amount", "final")
+
+
+def _apply_manual(lay: Layout, manual: Optional[dict]):
+    for k in MANUAL_KEYS:
+        v = (manual or {}).get(k)
+        if isinstance(v, int) and not isinstance(v, bool) and v >= 0:
+            setattr(lay, k, v)
+
+
+def signature(rows: List[tuple], lay: Layout) -> str:
+    """Jadval «shabloni»: sarlavha qatorlari matni ustun joylari bilan. Bir dastur / bir tashkilot fayllari bir xil —
+    bir marta ko'rsatilgan ustunlar keyingi shunday faylga o'zi qo'llanadi."""
+    text = "\n".join("|".join(_low(v) for v in rows[i][:MAX_COLS]).rstrip("|")
+                     for i in range(lay.header - 1, min(lay.header_end, len(rows))))
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()
 
 
 def _is_header(row) -> bool:
@@ -394,10 +415,14 @@ class Grid:
     rows: List[dict] = field(default_factory=list)  # {"row", "kind", "num", "parent", "vals", "fmls"}
     warnings: List[dict] = field(default_factory=list)
     title: str = ""
+    signature: str = ""
+    manual: Optional[dict] = None  # qo'llangan qo'lda belgilash (foydalanuvchiniki yoki eslab qolingan shablon)
 
 
-def read(path: Path, sheet: str, progress: Callable[[int, int], None] = None) -> Grid:
-    """Listni ikki marta o'qiydi: qiymatlar (Excel saqlagan) va formulalar. Hech narsa o'zgartirilmaydi."""
+def read(path: Path, sheet: str, progress: Callable[[int, int], None] = None, manual: Optional[dict] = None,
+         memo: Callable[[str], Optional[dict]] = None) -> Grid:
+    """Listni ikki marta o'qiydi: qiymatlar (Excel saqlagan) va formulalar. Hech narsa o'zgartirilmaydi.
+    manual — foydalanuvchi ko'rsatgan ustunlar / jami qator (``MANUAL_KEYS``); berilmasa — ``memo(shablon)`` dan."""
     wb = load_workbook(path, read_only=True, data_only=True, keep_links=False)
     try:
         if sheet not in wb.sheetnames:
@@ -421,8 +446,13 @@ def read(path: Path, sheet: str, progress: Callable[[int, int], None] = None) ->
     lay = find_layout(values)
     if lay is None:
         raise SheetError("Бу листда офёрта жадвали топилмади: «Наименование работ…» сарлавҳали қатор йўқ")
+    sig = signature(values, lay)
+    if manual is None and memo:
+        manual = memo(sig)
+    _apply_manual(lay, manual)
     kinds, last_item = _classify(values, lay, formulas)
     _money_cols(values, formulas, kinds, lay)
+    _apply_manual(lay, manual)  # foydalanuvchi ko'rsatgani — formulalardan topilgandan ustun
     if not last_item:
         raise SheetError("Листда иш қатори топилмади (А устунида 1, 2, 3 … ва 1.1, 1.2 … рақамлар, ёнида номи)")
     # bo'sh oxirgi qatorlar va ustunlar
@@ -435,7 +465,7 @@ def read(path: Path, sheet: str, progress: Callable[[int, int], None] = None) ->
                  for j, v in enumerate(r) if v is not None] + \
                 [j for i in range(1, len(values) + 1) if kinds[i][0] in ("work", "free", "res") for j in formulas[i - 1]]
     lay.block_end = max([lay.amount, lay.total] + item_cols)
-    grid = Grid(sheet=sheet, layout=lay)
+    grid = Grid(sheet=sheet, layout=lay, signature=sig, manual=manual or None)
     for i, r in enumerate(values, start=1):
         k = kinds[i]
         vals = list(r[:lay.width]) + [None] * (lay.width - len(r))
@@ -547,6 +577,29 @@ def _check(grid: Grid):
                               "text": f"{len(manual)} та формулада ҳисобга қўлда сон қўшилган ёки айрилган (масалан "
                                       f"{manual[0][0]}-қатор: {manual[0][1][:60]}). Тизим уни файлдагидек қолдиради, шунинг учун бу сон "
                                       "ҳар бир далолатномага тушади. Смета тузувчи билан аниқлаштиринг."})
+    # resurs jami boshqa qatordagi hajmga ko'paytirilgan («=E4880*$E$149» — formula ko'chirilganda $ qotib qolgan):
+    # bu pul o'z ishining hajmiga bog'lanmagan, faylning jamisi ham shu qism bo'yicha noto'g'ri bo'lishi mumkin
+    from .formula import col_letter
+    foreign: Dict[int, set] = {}
+    for r in grid.rows:
+        f = r["fmls"].get(lay.total) if r["kind"] == "res" else None
+        if not f or "!" in f:
+            continue
+        for c, rr in refs(f):
+            if c == lay.qty and rr not in (r["row"], r["parent"]):
+                foreign.setdefault(r["parent"], set()).add(rr)
+    if foreign:
+        by_row = {r["row"]: r for r in grid.rows}
+        top, src = next(iter(foreign.items()))
+        n_res = sum(1 for r in grid.rows if r["kind"] == "res" and r["parent"] in foreign)
+        q = lambda row: _text(by_row[row]["vals"][lay.qty]).replace(".", ",") if row in by_row and lay.qty < len(by_row[row]["vals"]) else "?"  # noqa: E731
+        E = col_letter(lay.qty)
+        grid.warnings.append({"row": top, "title": "Ресурслар бошқа қатордаги ҳажмга кўпайтирилган",
+                              "text": f"{by_row[top]['num'] if top in by_row else top}-иш ({top}-қатор, ҳажми {q(top)}) ресурсларининг "
+                                      f"жами ўз иши ҳажмига эмас, {', '.join(f'{E}{s} ({q(s)})' for s in sorted(src)[:3])} га "
+                                      f"кўпайтирилган — формула кўчирилганда «$» қотиб қолган бўлиши мумкин. Бу пул далолатномада "
+                                      f"иш ҳажмига мутаносиб ўзгармайди, файлдаги жами ҳам шу қисм бўйича нотўғри бўлиши мумкин. "
+                                      f"Жами {len(foreign)} та ишда, {n_res} та ресурс. Смета тузувчи формулани тузатсин."})
     other = sorted({r["row"] for r in grid.rows for f in r["fmls"].values() if "!" in f})
     if other:
         grid.warnings.append({"row": other[0], "title": "Бошқа листга ҳавола қилувчи формулалар бор",
@@ -680,6 +733,9 @@ class Book:
         if hasattr(self, "_final"):
             return self._final
         lay, best = self.lay, None
+        if lay.final and lay.final in self.by_row:
+            self._final = (lay.amount, lay.final)
+            return self._final
         for r in self.svod_rows:
             if not ((lay.amount, r) in self.formulas or _num(self.values.get((lay.amount, r))) is not None):
                 continue

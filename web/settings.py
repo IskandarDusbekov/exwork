@@ -93,7 +93,11 @@ else:
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
-            "OPTIONS": {"timeout": 30},  # papka fonda narxlanayotganda sahifa so'rovlari kutib turadi
+            # timeout — papka fonda narxlanayotganda sahifa so'rovlari kutib turadi. IMMEDIATE — tranzaksiya yozish
+            # qulfini boshida oladi: aks holda «o'qib-keyin-yozish» (update_or_create) parallel so'rovlarda kutmasdan
+            # «database is locked» beradi. WAL — o'qish yozishni to'smaydi.
+            "OPTIONS": {"timeout": 30, "transaction_mode": "IMMEDIATE",
+                        "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;"},
         }
     }
 

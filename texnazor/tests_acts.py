@@ -176,6 +176,35 @@ class ActsFlowTests(TestCase):
         self.assertAlmostEqual(t["contract"], expected_total(), places=4)
         self.assertEqual(t["done"], 0)
 
+    def test_manual_columns_check_save_and_memo(self):
+        b = self.ready()
+        lay = b.lay
+        url = reverse("texnazor:object", args=[self.obj.pk])
+        self.assertContains(self.client.get(url), "Устунлар ва жами қаторни қўлда кўрсатиш")
+        good = {"qty": lay.qty, "total": lay.total, "price": lay.price, "amount": lay.amount}
+        # noto'g'ri: narx ustuni summa deb ko'rsatildi — sinov yiqiladi, to'g'risi — o'tadi
+        r = self.client.post(reverse("texnazor:layout_check", args=[self.obj.pk]), dict(good, amount=lay.price))
+        self.assertFalse(r.json()["ok"])
+        r = self.client.post(reverse("texnazor:layout_check", args=[self.obj.pk]), good)
+        self.assertTrue(r.json()["ok"], r.json())
+        self.assertEqual(self.client.post(reverse("texnazor:layout_check", args=[self.obj.pk]), {"final": "99999"}).status_code, 400)
+        # saqlash: qayta o'qiladi, qo'lda belgilangani qoladi va shablon eslab qolinadi
+        with patch("texnazor.tasks.start", lambda pk: tasks.run_now(pk)):
+            self.client.post(reverse("texnazor:layout_save", args=[self.obj.pk]), good)
+        self.obj.refresh_from_db()
+        self.assertEqual(self.obj.status, SiteObject.Status.READY, self.obj.error)
+        self.assertEqual(self.obj.layout["manual"], good)
+        self.assertTrue(self.obj.layout["check"]["ok"])
+        from .models import LayoutMemo
+        self.assertEqual(LayoutMemo.objects.get(owner=self.user).mapping, good)
+        self.assertContains(self.client.get(url), "Устунлар қўлда белгиланган")
+        # avtomatikka qaytarish — shablon ham unutiladi
+        with patch("texnazor.tasks.start", lambda pk: tasks.run_now(pk)):
+            self.client.post(reverse("texnazor:layout_save", args=[self.obj.pk]), {"reset": "1"})
+        self.obj.refresh_from_db()
+        self.assertIsNone(self.obj.layout["manual"])
+        self.assertFalse(LayoutMemo.objects.exists())
+
     def test_acts_rest_limit_and_page(self):
         b = self.ready()
         w1, w2 = [r["row"] for r in b.rows if r["kind"] == "work"]
@@ -381,3 +410,18 @@ class ReaderRobustnessTests(TestCase):
         _fix_cache(grid)
         self.assertEqual(grid.rows[1]["vals"][7], 50.0)
         self.assertEqual(grid.warnings[0]["title"], "Файлда хато қийматлар бор эди")
+
+    def test_resource_tied_to_foreign_row_is_warned(self):
+        from .sheet import Grid, Layout, _check
+        lay = Layout(header=1, header_end=1, num=0, name=2, unit=3, qty=4, total=5, price=6, amount=7, width=8, block_end=7)
+        grid = Grid(sheet="S", layout=lay, rows=[
+            {"row": 2, "kind": "work", "num": "24", "parent": None, "vals": ["24", "", "Иш", "м2", 3], "fmls": {}},
+            {"row": 3, "kind": "res", "num": "24.1", "parent": 2, "vals": ["24.1", "3", "Машинист", "чел-ч", 0.84], "fmls": {}},
+            {"row": 4, "kind": "work", "num": "51", "parent": None, "vals": ["51", "", "Иш", "шт", 0.04], "fmls": {}},
+            {"row": 5, "kind": "res", "num": "51.1", "parent": 4, "vals": ["51.1", "1", "Ишчи", "чел-ч", 75.15, 63.1],
+             "fmls": {5: "=E5*$E$3"}},  # «$» qotib qolgan — boshqa ishning resursiga
+        ])
+        _check(grid)
+        w = [w for w in grid.warnings if w["title"] == "Ресурслар бошқа қатордаги ҳажмга кўпайтирилган"]
+        self.assertEqual(w[0]["row"], 4)
+        self.assertIn("E3 (0,84)", w[0]["text"])

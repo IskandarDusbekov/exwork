@@ -16,8 +16,8 @@ from django.db.models import Max
 from core import convert
 from core.convert import check_xlsx
 
-from .models import Act, ActQty, Done, RawRow, SiteObject
-from .sheet import READER, Book, SheetError, list_sheets, read
+from .models import Act, ActQty, Done, LayoutMemo, RawRow, SiteObject
+from .sheet import MANUAL_KEYS, READER, Book, SheetError, list_sheets, read
 from .sheetstyle import VERSION as STYLE_VERSION, read_style
 from .services import TexnazorError
 
@@ -58,7 +58,15 @@ def prepare(obj: SiteObject, progress=None):
 
 def import_raw(obj: SiteObject, xlsx, progress=None):
     _step(obj, "Офёрта ўқилмоқда", beat=progress)
-    grid = read(xlsx, obj.sheet, progress=lambda d, t: _step(obj, "Офёрта ўқилмоқда", d, t, progress))
+    manual = (obj.layout or {}).get("manual")  # foydalanuvchi tuzatish oynasida ko'rsatgani (qayta o'qishda saqlanadi)
+    memo_used = []
+
+    def memo(sig):
+        m = LayoutMemo.objects.filter(owner=obj.owner_id, signature=sig).values_list("mapping", flat=True).first()
+        memo_used.append(bool(m))
+        return m
+    grid = read(xlsx, obj.sheet, progress=lambda d, t: _step(obj, "Офёрта ўқилмоқда", d, t, progress),
+                manual=manual, memo=memo)
     _step(obj, "Кўриниши (ранглар, кенгликлар) ўқилмоқда", beat=progress)
     look = read_style(xlsx, obj.sheet, max(grid.layout.width, grid.layout.block_end + 1), len(grid.rows))
     _step(obj, "Базага ёзилмоқда", 0, len(grid.rows), progress)
@@ -71,7 +79,8 @@ def import_raw(obj: SiteObject, xlsx, progress=None):
         bk = Book(grid.layout.as_dict(), grid.rows)
         _step(obj, "Ҳисоб текширилмоқда", beat=progress)
         check = bk.self_check()  # bo'sh ≈ 0, yarim ≈ 50%, to'liq ≈ fayldagi jami
-        obj.layout = dict(grid.layout.as_dict(), stamp=time.time(), reader=READER,
+        obj.layout = dict(grid.layout.as_dict(), stamp=time.time(), reader=READER, signature=grid.signature,
+                          manual=grid.manual, memo=any(memo_used),
                           check={k: v for k, v in check.items() if k != "fails"} | {"fails": check["fails"]})
         obj.warnings = [dict(w, level="error") for w in check["fails"]] + grid.warnings + bk.total_mismatch() + bk.fixed_money()
         if obj.mode != SiteObject.Mode.ACTS or (not old_acts and obj.periods.exists()):
@@ -155,7 +164,7 @@ def _from_months(obj: SiteObject, grid) -> List[dict]:
 
 
 # ===================== hisob =====================
-LAYOUT_META = ("stamp", "reader", "check")  # ``obj.layout`` dagi ``Layout`` maydoni bo'lmaganlar
+LAYOUT_META = ("stamp", "reader", "check", "signature", "manual", "memo")  # ``obj.layout`` dagi ``Layout`` maydoni bo'lmaganlar
 _books: Dict[str, tuple] = {}
 _lock = threading.Lock()
 
@@ -359,3 +368,65 @@ def change_set(obj: SiteObject, act: Act, row: int) -> dict:
     return {"act": act.number, "rows": rows, "v": b.block(ev, act_rows(b, q, rows)), "rest": b.block(rest, rest_rows(b, rq, rows)),
             "qty": per.get(act.pk, {}).get(row, 0.0), "sum": _final(b, ev), "rest_sum": _final(b, rest),
             "done": {row: sum(q.get(row, 0.0) for q in per.values())}}
+
+
+# ===================== tuzatish oynasi: ustunlar va jami qatorni foydalanuvchi ko'rsatadi =====================
+def columns(obj: SiteObject) -> List[dict]:
+    """Tanlash uchun ustunlar: harfi va sarlavhadagi matni («E · Количество / на ед. измерения»)."""
+    from .formula import col_letter
+    b = book(obj)
+    lay = b.lay
+    heads = [r["vals"] for r in b.rows if lay.header <= r["row"] <= lay.header_end]
+    out = []
+    for j in range(max(lay.width, lay.block_end + 1)):
+        words = [" ".join(str(v[j]).split()) for v in heads if j < len(v) and v[j] not in (None, "")]
+        out.append({"i": j, "letter": col_letter(j), "label": " / ".join(dict.fromkeys(words))[:60]})
+    return out
+
+
+def parse_manual(data, obj: SiteObject) -> dict:
+    """Formadan: ustun indekslari (0 dan) va jami qator; noto'g'risi — ``TexnazorError``."""
+    b = book(obj)
+    width = max(b.lay.width, b.lay.block_end + 1)
+    out = {}
+    for k in MANUAL_KEYS:
+        raw = str(data.get(k, "")).strip()
+        if raw == "":
+            continue
+        try:
+            v = int(raw)
+        except ValueError:
+            raise TexnazorError("Устун ёки қатор нотўғри")
+        if k == "final":
+            if v and v not in b.by_row:
+                raise TexnazorError(f"{v}-қатор листда йўқ")
+            if v:
+                out[k] = v
+        elif 0 <= v < width:
+            out[k] = v
+        else:
+            raise TexnazorError("Устун нотўғри")
+    if "qty" in out and "amount" in out and out["qty"] == out["amount"]:
+        raise TexnazorError("Ҳажм ва сумма бир устун бўлолмайди")
+    return out
+
+
+def preview_check(obj: SiteObject, manual: dict) -> dict:
+    """Saqlamasdan sinab ko'rish: saqlangan qatorlar ustida shu ustunlar bilan o'z-o'zini tekshirish (tez, taxminiy —
+    saqlangach fayl to'liq qayta o'qiladi)."""
+    b = book(obj)
+    lay = dict(b.lay.as_dict(), final=0) | manual
+    return Book(lay, b.rows).self_check()
+
+
+def set_manual(obj: SiteObject, manual: dict):
+    """Saqlash: shu obyekt qayta o'qiladi (hajmlar saqlanadi) va shablon eslab qolinadi (keyingi shunday faylga)."""
+    sig = (obj.layout or {}).get("signature")
+    obj.layout = dict(obj.layout or {}, manual=manual or None)
+    obj.save(update_fields=["layout"])
+    if sig:
+        if manual:
+            LayoutMemo.objects.update_or_create(owner=obj.owner, signature=sig, defaults={"mapping": manual})
+        else:
+            LayoutMemo.objects.filter(owner=obj.owner, signature=sig).delete()
+    reread(obj)

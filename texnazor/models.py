@@ -268,3 +268,15 @@ class ActQty(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["act", "row"], name="tn_actqty_unique")]
+
+
+class LayoutMemo(models.Model):
+    """Foydalanuvchi tuzatish oynasida ko'rsatgan ustunlar / jami qator — shu sarlavhali («shablon», ``sheet.signature``)
+    keyingi ofyortaga o'zi qo'llanadi (bir dastur / bir tashkilot fayllari bir xil tuzilishda)."""
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    signature = models.CharField(max_length=40)
+    mapping = models.JSONField(default=dict)  # {"qty", "total", "price", "amount", "final"} — ustun indekslari (0 dan)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["owner", "signature"], name="tn_layoutmemo_unique")]

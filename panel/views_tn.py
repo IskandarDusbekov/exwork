@@ -18,6 +18,7 @@ from .models import Event
 from .views import _ctx, staff_required, superuser_required
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+UNREAD = "unread"  # filtr: o'qildi, lekin o'z-o'zini tekshirishdan o'tmadi
 
 
 def _tn_events():
@@ -55,7 +56,10 @@ def object_rows(qs) -> list:
         rows.append({"o": o, **_progress(o), "months": months.get(o.pk, {}).get("n", 0),
                      "closed": months.get(o.pk, {}).get("closed", 0), "done_rows": d.get("n", 0),
                      "done_week": d.get("week", 0), "fixes": fixes.get(o.pk, 0), "active": last,
-                     "warnings": len(o.warnings or [])})
+                     "warnings": len(o.warnings or []),
+                     # o'z-o'zini tekshirish o'tmagan — tizim ofyortani tushunmagan (summalar noto'g'ri bo'lishi mumkin)
+                     "fails": [w.get("title", "") for w in ((o.layout or {}).get("check") or {}).get("fails", [])]
+                     if ((o.layout or {}).get("check") or {}).get("ok") is False else []})
     return rows
 
 
@@ -69,16 +73,19 @@ def texnazor(request):
                        | Q(owner__last_name__icontains=q) | Q(contractor__icontains=q) | Q(customer__icontains=q))
     if status in SiteObject.Status.values:
         qs = qs.filter(status=status)
+    elif status == UNREAD:
+        qs = qs.filter(status=SiteObject.Status.READY, layout__check__ok=False)
     page = Paginator(qs, 30).get_page(request.GET.get("page"))
     now = timezone.now()
     day, week = now - timedelta(days=1), now - timedelta(days=7)
     all_objs = SiteObject.objects.all()
     return render(request, "panel/texnazor.html", _ctx(
         request, "texnazor", page=page, rows=object_rows(SiteObject.objects.filter(pk__in=[o.pk for o in page]).order_by("-created")),
-        q=q, status=status, statuses=SiteObject.Status.choices,
+        q=q, status=status, statuses=SiteObject.Status.choices + [(UNREAD, "Тизим тушунмади")],
         c={"objects": all_objs.count(), "ready": all_objs.filter(status=SiteObject.Status.READY).count(),
            "parsing": all_objs.filter(status=SiteObject.Status.PARSING).count(),
            "failed": all_objs.filter(status=SiteObject.Status.FAILED).count(),
+           "unread": all_objs.filter(status=SiteObject.Status.READY, layout__check__ok=False).count(),
            "users": all_objs.values("owner").distinct().count(),
            "months": Period.objects.count(), "open_months": Period.objects.filter(closed=False).count(),
            "done_day": Done.objects.filter(updated__gte=day).count(), "done_week": Done.objects.filter(updated__gte=week).count(),

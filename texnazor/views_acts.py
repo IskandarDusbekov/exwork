@@ -76,9 +76,49 @@ def detail(request, o: SiteObject):
         "nav": "texnazor", "o": o, "acts": acts, "totals": t, "view": view, "blk": view != "ofyorta" and bool(acts),
         "has_qty": has_qty,
         "warnings": [w for w in (o.warnings or []) if w.get("level") != "error"], "check": (o.layout or {}).get("check"),
+        "fix": _fix_ctx(o),
         "today": dt.date.today(),
         "info": services.f3_settings(o), "info_missing": services.f3_missing(o),
         "active": next((a for a in reversed(acts) if not a.closed), None)})
+
+
+def _fix_ctx(o: SiteObject) -> dict:
+    """Tuzatish oynasi: ustunlar ro'yxati, hozirgi tanlov (tizim topgani yoki qo'lda ko'rsatilgan)."""
+    lay = o.layout or {}
+    fields = [("qty", "Ҳажм (иш миқдори)", "иш қаторидаги сон: 0,08 / 12"),
+              ("total", "Ресурс жами («по проектным данным»)", "ҳажм устуни ўзи бўлса — шуни танланг"),
+              ("price", "Нарх (бир бирлик)", "сўм / бирлик"),
+              ("amount", "Сумма (ҳажм × нарх)", "иш / ресурс қаторининг пули")]
+    return {"cols": sa.columns(o), "fields": [{"key": k, "title": t, "hint": h, "cur": lay.get(k, 0)} for k, t, h in fields],
+            "final": lay.get("final", 0), "manual": lay.get("manual"), "memo": lay.get("memo")}
+
+
+@require_POST
+def layout_check(request, obj_id):
+    """Saqlamasdan sinash: shu ustunlar bilan bo'sh / yarim / to'liq hajm sinovi (JSON)."""
+    o = _obj(request, obj_id)
+    try:
+        manual = sa.parse_manual(request.POST, o)
+    except TexnazorError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    c = sa.preview_check(o, manual)
+    return JsonResponse({"ok": c["ok"], "full": c["full"], "empty": c["empty"], "file": c["file"],
+                         "half": 100 * c["half"] / c["full"] if c["full"] else None,
+                         "fails": [w["title"] for w in c["fails"]]})
+
+
+@require_POST
+def layout_save(request, obj_id):
+    """Ustunlarni saqlash (yoki «avtomatikka qaytarish»): fayl qayta o'qiladi, hajmlar saqlanadi, shablon eslab qolinadi."""
+    o = _obj(request, obj_id)
+    try:
+        manual = {} if request.POST.get("reset") else sa.parse_manual(request.POST, o)
+    except TexnazorError as e:
+        messages.error(request, str(e))
+        return _to(o)
+    sa.set_manual(o, manual)
+    audit(request, o, "устунлар қўлда белгиланди" if manual else "устунлар автоматик аниқлашга қайтарилди")
+    return _to(o)
 
 
 def data(request, obj_id):
