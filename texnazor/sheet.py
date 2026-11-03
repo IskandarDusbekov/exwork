@@ -24,7 +24,7 @@ from .formula import Err, Evaluator, compile_formula, deps, refs
 NUM = re.compile(r"^\s*(\d+)(?:\s*[.,]\s*(\d+))?\s*$")  # «3. 1» (bo'shliq bilan) ham
 MAX_COLS = 80  # undan o'ngdagi ustunlar (tasodifiy yozuvlar) olinmaydi
 PREVIEW = 12
-READER = 6  # o'qish qoidalari o'zgarsa oshiriladi — eski obyektlar o'zi qayta o'qiladi
+READER = 8  # o'qish qoidalari o'zgarsa oshiriladi — eski obyektlar o'zi qayta o'qiladi
 
 
 class SheetError(Exception):
@@ -80,20 +80,72 @@ class Layout:
     width: int = 12        # listdagi ustunlar soni
     block_end: int = 11    # dalolatnoma bloki: qty .. block_end (fayldagi «Хисобот»dagidek)
     final: int = 0         # jami summa qatori (1 dan) — foydalanuvchi ko'rsatgan; 0 — avtomatik («ИТОГО … НДС»)
+    start: int = 0         # birinchi ish qatori (1 dan) — foydalanuvchi belgilagan; 0 — sarlavhadan keyin
+    end: int = 0           # oxirgi ish qatori (1 dan) — undan keyingisi svodka; 0 — avtomatik
+    hide: list = field(default_factory=list)  # [[dan, gacha], …] — foydalanuvchi «keraksiz» deb yig'gan qatorlar (1 dan)
+    svod: list = field(default_factory=list)  # [[dan, gacha], …] — foydalanuvchi «сводка» degan qatorlar (bo'lim jamlari)
+    hide_cols: list = field(default_factory=list)  # [ustun (0 dan), …] — saytda va Excel'da yig'ilgan ustunlar (faqat ko'rinish)
+    # foydalanuvchi tasdiqlagan: boshqa qatordagi hajmga ko'paytirilgan resurs jami («=E4880*$E$149») — ofyortada
+    # fayldagi son, dalolatnomada o'z ishi hajmiga mutanosib (formula o'rniga)
+    prop_res: bool = False
+    # foydalanuvchi tasdiqlagan: o'sha resurslar formulasi tuzatiladi («=E4880*$E$149» → «=E4880*E4879») — ofyorta
+    # jami ham o'zgaradi (taklifda oldindan ko'rsatiladi); Excel hisobotga ham tuzatilgan formula yoziladi
+    relink: bool = False
 
     def as_dict(self) -> dict:
         return dict(self.__dict__)
 
 
-# foydalanuvchi tuzatish oynasida ko'rsatadigan maydonlar (tizim adashganda): hajm, jami, narx, summa ustunlari va jami qator
-MANUAL_KEYS = ("qty", "total", "price", "amount", "final")
+# foydalanuvchi ko'rsatadigan ustunlar (tizim adashganda yoki sarlavhani topa olmaganda) — shablon bo'yicha eslab qolinadi
+COL_KEYS = ("num", "name", "unit", "qty", "total", "price", "amount")
+# qatorlar — faqat shu faylga tegishli (boshqa faylga ko'chirilmaydi)
+ROW_KEYS = ("header", "header_end", "start", "end", "final")
+MANUAL_KEYS = COL_KEYS + ROW_KEYS
 
 
 def _apply_manual(lay: Layout, manual: Optional[dict]):
     for k in MANUAL_KEYS:
         v = (manual or {}).get(k)
-        if isinstance(v, int) and not isinstance(v, bool) and v >= 0:
+        if isinstance(v, int) and not isinstance(v, bool) and v >= (1 if k in ("header", "header_end") else 0):
             setattr(lay, k, v)
+    lay.header_end = max(lay.header_end, lay.header)
+    lay.hide = hide_ranges((manual or {}).get("hide"), lay.header_end) or lay.hide
+    lay.svod = hide_ranges((manual or {}).get("svod"), lay.header_end) or lay.svod
+    for k in ("prop_res", "relink"):
+        if isinstance((manual or {}).get(k), bool):
+            setattr(lay, k, manual[k])
+    cols = (manual or {}).get("hide_cols")
+    if isinstance(cols, list):
+        lay.hide_cols = sorted({c for c in cols if isinstance(c, int) and not isinstance(c, bool) and c >= 0})
+
+
+def hide_ranges(raw, after: int = 0) -> list:
+    """Yig'ilgan qatorlar: [[dan, gacha], …] tartiblangan, ustma-ust tushganlari birlashtirilgan; sarlavha yig'ilmaydi."""
+    out = []
+    for x in raw or ():
+        try:
+            a, b = int(x[0]), int(x[1])
+        except (TypeError, ValueError, IndexError):
+            continue
+        a, b = max(min(a, b), after + 1), max(a, b)
+        if a <= b:
+            out.append([a, b])
+    out.sort()
+    merged = []
+    for a, b in out:
+        if merged and a <= merged[-1][1] + 1:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    return merged
+
+
+def hidden_set(lay: Layout) -> set:
+    return {r for a, b in (lay.hide or ()) for r in range(a, b + 1)}
+
+
+def svod_set(lay: Layout) -> set:
+    return {r for a, b in (lay.svod or ()) for r in range(a, b + 1)}
 
 
 def signature(rows: List[tuple], lay: Layout) -> str:
@@ -123,8 +175,9 @@ def _is_numbering(row) -> bool:
     return all(n.is_integer() and 0 < n < 100 for n in nums) and nums[:3] == sorted(nums[:3])
 
 
-def find_layout(rows: List[tuple]) -> Optional[Layout]:
-    h = next((i for i, r in enumerate(rows[:200]) if _is_header(r)), None)
+def find_layout(rows: List[tuple], at: Optional[int] = None) -> Optional[Layout]:
+    """Sarlavha va ustunlar. ``at`` — foydalanuvchi ko'rsatgan sarlavha qatori (0 dan): «Наименование» shart emas."""
+    h = at if at is not None and 0 <= at < len(rows) else next((i for i, r in enumerate(rows[:200]) if _is_header(r)), None)
     if h is None:
         return None
     lay = Layout(header=h + 1, header_end=h + 1)
@@ -197,19 +250,36 @@ def _classify(rows: List[tuple], lay: Layout, formulas: Optional[List[dict]] = N
     """Qator turlari: {qator (1 dan): (tur, raqam, ota qator)}. Tur: head | text | work | free | res | svod.
     Svodka ichidagi «12 | Художественный элемент | м² | 1024,7» kabi qator (birligi va hajmi bor) — alohida
     ish (free): dalolatnomada uning hajmi ham yoziladi."""
-    start = svod_start(rows, lay, formulas) or len(rows) + 1
+    # birinchi svodka (bo'lim jami ham — «JAMI:», keyin «1 QURUVCHI-ISHCHILAR ISH HAQQI …»); undan keyin bo'limlar
+    # ketma-ket: ishlar / svodka. Foydalanuvchi belgilagan oxirgi ish — undan keyingisi faqat svodka, lekin undan
+    # oldingi bo'lim svodkalari baribir topiladi (aks holda ular «hajmsiz ish» bo'lib qoladi)
+    auto = svod_start(rows, lay, formulas)
+    start = min(auto or len(rows) + 1, lay.end + 1) if lay.end else auto or len(rows) + 1
     tail = False
     kinds: Dict[int, list] = {}
     last_top: Dict[str, int] = {}
     prev_top = None
+    hidden, marked = hidden_set(lay), svod_set(lay)
     for i, r in enumerate(rows, start=1):
         if i <= lay.header_end:
             kinds[i] = ["head", "", None]
             continue
+        if i in hidden:  # foydalanuvchi «keraksiz» degan — ish ham, svodka ham emas (formulalar fayldagidek qoladi)
+            kinds[i] = ["text", "", None]
+            continue
+        if i in marked:  # foydalanuvchi «сводка» degan (bo'lim jami va h.k.) — ish emas, formulalari hisoblanadi
+            kinds[i] = ["svod", "", None]
+            continue
+        if lay.start and i < lay.start:  # sarlavha bilan birinchi ish orasi (izoh, bo'lim nomi) — foydalanuvchi ko'rsatgan
+            kinds[i] = ["text", "", None]
+            continue
+        if lay.end and i > lay.end:
+            kinds[i] = ["svod", "", None]
+            continue
         cell = lambda j: r[j] if j < len(r) else None  # noqa: E731
         num = item_num(cell(lay.num))
         name = _text(cell(lay.name))
-        if i >= start and (tail or (i > start and _is_header(r))):  # keyingi jadval (Ф-2 nusxasi) — ofyorta tugadi
+        if i >= start and not (lay.end and i <= lay.end) and (tail or (i > start and _is_header(r))):  # keyingi jadval (Ф-2 nusxasi) — ofyorta tugadi
             tail = True
             kinds[i] = ["text", "", None]
             continue
@@ -238,7 +308,7 @@ def _classify(rows: List[tuple], lay: Layout, formulas: Optional[List[dict]] = N
         kinds[parent][0] = "work"
     last_item = max((i for i, k in kinds.items() if k[0] in ("work", "free", "res") and i < start), default=0)
     for i, k in kinds.items():
-        if max(last_item, lay.header_end) < i < start:
+        if max(last_item, lay.header_end) < i < start and i not in hidden and k[0] != "head":
             k[0] = "svod"
     last_item = max((i for i, k in kinds.items() if k[0] in ("work", "free", "res")), default=0)
     return kinds, last_item
@@ -354,6 +424,25 @@ def _money_cols(values: List[tuple], formulas: List[dict], kinds: dict, lay: Lay
         lay.price = k[1]
 
 
+def _sheet_facts(rows, lay: Layout, kinds: dict) -> dict:
+    """Tanlash sahifasi uchun: resurslar, svodka, sarlavha va ishlar oralig'i, ustunlar, fayldagi jami summa."""
+    from .formula import col_letter
+    tops = [i for i, k in kinds.items() if k[0] in ("work", "free")]
+    svod = [i for i, k in kinds.items() if k[0] == "svod"]
+    total = label = None
+    for i in svod:  # «ВСЕГО … С НДС» — bo'lmasa svodkaning oxirgi «ИТОГО / ВСЕГО» qatori
+        r = rows[i - 1]
+        text = " ".join(_text(v) for v in r[:max(lay.amount, lay.name + 1)] if isinstance(v, str)).strip()
+        v = _num(r[lay.amount], text=True) if lay.amount < len(r) else None
+        if v and re.search(r"всего|итого|жами|jami", text.lower()) and (total is None or v > total):  # eng kattasi — odatda ҚҚС bilan
+            total, label = v, text
+    return {"res": sum(1 for k in kinds.values() if k[0] == "res"), "svod": len(svod),
+            "head": [lay.header, lay.header_end], "span": [tops[0], tops[-1]] if tops else None,
+            "cols": {"qty": col_letter(lay.qty), "total": col_letter(lay.total), "price": col_letter(lay.price),
+                     "amount": col_letter(lay.amount)},
+            "total": total, "total_label": (label or "")[:80]}
+
+
 def list_sheets(path: Path) -> List[dict]:
     """Har bir list: nomi, qatorlar, ishlar soni, boshidagi ishlar (ko'rib tanlash uchun) va «ofyorta bo'lishi mumkin»
     bahosi. Eng yuqori bahoga ega bo'lgani — taklif (foydalanuvchi tasdiqlaydi yoki boshqasini tanlaydi)."""
@@ -383,7 +472,19 @@ def list_sheets(path: Path) -> List[dict]:
                     if k[0] in ("work", "free") and len(info["preview"]) < PREVIEW:
                         r = rows[i - 1]
                         g = lambda j: _cell_value(r[j]) if j < len(r) else None  # noqa: E731
-                        info["preview"].append([k[1], _text(g(lay.name))[:140], _text(g(lay.unit)), g(lay.qty)])
+                        shifr = next((_text(r[j]) for j in range(lay.num + 1, min(lay.name, len(r))) if _SHIFR.match(_text(r[j]))), "")
+                        amt, n_res = _num(g(lay.amount), text=True), 0
+                        for i2 in range(i + 1, len(rows) + 1):  # ish summasi resurslarida bo'lsa — ularning yig'indisi
+                            k2 = kinds.get(i2)
+                            if k2 and k2[0] != "res":
+                                break
+                            if k2:
+                                n_res += 1
+                                v2 = _num(rows[i2 - 1][lay.amount], text=True) if lay.amount < len(rows[i2 - 1]) else None
+                                if v2 and not _num(g(lay.amount), text=True):
+                                    amt = (amt or 0) + v2
+                        info["preview"].append([k[1], _text(g(lay.name))[:140], _text(g(lay.unit)), g(lay.qty), shifr, i, amt, n_res])
+                info.update(_sheet_facts(rows, lay, kinds))
             low = ws.title.lower().replace("ё", "е")
             # resurslari bor ish va shifrli qator — ofyortaning asosiy belgisi: «Сводная ресурсная ведомость» (1964 ta
             # resurs, ishi yo'q) ofyortadan (577 ta ish) ustun chiqmasin
@@ -404,6 +505,34 @@ def list_sheets(path: Path) -> List[dict]:
         best = max(out, key=lambda s: s["score"])
         for s in out:
             s["guess"] = s is best and s["header"] and s["items"] > 0
+    return out
+
+
+# ===================== qo'lda belgilash (tizim tushunmaganda) =====================
+def sheet_values(path: Path, sheet: str) -> List[tuple]:
+    """Listning qiymatlari (Excel saqlagani) — belgilash sahifasida ko'rsatish uchun; oxiridagi bo'sh qatorlarsiz."""
+    wb = load_workbook(path, read_only=True, data_only=True, keep_links=False)
+    try:
+        if sheet not in wb.sheetnames:
+            raise SheetError(f"Файлда «{sheet}» листи йўқ")
+        rows = [tuple(_cell_value(v) for v in r[:MAX_COLS]) for r in wb[sheet].iter_rows(values_only=True)]
+    finally:
+        wb.close()
+    while rows and not any(v is not None for v in rows[-1]):
+        rows.pop()
+    return rows
+
+
+def mark_guess(rows: List[tuple]) -> dict:
+    """Belgilash sahifasida oldindan tanlanadigan joylar — tizim topgani (topmasa — bo'sh): sarlavha, birinchi va oxirgi
+    ish qatori, ustunlar."""
+    lay = find_layout(rows)
+    if lay is None:
+        return {}
+    kinds, last = _classify(rows, lay)
+    items = [i for i, k in kinds.items() if k[0] in ("work", "free", "res")]
+    out = {k: getattr(lay, k) for k in COL_KEYS}
+    out.update(header=lay.header, header_end=lay.header_end, start=items[0] if items else 0, end=last or 0)
     return out
 
 
@@ -443,12 +572,16 @@ def read(path: Path, sheet: str, progress: Callable[[int, int], None] = None, ma
             formulas.append({j: v for j, v in enumerate(r[:MAX_COLS]) if isinstance(v, str) and v.startswith("=")})
     finally:
         wb.close()
-    lay = find_layout(values)
+    head = (manual or {}).get("header")
+    lay = find_layout(values, at=head - 1 if isinstance(head, int) and head > 0 else None)
     if lay is None:
         raise SheetError("Бу листда офёрта жадвали топилмади: «Наименование работ…» сарлавҳали қатор йўқ")
+    _apply_manual(lay, manual)  # sarlavha chegarasi foydalanuvchiniki bo'lsa — shablon ham shu qatorlardan
     sig = signature(values, lay)
-    if manual is None and memo:
-        manual = memo(sig)
+    if memo and not any(k in (manual or {}) for k in COL_KEYS):  # ustunlar ko'rsatilmagan — shablondan (yig'ilganlar qoladi)
+        m = memo(sig)
+        if m:
+            manual = {**m, **(manual or {})}
     _apply_manual(lay, manual)
     kinds, last_item = _classify(values, lay, formulas)
     _money_cols(values, formulas, kinds, lay)
@@ -581,6 +714,7 @@ def _check(grid: Grid):
     # bu pul o'z ishining hajmiga bog'lanmagan, faylning jamisi ham shu qism bo'yicha noto'g'ri bo'lishi mumkin
     from .formula import col_letter
     foreign: Dict[int, set] = {}
+    bad_res = []
     for r in grid.rows:
         f = r["fmls"].get(lay.total) if r["kind"] == "res" else None
         if not f or "!" in f:
@@ -588,7 +722,52 @@ def _check(grid: Grid):
         for c, rr in refs(f):
             if c == lay.qty and rr not in (r["row"], r["parent"]):
                 foreign.setdefault(r["parent"], set()).add(rr)
-    if foreign:
+                bad_res.append(r)
+    done = list({id(r): r for r in bad_res}.values())
+    if foreign and lay.relink:  # foydalanuvchi tasdiqlagan: formula o'z ishi hajmiga ulanadi, qiymatlar qayta hisoblanadi
+        old_total = Book(lay.as_dict(), grid.rows).contract_total()
+        items = []
+        for r in done:
+            new = relink_formula(r["fmls"][lay.total], lay.qty, r["row"], r["parent"])
+            items.append([f"{col_letter(lay.total)}{r['row']}", "=" + r["fmls"][lay.total].lstrip("="), "=" + new.lstrip("=")])
+            r["fmls"][lay.total] = new
+        b = Book(lay.as_dict(), grid.rows)
+        ev = b.evaluate({t: b.contract_qty(t) for t in b.tops})
+        for r in grid.rows:  # ofyortada va fayl tekshiruvida yangi formula natijasi
+            if r["kind"] == "head":
+                continue
+            for j, f in r["fmls"].items():
+                if "!" in f:
+                    continue
+                v = ev(j, r["row"])
+                if isinstance(v, (int, float)) and not isinstance(v, bool):
+                    while len(r["vals"]) <= j:
+                        r["vals"].append(None)
+                    r["vals"][j] = v
+        new_total = b.contract_total()
+        grid.warnings.append({"row": next(iter(foreign)), "fix": "relink_on", "items": items, "count": len(items),
+                              "total_old": old_total, "total_new": new_total,
+                              "title": "Ресурслар формуласи тузатилди (сиз тасдиқлагансиз)",
+                              "text": f"{len(items)} та ресурс жами ўз иши ҳажмига уланди. Офёрта жами "
+                                      f"{_money(old_total)} → {_money(new_total)} сўм. Excel ҳисоботга ҳам тузатилган формула ёзилади."})
+    elif foreign and lay.prop_res:  # foydalanuvchi tasdiqlagan: formula olinadi — Book.override F ni hajmga mutanosib qiladi
+        ev = None
+        for r in done:
+            while len(r["vals"]) <= lay.total:
+                r["vals"].append(None)
+            if not isinstance(r["vals"][lay.total], (int, float)):  # faylda saqlangan natija yo'q — shartnoma hajmida hisoblanadi
+                if ev is None:
+                    b = Book(lay.as_dict(), grid.rows)
+                    ev = b.evaluate({t: b.contract_qty(t) for t in b.tops})
+                v = ev(lay.total, r["row"])
+                r["vals"][lay.total] = v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+        for r in done:
+            r["fmls"].pop(lay.total, None)
+        top = next(iter(foreign))
+        grid.warnings.append({"row": top, "fix": "prop_res_on", "title": "Ресурслар ўз иши ҳажмига мутаносиб қилинди (сиз тасдиқлагансиз)",
+                              "text": f"{len(done)} та ресурснинг жами бошқа қатордаги ҳажмга кўпайтирилган эди. Офёрта жами "
+                                      f"файлдагидек қолди; далолатномада бу ресурслар ўз иши ҳажмига мутаносиб ҳисобланади."})
+    elif foreign:
         by_row = {r["row"]: r for r in grid.rows}
         top, src = next(iter(foreign.items()))
         n_res = sum(1 for r in grid.rows if r["kind"] == "res" and r["parent"] in foreign)
@@ -599,12 +778,49 @@ def _check(grid: Grid):
                                       f"жами ўз иши ҳажмига эмас, {', '.join(f'{E}{s} ({q(s)})' for s in sorted(src)[:3])} га "
                                       f"кўпайтирилган — формула кўчирилганда «$» қотиб қолган бўлиши мумкин. Бу пул далолатномада "
                                       f"иш ҳажмига мутаносиб ўзгармайди, файлдаги жами ҳам шу қисм бўйича нотўғри бўлиши мумкин. "
-                                      f"Жами {len(foreign)} та ишда, {n_res} та ресурс. Смета тузувчи формулани тузатсин."})
+                                      f"Жами {len(foreign)} та ишда, {n_res} та ресурс. Смета тузувчи формулани тузатсин "
+                                      f"ёки «Мутаносиб қилиш» тугмасини босинг.", "fix": "prop_res",
+                              "example": f"{col_letter(lay.total)}{bad_res[0]['row']}: {bad_res[0]['fmls'][lay.total]}",
+                              **_relink_offer(grid, done)})
     other = sorted({r["row"] for r in grid.rows for f in r["fmls"].values() if "!" in f})
     if other:
         grid.warnings.append({"row": other[0], "title": "Бошқа листга ҳавола қилувчи формулалар бор",
                               "text": f"{len(other)} та қаторда формула бошқа листдаги катакни олади "
                                       f"(биринчиси {other[0]}-қатор). Бундай катакларда файлда сақланган қиймат олинади (далолатномада ўзгармайди)."})
+
+
+def relink_formula(f: str, qty: int, row: int, parent: int) -> str:
+    """Hajm ustunidagi begona qatorga havola («$E$149») — o'z ishining hajmiga («E4879»); o'z qatori va ishi qoladi."""
+    from .formula import col_letter
+    E = col_letter(qty)
+    pat = re.compile(rf"(?<![A-Za-z0-9_.$:])\$?{E}\$?(\d+)(?![\d(A-Za-z_:])")
+    return pat.sub(lambda m: m.group(0) if int(m.group(1)) in (row, parent) else f"{E}{parent}", f)
+
+
+def _money(x: float) -> str:
+    return f"{x:,.2f}".replace(",", " ")
+
+
+def _relink_offer(grid: Grid, done: List[dict]) -> dict:
+    """«Formulani tuzatish» taklifi: qaysi katakda eski → yangi formula, natijasi va ofyorta jamiga ta'siri
+    (foydalanuvchi ko'rib, tasdiqlaydi)."""
+    from .formula import col_letter
+    lay = grid.layout
+    new = {r["row"]: relink_formula(r["fmls"][lay.total], lay.qty, r["row"], r["parent"]) for r in done}
+    if not any(new[r["row"]] != r["fmls"][lay.total] for r in done):
+        return {}
+    b0 = Book(lay.as_dict(), grid.rows)
+    b1 = Book(lay.as_dict(), [dict(r, fmls={**r["fmls"], lay.total: new[r["row"]]}) if r["row"] in new else r
+                              for r in grid.rows])
+    full = lambda b: b.evaluate({t: b.contract_qty(t) for t in b.tops})  # noqa: E731
+    ev0, ev1 = full(b0), full(b1)
+    num = lambda v: _money(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else "—"  # noqa: E731
+    F = col_letter(lay.total)
+    items = [[f"{F}{r['row']}", "=" + r["fmls"][lay.total].lstrip("="), "=" + new[r["row"]].lstrip("="),
+              num(ev0(lay.total, r["row"])), num(ev1(lay.total, r["row"]))] for r in done[:6]]
+    t0, t1 = b0.grand(ev0), b1.grand(ev1)
+    return {"relink": {"items": items, "count": len(done), "total_old": _money(t0), "total_new": _money(t1),
+                       "delta": _money(t1 - t0)}}
 
 
 # ===================== dalolatnoma hisobi =====================

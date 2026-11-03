@@ -31,6 +31,10 @@
     </div>
     {% if c.o.status == "parsing" %}
     <div class="mt-4 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800">Офёрта ўқилмоқда…</div>
+    {% elif c.o.status == "choose" %}
+    <div class="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Офёрта листини танланг</div>
+    {% elif c.o.status == "mark" %}
+    <div class="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Жадвални белгиланг — тизим ўзи тушунмади</div>
     {% elif c.o.status == "failed" %}
     <div class="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800">Офёрта ўқилмади — очиб сабабини кўринг</div>
     {% else %}

@@ -1,0 +1,507 @@
+{% extends "jobs/base.html" %}
+{% load narx %}
+{% block title %}Жадвални белгилаш · {{ o.name }}{% endblock %}
+{% block main_class %}w-full px-4 py-6 lg:px-6{% endblock %}
+{% block content %}
+{% comment %}Tizim ofyorta jadvalini o'zi tushunmadi (yoki foydalanuvchi tuzatmoqchi): listning boshi va oxiri ko'rsatiladi —
+sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. Saqlangach list shu belgilar bilan o'qiladi.{% endcomment %}
+<style>
+  .mk { --b: #2563eb; --b-d: #1d4ed8; --b-t: #eff6ff; --line: #e3e8f0; --mut: #64748b; --ink: #0f172a; }
+  .mk-top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; }
+  .mk-ic { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 16px; background: var(--b-t); color: var(--b); }
+  .mk-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--b); }
+  .mk-h1 { margin-top: 2px; font-size: 24px; font-weight: 800; color: var(--ink); line-height: 1.2; }
+  .mk-sub { margin-top: 4px; font-size: 14px; color: #475569; }
+  .mk-tools { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .mk-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; font-size: 13.5px; font-weight: 600; color: #334155; }
+  .mk-btn:hover { background: #f8fafc; border-color: #94a3b8; }
+  .mk-btn-danger:hover { color: #be123c; border-color: #fda4af; background: #fff1f2; }
+  .mk-note { margin-top: 14px; display: flex; gap: 10px; padding: 12px 16px; border-radius: 14px; font-size: 14px; }
+  .mk-note svg { flex: none; margin-top: 1px; }
+  .mk-note-warn { background: #fffbeb; border: 1px solid #fde68a; color: #78350f; }
+  .mk-note-info { background: #f0f9ff; border: 1px solid #bae6fd; color: #0c4a6e; }
+
+  .mk-steps { margin-top: 18px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 900px) { .mk-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .mk-step { position: relative; text-align: left; padding: 12px 14px 12px 54px; border-radius: 16px; border: 1.5px solid var(--line); background: #fff; transition: all .15s; min-height: 72px; }
+  .mk-step:hover { border-color: #bfd3f8; }
+  .mk-step b { display: block; font-size: 14.5px; color: var(--ink); }
+  .mk-step span { display: block; margin-top: 2px; font-size: 12.5px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mk-step i { position: absolute; left: 14px; top: 14px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: #f1f5f9; color: #475569; font-style: normal; font-weight: 800; font-size: 13px; }
+  .mk-step.is-on { border-color: var(--b); box-shadow: 0 0 0 3px rgba(37, 99, 235, .14); background: linear-gradient(180deg, #fff, #f8fbff); }
+  .mk-step.is-on i { background: var(--b); color: #fff; }
+  .mk-step.is-done i { background: #10b981; color: #fff; }
+  .mk-step.is-done span { color: #047857; font-weight: 600; }
+  .mk-step em { font-style: normal; font-weight: 500; color: #94a3b8; }
+
+  .mk-ask { position: sticky; top: 0; z-index: 25; margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; background: var(--ink); color: #fff; }
+  .mk-ask-t { font-size: 16px; font-weight: 700; }
+  .mk-ask-h { margin-top: 2px; font-size: 13px; color: #cbd5e1; }
+  .mk-ask .mk-act { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .mk-ask button { height: 38px; padding: 0 16px; border-radius: 10px; font-size: 14px; font-weight: 700; }
+  .mk-ask .mk-next { background: #fff; color: var(--ink); }
+  .mk-ask .mk-next:disabled { opacity: .45; cursor: not-allowed; }
+  .mk-ask .mk-alt { background: rgba(255, 255, 255, .12); color: #fff; border: 1px solid rgba(255, 255, 255, .25); }
+  .mk-ask .mk-alt.is-sel { background: #fff; color: var(--ink); }
+
+  .mk-legend { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--mut); align-items: center; }
+  .mk-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-weight: 600; font-size: 12px; }
+
+  .mk-wrap { margin-top: 10px; border: 1px solid var(--line); border-radius: 16px; background: #fff; overflow: clip; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+  .mk-t { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: 14.7px; line-height: 1.2; color: #000; }
+  .mk-t td { border-right: 1px solid #e1e1e1; border-bottom: 1px solid #e1e1e1; padding: 1px 3px; vertical-align: bottom; overflow: hidden; white-space: pre; background-color: #fff; }
+  .mk-t td.ov { overflow: visible; }
+  .mk-t td.wr { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .mk-t td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mk-t td.hc { background: #f1f5f9; border-right-color: #cbd5e1; }
+  .mk-t thead th { position: sticky; top: var(--askh, 0px); z-index: 3; background: #efefef; color: #444; font: 500 12px/1.2 "Segoe UI", Arial, sans-serif; text-align: center; padding: 4px 2px; border-right: 1px solid #d0d0d0; border-bottom: 1px solid #c4c4c4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mk-t thead tr.mk-roles th { top: calc(var(--askh, 0px) + 23px); padding: 3px 2px; background: #fff; border-bottom: 2px solid #94a3b8; overflow: visible; }
+  .mk-t .mk-rn { position: sticky; left: 0; z-index: 2; background: #efefef; color: #555; text-align: center; font: 12px/1.2 "Segoe UI", Arial, sans-serif; font-variant-numeric: tabular-nums; vertical-align: middle; border-right: 1px solid #c4c4c4; }
+  .mk-t .mk-tag { position: sticky; left: 46px; z-index: 2; background: #fff; padding: 2px 4px; border-right: 2px solid #94a3b8; vertical-align: middle; font: 12px/1.2 "Segoe UI", Arial, sans-serif; white-space: nowrap; overflow: hidden; }
+  .mk-t thead .mk-rn, .mk-t thead .mk-tag { z-index: 4; background: #efefef; }
+  .mk-t thead tr.mk-roles .mk-rn, .mk-t thead tr.mk-roles .mk-tag { background: #fff; }
+  .mk-t thead th.is-role { border-bottom: 3px solid var(--rc); color: var(--rc); font-weight: 800; }
+  .mk-t td.is-role { box-shadow: inset 2px 0 0 var(--rc), inset -2px 0 0 var(--rc); }
+  .mk-t tbody tr { cursor: var(--cur-hand, pointer); }
+  .mk-t.no-pick tbody tr { cursor: default; }
+  /* qator turi — fayldagi rang ustidan shaffof qatlam (fayl uslubi ko'rinib turadi) */
+  .mk-t tbody td.c { --tint: transparent; background-image: linear-gradient(var(--tint), var(--tint)); }
+  .mk-t tr.is-head td.c { --tint: rgba(37, 99, 235, .16); }
+  .mk-t tr.is-work td.c { --tint: rgba(16, 185, 129, .12); }
+  .mk-t tr.is-res td.c { --tint: rgba(16, 185, 129, .05); }
+  .mk-t tr.is-skip td.c, .mk-t tr.is-hid td.c { --tint: rgba(241, 245, 249, .72); color: #94a3b8 !important; }
+  .mk-t tr.is-svod td.c { --tint: rgba(245, 158, 11, .12); }
+  .mk-t tr.is-final td.c { --tint: rgba(124, 58, 237, .18); }
+  .mk-t tbody tr:hover td.c { --tint: rgba(37, 99, 235, .09); }
+  .mk-t tbody tr:hover .mk-rn { background: #dbeafe; color: var(--b); font-weight: 700; }
+  .mk-t tr.is-head .mk-rn { background: #2563eb; color: #fff; }
+  .mk-t tr.is-start td { border-top: 2px solid #10b981; }
+  .mk-t tr.is-end td { border-bottom: 2px solid #f59e0b !important; }
+  .mk-t tr.is-final .mk-rn { background: #7c3aed; color: #fff; }
+  .mk-pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .p-head { background: #2563eb; color: #fff; } .p-work { background: #10b981; color: #fff; } .p-res { background: #d1fae5; color: #065f46; }
+  .p-svod { background: #fde68a; color: #78350f; } .p-final { background: #7c3aed; color: #fff; } .p-skip { background: #f1f5f9; color: #64748b; }
+  .p-hid { background: #e2e8f0; color: #475569; }
+  .mk-roles select { width: 100%; min-width: 0; height: 26px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; padding: 0 4px; background: #fff; color: #334155; }
+  .mk-roles select.has { border-color: transparent; color: #fff; }
+  .mk-roles .mk-rl { display: block; height: 22px; line-height: 22px; border-radius: 6px; font-size: 11.5px; font-weight: 700; color: #fff; }
+
+  .mk-more { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 4px; font-size: 13px; color: var(--mut); }
+  .mk-more button { font-weight: 600; color: var(--b); }
+  .mk-more button:hover { text-decoration: underline; }
+  .mk-load { padding: 48px; text-align: center; color: var(--mut); }
+
+  .mk-bar { position: sticky; bottom: 12px; z-index: 20; margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 12px 12px 18px; border-radius: 18px; background: rgba(255, 255, 255, .94); backdrop-filter: blur(8px); border: 1px solid var(--line); box-shadow: 0 14px 34px rgba(15, 23, 42, .14); }
+  .mk-sum { min-width: 0; flex: 1; font-size: 13px; color: #475569; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .mk-sum b { color: var(--ink); }
+  .mk-err { width: 100%; padding: 8px 12px; border-radius: 10px; background: #fff1f2; color: #9f1239; font-size: 13.5px; font-weight: 600; }
+  .mk-go { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-width: 240px; height: 50px; padding: 0 24px; border-radius: 12px; background: var(--b); color: #fff; font-size: 16px; font-weight: 700; box-shadow: 0 8px 20px rgba(37, 99, 235, .35); }
+  .mk-go:hover { background: var(--b-d); }
+  .mk-go:disabled { background: #94a3b8; box-shadow: none; cursor: not-allowed; }
+  @media (max-width: 640px) { .mk-go { width: 100%; min-width: 0; } .mk-tools { margin-left: 0; } }
+</style>
+
+<div class="mk pb-6">
+  <a href="{% url 'texnazor:index' %}" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">← Объектлар</a>
+
+  <div class="mk-top mt-3">
+    <span class="mk-ic">{% icon "table" "h-6 w-6" %}</span>
+    <div class="min-w-0">
+      <div class="mk-eyebrow">Жадвални белгилаш</div>
+      <h1 class="mk-h1">Тизимга жадвални кўрсатинг</h1>
+      <p class="mk-sub">«<b>{{ o.source_name }}</b>» · лист «<b>{{ o.sheet }}</b>» · <span id="mk-total">…</span></p>
+    </div>
+    <div class="mk-tools">
+      {% if o.status == "ready" %}<a href="{% url 'texnazor:object' o.pk %}" class="mk-btn">{% icon "x" "h-4 w-4" %}Бекор қилиш</a>{% endif %}
+      {% if several and not has_qty %}
+      <form method="post" action="{% url 'texnazor:change_sheet' o.pk %}">{% csrf_token %}
+        <button class="mk-btn">{% icon "swap" "h-4 w-4" %}Бошқа лист</button></form>
+      {% endif %}
+      {% if o.status != "ready" %}
+      <form method="post" action="{% url 'texnazor:delete' o.pk %}" onsubmit="return confirm('Объект ўчирилсинми?')">{% csrf_token %}
+        <button class="mk-btn mk-btn-danger">{% icon "trash" "h-4 w-4" %}Ўчириш</button></form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if reason %}
+  <div class="mk-note mk-note-warn">{% icon "alert-circle" "h-5 w-5" %}
+    <div><b>{{ reason }}.</b>
+      <div class="mt-0.5">Қуйида файлнинг ўзи. 4 та нарсани босиб кўрсатинг — тизим қолганини шунга қараб ўқийди. Файл ўзгармайди.</div></div></div>
+  {% else %}
+  <div class="mk-note mk-note-info">{% icon "help" "h-5 w-5" %}
+    <div>Тизим ҳозир жадвални қандай тушунгани белгиланган. Нотўғрисини босиб ўзгартиринг ва «Сақлаш»ни босинг — офёрта шу бўйича қайта ўқилади.
+      {% if has_qty %}<div class="mt-0.5">Далолатномаларга ёзилган ҳажмлар сақланади (Excel қатори бўйича).</div>{% endif %}</div></div>
+  {% endif %}
+
+  <div class="mk-steps" id="mk-steps">
+    <button type="button" class="mk-step" data-step="1"><i>1</i><b>Сарлавҳа</b><span data-v>—</span></button>
+    <button type="button" class="mk-step" data-step="2"><i>2</i><b>Ишлар бошланиши</b><span data-v>—</span></button>
+    <button type="button" class="mk-step" data-step="3"><i>3</i><b>Устунлар</b><span data-v>—</span></button>
+    <button type="button" class="mk-step" data-step="4"><i>4</i><b>Охири ва жами <em>(ихтиёрий)</em></b><span data-v>—</span></button>
+  </div>
+
+  <div class="mk-ask" id="mk-ask">
+    <div class="min-w-0"><div class="mk-ask-t" id="mk-ask-t"></div><div class="mk-ask-h" id="mk-ask-h"></div></div>
+    <div class="mk-act" id="mk-act"></div>
+  </div>
+
+  <div class="mk-legend">
+    <span class="mk-pill p-head">сарлавҳа</span><span class="mk-pill p-work">иш</span><span class="mk-pill p-res">ресурс</span>
+    <span class="mk-pill p-skip">ўтказилади</span><span class="mk-pill p-svod">сводка</span><span class="mk-pill p-final">жами</span><span class="mk-pill p-hid">йиғилган</span>
+    <span class="ml-2">·</span><span id="mk-legend-cols"></span>
+  </div>
+
+  <div class="mk-wrap" id="mk-wrap"><div class="mk-load">Лист очилмоқда…</div></div>
+  <div class="mk-more" id="mk-more" hidden></div>
+
+  <form class="mk-bar" id="mk-form">{% csrf_token %}
+    <div class="mk-sum" id="mk-sum"></div>
+    <button type="submit" class="mk-go" id="mk-go" disabled>{% icon "check" "h-5 w-5" %}<span>Сақлаш ва ўқиш</span></button>
+    <div class="mk-err" id="mk-err" hidden role="alert"></div>
+  </form>
+</div>
+
+<script>
+(function () {
+  var ROWS_URL = "{% url 'texnazor:mark_rows' o.pk %}", SAVE_URL = "{% url 'texnazor:mark_save' o.pk %}";
+  // ustun vazifalari: kalit, nomi, rangi, sarlavhadagi so'zlar (tizim sarlavhani topmaganda — foydalanuvchi bosgan qatordan taxmin)
+  var ROLES = [
+    {k: "num", t: "№", c: "#475569", w: ["№", "п/п", "п.п", "n п"]},
+    {k: "name", t: "Номи", c: "#4f46e5", w: ["наименование", "номи", "nomi"]},
+    {k: "unit", t: "Бирлиги", c: "#0891b2", w: ["единиц", "ед.изм", "ед. изм", "бирлик", "o'lchov", "ўлчов"]},
+    {k: "qty", t: "Ҳажм", c: "#059669", w: ["количество", "кол-во", "кол.", "ҳажм", "hajm", "миқдор"]},
+    {k: "total", t: "Жами ҳажм", c: "#0d9488", w: ["по проект"]},
+    {k: "price", t: "Нарх", c: "#d97706", w: ["стоимость", "цена", "нарх", "narx"]},
+    {k: "amount", t: "Сумма", c: "#e11d48", w: ["сумма", "summa", "қиймат"]}
+  ];
+  var BY = {}; ROLES.forEach(function (r) { BY[r.k] = r; });
+  var NEED = {name: 1, qty: 1, amount: 1};
+  var D = null, top = [], step = 1, sub = "end", touched4 = false;
+  var M = {header: 0, header_end: 0, start: 0, end: 0, final: 0, cols: {}, hide: []};  // cols: {rol: ustun}
+  var $ = function (id) { return document.getElementById(id); };
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]; }); }
+  function low(v) { return v == null ? "" : String(v).toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim(); }
+  function fmt(v) {
+    if (v == null) return "";
+    if (typeof v === "number") {
+      var a = Math.abs(v), d = a >= 1000 ? 2 : a >= 1 ? 4 : 6;
+      var s = (+v.toFixed(d)).toLocaleString("ru-RU", {maximumFractionDigits: d});
+      return s.replace(/ /g, " ");
+    }
+    if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
+    return String(v);
+  }
+  // «12» -> [12, null], «12.3» / «12,3» -> [12, 3] (sheet.item_num kabi)
+  function itemNum(v) {
+    if (v == null || typeof v === "boolean") return null;
+    var m = String(typeof v === "number" ? v : v).match(/^\s*(\d+)(?:\s*[.,]\s*(\d+))?\s*$/);
+    return m ? [m[1], m[2] || null] : null;
+  }
+  function colOf(role) { var j = M.cols[role]; return j == null ? -1 : j; }
+  function roleOf(j) { for (var k in M.cols) if (M.cols[k] === j) return k; return ""; }
+
+  // ---------- qatorning turi (ko'rsatish uchun; tizimdagi o'qishning soddalashtirilgani) ----------
+  function hidOf(r) { return (M.hide || []).some(function (g) { return r >= g[0] && r <= g[1]; }); }
+  function svOf(r) { return (M.svod || []).some(function (g) { return r >= g[0] && r <= g[1]; }); }
+  function kindOf(r, vals) {
+    if (M.final && r === M.final) return "final";
+    if (hidOf(r) && r > (M.header_end || M.header)) return "hid";
+    if (svOf(r) && r > (M.header_end || M.header)) return "svod";  // офёртада «сводка» деб белгиланган (бўлим жами)
+    if (M.header && r >= M.header && r <= Math.max(M.header_end, M.header)) return "head";
+    if (!M.header || r < M.header) return "";
+    if (M.start && r < M.start) return "skip";
+    if (!M.start) return "";
+    if (M.end && r > M.end) return "svod";
+    var n = itemNum(vals[colOf("num") < 0 ? 0 : colOf("num")]);
+    var nm = colOf("name") >= 0 ? vals[colOf("name")] : null;
+    if (n && nm != null && String(nm).trim()) return n[1] ? "res" : "work";
+    return "";
+  }
+  var TAG = {head: ["p-head", "сарлавҳа"], work: ["p-work", "иш"], res: ["p-res", "ресурс"], skip: ["p-skip", "ўтказилади"],
+             svod: ["p-svod", "сводка"], final: ["p-final", "жами"], hid: ["p-hid", "йиғилган"]};
+
+  // ---------- Excel ko'rinishi (fayldagi uslublar; o'qib bo'lmasa — oddiy to'r) ----------
+  var K = {}, S = [];
+  function parseStyle(css, nf) {
+    var x = {base: [], l: "", r: "", t: "", b: "", fmt: nf, wrap: false, align: ""};
+    (css || "").split(";").forEach(function (p) {
+      if (!p) return;
+      var i = p.indexOf(":"), k = p.slice(0, i), v = p.slice(i + 1);
+      if (k === "border-left") x.l = v; else if (k === "border-right") x.r = v;
+      else if (k === "border-top") x.t = v; else if (k === "border-bottom") x.b = v;
+      else if (k === "white-space") x.wrap = true;
+      else { if (k === "text-align") x.align = v; if (k === "background") p = "background-color:" + v; x.base.push(p); }
+    });
+    x.base = x.base.join(";");
+    return x;
+  }
+  var BLANK = parseStyle("", null);
+  function st(r, j) { var p = K.rows ? K.rows[r] : undefined; return (p === undefined ? null : S[K.pats[p][j] || 0]) || S[0] || BLANK; }
+  function colW(j) { var w = K.cols ? K.cols[j] : 80; return w === 0 ? 14 : Math.max(w || 64, 24); }
+  function numTxt(v, f) {
+    if (!f) return fmt(v);
+    var x = f[2] ? v * 100 : v;
+    return x.toLocaleString("ru-RU", {minimumFractionDigits: f[0], maximumFractionDigits: f[0], useGrouping: !!f[1]}).replace(/\s/g, " ") + (f[2] ? "%" : "");
+  }
+  // birlashmalar: faqat ko'rsatilayotgan ketma-ket qatorlar ichida
+  function mergeMap(rows) {
+    var pos = {}, top = {}, cover = {};
+    rows.forEach(function (x, i) { pos[x[0]] = i; });
+    (K.merges || []).forEach(function (g) {
+      var r1 = g[0], i0 = pos[r1];
+      if (i0 === undefined || g[3] >= D.width) return;
+      var rs = 1;
+      while (r1 + rs <= g[2] && pos[r1 + rs] === i0 + rs) rs++;
+      if (rs === 1 && g[1] === g[3]) return;
+      var m = {rs: rs, cs: g[3] - g[1] + 1, r2: r1 + rs - 1, c2: g[3]};
+      top[r1 + ":" + g[1]] = m;
+      for (var r = r1; r < r1 + rs; r++) for (var c = g[1]; c <= g[3]; c++) if (r !== r1 || c !== g[1]) cover[r + ":" + c] = 1;
+    });
+    return {top: top, cover: cover};
+  }
+  function cell(r, j, vals, m, roleC) {
+    var x = st(r, j), endC = m ? m.c2 : j, endR = m ? m.r2 : r, v = vals[j];
+    var right = st(r, endC).r || (endC + 1 < D.width ? st(r, endC + 1).l : ""), bottom = st(endR, j).b || st(endR + 1, j).t;
+    var num = typeof v === "number", empty = v === null || v === undefined || v === "", cls = "c";
+    if (K.cols && K.cols[j] === 0) cls += " hc";
+    if (num) cls += " n";
+    if (x.wrap) cls += " wr";
+    else if (!num && !empty && !m && (!x.align || x.align === "left")) {
+      var nx = vals[j + 1];
+      if (j + 1 < D.width && (nx === null || nx === undefined || nx === "")) cls += " ov";  // Excel'dagidek bo'sh qo'shniga oqib o'tadi
+    }
+    if (roleC) cls += " is-role";
+    var css = x.base + (num && !x.align ? ";text-align:right" : "") + (right ? ";border-right:" + right : "") + (bottom ? ";border-bottom:" + bottom : "") + (roleC ? ";--rc:" + roleC : "");
+    var span = m ? (m.cs > 1 ? ' colspan="' + m.cs + '"' : "") + (m.rs > 1 ? ' rowspan="' + m.rs + '"' : "") : "";
+    var t = empty ? "" : num ? numTxt(v, x.fmt) : String(v);
+    return '<td class="' + cls + '"' + span + ' style="' + css.replace(/"/g, "'") + '"' + (t.length > 24 ? ' title="' + esc(t) + '"' : "") + ">" + esc(t) + "</td>";
+  }
+
+  // ---------- jadval ----------
+  function table(rows) {
+    // kengliklar: Excel'dagidek, lekin sahifaga sig'ishi uchun — «Сумма»dan keyingi turlar (ЧЕЛ-Ч, МАШ-Ч …) tor,
+    // juda keng ustun (odatda «Номи») qisqartiriladi; qolgani — kichraytirish (zoom)
+    var w = D.width, ws = [], am = colOf("amount"), avail = $("mk-wrap").clientWidth - 2 - 150;
+    for (var j = 0; j < w; j++) ws.push(step === 3 ? Math.max(colW(j), 56) : am >= 0 && j > am ? Math.min(colW(j), 28) : colW(j));
+    var sum = ws.reduce(function (a, b) { return a + b; }, 0), big = ws.indexOf(Math.max.apply(null, ws));
+    if (sum > avail && ws[big] > 260) { var cut = Math.min(ws[big] - 260, sum - avail); ws[big] -= cut; }
+    var tw = 46 + 104, cg = '<colgroup><col style="width:46px"><col style="width:104px">';
+    for (j = 0; j < w; j++) { tw += ws[j]; cg += '<col style="width:' + ws[j] + 'px">'; }
+    var font = K.font ? "font-family:'" + esc(K.font).replace(/'/g, "") + "',Calibri,Arial,sans-serif;" : "";
+    var h = '<table class="mk-t' + ((step === 3) ? " no-pick" : "") + '" style="' + font + "width:" + tw + 'px">' + cg;
+    h += '</colgroup><thead><tr><th class="mk-rn"></th><th class="mk-tag"></th>';
+    for (j = 0; j < w; j++) {
+      var ro0 = BY[roleOf(j)];
+      h += "<th" + (ro0 ? ' class="is-role" style="--rc:' + ro0.c + '"' : "") + (K.cols && K.cols[j] === 0 ? ' title="Excel’да яширилган устун"' : "") + ">" + D.letters[j] + "</th>";
+    }
+    h += '</tr><tr class="mk-roles"><th class="mk-rn"></th><th class="mk-tag" style="font-size:11px;text-align:left;color:#64748b">устун →</th>';
+    for (j = 0; j < w; j++) {
+      var rk = roleOf(j), ro = BY[rk];
+      if (step === 3) {
+        h += '<th><select data-col="' + j + '"' + (ro ? ' class="has" style="background:' + ro.c + '"' : "") + ' title="' + D.letters[j] + ' устуни"><option value="">—</option>';
+        ROLES.forEach(function (x) { h += '<option value="' + x.k + '"' + (x.k === rk ? " selected" : "") + ">" + x.t + "</option>"; });
+        h += "</select></th>";
+      } else {
+        h += "<th>" + (ro ? '<span class="mk-rl" style="background:' + ro.c + '">' + ro.t + "</span>" : "") + "</th>";
+      }
+    }
+    h += "</tr></thead><tbody>";
+    var mm = mergeMap(rows), rc = {};
+    ROLES.forEach(function (x) { if (colOf(x.k) >= 0) rc[colOf(x.k)] = x.c; });
+    rows.forEach(function (x) {
+      var r = x[0], vals = x[1], k = kindOf(r, vals), cls = k ? "is-" + k : "";
+      if (r === M.start) cls += " is-start";
+      if (r === M.end) cls += " is-end";
+      var tag = TAG[k] ? '<span class="mk-pill ' + TAG[k][0] + '">' + (r === M.start ? "1-иш ▸" : r === M.end ? "охирги иш" : TAG[k][1]) + "</span>" : "";
+      var ht = (K.heights && K.heights[r]) || K.default_h || 20;
+      h += '<tr data-r="' + r + '" class="' + cls + '" style="height:' + ht + 'px"><td class="mk-rn">' + r + '</td><td class="mk-tag">' + tag + "</td>";
+      for (var j = 0; j < w; j++) {
+        if (mm.cover[r + ":" + j]) continue;
+        h += cell(r, j, vals, mm.top[r + ":" + j], rc[j]);
+      }
+      h += "</tr>";
+    });
+    return h + "</tbody></table>";
+  }
+
+  // jadval sahifa kengligiga sig'adi (aylantirmasdan): keng bo'lsa — kichraytiriladi
+  function fit() {
+    var wrap = $("mk-wrap"), t = wrap.querySelector("table");
+    if (!t) return;
+    t.style.zoom = "";
+    var z = Math.min(1, (wrap.clientWidth - 2) / t.offsetWidth);
+    if (z < 1) t.style.zoom = z.toFixed(3);
+    // jadval sarlavhasi qora ko'rsatma tagiga yopishadi (zoom ichida — o'lchov jadval birligida)
+    t.style.setProperty("--askh", ($("mk-ask").offsetHeight / (z < 1 ? z : 1)).toFixed(1) + "px");
+  }
+  var fitT;
+  window.addEventListener("resize", function () { clearTimeout(fitT); fitT = setTimeout(fit, 120); });
+
+  function render(jump) {
+    var tail = step === 4;
+    var rows = tail ? D.tail : top;
+    var wrap = $("mk-wrap"), keep = wrap.scrollLeft;
+    wrap.innerHTML = table(rows);
+    fit();
+    if (jump && tail) { var last = wrap.querySelector("tbody tr:last-child"); if (last) last.scrollIntoView({block: "center"}); }  // oxiri — pastdan
+    var more = $("mk-more");
+    more.hidden = false;
+    if (tail) {
+      var a = D.tail.length ? D.tail[0][0] : 0;
+      more.innerHTML = "<span>Листнинг охири: " + a + "–" + D.total + "-қаторлар</span>";
+    } else {
+      var last = top.length ? top[top.length - 1][0] : 0;
+      more.innerHTML = "<span>1–" + last + "-қаторлар кўрсатилди (листда " + D.total.toLocaleString("ru-RU") + " та)</span>" +
+        (last < D.total ? '<button type="button" id="mk-load">Яна ' + D.page + " қатор ↓</button>" : "");
+      var lb = $("mk-load");
+      if (lb) lb.onclick = loadMore;
+    }
+    paintSteps();
+  }
+
+  function loadMore() {
+    var b = $("mk-load"); if (b) { b.disabled = true; b.textContent = "Юкланмоқда…"; }
+    fetch(ROWS_URL + "?from=" + top.length, {credentials: "same-origin"}).then(function (r) { return r.json(); }).then(function (d) {
+      top = top.concat(d.rows || []); render();
+    });
+  }
+
+  // ---------- qadamlar ----------
+  var ASK = {
+    1: ["Сарлавҳа қаторини босинг", "«Наименование», «Ед. изм», «Количество» ёзилган қатор. Сарлавҳа 2–3 қатор бўлса — охирги қаторини ҳам босинг (масалан «1 2 3 4 …» рақамлар қатори)."],
+    2: ["Биринчи иш қаторини босинг", "Жадвалдаги биринчи иш ёки материал (одатда «1» рақамли). Ундан тепадаги изоҳ ва бўлим номлари ўтказилади."],
+    3: ["Ҳар бир устуннинг вазифасини танланг", "Жадвал тепасидаги рўйхатлардан: Номи, Ҳажм ва Сумма — шарт; №, Бирлиги, Нарх, «по проектным данным» — бор бўлса."],
+    4: ["Листнинг охири: охирги иш қаторини босинг", "Ундан пастдагилар — сводка (иш ҳақи, фоизлар, ҚҚС). Хоҳласангиз «ВСЕГО / Итого с НДС» жами қаторини ҳам кўрсатинг."]
+  };
+  function rng(a, b) { return a ? (b && b !== a ? a + "–" + b : String(a)) + "-қатор" : "—"; }
+  function colsText() {
+    var t = ROLES.filter(function (x) { return colOf(x.k) >= 0; }).map(function (x) { return x.t + " " + D.letters[colOf(x.k)]; });
+    return t.length ? t.join(" · ") : "—";
+  }
+  function done(n) {
+    if (n === 1) return !!M.header;
+    if (n === 2) return !!M.start;
+    if (n === 3) return Object.keys(NEED).every(function (k) { return colOf(k) >= 0; });
+    return touched4 || !!M.end || !!M.final;
+  }
+  function paintSteps() {
+    var v = {1: rng(M.header, M.header_end), 2: M.start ? M.start + "-қатор" : "—", 3: colsText(),
+             4: (M.end ? "охирги иш " + M.end : touched4 ? "охиригача" : "—") + (M.final ? " · жами " + M.final : "")};
+    document.querySelectorAll(".mk-step").forEach(function (b) {
+      var n = +b.dataset.step;
+      b.classList.toggle("is-on", n === step);
+      b.classList.toggle("is-done", n !== step && done(n));
+      b.querySelector("[data-v]").textContent = v[n];
+      b.querySelector("i").textContent = n !== step && done(n) ? "✓" : n;
+    });
+    $("mk-ask-t").textContent = step === 4 && sub === "final" ? "Жами (ВСЕГО) қаторини босинг" : ASK[step][0];
+    $("mk-ask-h").textContent = step === 4 && sub === "final" ? "Офёртанинг якуний суммаси турган қатор — одатда «ВСЕГО с НДС». Белгиламасангиз, тизим ўзи топади." : ASK[step][1];
+    var act = "";
+    if (step === 1 || step === 2 || step === 3) act += '<button type="button" class="mk-next" data-go="' + (step + 1) + '"' + (done(step) ? "" : " disabled") + ">Кейинги →</button>";
+    if (step === 4) {
+      act += '<button type="button" class="mk-alt' + (sub === "end" ? " is-sel" : "") + '" data-sub="end">Охирги иш</button>' +
+             '<button type="button" class="mk-alt' + (sub === "final" ? " is-sel" : "") + '" data-sub="final">Жами қатори</button>' +
+             '<button type="button" class="mk-alt" data-auto="1">Тизим ўзи топсин</button>';
+    }
+    $("mk-act").innerHTML = act;
+    $("mk-legend-cols").innerHTML = ROLES.filter(function (x) { return colOf(x.k) >= 0; }).map(function (x) {
+      return '<span class="mk-chip" style="background:' + x.c + '1a;color:' + x.c + '">' + x.t + " · " + D.letters[colOf(x.k)] + "</span>";
+    }).join(" ");
+    var miss = [];
+    if (!M.header) miss.push("сарлавҳа"); if (!M.start) miss.push("биринчи иш");
+    Object.keys(NEED).forEach(function (k) { if (colOf(k) < 0) miss.push("«" + BY[k].t + "» устуни"); });
+    $("mk-sum").innerHTML = miss.length ? "<span>Белгиланг: <b>" + miss.join(", ") + "</b></span>" :
+      "<span>Сарлавҳа <b>" + rng(M.header, M.header_end) + "</b></span><span>Ишлар <b>" + M.start + "–" + (M.end || "охиригача") + "</b></span>" +
+      "<span>" + colsText() + "</span>" + (M.final ? "<span>Жами <b>" + M.final + "-қатор</b></span>" : "");
+    $("mk-go").disabled = miss.length > 0;
+    fit();  // ko'rsatma balandligi o'zgargan bo'lishi mumkin
+  }
+  function go(n) { var j = (n === 4) !== (step === 4); step = n; render(j); if (!(j && n === 4)) $("mk-ask").scrollIntoView({block: "nearest", behavior: "smooth"}); }
+
+  // sarlavha qatorlaridagi so'zlardan ustunlarni taxmin qilish (foydalanuvchi o'zi tanlamagan bo'lsa)
+  function guessCols() {
+    var rows = top.filter(function (x) { return x[0] >= M.header && x[0] <= Math.min(M.header_end + 2, M.header + 3); });
+    ROLES.forEach(function (ro) {
+      if (colOf(ro.k) >= 0) return;
+      for (var i = 0; i < rows.length; i++) for (var j = 0; j < rows[i][1].length; j++) {
+        var t = low(rows[i][1][j]);
+        if (!t || roleOf(j)) continue;
+        if (ro.k === "unit" && t.indexOf("на ") === 0) continue;
+        if (ro.w.some(function (w) { return t.indexOf(w) >= 0; })) { M.cols[ro.k] = j; return; }
+      }
+    });
+    if (colOf("num") < 0 && !roleOf(0)) M.cols.num = 0;
+  }
+
+  // ---------- bosish ----------
+  $("mk-wrap").addEventListener("click", function (e) {
+    var tr = e.target.closest("tbody tr"); if (!tr || step === 3) return;
+    var r = +tr.dataset.r;
+    if (step === 1) {
+      // birinchi bosish — sarlavha; pastroqdagi (7 qator ichida) — sarlavhaning oxiri; sarlavhaning o'zi — bitta qatorga
+      if (!M.header || r < M.header || r - M.header > 6) { M.header = r; M.header_end = r; }
+      else M.header_end = r;
+      if (M.start && M.start <= M.header_end) M.start = 0;
+      guessCols();
+      render();
+    } else if (step === 2) {
+      if (M.header && r <= M.header_end) { flash("Биринчи иш сарлавҳадан пастда бўлиши керак"); return; }
+      M.start = r; go(3);
+    } else if (step === 4) {
+      if (M.start && r < M.start) { flash("Бу қатор биринчи ишдан (" + M.start + ") юқорида"); return; }
+      touched4 = true;
+      if (sub === "end") { M.end = r; if (M.final && M.final <= r) M.final = 0; sub = "final"; }
+      else M.final = r;
+      render();
+    }
+  });
+  $("mk-wrap").addEventListener("change", function (e) {
+    var s = e.target.closest("select[data-col]"); if (!s) return;
+    var j = +s.dataset.col, k = s.value;
+    for (var x in M.cols) if (M.cols[x] === j) delete M.cols[x];
+    if (k) M.cols[k] = j;
+    render();
+  });
+  $("mk-steps").addEventListener("click", function (e) { var b = e.target.closest(".mk-step"); if (b) go(+b.dataset.step); });
+  $("mk-act").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.go) go(+b.dataset.go);
+    if (b.dataset.sub) { sub = b.dataset.sub; paintSteps(); }
+    if (b.dataset.auto) { touched4 = true; M.end = 0; M.final = 0; sub = "end"; render(); }
+  });
+  var flashT;
+  function flash(t) { var el = $("mk-err"); el.textContent = t; el.hidden = false; clearTimeout(flashT); flashT = setTimeout(function () { el.hidden = true; }, 4000); }
+
+  // ---------- saqlash ----------
+  $("mk-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var fd = new FormData(this);
+    ["header", "header_end", "start", "end", "final"].forEach(function (k) { if (M[k]) fd.append(k, M[k]); });
+    for (var k in M.cols) fd.append(k, M.cols[k]);
+    var go = $("mk-go"); go.disabled = true; go.querySelector("span").textContent = "Сақланмоқда…";
+    fetch(SAVE_URL, {method: "POST", credentials: "same-origin", body: fd}).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.ok) { location.href = d.url; return; }
+      flash(d.error || "Сақлаб бўлмади"); go.disabled = false; go.querySelector("span").textContent = "Сақлаш ва ўқиш";
+    }).catch(function () { flash("Тармоқ хатоси — қайта уриниб кўринг"); go.disabled = false; go.querySelector("span").textContent = "Сақлаш ва ўқиш"; });
+  });
+
+  // ---------- boshlash ----------
+  fetch(ROWS_URL, {credentials: "same-origin"}).then(function (r) { return r.json(); }).then(function (d) {
+    if (d.error) { $("mk-wrap").innerHTML = '<div class="mk-load">' + esc(d.error) + "</div>"; return; }
+    D = d; top = d.top; K = d.look || {};
+    S = (K.styles || []).map(function (x) { return parseStyle(x[0], x[1]); });
+    M.hide = (d.marks && d.marks.hide) || [];
+    M.svod = (d.marks && d.marks.svod) || [];
+    $("mk-total").textContent = d.total.toLocaleString("ru-RU") + " қатор";
+    var src = d.marks && d.marks.header ? d.marks : d.guess || {};
+    ["header", "header_end", "start", "end", "final"].forEach(function (k) { M[k] = src[k] || 0; });
+    ROLES.forEach(function (ro) { if (src[ro.k] != null && src.header) M.cols[ro.k] = src[ro.k]; });
+    if (M.end || M.final) touched4 = true;
+    step = !M.header ? 1 : !M.start ? 2 : !done(3) ? 3 : 1;
+    render();
+  }).catch(function () { $("mk-wrap").innerHTML = '<div class="mk-load">Листни очиб бўлмади — саҳифани янгиланг</div>'; });
+})();
+</script>
+{% endblock %}

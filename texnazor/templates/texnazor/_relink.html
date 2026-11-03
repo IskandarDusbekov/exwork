@@ -1,0 +1,23 @@
+{# «Formulani tuzatish»: rl — taklif (eski → yangi, natija, ofyorta jamiga ta'siri); done — tasdiqlangan tuzatish #}
+<div class="tn-rl">
+  {% if rl %}
+  <table>
+    <tr><th>Катак</th><th>Ҳозир файлда</th><th>Тузатилгани</th><th>Ҳозир</th><th>Тузатилгач</th></tr>
+    {% for c, old, new, v0, v1 in rl.items %}<tr><td>{{ c }}</td><td><code class="old">{{ old }}</code></td><td><code class="new">{{ new }}</code></td>
+      <td class="num">{{ v0 }}</td><td class="num">{{ v1 }}</td></tr>{% endfor %}
+  </table>
+  {% if rl.count > rl.items|length %}<div class="tn-rl-sum">Жами {{ rl.count }} та, {{ rl.items|length }} таси кўрсатилди.</div>{% endif %}
+  <div class="tn-rl-sum">Офёрта жами: <b>{{ rl.total_old }}</b> → <b>{{ rl.total_new }}</b> сўм (фарқ {{ rl.delta }}).</div>
+  <form method="post" action="{% url 'texnazor:prop_res' o.pk %}">{% csrf_token %}
+    <input type="hidden" name="on" value="1"><input type="hidden" name="mode" value="relink">
+    <button class="{% if big %}tn-check-go{% else %}tn-w-go{% endif %}">{% if big %}1. {% endif %}Формулани тузатиш ({{ rl.count }} та ресурс)</button>
+    <span>Ресурс ўз иши ҳажмига уланади; офёрта жами ҳам юқоридагидек ўзгаради, Excel ҳисоботга тузатилган формула ёзилади.</span>
+  </form>
+  {% elif done %}
+  <table>
+    <tr><th>Катак</th><th>Файлда эди</th><th>Тузатилди</th></tr>
+    {% for c, old, new in done.items|slice:":6" %}<tr><td>{{ c }}</td><td><code class="old">{{ old }}</code></td><td><code class="new">{{ new }}</code></td></tr>{% endfor %}
+  </table>
+  {% if done.count > 6 %}<div class="tn-rl-sum">… жами {{ done.count }} та.</div>{% endif %}
+  {% endif %}
+</div>

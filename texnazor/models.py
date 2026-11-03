@@ -19,6 +19,7 @@ class SiteObject(models.Model):
     class Status(models.TextChoices):
         PARSING = "parsing", "Офёрта ўқиляпти"
         CHOOSE = "choose", "Лист танланади"
+        MARK = "mark", "Қаторлар белгиланади"  # tizim jadvalni tushunmadi — foydalanuvchi sarlavha / ishlar / ustunlarni ko'rsatadi
         READY = "ready", "Тайёр"
         FAILED = "failed", "Хато"
 

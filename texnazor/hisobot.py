@@ -6,7 +6,10 @@ Blokda ofyortaning E..L ustunlari takrorlanadi: formulalar ustuni surilib ko'chi
 svodkada ``=H1257*F1258`` -> ``=Q1257*O1258``), faqat hajm kataklari dalolatnomadagi bilan almashadi. Excel ochilganda
 hammasini o'zi hisoblaydi — sayt hisobi bilan bir xil (``sheet.Book`` ham shu formulalarni ishlatadi).
 """
+import html
 import io
+import re
+import zipfile
 from copy import copy
 from typing import Dict, List, Optional, Tuple
 
@@ -18,16 +21,52 @@ from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.worksheet.merge import MergedCellRange
 
 from . import services_acts as sa
-from .formula import move_refs
+from .formula import Err, move_refs
+from .sheet import hidden_set
 from .models import Act, SiteObject
+
+# hisobot qoidalari o'zgarsa oshiriladi — diskda saqlangan eski Excel fayllar qayta yasaladi
+VERSION = 2
 
 # bloklar foni — saytdagidek (har dalolatnoma o'z rangida, «Остатка» — yashil)
 BLOCK_FILLS = ["DDEBF7", "FFF2CC", "FCE4D6", "E4DFEC", "DBF1F3", "EDEDED"]
 REST_FILL = "C6E0B4"
 
 
-def _source(obj: SiteObject):
-    wb = load_workbook(sa._xlsx(obj), keep_links=False)
+def _only_sheet(path, name: str):
+    """Faylning faqat kerakli listi (workbook.xml dagi ro'yxatda) — openpyxl qolgan listlarni o'qimaydi: ko'p listli
+    katta faylda (ofyorta + «Умумий хисобот» + Ф-2 lar) o'qish bir necha barobar tezlashadi. Bo'lmasa — fayl o'zi."""
+    try:
+        zin = zipfile.ZipFile(path)
+        wbx = zin.read("xl/workbook.xml").decode("utf-8")
+        sheets = re.search(r"<sheets>(.*?)</sheets>", wbx, re.S)
+        items = re.findall(r"<sheet\b[^>]*/>", sheets.group(1))
+        idx = next(i for i, s in enumerate(items) if html.unescape(re.search(r'\bname="([^"]*)"', s).group(1)) == name)
+    except (KeyError, StopIteration, AttributeError, zipfile.BadZipFile, UnicodeDecodeError, OSError):
+        return path
+
+    def dn(m):  # boshqa listning nomlari (bosma maydoni, filtr) — olib tashlanadi; o'zinikida tartib raqami 0
+        local = re.search(r'\blocalSheetId="(\d+)"', m.group(0))
+        if not local:
+            return m.group(0)
+        return m.group(0).replace(local.group(0), 'localSheetId="0"') if int(local.group(1)) == idx else ""
+
+    wbx = wbx[:sheets.start(1)] + items[idx] + wbx[sheets.end(1):]
+    wbx = re.sub(r"<definedName\b[^>]*>.*?</definedName>", dn, wbx, flags=re.S)
+    wbx = re.sub(r"<definedNames>\s*</definedNames>", "", wbx)
+    wbx = re.sub(r"<externalReferences>.*?</externalReferences>", "", wbx, flags=re.S)
+    out = io.BytesIO()
+    with zin, zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as z:  # xotirada — siqilmaydi (tezroq)
+        for info in zin.infolist():
+            data = wbx.encode("utf-8") if info.filename == "xl/workbook.xml" else zin.read(info.filename)
+            info.compress_type = zipfile.ZIP_STORED
+            z.writestr(info, data)
+    out.seek(0)
+    return out
+
+
+def _source(obj: SiteObject, b=None):
+    wb = load_workbook(_only_sheet(sa._xlsx(obj), obj.sheet), keep_links=False)
     if obj.sheet not in wb.sheetnames:
         raise sa.TexnazorError(f"Файлда «{obj.sheet}» листи топилмади")
     src = wb[obj.sheet]
@@ -35,8 +74,21 @@ def _source(obj: SiteObject):
         if ws is not src:
             wb.remove(ws)
     _first_sheet(wb)
+    _cut_links(src, b or sa.book(obj))
+    for v in src.views.sheetView:  # «Страничный режим» (fayldagi) — bloklar bosma maydonidan tashqarida kulrang bo'lib qolardi
+        v.view = "normal"
     wb.calculation.fullCalcOnLoad = True  # formulalar keshsiz yoziladi — Excel ochganda hisoblaydi
     return wb, src
+
+
+def _cut_links(ws, b):
+    """Boshqa list / boshqa faylga havola qiluvchi formula («'[1]Umumiy F-6'!F3973») — fayldagi qiymati bilan: listlar
+    va tashqi havolalar (externalLink) olib tashlangan, formula qolsa Excel faylni «tiklash» rejimida ochadi."""
+    for row in ws.iter_rows():
+        for c in row:
+            v = c.value
+            if isinstance(v, str) and v.startswith("=") and "!" in v:
+                c.value = b.values.get((c.column - 1, c.row))
 
 
 def _first_sheet(wb):
@@ -75,10 +127,41 @@ def _hide_types(ws, lay, starts=(None,)):
             ws.column_dimensions[get_column_letter(c + 1)].hidden = True
 
 
-def _save(wb) -> bytes:
+def _save(wb, value=None) -> bytes:
+    """value(ustun 0 dan, qator) — formula katagining natijasi (tizim hisobi): Excel faylga keshlangan qiymat bo'lib
+    yoziladi. Aks holda «Защищенный просмотр»da (internetdan yuklangan fayl) Excel hisoblamaydi — summalar bo'sh."""
     buf = io.BytesIO()
     wb.save(buf)
-    return buf.getvalue()
+    return _cached(buf.getvalue(), value) if value else buf.getvalue()
+
+
+_FCELL = re.compile(r'<c r="([A-Z]+)(\d+)"([^>]*)><f>([^<]*)</f><v\s*/></c>')
+
+
+def _cached(data: bytes, value) -> bytes:
+    def put(m):
+        try:
+            v = value(column_index_from_string(m.group(1)) - 1, int(m.group(2)))
+        except Exception:  # noqa: BLE001 — natija topilmasa, Excel o'zi hisoblaydi
+            return m.group(0)
+        if isinstance(v, bool) or v is None or isinstance(v, Err):
+            return m.group(0)
+        if isinstance(v, (int, float)):
+            if v != v or v in (float("inf"), float("-inf")):
+                return m.group(0)
+            return f'<c r="{m.group(1)}{m.group(2)}"{m.group(3)}><f>{m.group(4)}</f><v>{v!r}</v></c>'
+        attrs = re.sub(r'\st="[^"]*"', "", m.group(3))
+        return f'<c r="{m.group(1)}{m.group(2)}"{attrs} t="str"><f>{m.group(4)}</f><v>{html.escape(str(v), quote=False)}</v></c>'
+
+    zin = zipfile.ZipFile(io.BytesIO(data))
+    out = io.BytesIO()
+    with zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+        for info in zin.infolist():
+            raw = zin.read(info.filename)
+            if info.filename.startswith("xl/worksheets/sheet") and info.filename.endswith(".xml"):
+                raw = _FCELL.sub(put, raw.decode("utf-8")).encode("utf-8")
+            z.writestr(info, raw)
+    return out.getvalue()
 
 
 def _put(dst, src_cell, value):
@@ -194,13 +277,17 @@ def build_report(obj: SiteObject, collapsed=()) -> bytes:
     """Narxlangan ofyorta: bitta list — ofyorta, yonida (oraliqsiz) har dalolatnoma va «Остатка» bloklari.
     collapsed — saytda yig'ilgan bloklar («a1», «a3», «rest»): Excel'da ham yig'ilgan. (Ф-2 alohida — ``build_f2``.)"""
     b = sa.book(obj)
-    wb, src = _source(obj)
+    wb, src = _source(obj, b)
     blocks = _blocks(obj, b)
     lay = b.lay
     width = lay.block_end - lay.qty + 1
     _split_cols(src, lay.block_end + 1 + len(blocks) * width + 1)
     _clear_right(src, lay.block_end + 1)
     ws = src
+    for w in obj.warnings or ():  # foydalanuvchi tasdiqlagan formula tuzatishi — ofyortada ham, bloklarda ham
+        if w.get("fix") == "relink_on":
+            for cell, _old, new in w.get("items") or ():
+                ws[cell].value = new
     ws.title = _title(wb, "Офёрта")
     starts = [lay.block_end + 1 + k * width for k in range(len(blocks))]
     last = ws.max_row
@@ -215,8 +302,24 @@ def build_report(obj: SiteObject, collapsed=()) -> bytes:
                     cell._style = StyleArray()
                 cell._style.fillId = fid
     _hide_types(ws, lay, [None] + starts)
+    for a, z in lay.hide or ():  # foydalanuvchi «keraksiz» deb yig'gani — Excel'da ham yig'ilgan (+ bilan ochiladi)
+        ws.row_dimensions.group(a, z, outline_level=1, hidden=True)
+    for j in (obj.layout or {}).get("hide_cols") or ():  # keraksiz ustunlar (Book keshida eskisi bo'lishi mumkin) — ofyortada va (dalolatnoma ustuni bo'lsa) har blokda
+        for c in [j] + ([s + j - lay.qty for s in starts] if lay.qty <= j <= lay.block_end else []):
+            ws.column_dimensions[get_column_letter(c + 1)].hidden = True
+    if ws.print_area:  # fayldagi bosma maydoni faqat ofyortani olardi — bloklar ham kirsin
+        ws.print_area = f"A1:{get_column_letter(starts[-1] + width if starts else lay.block_end + 1)}{last}"
     wb.active = 0
-    return _save(wb)
+    full = b.evaluate({t: b.contract_qty(t) for t in b.tops})
+    evs = [(s, s + width, b.evaluate(qty)) for s, (_t, qty, _a) in zip(starts, blocks)]
+
+    def value(c, r):
+        for s, e, ev in evs:
+            if s <= c < e:
+                return ev(c - s + lay.qty, r)
+        v = b.values.get((c, r))  # ofyorta qismi — fayldagidek (Excel saqlagan natija)
+        return v if isinstance(v, (int, float)) and not isinstance(v, bool) else full(c, r)
+    return _save(wb, value)
 
 
 def _title(wb, name: str) -> str:
@@ -233,9 +336,12 @@ def _keep_rows(b, qty: Dict[int, float]) -> List[int]:
     """Qoladigan qatorlar: sarlavha, bajarilgan ishlar (resurslari bilan), ularning tepasidagi matn qatorlari
     (bo'lim, lokal sarlavhasi), svodka va undan keyingisi (imzolar)."""
     done = {t for t in b.tops if qty.get(t)}
+    hidden = hidden_set(b.lay)  # «keraksiz» deb yig'ilganlar Ф-2 ga tushmaydi
     keep, pending, after_item = [], [], False
     for row in b.rows:
         kind, r = row["kind"], row["row"]
+        if r in hidden:
+            continue
         if kind == "head":
             keep.append(r)
         elif kind == "text":
@@ -253,7 +359,7 @@ def _keep_rows(b, qty: Dict[int, float]) -> List[int]:
             keep.append(r)
     last = max(r["row"] for r in b.rows)
     if b.svod_rows:
-        keep.extend(range(max(b.svod_rows) + 1, last + 1))
+        keep.extend(r for r in range(max(b.svod_rows) + 1, last + 1) if r not in hidden)
     return sorted(set(keep))
 
 
@@ -325,7 +431,7 @@ def _filter(ws, src, b, qty: Dict[int, float]):
 
 def build_f2(obj: SiteObject, act: Act) -> bytes:
     b = sa.book(obj)
-    wb, src = _source(obj)
+    wb, src = _source(obj, b)
     qty = sa.all_qty(obj).get(act.pk, {})
     _split_cols(src, b.lay.block_end + 1)
     ws = wb.copy_worksheet(src)
@@ -334,4 +440,5 @@ def build_f2(obj: SiteObject, act: Act) -> bytes:
     wb.remove(src)
     _first_sheet(wb)
     ws.title = _title(wb, f"Ф-2 {act.title}")
-    return _save(wb)
+    ev, old = b.evaluate(qty), {i: r for i, r in enumerate(_keep_rows(b, qty), start=1)}
+    return _save(wb, lambda c, r: ev(c, old[r]))

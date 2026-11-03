@@ -8,10 +8,18 @@
   <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
     <div class="font-semibold">Офёртани ўқиб бўлмади</div>
     <div class="mt-1">{{ o.error }}</div>
-    <p class="mt-2 text-rose-700">Файлда «Наименование работ…» сарлавҳали офёрта листи борлигини текширинг ва объектни қайта қўшинг.</p>
+    <p class="mt-2 text-rose-700">Қуйидагилардан бирини қилиб кўринг: тизим жадвални тушунмаган бўлса — уни ўзингиз белгиланг,
+      нотўғри лист танланган бўлса — бошқасини танланг.</p>
   </div>
-  <form method="post" action="{% url 'texnazor:delete' o.pk %}" class="mt-3">{% csrf_token %}
-    <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Объектни ўчириш</button></form>
+  <div class="mt-3 flex flex-wrap gap-2">
+    {% if o.sheet %}<a href="{% url 'texnazor:mark' o.pk %}" class="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700">Жадвални ўзим белгилайман</a>{% endif %}
+    {% if o.sheets|length > 1 %}<form method="post" action="{% url 'texnazor:change_sheet' o.pk %}">{% csrf_token %}
+      <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Бошқа листни танлаш</button></form>{% endif %}
+    <form method="post" action="{% url 'texnazor:retry' o.pk %}">{% csrf_token %}
+      <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Қайта уриниш</button></form>
+    <form method="post" action="{% url 'texnazor:delete' o.pk %}">{% csrf_token %}
+      <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-500 hover:bg-rose-50 hover:text-rose-700">Объектни ўчириш</button></form>
+  </div>
   {% else %}
   <p class="mt-3 text-sm text-slate-600">Офёрта ўқилмоқда — бу бир марта бўлади. Тугагач, саҳифа ўзи очилади.</p>
   <script>

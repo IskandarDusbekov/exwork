@@ -107,7 +107,7 @@ def _kick(o):
 
 def detail(request, obj_id):
     o = _obj(request, obj_id)
-    if o.mode == SiteObject.Mode.ACTS and o.status in (SiteObject.Status.READY, SiteObject.Status.CHOOSE):
+    if o.mode == SiteObject.Mode.ACTS and o.status in (SiteObject.Status.READY, SiteObject.Status.CHOOSE, SiteObject.Status.MARK):
         from . import views_acts
         return views_acts.detail(request, o)
     if o.status != SiteObject.Status.READY:
