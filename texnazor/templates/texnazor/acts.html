@@ -31,7 +31,7 @@
           <span class="tn-ar-st">{% if a.closed %}{% icon "lock" "h-3 w-3" %} ёпилган{% else %}очиқ{% endif %}</span>
           <form method="post" action="{% url 'texnazor:act_edit' o.pk a.number %}" class="tn-ar-date">{% csrf_token %}<input type="hidden" name="do" value="date">
             <input type="date" name="date" value="{{ a.date|date:'Y-m-d' }}" aria-label="{{ a.title }} санаси"><button title="Санани сақлаш">✓</button></form>
-          <a href="{% url 'texnazor:act_f2' o.pk a.number %}" download class="tn-ar-b" title="Ф-2 {{ a.title }} — фақат шу далолатнома ишлари (Excel)">Ф-2</a>
+          <a href="{% url 'texnazor:act_f2' o.pk a.number %}" download data-est="{{ f2_est }}" class="tn-ar-b" title="Ф-2 {{ a.title }} — фақат шу далолатнома ишлари (Excel)">Ф-2</a>
           <form method="post" action="{% url 'texnazor:act_edit' o.pk a.number %}">{% csrf_token %}<input type="hidden" name="do" value="close">
             <button class="tn-ar-b" title="{% if a.closed %}Қайта очиш — ҳажмни ўзгартириш мумкин бўлади{% else %}Ёпиш — ҳажмлари ўзгармайди{% endif %}">{% if a.closed %}очиш{% else %}ёпиш{% endif %}</button></form>
           <button type="button" class="tn-ar-b" data-rename="{{ a.number }}" data-name="{{ a.name }}" title="Номини ёзиш / ўзгартириш (Alt+R)">{% icon "pencil" "h-3.5 w-3.5" %}ном</button>
@@ -50,12 +50,27 @@
     </details>
     <form method="post" action="{% url 'texnazor:act_add' o.pk %}" data-keep>{% csrf_token %}<input type="hidden" name="view" value="{{ view }}">
       <button class="tn-tb tn-tb-soft" title="Янги далолатнома №{{ acts|length|add:1 }} очиш (Alt+N)">{% icon "plus" "h-4 w-4" %}<span class="tn-tb-long">Янги далолатнома</span> №{{ acts|length|add:1 }}</button></form>
-    <a href="{% url 'texnazor:report' o.pk %}" class="tn-tb tn-tb-main" id="tn-xlsx" download title="Нархланган офёрта (Excel): офёрта + ҳар далолатнома ва «Остатка» блоклари; йиғилган блоклар Excel'да ҳам йиғилган (+ / − билан очилади)">{% icon "download" "h-4 w-4" %}Excel'га юклаш</a>
+    <a href="{% url 'texnazor:report' o.pk %}" class="tn-tb tn-tb-main" id="tn-xlsx" download data-est="{{ xlsx_est }}" title="Нархланган офёрта (Excel): офёрта + ҳар далолатнома ва «Остатка» блоклари; йиғилган блоклар Excel'да ҳам йиғилган (+ / − билан очилади)">{% icon "download" "h-4 w-4" %}Excel'га юклаш</a>
+    {% if acts %}<details class="tn-dd">
+      <summary class="tn-tb tn-tb-f2" title="Ф-2 — бажарилган ишлар далолатномаси (ҳар бири алоҳида Excel)">{% icon "file" "h-4 w-4" %}Ф-2 юклаш <span class="tn-car">▾</span></summary>
+      <div class="tn-pop tn-pop-f2">
+        <div class="tn-f2-h">Ф-2 — фақат шу далолатномада бажарилган ишлар (Excel)</div>
+        {% for r in totals.acts %}{% with a=r.act %}
+        <a href="{% url 'texnazor:act_f2' o.pk a.number %}" download data-est="{{ f2_est }}" class="tn-f2-i">
+          <span class="tn-dot" data-k="{{ forloop.counter0 }}"></span>
+          <b>Ф-2 {{ a.title }}</b>{% if a.name %} <span class="tn-ar-n">{{ a.name }}</span>{% endif %}
+          <span class="tn-f2-m">{{ a.date|date:"d.m.Y" }}{% if a.closed %} · ёпилган{% else %} · очиқ{% endif %}</span>
+          {% icon "download" "h-4 w-4" %}</a>
+        {% endwith %}{% endfor %}
+      </div>
+    </details>{% endif %}
 
     {# jadvalni ko'rish sozlamalari — alohida, neytral guruh (amal emas) #}
     <span class="tn-tools" role="group" aria-label="Жадвални кўриш">
       <button type="button" class="tn-tl" id="tn-res" aria-pressed="true" title="Иш остидаги ресурс қаторларини ёпиш / очиш">{% icon "layers" "h-4 w-4" %}<span class="tn-tl-t">Ресурсларни ёпиш</span></button>
       {% if blk %}<button type="button" class="tn-tl" id="tn-coll" title="Ҳар далолатнома блокини Excel'даги «свернуть»дек йиғиш / ёйиш (блок сарлавҳасидаги − / +)">{% icon "columns" "h-4 w-4" %}<span class="tn-tl-t">Блокларни йиғиш</span></button>{% endif %}
+      <button type="button" class="tn-tl" id="tn-svod" aria-pressed="false" title="Офёрта ичидаги бўлим сводкасини («JAMI:», «ИШ ҲАҚИ», фоизлар) белгилаш — иш эмас, ҳажм ёзилмайди, формуласи ҳисобланади">{% icon "list" "h-4 w-4" %}<span class="tn-tl-t">Сводка белгилаш</span></button>
+      <button type="button" class="tn-tl" id="tn-hide" aria-pressed="false" title="Кераксиз устунларни йиғиш (сайтда ва Excel ҳисоботда) — ҳарфини босинг">{% icon "columns" "h-4 w-4" %}<span class="tn-tl-t">Кераксиз устунлар</span></button>
       <label class="tn-tl tn-tl-chk" title="Фақат ҳажм ёзилган ишлар"><input type="checkbox" id="tn-only">{% icon "filter" "h-4 w-4" %}<span>Фақат ёзилганлар</span></label>
       <label class="tn-tl tn-tl-in" title="Масштаб">{% icon "search" "h-4 w-4" %}<select id="tn-zoom" aria-label="Масштаб"></select></label>
       <label class="tn-tl tn-tl-in" title="Excel қатори рақамига ўтиш (Enter)">{% icon "arrow-right" "h-4 w-4" %}<input id="tn-goto" inputmode="numeric" placeholder="Қатор №" class="num" aria-label="Қаторга ўтиш"></label>
@@ -68,7 +83,12 @@
         <div class="tn-pop tn-pop-warn">
         {% for w in warnings %}<div class="tn-w"><div class="font-semibold">{{ w.title }}</div>
           {% if w.text %}<p>{{ w.text }}</p>{% endif %}
-          {% if w.row %}<button type="button" data-goto="{{ w.row }}">Excel'да {{ w.row }}-қатор — жадвалда кўрсатиш</button>{% endif %}</div>{% endfor %}
+          {% if w.row %}<button type="button" data-goto="{{ w.row }}">Excel'да {{ w.row }}-қатор — жадвалда кўрсатиш</button>{% endif %}
+          {% if w.fix == "prop_res" and w.relink %}{% include "texnazor/_relink.html" with rl=w.relink %}{% endif %}
+          {% if w.fix == "relink_on" %}{% include "texnazor/_relink.html" with done=w %}{% endif %}
+          {% if w.fix == "prop_res" or w.fix == "prop_res_on" or w.fix == "relink_on" %}<form method="post" action="{% url 'texnazor:prop_res' o.pk %}" class="tn-w-fix">{% csrf_token %}
+            <input type="hidden" name="on" value="{% if w.fix == 'prop_res' %}1{% else %}0{% endif %}">
+            <button class="{% if w.fix == 'prop_res' %}tn-w-go{% endif %}">{% if w.fix == "prop_res" %}Мутаносиб қилиш (ўз иши ҳажмига, жами ўзгармайди){% else %}Бекор қилиш — файлдагидек{% endif %}</button></form>{% endif %}</div>{% endfor %}
         </div>
       </details>
       {% endif %}
@@ -101,16 +121,24 @@
       <span>{{ check.fails|length }} та муаммо · батафсил</span></summary>
     <ul>
       {% for w in check.fails %}<li><b>{{ w.title }}</b><p>{{ w.text }}</p>
-        {% if w.row %}<button type="button" data-goto="{{ w.row }}">Excel'да {{ w.row }}-қатор — жадвалда кўрсатиш</button>{% endif %}</li>{% endfor %}
+        {% if w.row %}<button type="button" data-goto="{{ w.row }}">Excel'да {{ w.row }}-қатор — жадвалда кўрсатиш</button>{% endif %}
+        {% if w.code == "empty" and prop_fix %}<div class="tn-check-fix"><b>Сабаби:</b> айрим ресурсларнинг жами (F) ўз иши ҳажмига эмас,
+          бошқа қатордаги ҳажмга кўпайтирилган{% if prop_fix.example %} (масалан {{ prop_fix.example }}){% endif %} — формула кўчирилганда «$» қотиб қолган. Шунинг учун
+          далолатнома бўш бўлса ҳам пул чиқади. Иккита йўл бор — бирини танланг (кейин бекор қилиш мумкин):
+          {% if prop_fix.relink %}{% include "texnazor/_relink.html" with rl=prop_fix.relink big=1 %}{% endif %}
+          <form method="post" action="{% url 'texnazor:prop_res' o.pk %}">{% csrf_token %}<input type="hidden" name="on" value="1">
+            <button class="tn-check-go{% if prop_fix.relink %} tn-check-alt{% endif %}">{% if prop_fix.relink %}2. {% endif %}Мутаносиб қилиш: формулага тегмасдан, далолатномада ўз иши ҳажмига</button>
+            <span>Офёрта жами файлдагидек қолади (файлдаги хато жамида қолади).</span></form></div>{% endif %}</li>{% endfor %}
     </ul>
     <p class="tn-check-h">Текширув: ҳажм ёзилмаса — 0, ярим ҳажмда — 50%, тўлиқ ҳажмда — файлдаги жами бўлиши керак.
       Кўпинча сабаб — тизим устунларни адаштирган: қуйидаги тугма билан ҳажм, нарх, сумма устунлари ва жами қаторни
       ўзингиз кўрсатинг. Файлнинг ўзида хато бўлса — смета тузувчи билан текширинг.</p>
-    <p class="tn-check-h"><button type="button" class="tn-lfix-open" data-fix-open>Устунлар ва жами қаторни ўзим кўрсатаман</button></p>
+    <p class="tn-check-h"><button type="button" class="tn-lfix-open" data-fix-open>Устунлар ва жами қаторни ўзим кўрсатаман</button>
+      · <a class="tn-lfix-open" href="{% url 'texnazor:mark' o.pk %}">Жадвални бошидан белгилайман (сарлавҳа, ишлар, охири)</a></p>
   </details>
   {% elif fix.manual %}
-  <div class="tn-manual">{% icon "check" "h-4 w-4" %} Устунлар қўлда белгиланган{% if fix.memo %} (шу шаблондаги аввалги файлдан){% endif %} — текширувдан ўтди.
-    <button type="button" data-fix-open>ўзгартириш</button></div>
+  <div class="tn-manual">{% icon "check" "h-4 w-4" %} {% if fix.manual.header %}Жадвал{% else %}Устунлар{% endif %} қўлда белгиланган{% if fix.memo %} (шу шаблондаги аввалги файлдан){% endif %} — текширувдан ўтди.
+    <button type="button" data-fix-open>ўзгартириш</button> · <a href="{% url 'texnazor:mark' o.pk %}">жадвални белгилаш</a></div>
   {% endif %}
 
   {# ---- tuzatish oynasi: tizim adashsa — ustunlar va jami qatorni foydalanuvchi ko'rsatadi ---- #}
@@ -138,6 +166,14 @@
 
   {# ---- o'rtada: faqat jadval suriladi ---- #}
   <div class="tn-sheet" id="tn-sheet"><p class="px-5 py-12 text-center text-slate-500">Офёрта юкланяпти…</p></div>
+  <div class="tn-hidebar" id="tn-hidebar" hidden role="region" aria-label="Кераксиз қаторларни йиғиш">
+    <span class="tn-hb-ic">{% icon "minus" "h-4 w-4" %}</span>
+    <span class="tn-hb-t" id="tn-hb-t"></span>
+    <span class="tn-hb-err" id="tn-hb-err" hidden></span>
+    <button type="button" class="tn-hb-go" id="tn-hb-go" hidden>Сводка деб белгилаш</button>
+    <button type="button" class="tn-hb-x" id="tn-hb-un" hidden>Сводка эмас</button>
+    <button type="button" class="tn-hb-x" id="tn-hb-x">Тайёр</button>
+  </div>
   {% if blk and active %}
   <div class="tn-selbar hidden" id="tn-selbar" role="region" aria-label="Белгиланган ишлар">
     <span><b class="tn-sel-n num">0</b> та иш белгиланди</span>
@@ -192,16 +228,22 @@
   </div>
 </section>
 
+<div class="tn-prog" id="tn-prog" hidden role="status" aria-live="polite">
+  <div class="tn-prog-t"><span class="tn-spin" aria-hidden="true"></span><b></b><span class="tn-prog-p num"></span></div>
+  <div class="tn-prog-bar"><i></i></div>
+  <div class="tn-prog-s"></div>
+</div>
+
 <div class="tn-done" id="tn-done" hidden role="dialog" aria-modal="true" aria-labelledby="tn-done-t">
   <div class="tn-done-box">
     <span class="tn-done-ic">{% icon "check" "h-7 w-7" %}</span>
     <h3 id="tn-done-t"></h3>
     <p class="tn-done-sub">Далолатнома ёпилди — ҳажмлари энди ўзгармайди.</p>
     <p class="tn-done-sum"><span>Бажарилди</span><b class="num"></b></p>
-    <a href="{% url 'texnazor:report' o.pk %}" class="tn-done-dl" data-dl download>{% icon "download" "h-5 w-5" %}Excel'ни юклаб олиш</a>
+    <a href="{% url 'texnazor:report' o.pk %}" class="tn-done-dl" data-dl download data-est="{{ xlsx_est }}">{% icon "download" "h-5 w-5" %}Excel'ни юклаб олиш</a>
     <span class="tn-done-hint">Нархланган офёрта: офёрта, далолатномалар ва «Остатка»</span>
     <div class="tn-done-r">
-      <a href="#" data-f2 download>{% icon "file" "h-4 w-4" %}Ф-2</a>
+      <a href="#" data-f2 download data-est="{{ f2_est }}">{% icon "file" "h-4 w-4" %}Ф-2</a>
       <button type="button" data-reopen>{% icon "undo" "h-4 w-4" %}Қайта очиш</button>
       <button type="button" data-x>Ёпиш</button>
     </div>
@@ -232,8 +274,10 @@
   .tn-sheet { flex: 1; min-height: 0; overflow: auto; background: #fff; }
   .tn-lfix-open { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; background: #be123c; color: #fff; font-weight: 600; }
   .tn-lfix-open:hover { background: #9f1239; }
+  a.tn-lfix-open { background: #fff; color: #be123c; border: 1px solid #fda4af; }
+  a.tn-lfix-open:hover { background: #ffe4e6; }
   .tn-manual { flex: none; display: flex; align-items: center; gap: 6px; padding: 6px 16px; border-bottom: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; font-size: 13px; }
-  .tn-manual button { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+  .tn-manual button, .tn-manual a { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
   .tn-lfix { width: min(620px, calc(100vw - 32px)); margin: auto; padding: 0; border: 0; border-radius: 14px; box-shadow: 0 20px 50px rgba(15, 23, 42, .25); color: #0f172a; }
   .tn-lfix::backdrop { background: rgba(15, 23, 42, .45); }
   .tn-lfix form { display: grid; gap: 10px; padding: 20px; }
@@ -260,6 +304,27 @@
   .tn-check li p { margin-top: 2px; color: #9f1239; }
   .tn-check li button { margin-top: 3px; font-size: 12.5px; font-weight: 600; color: #be123c; text-decoration: underline; text-underline-offset: 3px; }
   .tn-check-h { padding: 0 16px 10px 44px; font-size: 12.5px; color: #be123c; }
+  .tn-check-fix { margin-top: 6px; padding: 8px 12px; border-radius: 8px; background: #fff; border: 1px solid #fecdd3; color: #881337; }
+  .tn-check-fix form { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .tn-check li .tn-check-go { margin: 0; height: 32px; padding: 0 14px; border-radius: 8px; background: #e11d48; color: #fff; text-decoration: none; font-weight: 700; }
+  .tn-check li .tn-check-go:hover { background: #be123c; }
+  .tn-check-fix span { font-size: 12.5px; color: #9f1239; }
+  .tn-w-fix button { margin-top: 4px; font-size: 12.5px; font-weight: 600; text-decoration: underline; }
+  .tn-w-fix button.tn-w-go { height: 30px; padding: 0 12px; border-radius: 8px; background: #e11d48; color: #fff; text-decoration: none; }
+  .tn-check li .tn-check-go.tn-check-alt { background: #fff; color: #be123c; border: 1px solid #fda4af; }
+  .tn-check li .tn-check-go.tn-check-alt:hover { background: #fff1f2; }
+  .tn-rl { margin: 6px 0 2px; }
+  .tn-rl table { border-collapse: collapse; font-size: 12.5px; margin: 4px 0; }
+  .tn-rl th, .tn-rl td { border: 1px solid #fecdd3; padding: 2px 8px; text-align: left; white-space: nowrap; }
+  .tn-rl th { background: #fff1f2; font-weight: 600; }
+  .tn-rl code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .tn-rl .old { color: #9f1239; text-decoration: line-through; text-decoration-color: #fda4af; }
+  .tn-rl .new { color: #166534; font-weight: 600; }
+  .tn-rl td.num { text-align: right; }
+  .tn-rl-sum { font-size: 12.5px; }
+  .tn-rl form { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .tn-pop-warn .tn-rl table { font-size: 11.5px; }
+  .tn-pop-warn .tn-rl button.tn-w-go { height: 30px; padding: 0 12px; border-radius: 8px; background: #e11d48; color: #fff; font-size: 12.5px; font-weight: 600; }
   .tn-tb { display: inline-flex; align-items: center; gap: 6px; height: 34px; border: 1px solid #d6dce6; border-radius: 8px; padding: 0 12px; font-size: 14px; font-weight: 500; color: #1e293b; background: #fff; cursor: var(--cur-hand, pointer); white-space: nowrap; list-style: none; transition: background .12s, border-color .12s; }
   .tn-tb::-webkit-details-marker { display: none; }
   .tn-tb:hover { background: #f6f8fb; border-color: #c3cbd8; }
@@ -367,6 +432,26 @@
   .tn-done-dl { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 52px; border-radius: 12px; background: var(--tn-brand, #2563eb); color: #fff; font-size: 17px; font-weight: 700; box-shadow: 0 8px 20px rgba(37, 99, 235, .35); }
   .tn-done-dl:hover { background: #1d4ed8; }
   a.is-busy { cursor: progress; opacity: .85; }
+  .tn-prog { position: fixed; right: 20px; bottom: 20px; z-index: 80; width: 340px; max-width: calc(100vw - 32px); padding: 12px 14px; border-radius: 12px; background: #fff; border: 1px solid #d6dce6; box-shadow: 0 14px 34px rgba(15, 23, 42, .18); font-size: 13.5px; color: #1e293b; }
+  .tn-prog-t { display: flex; align-items: center; gap: 8px; }
+  .tn-prog-t b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tn-prog-t .tn-spin { color: #2563eb; }
+  .tn-prog-p { font-weight: 700; color: #2563eb; }
+  .tn-prog-bar { margin-top: 8px; height: 8px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+  .tn-prog-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #3b82f6, #2563eb); transition: width .25s linear; }
+  .tn-prog-s { margin-top: 6px; font-size: 12.5px; color: #64748b; }
+  .tn-prog.is-ok .tn-prog-bar i { background: #16a34a; }
+  .tn-prog.is-ok .tn-prog-p, .tn-prog.is-ok .tn-prog-t .tn-spin { color: #16a34a; }
+  .tn-prog.is-ok .tn-spin { animation: none; border-color: currentColor; }
+  .tn-prog.is-err .tn-prog-bar i { background: #e11d48; }
+  .tn-tb-f2 { border-color: #bfd3f8; color: #1d4ed8; background: #eff6ff; }
+  .tn-tb-f2:hover { background: #dbeafe; }
+  .tn-pop-f2 { min-width: 330px; padding: 6px; }
+  .tn-f2-h { padding: 4px 8px 6px; font-size: 12px; color: #64748b; }
+  .tn-f2-i { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; color: #1e293b; text-decoration: none; font-size: 13.5px; }
+  .tn-f2-i:hover { background: #eff6ff; color: #1d4ed8; }
+  .tn-f2-m { margin-left: auto; font-size: 12px; color: #64748b; }
+  .tn-f2-i.is-busy { opacity: .6; pointer-events: none; }
   .tn-spin { flex: none; width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 999px; animation: tn-rot .7s linear infinite; }
   @keyframes tn-rot { to { transform: rotate(360deg); } }
   .tn-done-hint { font-size: 12.5px; color: #94a3b8; }
@@ -419,6 +504,32 @@
   .tn-x td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .tn-x thead th { position: sticky; top: 0; z-index: 3; background: #efefef; color: #444; font: 500 12px/1.2 "Segoe UI", Arial, sans-serif; text-align: center; padding: 3px 2px; border-right: 1px solid #d0d0d0; border-bottom: 1px solid #c4c4c4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tn-x thead tr.tn-x-b th { top: 38px; }  /* blok sarlavhasi qatori balandligi (.blk-h) */
+  .tn-x tr.tn-gap td { height: 26px; padding: 0 8px; background: repeating-linear-gradient(135deg, #f8fafc 0 8px, #f1f5f9 8px 16px); border-bottom: 1px solid #cbd5e1; font: 12px/1.2 "Segoe UI", Arial, sans-serif; color: #475569; }
+  .tn-x tr.tn-gap td.rn { color: #94a3b8; }
+  .tn-x tr.tn-gap button { font-weight: 600; color: #334155; }
+  .tn-x tr.tn-gap button:hover { color: #1d4ed8; text-decoration: underline; }
+  .tn-x tr.tn-gap .tn-gap-del { margin-left: 12px; color: #be123c; font-weight: 500; }
+  .tn-x tr.is-hid td:not(.rn) { opacity: .45; }
+  .tn-x tr.is-svod td.rn { background: #fef3c7; color: #92400e; }
+  .tn-x tr.is-svodm td.rn { background: #fde68a; color: #78350f; font-weight: 700; }
+  .tn-x td.hcol, .tn-x th.hcol { padding: 0; background: repeating-linear-gradient(90deg, #cbd5e1 0 1px, #f1f5f9 1px 4px) !important; border-right: 1px solid #94a3b8; }
+  .tn-x th.hcol button { width: 100%; height: 100%; font-weight: 800; color: #1d4ed8; }
+  .tn-sheet.is-colmode thead th[data-col] { cursor: var(--cur-hand, pointer); }
+  .tn-sheet.is-colmode thead th[data-col]:hover { background: #fecaca; color: #7f1d1d; }
+  .tn-x tr.is-hsel td { background-color: #fee2e2 !important; }
+  .tn-x tr.is-hsel td.rn { background: #fca5a5 !important; color: #7f1d1d; font-weight: 700; }
+  .tn-sheet.is-hidemode td.rn { cursor: var(--cur-hand, pointer); }
+  .tn-sheet.is-hidemode td.rn:hover { background: #fecaca; color: #7f1d1d; }
+  .tn-hidebar { position: absolute; left: 8px; right: 8px; bottom: 40px; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 10px 8px 14px; border-radius: 10px; background: #1e293b; color: #fff; font-size: 13.5px; box-shadow: 0 8px 24px rgba(15, 23, 42, .3); }
+  .tn-hidebar[hidden] { display: none; }
+  .tn-hb-ic { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 999px; background: #e11d48; }
+  .tn-hb-t { flex: 1; min-width: 200px; }
+  .tn-hb-t em { font-style: normal; color: #cbd5e1; }
+  .tn-hb-err { width: 100%; order: 9; padding: 4px 8px; border-radius: 6px; background: #fff1f2; color: #9f1239; font-weight: 600; }
+  .tn-hb-go { height: 32px; padding: 0 14px; border-radius: 8px; background: #e11d48; font-weight: 700; }
+  .tn-hb-go:hover { background: #be123c; }
+  .tn-hb-go:disabled { opacity: .6; }
+  .tn-hb-x { height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .3); font-weight: 600; }
   .tn-x .rn { position: sticky; left: 0; z-index: 2; background: #efefef; color: #555; text-align: center; font: 11px/1.2 "Segoe UI", Arial, sans-serif; vertical-align: middle; border-right: 1px solid #c4c4c4; border-bottom: 1px solid #d0d0d0; white-space: nowrap; }
   .tn-x thead .rn { z-index: 4; }
   /* pastda — har blok tagida o'z jami (jadval bilan birga suriladi, doim ko'rinadi) */
@@ -514,6 +625,13 @@
   var D = null, CHUNK = 150, ZOOM = 0.9, CONTRACT = {{ totals.contract|stringformat:".6f" }};
   var FILL_URL = "{% url 'texnazor:act_fill' o.pk %}", CAN_SEL = !!document.getElementById("tn-selbar"), RN = CAN_SEL ? 78 : 62;
   var SEL = {}, lastSel = null;
+  // «keraksiz» deb yig'ilgan qatorlar (fayl qayta o'qilganda — ish emas): HX — shu sahifada ochib ko'rilganlari;
+  // HM — yig'ish rejimi (qator raqamini bosish: birinchi va oxirgi), HS — tanlangan oraliq
+  // HM — rejim: "svod" (qatorlar oralig'i — сводка) yoki "cols" (keraksiz ustunlar); HS — tanlangan oraliq
+  var HIDE_URL = "{% url 'texnazor:hide' o.pk %}", COL_URL = "{% url 'texnazor:hide_col' o.pk %}", HX = {}, HM = null, HS = null;
+  function svodOf(row) { var H = (D && D.layout.svod) || []; for (var i = 0; i < H.length; i++) if (row >= H[i][0] && row <= H[i][1]) return H[i]; return null; }
+  function hideOf(row) { var H = (D && D.layout.hide) || []; for (var i = 0; i < H.length; i++) if (row >= H[i][0] && row <= H[i][1]) return H[i]; return null; }
+  function inSel(row) { return HS && row >= Math.min(HS[0], HS[1]) && row <= Math.max(HS[0], HS[1]); }
   // resurslar: hammasi ochiq / yopiq (shu brauzerda eslab qolinadi) + alohida ochilgan / yopilgan ishlar
   var RES_KEY = "tn-res-{{ o.pk }}", RES_ALL = true, RES_X = {};
   try { RES_ALL = localStorage.getItem(RES_KEY) !== "0"; } catch (e) { RES_ALL = true; }
@@ -556,10 +674,12 @@
     if (!a || e.defaultPrevented || e.ctrlKey || e.metaKey || e.shiftKey || !window.fetch || !window.URL) return;
     e.preventDefault();
     if (a.classList.contains("is-busy")) return;
-    var label = a.innerHTML;
+    var label = a.innerHTML, f2 = a.href.indexOf("/f2/") >= 0;
     a.classList.add("is-busy");
     a.setAttribute("aria-busy", "true");
-    a.innerHTML = '<span class="tn-spin" aria-hidden="true"></span>Тайёрланмоқда…';
+    if (!a.classList.contains("tn-f2-i")) a.innerHTML = '<span class="tn-spin" aria-hidden="true"></span>Тайёрланмоқда…';
+    var done = prog(f2 ? "Ф-2" + (/\/act\/(\d+)\/f2\//.exec(a.href) ? " №" + /\/act\/(\d+)\/f2\//.exec(a.href)[1] : "") + " тайёрланмоқда" : "Excel ҳисобот тайёрланмоқда",
+                    +a.dataset.est || 10);
     fetch(a.href, {credentials: "same-origin"}).then(function (r) {
       if (!r.ok) throw new Error(r.status);
       var cd = r.headers.get("Content-Disposition") || "", m = /filename\*=utf-8''([^;]+)/i.exec(cd) || /filename="?([^";]+)/i.exec(cd);
@@ -568,12 +688,45 @@
       var u = URL.createObjectURL(x.b), t = document.createElement("a");
       t.href = u; t.download = x.name; document.body.appendChild(t); t.click(); t.remove();
       setTimeout(function () { URL.revokeObjectURL(u); }, 60000);
+      done(true, x.name);
     }).catch(function () {
+      done(false);
       note("Excel'ни тайёрлаб бўлмади — бир оздан кейин қайта уриниб кўринг");
     }).then(function () {
       a.classList.remove("is-busy"); a.removeAttribute("aria-busy"); a.innerHTML = label;
     });
   });
+
+  // yuklash progressi: server foizni bermaydi — taxminiy vaqt (shu obyektda oxirgi marta ketgani) bo'yicha 90% gacha
+  // tekis, keyin sekinlashadi; javob kelganda 100%
+  var PROG = document.getElementById("tn-prog"), progRun = 0;
+  function prog(title, est) {
+    var id = ++progRun, t0 = Date.now(), bar = PROG.querySelector(".tn-prog-bar i"), pc = PROG.querySelector(".tn-prog-p"),
+        sub = PROG.querySelector(".tn-prog-s");
+    PROG.className = "tn-prog"; PROG.hidden = false;
+    PROG.querySelector("b").textContent = title + "…";
+    function tick() {
+      if (id !== progRun) return;
+      var t = (Date.now() - t0) / 1000, p = t < est ? 0.9 * t / est : 0.9 + 0.09 * (1 - Math.exp(-(t - est) / est)),
+          left = Math.ceil(est - t);
+      bar.style.width = (p * 100).toFixed(1) + "%";
+      pc.textContent = Math.floor(p * 100) + "%";
+      sub.textContent = left > 0 ? "Тахминан " + left + " сония қолди · " + Math.floor(t) + " с ўтди"
+                                 : "Яна бир оз… (" + Math.floor(t) + " с ўтди) — катта офёртада бир неча сония кўпроқ кетиши мумкин";
+      tick.t = setTimeout(tick, 250);
+    }
+    tick();
+    return function (ok, name) {
+      clearTimeout(tick.t);
+      if (id !== progRun) return;
+      PROG.classList.add(ok ? "is-ok" : "is-err");
+      bar.style.width = "100%";
+      pc.textContent = ok ? "100%" : "";
+      PROG.querySelector("b").textContent = ok ? "Тайёр — юклаб олинди" : "Тайёрлаб бўлмади";
+      sub.textContent = ok ? (name || "") + " · " + ((Date.now() - t0) / 1000).toFixed(1) + " с" : "Бир оздан кейин қайта уриниб кўринг";
+      setTimeout(function () { if (id === progRun) PROG.hidden = true; }, ok ? 3500 : 6000);
+    };
+  }
 
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]; }); }
   function fmt(v, money) {
@@ -609,6 +762,8 @@
     D.vc = [];  // ko'rinadigan ustunlar (Excel'da yashirilgani — yo'q)
     for (j = L.amount + 1; j <= L.block_end; j++) D.colw[j] = 0;  // turlar (ЧЕЛ-Ч, МАШ-Ч, МАТРИАЛ, ЖИХОЗ …) — kerak emas
     for (j = 0; j < D.w; j++) if (D.colw[j] > 0) D.vc.push(j);
+    D.HC = {};  // foydalanuvchi yig'gan ustunlar: o'rnida ingichka «+» ustun (Excel'dagi yashirin ustun kabi)
+    (L.hide_cols || []).forEach(function (j) { if (j !== L.qty && D.colw[j] > 0) { D.HC[j] = 1; D.colw[j] = 12; } });
     D.bc = D.vc.filter(function (j) { return j >= L.qty && j <= L.block_end; });
     D.blocks = [];
     if (BLK) {
@@ -718,7 +873,10 @@
     });
     var two = D.blocks.length ? ' rowspan="2"' : "";
     h += '</colgroup><thead><tr><th class="rn"' + two + "></th>";
-    D.vc.forEach(function (j) { h += "<th" + two + ">" + colName(j) + "</th>"; });
+    D.vc.forEach(function (j) {
+      h += D.HC[j] ? '<th class="hcol"' + two + '><button type="button" data-unhide="' + j + '" title="' + colName(j) + ' устунини кўрсатиш">+</button></th>'
+        : "<th" + two + ' data-col="' + j + '">' + colName(j) + "</th>";
+    });
     D.blocks.forEach(function (b) {
       var bs = "background:" + b.hd + ";color:" + b.color + ";border-left:2px solid " + b.color + ";border-right:2px solid " + b.color;
       if (COLL[b.key]) {
@@ -735,6 +893,7 @@
           return;
         }
         D.bc.forEach(function (j, n) {
+          if (D.HC[j]) { h += '<th class="hcol"></th>'; return; }
           h += '<th style="background:' + b.hd + ";color:" + b.color + (n === 0 ? ";border-left:2px solid " + b.color : "") + (n === D.bc.length - 1 ? ";border-right:2px solid " + b.color : "") + '" title="' + esc(colLabel(j)) + '">' + colName(b.start + j - D.layout.qty) + "</th>";
         });
       });
@@ -775,18 +934,21 @@
   function span(m, list) { if (!m) return null; var cs = spanIn(m, list); return cs ? {r2: m.r2, c2: m.c2, rs: m.rs, cs: cs} : null; }
 
   function rowHtml(r) {
+    if (r[1] === "gap") return gapHtml(r);
     var row = r[0], vals = r[4], ht = D.K.heights[row] || D.K.default_h;
     var get = function (j) { return j < vals.length ? vals[j] : null; };
     var pick = CAN_SEL && (r[1] === "work" || r[1] === "free"), kids = r[1] === "work" && D.kids[row];
     var caret = kids ? '<button type="button" class="tn-rt' + (resOpen(row) ? "" : " is-off") + '" data-top="' + row + '" title="' +
       (resOpen(row) ? "Ресурсларни ёпиш" : "Ресурсларни очиш (" + kids + " та)") + '">▼</button>' : "";
-    var cls = (pick && SEL[row] ? "is-sel " : "") + (row === CUR ? "is-cur" : "");
+    var cls = (pick && SEL[row] ? "is-sel " : "") + (row === CUR ? "is-cur " : "") + (hideOf(row) ? "is-hid " : "") + (inSel(row) ? "is-hsel " : "") +
+      (r[1] === "svod" ? "is-svod " : "") + (svodOf(row) ? "is-svodm" : "");
     var h = '<tr data-r="' + row + '"' + (cls ? ' class="' + cls.trim() + '"' : "") + ' style="height:' + ht + 'px"><td class="rn">' +
       (pick || caret ? "<label>" + caret + (pick ? '<input type="checkbox" class="tn-sel" data-row="' + row + '"' + (SEL[row] ? " checked" : "") + ">" : "") +
        "<b>" + row + "</b></label>" : row) + "</td>";
     D.vc.forEach(function (j) {
       var key = row + ":" + j;
       if (D.cover[key]) return;
+      if (D.HC[j] && !D.mtop[key]) { h += '<td class="hcol"></td>'; return; }
       h += td(row, j, get(j), D.vc, get, span(D.mtop[key], D.vc));
     });
     D.blocks.forEach(function (b) { h += blockCells(b, r); });
@@ -807,6 +969,7 @@
       }
       var c = D.cover[key];
       if (c && spanIn(c, D.bc)) return;
+      if (D.HC[j] && !D.mtop[key]) { h += '<td class="hcol"' + attrs + "></td>"; return; }
       var v = get(j), cls = "";
       if (typeof v === "number" && v < -1e-7 && (j === L.qty || j === L.total) && b.rest) cls += " neg";
       var sm = span(D.mtop[key], D.bc);
@@ -815,7 +978,26 @@
     return h;
   }
 
-  function visibleRows() {
+  function visibleRows() { return gaps(shownRows()); }
+  function gaps(rows) {
+    if (!(D.layout.hide || []).length) return rows;
+    var out = [], seen = {};
+    rows.forEach(function (r) {
+      var g = hideOf(r[0]);
+      if (!g) { out.push(r); return; }
+      if (!seen[g[0]]) { seen[g[0]] = 1; out.push([g[0], "gap", "", g[1], []]); }
+      if (HX[g[0]]) out.push(r);
+    });
+    return out;
+  }
+  function gapHtml(r) {
+    var n = r[3] - r[0] + 1, open = HX[r[0]], cols = D.vc.length;
+    D.blocks.forEach(function (b) { cols += COLL[b.key] ? 1 : D.bc.length; });
+    return '<tr class="tn-gap" data-gap="' + r[0] + '"><td class="rn">⋯</td><td colspan="' + cols + '"><button type="button" data-gap-t="' + r[0] + '">' +
+      (open ? "▾ " : "▸ ") + r[0] + "–" + r[3] + "-қаторлар · " + n + " та кераксиз қатор " + (open ? "(кўрсатилмоқда — йиғиш)" : "йиғилган — кўрсатиш") +
+      '</button><button type="button" class="tn-gap-del" data-gap-del="' + r[0] + '" title="Бу қаторлар яна офёртага қайтади (иш бўлса — ҳажм ёзилади); файл қайта ўқилади">йиғишни бекор қилиш</button></td></tr>';
+  }
+  function shownRows() {
     var rows = D.rows.filter(function (r) { return r[1] !== "res" || resOpen(r[3]); });
     if (!document.getElementById("tn-only").checked) return rows;
     var keep = {};
@@ -827,7 +1009,24 @@
   }
   function redraw() {  // joyni saqlab qayta chizish (resurslar ochildi / yopildi, filtr)
     var x = box.scrollLeft, y = box.scrollTop;
+    var rect = box.getBoundingClientRect(), th = box.querySelector("thead"), hh = th ? th.offsetHeight : 0;
+    var el = document.elementFromPoint(rect.left + 20, rect.top + hh + 4), at = el && el.closest && el.closest("tbody.ch tr[data-r]");
+    var anchor = at ? {r: +at.dataset.r, off: at.getBoundingClientRect().top - rect.top} : null;
     draw(); box.scrollLeft = x; box.scrollTop = y;
+    if (anchor) {  // bo'laklar balandligi taxminiy — tepadagi qator o'z joyida qolsin (sakramasin)
+      var i = D.vis.findIndex(function (r) { return r[0] === anchor.r; });
+      var ch = i >= 0 && box.querySelector('tbody.ch[data-i="' + Math.floor(i / CHUNK) * CHUNK + '"]');
+      if (ch && !ch.dataset.on) fill(ch);
+      var tr = box.querySelector('tbody.ch tr[data-r="' + anchor.r + '"]');
+      if (tr) box.scrollTop += tr.getBoundingClientRect().top - rect.top - anchor.off;
+    }
+    fillNear();
+  }
+  function fillNear() {  // ko'rinib turgan bo'laklar — darhol (kuzatuvchini kutmasdan: jadval miltillamasin)
+    var y = box.scrollTop;
+    box.querySelectorAll("tbody.ch:not([data-on])").forEach(function (t) {
+      if (t.offsetTop < y + box.clientHeight + 600 && t.offsetTop + t.offsetHeight > y - 600) fill(t);
+    });
   }
   function resButton() {
     var b = document.getElementById("tn-res");
@@ -839,7 +1038,7 @@
   function draw() {
     var rows = visibleRows(), L = D.layout, top = [], body = [];
     rows.forEach(function (r) { (r[0] <= L.header_end ? top : body).push(r); });
-    merges(top.map(function (r) { return {row: r[0], ch: -1}; }).concat(body.map(function (r, i) { return {row: r[0], ch: Math.floor(i / CHUNK)}; })));
+    merges(top.map(function (r) { return {row: r[0], ch: -1}; }).concat(body.map(function (r, i) { return {row: r[1] === "gap" ? -1 : r[0], ch: Math.floor(i / CHUNK)}; })));
     var width = RN;
     D.vc.forEach(function (j) { width += D.colw[j]; });
     D.blocks.forEach(function (b) { width += bw(b); });
@@ -858,14 +1057,17 @@
       es.forEach(function (e) { if (e.isIntersecting && !e.target.dataset.on) fill(e.target); });
     }, {root: box, rootMargin: "1200px 0px"});
     box.querySelectorAll("tbody.ch").forEach(function (t) { io.observe(t); });
+    fillNear();
     if (typeof CUR !== "undefined" && CUR !== null) lensLater();
   }
   function fill(t) {
     var i = +t.dataset.i, h = "";
     D.vis.slice(i, i + CHUNK).forEach(function (r) { h += rowHtml(r); });
+    var above = t.getBoundingClientRect().bottom <= box.getBoundingClientRect().top + 1, old = t.getBoundingClientRect().height;
     t.innerHTML = h;
     t.style.height = "";
     t.dataset.on = "1";
+    if (above) box.scrollTop += t.getBoundingClientRect().height - old;  // tepadagi bo'lak to'ldi (taxminiy balandlik o'zgardi) — ko'rinish sakramasin
   }
   function fillAll() { box.querySelectorAll("tbody.ch:not([data-on])").forEach(fill); }
 
@@ -1422,6 +1624,97 @@
     lensLater();
   });
   document.getElementById("tn-only").addEventListener("change", function () { if (D) redraw(); });
+
+  // ---- bo'lim svodkasini belgilash (qatorlar) va keraksiz ustunlarni yig'ish ----
+  var HB = document.getElementById("tn-hidebar"), HBT = document.getElementById("tn-hb-t"), HBG = document.getElementById("tn-hb-go"),
+      HBE = document.getElementById("tn-hb-err"), HBU = document.getElementById("tn-hb-un"),
+      SVBTN = document.getElementById("tn-svod"), HBTN = document.getElementById("tn-hide");
+  function hidePaint() {
+    HB.hidden = !HM;
+    SVBTN.setAttribute("aria-pressed", HM === "svod" ? "true" : "false");
+    HBTN.setAttribute("aria-pressed", HM === "cols" ? "true" : "false");
+    box.classList.toggle("is-hidemode", HM === "svod");
+    box.classList.toggle("is-colmode", HM === "cols");
+    var a = HS && Math.min(HS[0], HS[1]), b = HS && Math.max(HS[0], HS[1]), g = HS && svodOf(a);
+    if (HM === "cols") {
+      HBT.innerHTML = "Кераксиз устуннинг <b>ҳарфини</b> (тепада: A, B, C …) босинг — йиғилади, Excel ҳисоботда ҳам. Қайта очиш — йиғилган жойдаги <b>+</b>. <em>Esc — чиқиш</em>";
+    } else {
+      HBT.innerHTML = !HS ? "Сводка қаторларининг <b>биринчисининг рақамини</b> (чапдаги кулранг катак) босинг <em>— бўлим жами: «JAMI:», «ИШ ҲАҚИ», фоизлар … · Esc — чиқиш</em>"
+        : HS[0] === HS[1] && !HS.done ? "<b>" + a + "-қатор</b> танланди. Энди <b>охирги</b> сводка қаторини босинг (ёки шу битта қаторни белгиланг) <em>· Esc — бекор</em>"
+        : "<b>" + a + "–" + b + "-қаторлар</b> (" + (b - a + 1) + " та) — сводка: иш эмас, ҳажм ёзилмайди, формуласи ҳисобланади <em>· Esc — бекор</em>";
+    }
+    HBG.hidden = HM !== "svod" || !HS;
+    HBU.hidden = HM !== "svod" || !HS || !g || b > g[1];
+    HBE.hidden = true;
+  }
+  function hsel() {  // qayta chizmasdan — faqat belgisi (jadval miltillamasin)
+    box.querySelectorAll("tr[data-r]").forEach(function (tr) { tr.classList.toggle("is-hsel", !!inSel(+tr.dataset.r)); });
+  }
+  function mode(m) { HM = HM === m ? null : m; HS = null; hidePaint(); hsel(); }
+  SVBTN.addEventListener("click", function () { mode("svod"); });
+  HBTN.addEventListener("click", function () { mode("cols"); });
+  document.getElementById("tn-hb-x").addEventListener("click", function () { HM = null; HS = null; hidePaint(); hsel(); });
+  document.addEventListener("keydown", function (e) {  // Esc: avval tanlangani, keyin rejimning o'zi bekor
+    if (e.key !== "Escape" || !HM) return;
+    e.preventDefault(); e.stopPropagation();
+    if (HS) HS = null; else HM = null;
+    hidePaint(); hsel();
+  }, true);
+  ["mousedown", "click"].forEach(function (ev) {  // svodka rejimida qator raqami — faqat oraliq tanlaydi (ish belgilash emas)
+    box.addEventListener(ev, function (e) {
+      if (HM !== "svod") return;
+      var td = e.target.closest("td.rn"), tr = td && td.closest("tr[data-r]");
+      if (!tr) return;
+      e.preventDefault(); e.stopPropagation();
+      if (ev !== "click") return;
+      var r = +tr.dataset.r;
+      if (!HS || HS.done) HS = [r, r];
+      else { HS = [HS[0], r]; HS.done = true; }
+      hidePaint(); hsel();
+    }, true);
+  });
+  function colPost(j, on) {
+    var fd = new FormData(); fd.append("csrfmiddlewaretoken", csrf()); fd.append("col", j); fd.append("on", on ? "1" : "0");
+    fetch(COL_URL, {method: "POST", credentials: "same-origin", body: fd}).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { note(d.error || "Сақлаб бўлмади"); return; }
+      D.layout.hide_cols = d.cols; prep(); redraw();
+    }).catch(function () { note("Тармоқ хатоси — қайта уриниб кўринг"); });
+  }
+  box.addEventListener("click", function (e) {
+    var u = e.target.closest("[data-unhide]");
+    if (u) { e.preventDefault(); colPost(+u.dataset.unhide, false); return; }
+    var th = HM === "cols" && e.target.closest("thead th[data-col]");
+    if (th) { e.preventDefault(); colPost(+th.dataset.col, true); }
+  });
+  function svodPost(fd, btn, label) {
+    btn.disabled = true; btn.textContent = "Сақланмоқда…";
+    fd.append("csrfmiddlewaretoken", csrf()); fd.append("kind", "svod");
+    hidePost(fd, function (msg) { HBE.textContent = msg; HBE.hidden = false; btn.disabled = false; btn.textContent = label; });
+  }
+  HBG.addEventListener("click", function () {
+    if (!HS) return;
+    var fd = new FormData(); fd.append("from", HS[0]); fd.append("to", HS[1]);
+    svodPost(fd, HBG, "Сводка деб белгилаш");
+  });
+  HBU.addEventListener("click", function () {
+    if (!HS) return;
+    var fd = new FormData(); fd.append("remove", Math.min(HS[0], HS[1]));
+    svodPost(fd, HBU, "Сводка эмас");
+  });
+  function hidePost(fd, fail) {
+    fetch(HIDE_URL, {method: "POST", credentials: "same-origin", body: fd}).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.ok) location.reload(); else fail(d.error || "Сақлаб бўлмади");
+    }).catch(function () { fail("Тармоқ хатоси — қайта уриниб кўринг"); });
+  }
+  box.addEventListener("click", function (e) {
+    var t = e.target.closest("[data-gap-t]");
+    if (t) { var g = +t.dataset.gapT; HX[g] = !HX[g]; redraw(); return; }
+    var d = e.target.closest("[data-gap-del]");
+    if (d && confirm("Йиғишни бекор қилиш: бу қаторлар яна офёртага қайтади. Файл қайта ўқилади.")) {
+      var fd = new FormData(); fd.append("csrfmiddlewaretoken", csrf()); fd.append("remove", d.dataset.gapDel);
+      hidePost(fd, function (msg) { note(msg); });
+    }
+  });
   box.addEventListener("click", function (e) {
     var t = e.target.closest(".tn-rt");
     if (!t) return;

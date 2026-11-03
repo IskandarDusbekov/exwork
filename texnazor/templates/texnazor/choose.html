@@ -22,6 +22,20 @@
   .tn-ch-go { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-width: 260px; height: 52px; padding: 0 26px; border-radius: 12px; background: var(--tn-brand); color: #fff; font-size: 16.5px; font-weight: 700; box-shadow: 0 8px 20px rgba(37, 99, 235, .35); transition: background .15s, transform .15s, box-shadow .15s; }
   .tn-ch-go:hover { background: var(--tn-brand-d); transform: translateY(-1px); box-shadow: 0 12px 26px rgba(37, 99, 235, .4); }
   .tn-ch-go:disabled { background: #94a3b8; box-shadow: none; transform: none; cursor: not-allowed; }
+  .tn-ch-prev td { vertical-align: top; }
+  .tn-ch-prev tbody tr:hover td { background: #f8fafc; }
+  .tn-ch-more { display: none; }
+  .tn-ch-prev.is-open .tn-ch-more { display: table-row; }
+  .tn-ch-res { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: #f1f5f9; color: #64748b; font-size: 11px; white-space: nowrap; }
+  .tn-ch-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border-top: 1px solid #f1f5f9; background: #f8fafc; padding: 6px 10px; font-size: 12px; color: #64748b; }
+  .tn-ch-toggle { font-weight: 600; color: var(--tn-brand); }
+  .tn-ch-toggle:hover { text-decoration: underline; }
+  .tn-ch-facts { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .tn-ch-f { display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 9px; border-radius: 8px; background: #f8fafc; border: 1px solid #eef2f7; font-size: 12.5px; color: #64748b; }
+  .tn-ch-f b { color: #1e293b; font-weight: 600; }
+  .tn-ch-f i { font-style: normal; color: #94a3b8; }
+  .tn-ch-f-k { background: var(--tn-tint); border-color: #dbe7fb; }
+  .tn-ch-f-w { background: #fffbeb; border-color: #fde68a; color: #92400e; }
   @media (max-width: 640px) { .tn-ch-go { width: 100%; min-width: 0; } }
 </style>
 
@@ -55,25 +69,53 @@
     {% csrf_token %}
     <div class="space-y-3">
     {% for s in sheets %}
-    <label class="tn-ch-card{% if not s.header %} is-off{% endif %}">
-      <input type="radio" name="sheet" value="{{ s.name }}" {% if s.name == guess %}checked{% endif %} {% if not s.header %}disabled{% endif %}>
+    <label class="tn-ch-card">
+      <input type="radio" name="sheet" value="{{ s.name }}" {% if s.name == guess %}checked{% endif %}>
       <div class="flex flex-wrap items-center gap-3">
         <span class="tn-ch-dot"></span>
         <span class="text-base font-semibold text-slate-900">{{ s.name }}</span>
         {% if s.name == guess %}<span class="tn-ch-pill bg-emerald-100 text-emerald-800">★ тизим таклифи</span>{% endif %}
         {% if s.hidden %}<span class="tn-ch-pill bg-slate-100 text-slate-600">яширин лист</span>{% endif %}
         {% if s.header and s.priced is False %}<span class="tn-ch-pill bg-amber-100 text-amber-800" title="Бу листда нарх ва сумма йўқ — фақат ҳажмлар. Аввал «Смета нархлаш» бўлимида нархланг, кейин нархланган офёртани юкланг.">нархсиз смета</span>{% endif %}
-        <span class="ml-auto text-xs text-slate-500">{{ s.rows }} қатор{% if s.header %} · <b class="font-semibold text-slate-700">{{ s.items }}</b> та иш / материал{% else %} · офёрта жадвали йўқ{% endif %}</span>
+        {% if s.total %}<span class="ml-auto text-right"><span class="block text-[11px] uppercase tracking-wide text-slate-400">Файлдаги жами</span>
+          <b class="num text-base text-slate-900">{{ s.total|som }}</b> <span class="text-xs text-slate-500">сўм</span>
+          {% if s.total_label %}<span class="block max-w-[260px] truncate text-[11px] text-slate-400" title="{{ s.total_label }}">«{{ s.total_label }}»</span>{% endif %}</span>{% endif %}
       </div>
+
+      {# qisqa ma'lumot: nechta qator, ish, resurs; sarlavha va ishlar qayerda; ustunlar #}
+      <div class="tn-ch-facts">
+        <span class="tn-ch-f"><b class="num">{{ s.rows|som }}</b> қатор</span>
+        {% if s.header %}
+        <span class="tn-ch-f tn-ch-f-k"><b class="num">{{ s.items|som }}</b> та иш{% if s.works and s.works != s.items %} <i>({{ s.works|som }} та шифрли)</i>{% endif %}</span>
+        {% if s.res is not None %}<span class="tn-ch-f"><b class="num">{{ s.res|som }}</b> та ресурс</span>{% endif %}
+        {% if s.svod %}<span class="tn-ch-f"><b class="num">{{ s.svod }}</b> сводка қатори</span>{% endif %}
+        {% if s.head %}<span class="tn-ch-f">сарлавҳа: <b>{{ s.head.0 }}{% if s.head.1 != s.head.0 %}–{{ s.head.1 }}{% endif %}</b>-қатор</span>{% endif %}
+        {% if s.span %}<span class="tn-ch-f">ишлар: <b class="num">{{ s.span.0|som }}–{{ s.span.1|som }}</b>-қатор</span>{% endif %}
+        {% if s.cols %}<span class="tn-ch-f" title="Тизим топган устунлар — нотўғри бўлса, ўқилгандан кейин қўлда кўрсатиш мумкин">ҳажм <b>{{ s.cols.qty }}</b> · нарх <b>{{ s.cols.price }}</b> · сумма <b>{{ s.cols.amount }}</b></span>{% endif %}
+        {% else %}
+        <span class="tn-ch-f tn-ch-f-w">жадвал топилмади — танласангиз, ўзингиз белгилайсиз</span>
+        {% endif %}
+      </div>
+
       {% if s.preview %}
       <div class="tn-ch-prev overflow-x-auto">
         <table>
-          <thead><tr><th>№</th><th>Номи</th><th>Бирлиги</th><th style="text-align:right">Миқдори</th></tr></thead>
+          <thead><tr><th class="w-10">№</th><th>Шифр</th><th>Номи</th><th>Бирлиги</th><th style="text-align:right">Ҳажми</th><th style="text-align:right">Сумма</th><th style="text-align:right" title="Excel'даги қатор рақами">Қатор</th></tr></thead>
           <tbody>
-          {% for p in s.preview|slice:":6" %}<tr><td class="text-slate-500">{{ p.0 }}</td><td class="text-slate-800">{{ p.1 }}</td><td class="text-slate-600">{{ p.2 }}</td><td class="num text-right text-slate-800">{{ p.3|default_if_none:"" }}</td></tr>{% endfor %}
+          {% for p in s.preview %}<tr{% if forloop.counter > 5 %} class="tn-ch-more"{% endif %}>
+            <td class="text-slate-500">{{ p.0 }}</td>
+            <td class="whitespace-nowrap text-slate-500">{{ p.4|default:"" }}</td>
+            <td class="text-slate-800">{{ p.1 }}{% if p.7 %} <span class="tn-ch-res">{{ p.7 }} ресурс</span>{% endif %}</td>
+            <td class="text-slate-600">{{ p.2 }}</td>
+            <td class="num whitespace-nowrap text-right text-slate-800">{{ p.3|qty }}</td>
+            <td class="num whitespace-nowrap text-right text-slate-800">{{ p.6|som }}</td>
+            <td class="num text-right text-slate-400">{{ p.5|default:"" }}</td></tr>{% endfor %}
           </tbody>
         </table>
-        {% if s.items > 6 %}<div class="border-t border-slate-100 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-500">… яна {{ s.items|add:"-6" }} та</div>{% endif %}
+        <div class="tn-ch-foot">
+          {% if s.preview|length > 5 %}<button type="button" class="tn-ch-toggle" data-more>Яна {{ s.preview|length|add:"-5" }} тасини кўрсатиш</button>{% endif %}
+          {% if s.items > s.preview|length %}<span>… жами {{ s.items|som }} та ишдан биринчи {{ s.preview|length }} таси</span>{% endif %}
+        </div>
       </div>
       {% endif %}
     </label>
@@ -104,6 +146,14 @@
     go.disabled = !r;
   }
   f.addEventListener("change", paint);
+  f.addEventListener("click", function (e) {  // «яна кўрсатиш» — карточкани танламасин
+    var b = e.target.closest("[data-more]");
+    if (!b) return;
+    e.preventDefault();
+    if (!b.dataset.label) b.dataset.label = b.textContent;
+    var open = b.closest(".tn-ch-prev").classList.toggle("is-open");
+    b.textContent = open ? "Йиғиш" : b.dataset.label;
+  });
   paint();
 })();
 </script>
