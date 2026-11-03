@@ -1,4 +1,4 @@
-# Narxlash — serverga qo'yish (Ubuntu 22.04 / 24.04)
+    # Narxlash — serverga qo'yish (Ubuntu 22.04 / 24.04)
 
 Tuzilma (hamma narsa `/srv/narxlash` ichida):
 

@@ -636,7 +636,19 @@
   var RES_KEY = "tn-res-{{ o.pk }}", RES_ALL = true, RES_X = {};
   try { RES_ALL = localStorage.getItem(RES_KEY) !== "0"; } catch (e) { RES_ALL = true; }
   function resOpen(top) { return RES_ALL !== !!RES_X[top]; }
-  try { ZOOM = +localStorage.getItem("tn-zoom") || 0.9; } catch (e) { /* saqlab bo'lmasa — 90% */ }
+  // «Экранга» (standart) — jadval ekran kengligiga sig'adigan masshtab, yonga surilmasin (50% dan kichik emas)
+  var ZFIT = true;
+  try { var zs0 = localStorage.getItem("tn-zoom"); if (zs0 && zs0 !== "fit") { ZFIT = false; ZOOM = +zs0 || 0.9; } } catch (e) { /* saqlab bo'lmasa — «Экранга» */ }
+  function zoomFit(t) {
+    if (!ZFIT || !t) return;
+    var w = parseFloat(t.style.width) || 0, room = box.clientWidth - 2;
+    if (!w || room <= 0) return;
+    var z = Math.max(0.5, Math.min(1, Math.floor(room / w * 100) / 100));
+    if (Math.abs(z - ZOOM) < 1e-6 && t.style.zoom) return;
+    ZOOM = z; t.style.zoom = ZOOM;
+    if (typeof lensLater === "function") lensLater();
+  }
+  window.addEventListener("resize", function () { if (D) zoomFit(box.querySelector("table.tn-x")); });
   // yig'ilgan (Excel'dagi «свернуть») dalolatnoma bloklari — shu brauzerda eslab qolinadi
   var COLL_KEY = "tn-coll-{{ o.pk }}", COLL = {}, CW = 46;
   try { COLL = JSON.parse(localStorage.getItem(COLL_KEY) || "{}") || {}; } catch (e) { COLL = {}; }
@@ -1049,6 +1061,7 @@
       h += '<tbody class="ch" data-i="' + i + '" style="height:' + est + 'px"></tbody>';
     }
     box.innerHTML = h + foot() + "</table>";
+    zoomFit(box.querySelector("table.tn-x"));
     var h1 = box.querySelector("thead th.blk-h");  // 2-qator sarlavha blok sarlavhasi tagiga yopishsin (balandligi o'zgaruvchan)
     if (h1) box.querySelectorAll("thead tr.tn-x-b th").forEach(function (th) { th.style.top = h1.offsetHeight + "px"; });
     D.vis = body;
@@ -1612,15 +1625,19 @@
     });
   });
   var zs = document.getElementById("tn-zoom");
-  [0.5, 0.6, 0.75, 0.9, 1, 1.25].forEach(function (z) {
-    var o = document.createElement("option"); o.value = z; o.textContent = Math.round(z * 100) + "%";
-    if (Math.abs(z - ZOOM) < 1e-6) o.selected = true;
+  ["fit", 0.5, 0.6, 0.75, 0.9, 1, 1.25].forEach(function (z) {
+    var o = document.createElement("option"); o.value = z;
+    o.textContent = z === "fit" ? "Экранга" : Math.round(z * 100) + "%";
+    if (z === "fit" ? ZFIT : !ZFIT && Math.abs(z - ZOOM) < 1e-6) o.selected = true;
     zs.appendChild(o);
   });
+  zs.title = "«Экранга» — жадвал экран кенглигига сиғади";
   zs.addEventListener("change", function () {
-    ZOOM = +zs.value;
-    try { localStorage.setItem("tn-zoom", ZOOM); } catch (e) { /* bo'lmasa — faqat shu sahifada */ }
-    var t = box.querySelector("table.tn-x"); if (t) t.style.zoom = ZOOM;
+    ZFIT = zs.value === "fit";
+    if (!ZFIT) ZOOM = +zs.value;
+    try { localStorage.setItem("tn-zoom", zs.value); } catch (e) { /* bo'lmasa — faqat shu sahifada */ }
+    var t = box.querySelector("table.tn-x");
+    if (ZFIT) zoomFit(t); else if (t) t.style.zoom = ZOOM;
     lensLater();
   });
   document.getElementById("tn-only").addEventListener("change", function () { if (D) redraw(); });
