@@ -1,0 +1,18 @@
+{% load narx %}{# «Маълумотлар»: битта нарх кузатуви (o) — код, ном, белгилар, нарх, «Кўриш» #}
+<div class="ui-row">
+  <span class="doc">{% icon "file" "h-5 w-5" %}</span>
+  <div class="code"><small>Код</small><span class="mono">{{ o.resource.code }}</span></div>
+  <div class="main">
+    <div class="title">{{ o.name }}</div>
+    <div class="ui-tags">
+      <span class="ui-tag">{{ o.unit }}</span>
+      {% if show_period %}<span class="ui-tag">{{ region_labels|get_item:o.source.region|default:"вилоят ?" }} · {% if o.source.year %}{{ o.source.year }}-{{ o.source.quarter }}{% else %}давр ?{% endif %}</span>{% endif %}
+      {% with sh=o.shifrs %}{% for s in sh|slice:":3" %}<a href="{% url 'panel:base_norm' s %}" class="ui-tag book" title="Шу иш шифрида ишлатилган — таркибини кўриш">{{ s }}</a>{% endfor %}{% if sh|length > 3 %}<span class="ui-tag" title="{{ sh|join:', ' }}">яна {{ sh|length|add:"-3" }} та ишда</span>{% endif %}{% endwith %}
+      {% if show_src %}<a href="{% url 'panel:base_source_detail' o.source_id %}" class="ui-tag truncate hover:underline" style="max-width:16rem" title="Манба: {{ o.source.title }}">{{ o.source.title }}</a>{% endif %}
+      {% if o.review == 'pending' %}<span class="ui-tag warn">текширувда</span>{% endif %}
+      {% if o.excluded %}<span class="ui-tag bad">истисно</span>{% endif %}
+    </div>
+  </div>
+  <div class="ui-price">{{ o.price|som }}<small>сўм / {{ o.unit }}</small></div>
+  <a href="{% url 'panel:base_resource' o.resource.code %}" class="ui-btn-o">{% icon "search" "h-4 w-4" %}Кўриш</a>
+</div>

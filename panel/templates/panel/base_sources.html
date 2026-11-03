@@ -2,76 +2,86 @@
 {% load narx %}
 {% block title %}Ресурс базаси: манбалар — Панел{% endblock %}
 {% block panel %}
+{% include "panel/_base_ui.html" %}
 {% include "panel/_base_tabs.html" with base_tab="sources" %}
 
+{# ---------- фойдаланувчи сметалари: админ танлаб киритади ---------- #}
 {% if pending %}
-<section class="mb-4 overflow-hidden rounded-xl border border-sky-200 bg-white shadow-sm">
-  <div class="flex flex-wrap items-center gap-3 border-b border-sky-100 bg-sky-50 px-4 py-3">
-    <div class="min-w-0 flex-1"><h2 class="font-semibold text-sky-950">Ҳали қўшилмаган нархланган ишлар ({{ pending|length }})</h2>
-      <p class="text-xs text-sky-900/70">Вилоят смета матнидан тахмин қилинади, давр — номаълум бўлиб қўшилади; кейин ҳар бирини белгилайсиз.</p></div>
-    {% if can_act %}
-    <form method="post" action="{% url 'panel:base_add_all' %}" data-confirm="{{ pending|length }} та иш базага қўшилади (давр номаълум). Номаълум даврдаги нархлар нархлашда ишлатилмайди — кейин белгилайсиз."
-          data-confirm-title="Ҳаммасини қўшиш" data-confirm-ok="Қўшиш">{% csrf_token %}
-      <button class="rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-sky-700">Ҳаммасини қўшиш</button></form>
-    {% endif %}
+<form method="post" action="{% url 'panel:base_add_selected' %}" class="ui-group" style="border-color:#7dd3fc">{% csrf_token %}
+  <div class="flex flex-wrap items-center gap-3 px-5 py-4" style="background:#f0f9ff">
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style="background:#e0f2fe;color:#0369a1">{% icon "plus" "h-5 w-5" %}</span>
+    <div class="min-w-0 flex-1">
+      <div class="font-semibold text-slate-900">Янги нархланган сметалар ({{ pending|length }})</div>
+      <div class="text-xs text-slate-600">Фойдаланувчилар нархлаган, ҳали базада йўқ. Керакларини белгиланг, даврини танланг ва киритинг.</div>
+    </div>
   </div>
-  <ul class="max-h-80 divide-y divide-slate-100 overflow-y-auto">
-    {% for kind, w in pending %}
-    <li class="flex flex-wrap items-center gap-2 px-4 py-2 text-sm">
-      <span class="rounded bg-slate-100 px-1.5 text-xs text-slate-600">{% if kind == 'folder' %}папка{% elif kind == 'object' %}объект{% else %}смета{% endif %}</span>
-      <a href="{% url 'panel:work' kind w.pk %}" class="min-w-0 flex-1 truncate font-medium hover:underline">{% if kind == 'smeta' %}{{ w.local_name }}{% else %}{{ w.name }}{% endif %}</a>
-      <span class="text-xs text-slate-500">{{ w.owner.email }} · {{ w.created|date:"d.m.Y" }}</span>
-      {% if can_act %}
-      <form method="post" action="{% url 'panel:base_add' kind w.pk %}" class="flex flex-wrap items-center gap-1.5">{% csrf_token %}
-        {% include "panel/_base_period.html" with r="" y=None q=None %}
-        <button class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium hover:bg-slate-50">Қўшиш</button></form>
-      {% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-</section>
+  <div class="flex flex-wrap items-center gap-2 border-t border-slate-100 px-5 py-3">
+    <label class="ui-opt sq" style="padding-left:0"><input type="checkbox" class="h-4 w-4" onclick="this.form.querySelectorAll('input[name=items]').forEach(c => c.checked = this.checked)"> <span class="lbl">Ҳаммасини белгилаш</span></label>
+    <span class="ml-auto flex flex-wrap items-center gap-2">
+      {% include "panel/_base_period.html" %}
+      {% if can_act %}<button class="ui-btn">{% icon "plus" "h-4 w-4" %}Базага киритиш</button>{% endif %}
+    </span>
+  </div>
+  {% for kind, w in pending %}
+  <label class="ui-row cursor-pointer">
+    <input type="checkbox" name="items" value="{{ kind }}:{{ w.pk }}" class="h-4 w-4 shrink-0">
+    <span class="doc">{% icon "sheet" "h-5 w-5" %}</span>
+    <span class="main">
+      <span class="title block font-medium">{% if kind == 'smeta' %}{{ w.local_name }}{% else %}{{ w.name }}{% endif %}</span>
+      <span class="ui-tags"><span class="ui-tag">{% if kind == 'folder' %}папка{% elif kind == 'object' %}объект{% else %}смета{% endif %}</span>
+        <span class="ui-tag">{{ w.owner.email }}</span><span class="ui-tag">{{ w.created|date:"d.m.Y" }}</span></span>
+    </span>
+    <a href="{% url 'panel:work' kind w.pk %}" class="ui-btn-o">{% icon "search" "h-4 w-4" %}Кўриш</a>
+  </label>
+  {% endfor %}
+</form>
 {% endif %}
 
-<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-  <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
-    <h2 class="font-semibold">Базадаги манбалар</h2>
-    <span class="ml-2 inline-flex overflow-hidden rounded-lg border border-slate-300 text-xs">
-      <a href="?" class="px-2.5 py-1 {% if not f %}bg-slate-900 text-white{% else %}hover:bg-slate-50{% endif %}">Ҳаммаси</a>
-      <a href="?f=unknown" class="border-l border-slate-300 px-2.5 py-1 {% if f == 'unknown' %}bg-slate-900 text-white{% else %}hover:bg-slate-50{% endif %}">Давр/вилоят номаълум</a>
-    </span>
-    <span class="ml-auto text-xs text-slate-500">{{ page.paginator.count }} та</span>
-  </div>
-  <ul class="divide-y divide-slate-100">
-    {% for s in page %}
-    <li class="px-4 py-3 {% if not s.period_known %}bg-amber-50/50{% endif %}">
-      <div class="flex flex-wrap items-start gap-2">
-        <div class="min-w-0 flex-1">
-          <a href="{% url 'panel:work' s.kind s.work_id %}" class="font-medium hover:underline">{{ s.title }}</a>
-          <div class="text-xs text-slate-500">{{ s.get_kind_display }}{% if s.owner %} · {{ s.owner.email }}{% endif %} · <b class="text-slate-700">{{ s.n }}</b> та нарх
-            {% if s.stats.rows %} ({{ s.stats.rows }} қатордан){% endif %}{% if s.region_hint %} · вилоят «{{ s.region_hint }}» сўзидан топилди{% endif %}
-            · қўшилди {{ s.created|date:"d.m.Y" }}</div>
-          {% if s.stats.skipped %}<div class="mt-0.5 text-[11px] text-slate-400">олинмади: {% for k, v in s.stats.skipped.items %}{{ skip_labels|get_item:k|default:k }} — {{ v }}{% if not forloop.last %} · {% endif %}{% endfor %}</div>{% endif %}
-        </div>
-        {% if can_act %}
-        <form method="post" action="{% url 'panel:base_source' s.pk 'edit' %}" class="flex flex-wrap items-center gap-1.5">{% csrf_token %}
+{# ---------- базадаги манбалар ---------- #}
+<nav class="ui-cards" aria-label="Манба тури">
+  <a href="?" class="ui-card {% if not f %}on{% endif %}"><span class="ic ic-all">{% icon "database" "h-5 w-5" %}</span><span><span class="t block">Ҳаммаси</span><span class="n">{{ n_all }}</span></span></a>
+  <a href="?f=file" class="ui-card {% if f == 'file' %}on{% endif %}"><span class="ic ic-tr">{% icon "upload" "h-5 w-5" %}</span><span><span class="t block">Юкланган файл</span><span class="n">{{ n_file }}</span></span></a>
+  <a href="?f=smeta" class="ui-card {% if f == 'smeta' %}on{% endif %}"><span class="ic ic-I">{% icon "sheet" "h-5 w-5" %}</span><span><span class="t block">Смета</span><span class="n">{{ n_smeta }}</span></span></a>
+  {% if n_unknown %}<a href="?f=unknown" class="ui-card {% if f == 'unknown' %}on{% endif %}" style="border-color:#fcd34d"><span class="ic ic-repair">?</span><span><span class="t block">Даври номаълум</span><span class="n">{{ n_unknown }}</span></span></a>{% endif %}
+</nav>
+
+<section class="ui-group">
+  {% for s in page %}
+  <div class="ui-row" {% if not s.period_known %}style="background:#fffbeb"{% endif %}>
+    <span class="doc">{% if s.is_file %}{% icon "upload" "h-5 w-5" %}{% else %}{% icon "sheet" "h-5 w-5" %}{% endif %}</span>
+    <div class="main">
+      <div class="title font-medium"><a href="{% url 'panel:base_source_detail' s.pk %}" class="hover:underline" title="Нима олинди, нега олинмади">{{ s.title }}</a></div>
+      <div class="ui-tags">
+        <span class="ui-tag {% if not s.period_known %}warn{% endif %}">{{ s.get_region_display|default:"вилоят ?" }} · {{ s.period_label }}</span>
+        <span class="ui-tag">{{ s.get_kind_display }}</span>
+        {% if s.n %}<span class="ui-tag ok">{{ s.n }} та нарх</span>{% endif %}
+        {% if s.w %}<span class="ui-tag book">{{ s.w }} та иш</span>{% endif %}
+        <span class="ui-tag">{{ s.created|date:"d.m.Y" }}{% if s.owner %} · {{ s.owner.email }}{% endif %}</span>
+      </div>
+      {% if can_act %}
+      <details class="mt-2">
+        <summary class="cursor-pointer text-xs font-medium text-slate-500 hover:text-slate-900">Даврини ўзгартириш</summary>
+        <form method="post" action="{% url 'panel:base_source' s.pk 'edit' %}" class="mt-2 flex flex-wrap items-center gap-1.5">{% csrf_token %}
           <input type="hidden" name="next" value="{{ request.get_full_path }}">
           {% include "panel/_base_period.html" with r=s.region y=s.year q=s.quarter %}
-          <button class="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-slate-700">Сақлаш</button></form>
-        <form method="post" action="{% url 'panel:base_source' s.pk 'reharvest' %}" title="Смета қайта нархланган бўлса — нархлар янгидан олинади">{% csrf_token %}
-          <input type="hidden" name="next" value="{{ request.get_full_path }}">
-          <button class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs hover:bg-slate-50">Қайта йиғиш</button></form>
-        <form method="post" action="{% url 'panel:base_source' s.pk 'delete' %}" data-confirm="«{{ s.title }}» дан олинган {{ s.n }} та нарх базадан ўчирилади. Сметанинг ўзига тегилмайди." data-confirm-title="Манбани ўчириш" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}
-          <input type="hidden" name="next" value="{{ request.get_full_path }}">
-          <button class="rounded-lg border border-rose-200 px-2.5 py-1 text-xs text-rose-700 hover:bg-rose-50">Ўчириш</button></form>
-        {% else %}
-        <span class="text-sm">{{ s.get_region_display|default:"вилоят ?" }} · {{ s.period_label }}</span>
-        {% endif %}
-      </div>
-    </li>
-    {% empty %}
-    <li class="px-4 py-10 text-center text-sm text-slate-500">Ҳали манба йўқ.</li>
-    {% endfor %}
-  </ul>
+          <button class="ui-btn-o" style="color:#334155">Сақлаш</button></form>
+      </details>
+      {% endif %}
+    </div>
+    {% if can_act %}
+    <div class="flex shrink-0 gap-1.5">
+      <form method="post" action="{% url 'panel:base_source' s.pk 'reharvest' %}" title="{% if s.is_file %}Файл қайта ўқилади{% else %}Сметадан нархлар қайта олинади{% endif %}">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button class="ui-btn-o" style="color:#334155">Янгилаш</button></form>
+      <form method="post" action="{% url 'panel:base_source' s.pk 'delete' %}" data-confirm="«{{ s.title }}» дан олинган маълумотлар базадан ўчирилади.{% if s.is_file %} Файл нусхаси ҳам ўчади.{% else %} Сметанинг ўзига тегилмайди.{% endif %}" data-confirm-title="Манбани ўчириш" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button class="ui-btn-o" style="color:#be123c;border-color:#fecdd3">Ўчириш</button></form>
+    </div>
+    {% endif %}
+  </div>
+  {% empty %}
+  <div class="ui-empty" style="border:0">Ҳали манба йўқ.</div>
+  {% endfor %}
 </section>
 {% include "panel/_pager.html" %}
 {% endblock %}

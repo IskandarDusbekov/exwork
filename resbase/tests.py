@@ -266,7 +266,7 @@ class PanelBaseTests(TestCase):
         self.client.post(reverse("panel:base_source", args=[s.pk, "edit"]), {"region": "samarqand", "year": "", "quarter": ""})
         self.assertFalse(Source.objects.get().period_known)
         overview = self.client.get(reverse("panel:base"))
-        self.assertContains(overview, "давр номаълум")
+        self.assertContains(overview, "даври номаълум")
         self.client.post(reverse("panel:base_toggle"), {"enabled": "1"})
         self.assertTrue(BaseConfig.get().enabled)
         self.assertTrue(Event.objects.filter(kind=Event.Kind.ADMIN_BASE).exists())

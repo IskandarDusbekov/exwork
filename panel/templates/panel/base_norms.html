@@ -1,0 +1,106 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Ресурс базаси: нормалар — Панел{% endblock %}
+{% block panel %}
+{% include "panel/_base_ui.html" %}
+{% include "panel/_base_tabs.html" with base_tab="norms" %}
+
+{# ---------- гуруҳлар: қурилиш, таъмирлаш, монтаж, юк ташиш ---------- #}
+<nav class="ui-cards" aria-label="Иш гуруҳлари">
+  {% for c in cards %}
+  <a href="{{ c.url }}" class="ui-card {% if f.grp == c.key %}on{% endif %}" {% if c.hint %}title="{{ c.hint }}"{% endif %}>
+    <span class="ic ic-{{ c.key|default:'all' }}">{% if c.key == 'mount' %}Ц{% elif c.key == 'tr' %}ТР{% elif c.key == 'repair' %}Е5{% elif c.key == 'build' %}Е{% else %}{% icon "layers" "h-5 w-5" %}{% endif %}</span>
+    <span><span class="t block">{{ c.label }}</span><span class="n">{{ c.n }}</span></span>
+  </a>
+  {% endfor %}
+</nav>
+
+<a href="{% url 'panel:base_how' %}" class="ui-group flex items-center gap-3" style="padding:.9rem 1.25rem">
+  <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white" style="background:var(--ui-blue)">{% icon "help" "h-5 w-5" %}</span>
+  <span class="gt min-w-0 flex-1 font-semibold text-slate-900">База қандай йиғилади?<small class="block text-xs font-normal text-slate-500">8 қадам, анимация билан: файлдан қайси қатор олинади, нима бирлашади, нега.</small></span>
+  <span class="ui-btn-o">Кўриш →</span>
+</a>
+
+<div class="ui-layout">
+  <aside class="ui-side" aria-label="Фильтр">
+    <section>
+      <h3>Тўпламлар <a href="{% url 'panel:base_books' %}" class="text-xs font-medium hover:underline" style="color:var(--ui-blue)" title="Тўплам номларини ўзгартириш">номлари ✎</a></h3>
+      {% for b in books %}
+      <a href="{{ b.url }}" class="ui-opt sq {% if f.book == b.key %}on{% endif %}" title="{{ b.label }}">
+        <span class="box"></span><span class="lbl"><span class="k">{{ b.key }}</span>{{ b.label }}</span><span class="ui-pill">{{ b.n }}</span></a>
+      {% empty %}<p class="py-3 text-xs text-slate-400">Ҳали норма йўқ — «Маълумотлар»дан ЛРВ (bv…, «Локально») файл юкланг.</p>
+      {% endfor %}
+    </section>
+    <section>
+      <h3>Давр</h3>
+      <form method="get" class="flex flex-col gap-2">
+        {% for k, v in hidden %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+        {% include "panel/_base_period.html" with r=f.region y=f.year q=f.quarter %}
+        <button class="ui-btn justify-center">Қўллаш</button>
+      </form>
+    </section>
+  </aside>
+
+  <div class="min-w-0">
+    <form method="get" class="ui-toolbar">
+      {% for k, v in hidden %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+      {% if f.region %}<input type="hidden" name="region" value="{{ f.region }}">{% endif %}
+      {% if f.year %}<input type="hidden" name="year" value="{{ f.year }}">{% endif %}
+      {% if f.quarter %}<input type="hidden" name="quarter" value="{{ f.quarter }}">{% endif %}
+      <label class="ui-search">{% icon "search" "h-4 w-4 text-slate-400" %}
+        <input type="search" name="q" value="{{ f.q }}" placeholder="Шифр ёки иш номи бўйича қидириш…"></label>
+      <select name="per" class="ui-select" aria-label="Саҳифада" onchange="this.form.submit()">
+        {% for n in per_page %}<option value="{{ n }}" {% if f.per == n %}selected{% endif %}>{{ n }} та</option>{% endfor %}
+      </select>
+      <button class="ui-btn">Излаш</button>
+    </form>
+
+    <div class="mb-3 flex flex-wrap items-center gap-2 px-1 text-sm">
+      <span class="font-semibold text-slate-900">{% if grp_label %}{{ grp_label }}{% else %}Ҳамма нормалар{% endif %}</span>
+      <span class="text-xs text-slate-500">· ЛРВ файллардан йиғилган ишлар. Бир шифр бир неча файлда учраса — бир қатор, ёнида сони.</span>
+      <span class="ml-auto text-xs text-slate-500">{% if page.paginator.count %}{{ page.start_index }}–{{ page.end_index }} / {{ page.paginator.count }} та норма{% else %}0 та норма{% endif %}</span>
+    </div>
+
+    {% if page.object_list %}
+      {% regroup page.object_list by book as groups %}
+      {% for g in groups %}
+      <details class="ui-group" open>
+        <summary>
+          {% icon "layers" "ui-gi h-6 w-6 shrink-0" %}
+          <span class="gt"><span style="font-family:ui-monospace,Menlo,Consolas,monospace">{{ g.grouper }}</span> — {{ book_labels|get_item:g.grouper }}</span>
+          <span class="ui-count">{{ book_counts|get_item:g.grouper }} та норма</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}
+        </summary>
+        {% for r in g.list %}
+        <div class="ui-row">
+          <span class="doc">{% icon "file" "h-5 w-5" %}</span>
+          <div class="code"><small>Шифр</small><span class="mono">{{ r.shifr }}</span></div>
+          <div class="main">
+            <div class="title">{{ r.name }}</div>
+            <div class="ui-tags">
+              <span class="ui-tag">{{ r.unit }}</span>
+              <span class="ui-tag ok">{{ r.n_files }} та файлда</span>
+              <span class="ui-tag">{{ r.n_uses }} марта ишлатилган</span>
+            </div>
+          </div>
+          <a href="{{ r.url }}" class="ui-btn-o">{% icon "search" "h-4 w-4" %}Таркиби</a>
+        </div>
+        {% endfor %}
+      </details>
+      {% endfor %}
+    {% else %}
+      <div class="ui-empty">{% if f.q %}«{{ f.q }}» бўйича норма топилмади.{% else %}Ҳали норма йўқ.{% endif %}</div>
+    {% endif %}
+
+    {% if page.has_other_pages %}
+    <nav class="ui-pager" aria-label="Саҳифалар">
+      <span class="text-xs text-slate-500">{{ page.number }} / {{ page.paginator.num_pages }} саҳифа</span>
+      <span class="ml-auto flex flex-wrap items-center gap-1">
+        {% if prev_url %}<a href="{{ prev_url }}" aria-label="Олдинги">←</a>{% endif %}
+        {% for p in pages %}{% if p.url %}{% if p.n == page.number %}<span class="cur">{{ p.n }}</span>{% else %}<a href="{{ p.url }}">{{ p.n }}</a>{% endif %}{% else %}<span class="px-1 text-slate-400">…</span>{% endif %}{% endfor %}
+        {% if next_url %}<a href="{{ next_url }}" aria-label="Кейинги">→</a>{% endif %}
+      </span>
+    </nav>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

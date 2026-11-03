@@ -1,0 +1,120 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Ресурс базаси: нархлар — Панел{% endblock %}
+{% block panel %}
+{% include "panel/_base_ui.html" %}
+{% include "panel/_base_tabs.html" with base_tab="data" %}
+{% include "panel/_base_upload_box.html" %}
+
+{# ---------- ресурс турлари: карточкалар ---------- #}
+<nav class="ui-cards" aria-label="Ресурс тури">
+  {% for t in cat_tabs %}
+  <a href="{{ t.url }}" class="ui-card {% if f.cat == t.key %}on{% endif %}" {% if t.title %}title="{{ t.title }}"{% endif %}>
+    <span class="ic ic-{{ t.key|default:'all' }}">{% if t.key %}{{ cat_short|get_item:t.key }}{% else %}{% icon "database" "h-5 w-5" %}{% endif %}</span>
+    <span><span class="t block">{% if t.key %}{{ t.label }}{% else %}Ҳаммаси{% endif %}</span><span class="n">{{ t.n }}</span></span>
+  </a>
+  {% endfor %}
+</nav>
+
+<div class="ui-layout">
+  {# ---------- чап фильтр ---------- #}
+  <aside class="ui-side" aria-label="Фильтр">
+    <section>
+      <h3>Вилоятлар <small>{{ tree|length }} та</small></h3>
+      <a href="?" class="ui-opt {% if not f.region %}on{% endif %}"><span class="box"></span><span class="lbl">Ҳаммаси</span><span class="ui-pill">{{ n_all }}</span></a>
+      {% for node in tree %}
+      <a href="{{ node.url }}" class="ui-opt {% if node.open %}on{% endif %}"><span class="box"></span><span class="lbl">{{ node.label }}</span><span class="ui-pill">{{ node.n }}</span></a>
+      {% empty %}<p class="py-3 text-xs text-slate-400">База бўш — юқоридан файл юкланг.</p>
+      {% endfor %}
+    </section>
+    {% for node in tree %}{% if node.open %}
+    <section>
+      <h3>Давр <small>{{ node.periods|length }} та</small></h3>
+      {% for p in node.periods %}
+      <a href="{{ p.url }}" class="ui-opt {% if p.open %}on{% endif %}"><span class="box"></span><span class="lbl">{{ p.label }}</span><span class="ui-pill">{{ p.n }}</span></a>
+      {% endfor %}
+    </section>
+    {% for p in node.periods %}{% if p.open %}
+    <section>
+      <h3>Файллар <small>{{ p.sources|length }} та</small></h3>
+      {% for s in p.sources %}
+      <a href="{% if f.src == s.pk %}{{ p.url }}{% else %}{{ s.url }}{% endif %}" class="ui-opt sq {% if f.src == s.pk %}on{% endif %}" title="{{ s.title }}">
+        <span class="box"></span><span class="lbl truncate">{{ s.title }}</span>
+        <span class="ui-pill">{% if s.n %}{{ s.n }}{% endif %}{% if s.w %}{% if s.n %} · {% endif %}{{ s.w }} иш{% endif %}{% if not s.n and not s.w %}0{% endif %}</span></a>
+      {% endfor %}
+    </section>
+    {% endif %}{% endfor %}
+    {% endif %}{% endfor %}
+    {% if book_tabs %}
+    <section>
+      <h3 title="ЛРВ'даги норма шифридан: ресурс шу файл (ёки жуфти bp↔bv) ишларида қайси тўпламда ишлатилган">Иш тури <small>шифрдан</small></h3>
+      {% for t in book_tabs %}
+      <a href="{{ t.url }}" class="ui-opt sq {% if f.book == t.key %}on{% endif %}" {% if t.title %}title="{{ t.title }}"{% endif %}>
+        <span class="box"></span><span class="lbl">{% if t.key and t.key != '-' %}<span class="k">{{ t.key }}</span>{{ t.title }}{% else %}{{ t.label }}{% endif %}</span>
+        {% if t.n is not None %}<span class="ui-pill">{{ t.n }}</span>{% endif %}</a>
+      {% endfor %}
+    </section>
+    {% endif %}
+  </aside>
+
+  {# ---------- асосий қисм ---------- #}
+  <div class="min-w-0">
+    <form method="get" class="ui-toolbar">
+      {% for k, v in hidden %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+      <label class="ui-search">{% icon "search" "h-4 w-4 text-slate-400" %}
+        <input type="search" name="q" value="{{ f.q }}" placeholder="Код ёки ресурс номи бўйича қидириш…"></label>
+      <select name="sort" class="ui-select" aria-label="Саралаш" onchange="this.form.submit()">
+        {% for k, label in sorts %}<option value="{{ k }}" {% if f.sort == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <select name="per" class="ui-select" aria-label="Саҳифада" onchange="this.form.submit()">
+        {% for n in per_page %}<option value="{{ n }}" {% if f.per == n %}selected{% endif %}>{{ n }} та</option>{% endfor %}
+      </select>
+      <button class="ui-btn">Излаш</button>
+      {% if f.q or f.cat or f.book or f.sort %}<a href="{{ clear_url }}" class="text-sm text-slate-500 hover:underline">тозалаш</a>{% endif %}
+    </form>
+
+    <div class="mb-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 px-1 text-sm">
+      {% for label, url in crumbs %}
+        {% if not forloop.first %}<span class="text-slate-300">/</span>{% endif %}
+        {% if url and not forloop.last %}<a href="{{ url }}" class="text-slate-500 hover:text-slate-900 hover:underline">{{ label }}</a>
+        {% else %}<span class="font-semibold text-slate-900">{{ label }}</span>{% endif %}
+      {% endfor %}
+      <span class="ml-auto text-xs text-slate-500">{% if page.paginator.count %}{{ page.start_index }}–{{ page.end_index }} / {{ page.paginator.count }} қатор{% else %}0 қатор{% endif %}</span>
+    </div>
+
+    {% if page.object_list %}
+      {% if f.sort %}
+        <details class="ui-group" open>
+          <summary><span class="gt">Натижалар<small>{{ sort_label }} бўйича</small></span><span class="ui-count">{{ page.paginator.count }} та</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
+          {% for o in page %}{% include "panel/_base_obs_row.html" %}{% endfor %}
+        </details>
+      {% else %}
+        {% regroup page.object_list by resource.category as groups %}
+        {% for g in groups %}
+        <details class="ui-group" open>
+          <summary>
+            <span class="ic ic-{{ g.grouper|default:'all' }} grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-bold">{{ cat_short|get_item:g.grouper|default:"?" }}</span>
+            <span class="gt">{{ cat_labels|get_item:g.grouper|default:"Тури номаълум" }}</span>
+            <span class="ui-count">{{ cat_counts|get_item:g.grouper|default:0 }} та</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}
+          </summary>
+          {% for o in g.list %}{% include "panel/_base_obs_row.html" %}{% endfor %}
+        </details>
+        {% endfor %}
+      {% endif %}
+    {% else %}
+      <div class="ui-empty">{% if f.q %}«{{ f.q }}» бўйича ҳеч нарса топилмади.{% else %}Бу ерда ҳали нарх йўқ.{% if src.stats.works %} Бу файлда фақат ишлар бор — «Нормалар»да кўринг.{% endif %}{% endif %}</div>
+    {% endif %}
+
+    {% if page.has_other_pages %}
+    <nav class="ui-pager" aria-label="Саҳифалар">
+      <span class="text-xs text-slate-500">{{ page.number }} / {{ page.paginator.num_pages }} саҳифа</span>
+      <span class="ml-auto flex flex-wrap items-center gap-1">
+        {% if prev_url %}<a href="{{ prev_url }}" aria-label="Олдинги">←</a>{% endif %}
+        {% for p in pages %}{% if p.url %}{% if p.n == page.number %}<span class="cur">{{ p.n }}</span>{% else %}<a href="{{ p.url }}">{{ p.n }}</a>{% endif %}{% else %}<span class="px-1 text-slate-400">…</span>{% endif %}{% endfor %}
+        {% if next_url %}<a href="{{ next_url }}" aria-label="Кейинги">→</a>{% endif %}
+      </span>
+    </nav>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

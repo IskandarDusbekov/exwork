@@ -1,0 +1,94 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}{{ s.title }} — манба — Панел{% endblock %}
+{% block panel %}
+{% include "panel/_base_ui.html" %}
+{% include "panel/_base_tabs.html" with base_tab="sources" %}
+
+<a href="{% url 'panel:base_sources' %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-3.5 w-3.5" %} Манбалар</a>
+
+{# ---------- сарлавҳа ---------- #}
+<section class="ui-group" style="padding:1.25rem">
+  <div class="flex flex-wrap items-start gap-4">
+    <span class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-white" style="background:var(--ui-blue)">{% if s.is_file %}{% icon "upload" "h-6 w-6" %}{% else %}{% icon "sheet" "h-6 w-6" %}{% endif %}</span>
+    <div class="min-w-0 flex-1">
+      <h2 class="break-words text-xl font-semibold text-slate-900">{{ s.title }}</h2>
+      <div class="ui-tags">
+        <span class="ui-tag">{{ s.get_kind_display }}</span>
+        <span class="ui-tag {% if not s.period_known %}warn{% endif %}">{{ s.get_region_display|default:"вилоят ?" }} · {{ s.period_label }}</span>
+        <span class="ui-tag">киритилди {{ s.created|date:"d.m.Y H:i" }}{% if s.added_by %} · {{ s.added_by.email }}{% endif %}</span>
+        {% if s.owner and not s.is_file %}<span class="ui-tag">смета эгаси: {{ s.owner.email }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="flex shrink-0 flex-wrap gap-2">
+      {% if not s.is_file %}<a href="{% url 'panel:work' s.kind s.work_id %}" class="ui-btn-o">{% icon "external" "h-4 w-4" %}Сметани очиш</a>{% endif %}
+      {% if can_act %}<form method="post" action="{% url 'panel:base_source' s.pk 'reharvest' %}">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="ui-btn" title="Нархлар ва ишлар қайта ўқилади">Янгилаш</button></form>{% endif %}
+    </div>
+  </div>
+</section>
+
+{# ---------- рақамлар ---------- #}
+<div class="ui-cards">
+  <div class="ui-card"><span class="ic ic-all">{% icon "list" "h-5 w-5" %}</span><span><span class="t block">{{ st.rows|default:0 }}</span><span class="n">ресурс қатори ўқилди</span></span></div>
+  <a href="{% url 'panel:base_data' %}?region={{ s.region }}&year={{ s.year|default:'' }}&quarter={{ s.quarter|default:'' }}&src={{ s.pk }}" class="ui-card"><span class="ic ic-tr">{% icon "check" "h-5 w-5" %}</span><span><span class="t block">{{ n_obs }}</span><span class="n">нарх олинди →</span></span></a>
+  <a href="{% url 'panel:base_norms' %}?src={{ s.pk }}" class="ui-card"><span class="ic ic-mount">{% icon "tree" "h-5 w-5" %}</span><span><span class="t block">{{ n_works }}</span><span class="n">иш (шифр) →</span></span></a>
+  {% if st.jobs %}<div class="ui-card"><span class="ic ic-I">{% icon "sheet" "h-5 w-5" %}</span><span><span class="t block">{{ st.jobs }}</span><span class="n">смета</span></span></div>{% endif %}
+</div>
+
+{# ---------- қандай олинди ---------- #}
+<details class="ui-group" open>
+  <summary>{% icon "help" "ui-gi h-6 w-6 shrink-0" %}<span class="gt">Қандай олинди</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
+  <div class="space-y-2 border-t border-slate-100 px-5 py-4 text-sm text-slate-700">
+    {% if s.is_file %}
+      <p><b>Нарх (RES) листлари:</b> {% for x in st.sheets %}«{{ x }}»{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-slate-400">йўқ</span>{% endfor %} — ҳар кодли ресурснинг нархи олинди.</p>
+      <p><b>Иш (ЛРВ) листлари:</b> {% for x in st.lrv_sheets %}«{{ x }}»{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-slate-400">йўқ</span>{% endfor %} — иш шифри, номи, ҳажми ва ресурслари (нормаси билан) олинди.</p>
+      {% if pair %}<p><b>Жуфти:</b> {% for p in pair %}<a href="{% url 'panel:base_source_detail' p.pk %}" class="font-medium underline" style="color:var(--ui-blue)">{{ p.title }}</a>{% if not forloop.last %}, {% endif %}{% endfor %} — нархлар ва ишлар бир-бирига боғланди.</p>{% endif %}
+    {% else %}
+      <p>1. <b>Локал смета</b> RES билан нархланган эди. Локалдаги ҳар ресурс қатори ўқилди: <b>код</b>, номи, бирлиги ва RES'дан топилган <b>нарх</b>.</p>
+      <p>2. Фақат RES билан <b>аниқ мос келган</b> (ёки смета­чи қўлда қўйган) нархлар олинди; бир смета — бир код бир марта.</p>
+      <p>3. Локалдаги <b>иш қаторларидан</b> шифр (масалан Е0101-197-02), иш номи, ҳажми ва остидаги ресурсларнинг нормаси олинди.</p>
+    {% endif %}
+  </div>
+</details>
+
+{# ---------- нега олинмади ---------- #}
+{% if skipped %}
+<details class="ui-group" open>
+  <summary>{% icon "alert" "ui-gi h-6 w-6 shrink-0" %}<span class="gt">Нега олинмади</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
+  {% for k, n, help in skipped %}
+  <div class="ui-row"><span class="ui-pill" style="min-width:3.5rem">{{ n }}</span>
+    <div class="main"><div class="title font-medium">{{ skip_labels|get_item:k|default:k }}</div><div class="text-xs text-slate-500">{{ help }}</div></div></div>
+  {% endfor %}
+</details>
+{% endif %}
+
+{# ---------- файллар бўйича ---------- #}
+{% if detail %}
+<details class="ui-group" open>
+  <summary>{% icon "sheet" "ui-gi h-6 w-6 shrink-0" %}<span class="gt">Сметалар бўйича<small>Ҳар смета: локал файл → RES файл, нечта қатор ўқилди, нечта нарх ва иш олинди.</small></span>
+    <span class="ui-count">{{ detail|length }} та</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
+  {% for d in detail %}
+  <div class="ui-row">
+    <span class="doc">{% icon "sheet" "h-5 w-5" %}</span>
+    <div class="main">
+      <div class="title font-medium">{{ d.local }}</div>
+      <div class="ui-tags"><span class="ui-tag">Л: {{ d.local|truncatechars:40 }}</span><span class="ui-tag">Р: {{ d.res|truncatechars:40 }}</span>
+        <span class="ui-tag">{{ d.rows }} қатор</span><span class="ui-tag ok">{{ d.taken }} нарх</span><span class="ui-tag book">{{ d.works }} иш</span></div>
+    </div>
+    <a href="{% url 'job' d.job %}" class="ui-btn-o">{% icon "external" "h-4 w-4" %}Очиш</a>
+  </div>
+  {% endfor %}
+</details>
+{% endif %}
+
+{# ---------- иш турлари ---------- #}
+{% if books %}
+<details class="ui-group" open>
+  <summary>{% icon "layers" "ui-gi h-6 w-6 shrink-0" %}<span class="gt">Иш турлари<small>Иш шифрининг тўплами бўйича — нечта иш.</small></span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
+  <div class="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-4">
+    {% for k, n, label in books %}<a href="{% url 'panel:base_norms' %}?src={{ s.pk }}&book={{ k }}" class="ui-tag book" style="font-size:.8rem;padding:.25rem .6rem">{{ k }} · {{ label }} · {{ n }}</a>{% endfor %}
+  </div>
+</details>
+{% endif %}
+{% endblock %}

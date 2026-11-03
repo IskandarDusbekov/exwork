@@ -1,0 +1,71 @@
+{% load narx %}{# «Маълумотлар»: файл юклаш, такрор файллар бўйича қарор ва охирги юклаш натижаси #}
+{% if can_act %}
+<details class="ui-group" {% if not n_files %}open{% endif %}>
+  <summary>
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white" style="background:var(--ui-blue)">{% icon "upload" "h-5 w-5" %}</span>
+    <span class="gt">Файл юклаш (RES ёки ЛРВ)
+      <small>RES — нархлар, ЛРВ — ишлар ва нормалар. Базада {{ n_files }} та файл.</small></span>
+    {% icon "chevron-down" "ui-chev h-5 w-5" %}
+  </summary>
+  <form method="post" action="{% url 'panel:base_upload' %}" enctype="multipart/form-data" class="px-5 pb-4">{% csrf_token %}
+    <div class="flex flex-wrap items-center gap-2">
+      {% include "panel/_base_period.html" %}
+      <input type="file" name="files" multiple accept=".xls,.xlsx,.xlsm" required
+             class="block max-w-full rounded-lg border border-slate-300 px-2 py-1 text-sm file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1">
+      <button class="ui-btn">{% icon "upload" "h-4 w-4" %}Юклаш</button>
+    </div>
+    <p class="mt-2 text-xs text-slate-500">Аввал вилоят ва даврни танланг. .xls, .xlsx · {{ max_mb }} МБ гача. Такрор файл сақланмайди — сиз танлайсиз.</p>
+  </form>
+</details>
+{% endif %}
+
+{% if pending %}
+<section class="ui-group" style="border-color:#fcd34d">
+  <div class="flex items-center gap-3 px-5 py-3" style="background:#fffbeb">
+    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style="background:#fef3c7;color:#b45309">{% icon "alert" "h-5 w-5" %}</span>
+    <div class="min-w-0 flex-1"><div class="font-semibold text-amber-950">Такрор файллар — қарор кутмоқда ({{ pending|length }})</div>
+      <div class="text-xs text-amber-900/70">Шу даврга аввал юкланган. «Алмаштириш» — эскиси ўчиб, янгиси ёзилади.</div></div>
+  </div>
+  {% for p in pending %}
+  <div class="ui-row">
+    <span class="doc">{% icon "sheet" "h-5 w-5" %}</span>
+    <div class="main"><div class="title font-medium">{{ p.name }}</div>
+      <div class="ui-tags"><span class="ui-tag">{{ p.period }}</span>
+        <span class="ui-tag warn">{% if p.exact %}айнан шу файл{% else %}мазмуни айнан бир хил файл{% endif %}</span>
+        {% for d in p.same %}<span class="ui-tag">«{{ d.title }}» · {{ d.date }}</span>{% endfor %}</div></div>
+    {% if can_act %}
+    <form method="post" action="{% url 'panel:base_upload_pending' p.token 'skip' %}">{% csrf_token %}<button class="ui-btn-o" style="color:#334155">Ўтказиб юбориш</button></form>
+    <form method="post" action="{% url 'panel:base_upload_pending' p.token 'replace' %}">{% csrf_token %}<button class="ui-btn" style="background:#d97706">Алмаштириш</button></form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if last %}
+<details class="ui-group" open>
+  <summary>
+    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style="background:#dcfce7;color:#15803d">{% icon "check-circle" "h-5 w-5" %}</span>
+    <span class="gt">Охирги юклаш<small>{{ last.period }}</small></span>
+    <span class="ui-count">{{ last.items|length }} та файл</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}
+  </summary>
+  {% for it in last.items %}
+  <div class="ui-row">
+    <span class="doc">{% icon "sheet" "h-5 w-5" %}</span>
+    <div class="main"><div class="title font-medium">{{ it.name }}</div>
+      <div class="ui-tags">
+        {% if it.status == 'added' %}<span class="ui-tag ok">қўшилди</span>{% elif it.status == 'duplicate' %}<span class="ui-tag warn">такрор — сақланмади</span>
+        {% elif it.status == 'empty' %}<span class="ui-tag">маълумот йўқ</span>{% else %}<span class="ui-tag bad">хато</span>{% endif %}
+        {% if it.n %}<span class="ui-tag">{{ it.n }} та нарх</span>{% endif %}
+        {% if it.works %}<span class="ui-tag">{{ it.works }} та иш</span>{% endif %}
+        {% for b, n in it.books %}<span class="ui-tag book" title="{{ n }} та иш">{{ b }} · {{ n }}</span>{% endfor %}
+      </div>
+      {% if it.msg %}<div class="mt-1 text-xs text-slate-600">{{ it.msg }}</div>{% endif %}
+      {% if it.other %}<div class="mt-1 text-xs text-sky-800">Эслатма: бу файл бошқа даврга ҳам юкланган — {% for d in it.other %}{{ d.period }} ({{ d.date }}){% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+      {% if it.skipped %}<div class="mt-1 text-[11px] text-slate-400">олинмади: {% for k, v in it.skipped.items %}{{ skip_labels|get_item:k|default:k }} — {{ v }}{% if not forloop.last %} · {% endif %}{% endfor %}</div>{% endif %}
+      {% if it.ignored %}<div class="mt-0.5 text-[11px] text-slate-400">ўқилмаган листлар: {{ it.ignored|join:"; " }}</div>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</details>
+{% endif %}

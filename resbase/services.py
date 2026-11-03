@@ -4,18 +4,23 @@ Faqat ishonchli qatorlar olinadi: holati EXACT (RES bilan aniq moslangan) yoki s
 (``manual`` belgisi bilan, medianaga kirmaydi). Shubhali moslik, «ТОПИЛМАДИ», nol narx va kodsiz qatorlar olinmaydi."""
 import logging
 import re
+import uuid
 from collections import Counter, defaultdict
+from types import SimpleNamespace
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from statistics import median
 
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from core.normalize import norm_code, norm_name, unit_key  # noqa: F401 — panel ham shu yerdan oladi
 from jobs.models import Batch, Job, Project
 
-from .models import Observation, Resource, ResourceName, Source, counted_q
+from . import normbook, resfile
+from .models import Observation, Resource, ResourceName, Source, WorkItem, WorkResource, counted_q
 from .regions import guess_region
 
 log = logging.getLogger(__name__)
@@ -129,44 +134,437 @@ def rows_from_job(job) -> tuple:
     return taken, skipped, total
 
 
-@transaction.atomic
-def harvest(source: Source) -> Source:
-    """Manbaning narxlarini (qayta) yig'adi: eski kuzatuvlar o'chiriladi, smetalardan yangidan olinadi."""
-    work = work_of(source.kind, source.work_id)
-    touched = set(source.observations.values_list("resource_id", flat=True))
-    source.observations.all().delete()
-    skipped, rows, taken_n, jobs = Counter(), 0, 0, jobs_of(source.kind, work)
-    resources = {r.code: r for r in Resource.objects.all()}
-    names = Counter()
-    for job in jobs:
-        taken, sk, total = rows_from_job(job)
-        skipped.update(sk)
-        rows += total
-        for t in taken:
-            res = resources.get(t["code"])
-            if res is None:
-                res = resources[t["code"]] = Resource.objects.create(
-                    code=t["code"], name=t["name"], unit=t["unit"], unit_key=unit_key(t["unit"]), category=t["category"])
-            elif not res.category and t["category"] and not res.edited:
-                res.category = t["category"]
-                res.save(update_fields=["category", "updated"])
-            Observation.objects.create(source=source, resource=res, job_id=job.id, row=t["row"], name=t["name"],
-                                       unit=t["unit"], price=t["price"], manual=t["manual"])
-            names[(res.pk, t["name"], t["unit"])] += 1
-            taken_n += 1
+def _store(source: Source, job_id, taken: list) -> int:
+    """Olingan qatorlarni manbaga kuzatuv sifatida yozadi (yangi kod — yangi resurs); nom variantlari sanaladi."""
+    codes = {t["code"] for t in taken}
+    resources = {r.code: r for r in Resource.objects.filter(code__in=codes)}
+    names, obs = Counter(), []
+    for t in taken:
+        res = resources.get(t["code"])
+        if res is None:
+            res = resources[t["code"]] = Resource.objects.create(
+                code=t["code"], name=t["name"], unit=t["unit"], unit_key=unit_key(t["unit"]), category=t["category"])
+        elif not res.category and t["category"] and not res.edited:
+            res.category = t["category"]
+            res.save(update_fields=["category", "updated"])
+        obs.append(Observation(source=source, resource=res, job_id=job_id, row=t["row"], name=t["name"],
+                               unit=t["unit"], price=t["price"], manual=t["manual"]))
+        names[(res.pk, t["name"], t["unit"])] += 1
+    Observation.objects.bulk_create(obs, batch_size=1000)
     for (rid, name, unit), n in names.items():
         obj, created = ResourceName.objects.get_or_create(resource_id=rid, name=name, unit=unit, defaults={"seen": n})
         if not created:
             obj.seen += n
             obj.save(update_fields=["seen"])
+    return len(obs)
+
+
+@transaction.atomic
+def harvest(source: Source) -> Source:
+    """Manbaning narxlarini (qayta) yig'adi: eski kuzatuvlar o'chiriladi, smetalardan (fayl — saqlangan RES
+    nusxasidan) yangidan olinadi."""
+    if source.is_file:
+        return _harvest_file(source)
+    work = work_of(source.kind, source.work_id)
+    touched = set(source.observations.values_list("resource_id", flat=True))
+    source.observations.all().delete()
+    skipped, rows, taken_n, jobs = Counter(), 0, 0, jobs_of(source.kind, work)
+    works, detail = [], []
+    for job in jobs:
+        taken, sk, total = rows_from_job(job)
+        skipped.update(sk)
+        rows += total
+        n = _store(source, job.id, taken)
+        taken_n += n
+        jw = works_from_job(job)
+        works += jw
+        detail.append({"job": str(job.id), "local": job.local_name, "res": job.res_name, "rows": total, "taken": n,
+                       "works": len(jw), "skipped": dict(sk)})
+    n_works = _store_works(source, SimpleNamespace(works=works))
     source.title = title_of(source.kind, work)[:500]
     source.owner_id = work.owner_id
-    source.stats = {"jobs": len(jobs), "rows": rows, "taken": taken_n, "skipped": dict(skipped)}
+    source.stats = {"jobs": len(jobs), "rows": rows, "taken": taken_n, "skipped": dict(skipped), "works": n_works,
+                    "books": dict(Counter(w.book for w in works)), "detail": detail}
     source.harvested = timezone.now()
     source.save()
+    relink_books([source])
     recheck(touched | set(source.observations.values_list("resource_id", flat=True)))
     transaction.on_commit(bump)
-    log.info("resbase: %s «%s» — %s ta narx (%s qator)", source.kind, source.title, taken_n, rows)
+    log.info("resbase: %s «%s» — %s ta narx, %s ta ish (%s qator)", source.kind, source.title, taken_n, n_works, rows)
+    return source
+
+
+def works_from_job(job) -> list:
+    """Нархланган смета натижасидан ишлар: иш қатори (WORK_HEADER, коди — норма шифри) ва остидаги ресурслар
+    («1.1», «1.2» — нормаси ва жами миқдори). Иш ортидаги рақамли қатор (масалан «3 ПЕСЧАНО-ГРАВИЙНАЯ СМЕСЬ») —
+    шу ишнинг қўшимча материали."""
+    out, work = [], None
+    for r in (job.result or {}).get("rows") or []:
+        code, name, unit = r.get("code"), str(r.get("name") or "").strip(), str(r.get("unit") or "").strip()
+        if r.get("status") == "WORK_HEADER":
+            shifr = normbook.parse(code)
+            work = None
+            if shifr and name:
+                work = resfile.Work(job.local_name[:60], int(r.get("row") or 0), shifr[0], str(code)[:120], shifr[1],
+                                    name[:500], unit[:40], _float(r.get("qty_unit") if r.get("qty") is None else r.get("qty")))
+                out.append(work)
+            continue
+        if work is None or not name or not unit:
+            if not unit:
+                work = None  # бўлим сарлавҳаси
+            continue
+        sub = "." in str(r.get("num") or "")
+        work.resources.append(resfile.WorkRes(int(r.get("row") or 0), norm_code(code), str(code or "")[:40], name[:500],
+                                              unit[:40], _float(r.get("qty_unit")) if sub else None,
+                                              _float(r.get("qty_total") if sub else r.get("qty")), extra=not sub))
+    return out
+
+
+def _float(v):
+    n = _num(v)
+    return float(n) if n is not None else None
+
+
+# ===================== RES файлдан юклаш =====================
+UPLOAD_DIR = "resbase"  # MEDIA_ROOT ichida: yuklangan RES nusxalari
+UPLOAD_EXTS = (".xls", ".xlsx", ".xlsm")
+FILE_SKIP_LABELS = {**resfile.SKIP_LABELS, "no_code": SKIP_LABELS["no_code"]}
+
+
+def rows_from_file(parsed) -> tuple:
+    """``resfile.ResFile`` dan bazaga olinadiganlar (smetadagi kabi: faqat kodli) va tashlab ketilganlar."""
+    skipped = Counter(parsed.skipped)
+    taken = []
+    for r in parsed.rows:
+        if not r.code:  # kodsiz material — keyingi bosqichda (nom bo'yicha moslash)
+            skipped["no_code"] += 1
+            continue
+        taken.append({"code": r.code, "name": r.name, "unit": r.unit, "price": Decimal(str(r.price)).quantize(Decimal("0.0001")),
+                      "manual": False, "row": r.row, "category": r.category})
+    return taken, skipped
+
+
+def file_duplicates(file_hash, fingerprint, region, year, quarter, exclude=None):
+    """(shu davrdagi takrorlar, boshqa davrlardagilar): bayt xeshi yoki mazmun izi bir xil «Файл» manbalari."""
+    qs = Source.objects.filter(kind=Source.Kind.FILE).filter(
+        Q(file_hash=file_hash) | (Q(fingerprint=fingerprint) & ~Q(fingerprint="")))
+    if exclude:
+        qs = qs.exclude(pk=exclude)
+    same = [s for s in qs if (s.region, s.year, s.quarter) == (region, year, quarter)]
+    other = [s for s in qs if (s.region, s.year, s.quarter) != (region, year, quarter)]
+    return same, other
+
+
+def _media(rel) -> Path:
+    from django.conf import settings
+    return Path(settings.MEDIA_ROOT) / rel
+
+
+_PAIR = re.compile(r"^b[pv](\d+)$", re.I)
+
+
+def pair_key(title, region, year, quarter) -> str:
+    """«bp1010.xlsx» (narxlar) va «bv1010.xlsx» (ishlar) — bitta smeta: shu davrda raqami bir xil fayllar juft."""
+    m = _PAIR.match(Path(str(title)).stem.strip())
+    return f"{region}:{year}:{quarter}:{m.group(1)}" if m and region and year and quarter else ""
+
+
+def _group(source):
+    """Manba va uning jufti (bp↔bv). Juft yo'q — faqat o'zi."""
+    if source.pair_key:
+        return Source.objects.filter(pair_key=source.pair_key)
+    return Source.objects.filter(pk=source.pk)
+
+
+def relink_books(sources):
+    """Narx kuzatuvlarining иш турлари (``Observation.books``): shu fayl va jufti ЛРВ'sida kod qaysi to'plam
+    ishlarida uchragan. Fayl qo'shilganda, almashtirilganda, o'chirilganda yoki davri o'zgarganda qayta hisoblanadi."""
+    done = set()
+    for s in sources:
+        group = list(_group(s).values_list("pk", flat=True)) or [s.pk]
+        if done & set(group):
+            continue
+        done |= set(group)
+        books = defaultdict(set)
+        for code, book in (WorkResource.objects.filter(work__source_id__in=group).exclude(code="")
+                           .values_list("code", "work__book")):
+            books[code].add(book)
+        changed = []
+        for o in Observation.objects.filter(source_id__in=group).select_related("resource"):
+            b = books.get(o.resource.code)
+            new = "," + ",".join(sorted(b, key=normbook.book_sort)) + "," if b else ""
+            if o.books != new:
+                o.books = new
+                changed.append(o)
+        Observation.objects.bulk_update(changed, ["books"], batch_size=1000)
+
+
+def _dec(v):
+    return None if v is None else Decimal(str(round(v, 6)))
+
+
+def _store_works(source, parsed) -> int:
+    """ЛРВ ishlari va ularning resurslari (eskilari o'chiriladi — qayta yig'ishda takrorlanmasin)."""
+    source.works.all().delete()
+    items = [WorkItem(source=source, sheet=w.sheet[:60], row=w.row, shifr=w.shifr[:40], raw=w.raw[:120], book=w.book,
+                      name=w.name[:500], unit=w.unit[:60], qty=_dec(w.qty), section=w.section[:300]) for w in parsed.works]
+    WorkItem.objects.bulk_create(items, batch_size=1000)
+    WorkResource.objects.bulk_create(
+        [WorkResource(work=item, row=x.row, code=x.code, raw_code=x.raw_code[:40], name=x.name[:500], unit=x.unit[:40],
+                      norma=_dec(x.norma), qty=_dec(x.qty), extra=x.extra)
+         for item, w in zip(items, parsed.works) for x in w.resources], batch_size=1000)
+    return len(items)
+
+
+@transaction.atomic
+def add_file(rel_path, title, parsed, *, region, year, quarter, file_hash, user=None, replace=()) -> Source:
+    """Saqlangan fayldan (RES narxlari va/yoki ЛРВ ishlari) yangi manba. ``replace`` — o'rniga keladigan
+    (o'chiriladigan) manbalar."""
+    for old in replace:
+        delete_source(old, keep_file=old.file_path == rel_path)
+    source = Source.objects.create(kind=Source.Kind.FILE, work_id=uuid.uuid4(), title=title[:500], owner=user,
+                                   added_by=user, region=region, year=year, quarter=quarter, file_path=rel_path,
+                                   file_hash=file_hash, fingerprint=parsed.fingerprint,
+                                   pair_key=pair_key(title, region, year, quarter))
+    return _fill_file(source, parsed)
+
+
+def _fill_file(source, parsed) -> Source:
+    taken, skipped = rows_from_file(parsed)
+    n = _store(source, source.work_id, taken)
+    n_works = _store_works(source, parsed)
+    source.stats = {"rows": len(parsed.rows) + sum(parsed.skipped.values()), "taken": n, "skipped": dict(skipped),
+                    "sheets": parsed.sheets, "lrv_sheets": parsed.lrv_sheets, "works": n_works,
+                    "books": dict(Counter(w.book for w in parsed.works))}
+    source.harvested = timezone.now()
+    source.save()
+    relink_books([source])
+    recheck(set(source.observations.values_list("resource_id", flat=True)))
+    transaction.on_commit(bump)
+    log.info("resbase: fayl «%s» — %s ta narx, %s ta ish", source.title, n, n_works)
+    return source
+
+
+@transaction.atomic
+def set_period(source, region, year, quarter):
+    """Manba davri o'zgaradi; fayl uchun jufti (bp↔bv) ham shu davr bo'yicha qayta topiladi."""
+    old = list(_group(source).exclude(pk=source.pk))
+    source.region, source.year, source.quarter = region, year, quarter
+    if source.is_file:
+        source.pair_key = pair_key(source.title, region, year, quarter)
+    source.save(update_fields=["region", "year", "quarter", "pair_key"])
+    relink_books([source, *old])
+    transaction.on_commit(bump)
+
+
+def explore(f: dict):
+    """«Маълумотлар» саҳифаси: фильтрланган кузатувлар ва ресурс тури таблари учун сонлар.
+
+    ``f`` — {region, year, quarter, cat, book, src, q, sort}; бўш қиймат — фильтр йўқ; book «-» — иш тури
+    аниқланмаган. Қайтаради: (qs, {"cat": {I: n}, "book": {Е01: n}}) — ҳар таб сонлари ўз фильтрисиз."""
+    from django.db.models import Count
+    base = Observation.objects.all()
+    if f.get("region"):
+        base = base.filter(source__region=f["region"])
+    if f.get("year"):
+        base = base.filter(source__year=f["year"])
+    if f.get("quarter"):
+        base = base.filter(source__quarter=f["quarter"])
+    if f.get("src"):
+        base = base.filter(source_id=f["src"])
+    q = (f.get("q") or "").strip()
+    if q:
+        code = norm_code(q)
+        text = Q()
+        for v in {q, q.upper(), q.lower(), q.capitalize()}:  # SQLite кирилл ҳарфларида катта-кичикни фарқлайди
+            text |= Q(name__icontains=v)
+        base = base.filter(Q(resource__code=code) | text if code else text)
+    cat, book = f.get("cat"), f.get("book")
+    cat_q = Q(resource__category=cat) if cat else Q()
+    book_q = (Q(books="") if book == "-" else Q(books__contains=f",{book},")) if book else Q()
+    books = Counter()
+    for b in base.filter(cat_q).values_list("books", flat=True):
+        books.update([x for x in b.split(",") if x] or ["-"])
+    counts = {"cat": dict(base.filter(book_q).values_list("resource__category").annotate(n=Count("id")).order_by()),
+              "book": books}
+    order = {"code": ("resource__code",), "name": ("name",), "price": ("price",), "-price": ("-price",),
+             "new": ("-source__created", "row")}.get(f.get("sort") or "", ("resource__category", "row"))
+    qs = base.filter(cat_q & book_q).select_related("resource", "source").order_by(*order, "pk")
+    return qs, counts
+
+
+# ===================== нормалар (ЛРВ ишлари) =====================
+def _works(f: dict):
+    qs = WorkItem.objects.all()
+    if f.get("region"):
+        qs = qs.filter(source__region=f["region"])
+    if f.get("year"):
+        qs = qs.filter(source__year=f["year"])
+    if f.get("quarter"):
+        qs = qs.filter(source__quarter=f["quarter"])
+    if f.get("src"):
+        qs = qs.filter(source_id=f["src"])
+    return qs
+
+
+def norms(f: dict):
+    """«Нормалар»: шифр бўйича битта қатор (нечта файлда, неча марта ишлатилган) ва тўпламлар сони.
+    Бир хил шифр бир неча файлда (ёки бир файлда бир неча марта) учраса — бир қатор, сонлари билан."""
+    from django.db.models import Count, Min
+    qs = _works(f)
+    q = (f.get("q") or "").strip()
+    if q:
+        text = Q(shifr__icontains=q.upper())
+        for v in {q, q.upper(), q.lower(), q.capitalize()}:
+            text |= Q(name__icontains=v)
+        qs = qs.filter(text)
+    books = dict(qs.values_list("book").annotate(n=Count("shifr", distinct=True)).order_by())
+    if f.get("book"):
+        qs = qs.filter(book=f["book"])
+    elif f.get("grp"):
+        qs = qs.filter(book__in=[b for b in books if normbook.group_of(b) == f["grp"]])
+    rows = (qs.values("shifr", "book").annotate(n_files=Count("source", distinct=True), n_uses=Count("id"),
+                                                 name=Min("name"), unit=Min("unit"))
+            .order_by("book", "shifr"))
+    return rows, books
+
+
+def book_names() -> dict:
+    """Админ ёзган тўплам номлари {«Е01»: ном} (кеш — база ўзгарганда янгиланади)."""
+    from .models import BookName
+    key = f"resbase:books:{_ver()}"
+    names = cache.get(key)
+    if names is None:
+        names = dict(BookName.objects.values_list("key", "name"))
+        cache.set(key, names, 3600)
+    return names
+
+
+def book_label(key: str) -> str:
+    """Тўплам номи: админ ёзгани, бўлмаса — стандарт (normbook)."""
+    return book_names().get(key) or normbook.book_label(key)
+
+
+@transaction.atomic
+def save_book_names(names: dict, user=None) -> int:
+    """{калит: ном} — бўш ном = стандартга қайтиш (админ ёзгани ўчади). Ўзгарганлар сони."""
+    from .models import BookName
+    current = dict(BookName.objects.values_list("key", "name"))
+    changed = 0
+    for key, name in names.items():
+        name = " ".join(str(name or "").split())[:200]
+        if not name or name == normbook.book_label(key):
+            changed += BookName.objects.filter(key=key).delete()[0]
+        elif current.get(key) != name:
+            BookName.objects.update_or_create(key=key, defaults={"name": name, "updated_by": user})
+            changed += 1
+    if changed:
+        bump()  # шу сўровнинг ўзида ҳам янги ном кўринсин
+        transaction.on_commit(bump)  # бошқа сўров commit'дан олдин эски номни кешлаган бўлса
+    return changed
+
+
+def obs_shifrs(objs) -> dict:
+    """{кузатув pk: [шифр, …]} — нархнинг коди шу манба (ёки жуфти bp↔bv) ишларида қайси шифрларда ишлатилган."""
+    objs = list(objs)
+    src_ids = {o.source_id for o in objs}
+    pair = dict(Source.objects.filter(pk__in=src_ids).values_list("pk", "pair_key"))
+    by_key = defaultdict(set)
+    for pk, key in Source.objects.filter(pair_key__in={k for k in pair.values() if k}).values_list("pk", "pair_key"):
+        by_key[key].add(pk)
+    groups = {sid: by_key.get(pair.get(sid)) or {sid} for sid in src_ids}
+    found = defaultdict(set)
+    for sid, code, shifr in (WorkResource.objects.filter(work__source_id__in=set().union(*groups.values()) if groups else [],
+                                                          code__in={o.resource.code for o in objs}, extra=False)
+                             .values_list("work__source_id", "code", "work__shifr").order_by().distinct()):
+        found[(sid, code)].add(shifr)
+    return {o.pk: sorted(set().union(*(found.get((sid, o.resource.code), set()) for sid in groups[o.source_id])))
+            for o in objs}
+
+
+def resource_works(code: str, limit: int = 200) -> list:
+    """Ресурс саҳифаси учун: бу код қайси ишларда (шифрларда) ишлатилган — нормаси (мин–макс) ва нечта файлда."""
+    from django.db.models import Count, Max, Min
+    rows = (WorkResource.objects.filter(code=code, extra=False)
+            .values("work__shifr", "work__book")
+            .annotate(name=Min("work__name"), unit=Min("work__unit"), n_files=Count("work__source", distinct=True),
+                      lo=Min("norma"), hi=Max("norma"))
+            .order_by("work__book", "work__shifr")[:limit])
+    return [{**r, "label": book_label(r["work__book"])} for r in rows]
+
+
+def norm_detail(shifr: str, f: dict) -> dict:
+    """Битта норма: номи, бирлиги ва таркиби — файллардан йиғилган. Такрорлар:
+    * бир хил ресурс бир хил норма билан бир неча файлда — бир қатор, «N файлда»;
+    * нормаси фарқ қилса — вариантлар (энг кўп учрагани асосий, қолганлари «бошқача норма» деб кўрсатилади);
+    * нормада йўқ, иш ортидан ёзилган материаллар — алоҳида рўйхат (нормаси йўқ, фақат миқдори)."""
+    works = list(_works(f).filter(shifr=shifr).select_related("source"))
+    if not works:
+        return {}
+    names, units = Counter(w.name for w in works), Counter(w.unit for w in works)
+    n_files = len({w.source_id for w in works})
+    comp = defaultdict(lambda: {"variants": defaultdict(set), "names": Counter(), "unit": Counter(), "code": ""})
+    extras = defaultdict(lambda: {"files": set(), "qty": [], "name": "", "unit": "", "code": ""})
+    for x in WorkResource.objects.filter(work__in=works).select_related("work"):
+        key = x.code or resfile.name_key(x.name, x.unit)
+        if x.extra:
+            e = extras[key]
+            e["files"].add(x.work.source_id)
+            e["qty"].append(x.qty)
+            e.update(name=e["name"] or x.name, unit=e["unit"] or x.unit, code=x.code)
+            continue
+        c = comp[key]
+        c["variants"][x.norma.normalize() if x.norma is not None else None].add(x.work.source_id)
+        c["names"][x.name] += 1
+        c["unit"][x.unit] += 1
+        c["code"] = x.code
+    rows = []
+    for key, c in comp.items():
+        vs = sorted(((n, len(s)) for n, s in c["variants"].items()), key=lambda v: -v[1])
+        rows.append({"code": c["code"], "name": c["names"].most_common(1)[0][0], "unit": c["unit"].most_common(1)[0][0],
+                     "norma": vs[0][0], "n": vs[0][1], "others": vs[1:]})
+    rows.sort(key=lambda r: (r["code"] == "", int(r["code"]) if r["code"].isdigit() else 0, r["name"]))
+    return {"shifr": shifr, "book": works[0].book, "name": names.most_common(1)[0][0],
+            "names": [n for n, _ in names.most_common()[1:4]], "unit": units.most_common(1)[0][0],
+            "n_files": n_files, "n_uses": len(works), "rows": rows, "n_variants": sum(1 for r in rows if r["others"]),
+            "extras": sorted(({**e, "files": len(e["files"])} for e in extras.values()), key=lambda e: -e["files"]),
+            "uses": works[:200]}
+
+
+def explore_tree(sel: dict) -> list:
+    """Чап дарахт: вилоят → давр → манбалар (кузатувлар сони билан). Манбалар фақат очилган давр учун."""
+    from django.db.models import Count
+    n_obs = dict(((r, y, q), n) for r, y, q, n in Observation.objects.values_list(
+        "source__region", "source__year", "source__quarter").annotate(n=Count("id")).order_by())
+    regions = defaultdict(lambda: {"n": 0, "periods": []})
+    for r, y, q in Source.objects.values_list("region", "year", "quarter").distinct().order_by():
+        n = n_obs.get((r, y, q), 0)
+        regions[r]["n"] += n
+        regions[r]["periods"].append({"year": y, "quarter": q, "n": n})
+    out = []
+    from .regions import REGIONS
+    order = [k for k, _ in REGIONS]
+    for r in sorted(regions, key=lambda k: order.index(k) if k in order else 99):
+        node = regions[r]
+        node["periods"].sort(key=lambda p: (-(p["year"] or 0), -(p["quarter"] or 0)))
+        open_ = sel.get("region") == r
+        for p in node["periods"]:
+            p["open"] = open_ and (sel.get("year"), sel.get("quarter")) == (p["year"], p["quarter"])
+            if p["open"]:
+                p["sources"] = list(Source.objects.filter(region=r, year=p["year"], quarter=p["quarter"])
+                                    .annotate(n=Count("observations", distinct=True), w=Count("works", distinct=True))
+                                    .order_by("title"))
+        out.append({"region": r, "n": node["n"], "open": open_, "periods": node["periods"]})
+    return out
+
+
+def _harvest_file(source) -> Source:
+    touched = set(source.observations.values_list("resource_id", flat=True))
+    source.observations.all().delete()
+    parsed = resfile.parse(_media(source.file_path))
+    source.fingerprint = parsed.fingerprint
+    source = _fill_file(source, parsed)
+    recheck(touched)
     return source
 
 
@@ -179,9 +577,13 @@ def add_source(kind, work_id, *, region="", year=None, quarter=None, user=None) 
     return harvest(source)
 
 
-def delete_source(source: Source):
+def delete_source(source: Source, keep_file=False):
     touched = set(source.observations.values_list("resource_id", flat=True))
+    pair = list(_group(source).exclude(pk=source.pk))  # jufti qoladi — uning иш турлари qayta hisoblanadi
+    if source.is_file and source.file_path and not keep_file:
+        _media(source.file_path).unlink(missing_ok=True)
     source.delete()
+    relink_books(pair)
     recheck(touched)
     Resource.objects.filter(observations__isnull=True).delete()  # hech qayerda uchramaydigan kodlar qolmasin
     bump()

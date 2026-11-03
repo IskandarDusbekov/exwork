@@ -36,7 +36,7 @@
                title="RES топа олмаган қаторлар ресурс базасидан шу вилоят ва давр нархи билан нархланади">
         {% icon "database" "h-4 w-4" %} {% if base_label %}База: {{ base_label }}{% else %}База ишлатилмаяпти{% endif %} {% icon "chevron-down" "h-3.5 w-3.5 opacity-60" %}</summary>
       <form method="post" action="{% url 'job_base' job.id %}" data-busy class="absolute right-0 z-40 mt-1 w-80 space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-lg">{% csrf_token %}
-        <p class="text-xs text-slate-500">Нарх манбаи: RES топа олмаган (ёки RES йўқ) қаторлар ресурс базасидан, коди ва бирлиги мос келса, шу вилоят ва даврнинг медиана нархи билан нархланади. Қўлда қўйилган нарх ўзгармайди.</p>
+        <p class="text-xs text-slate-500">Нарх манбаи: RES топа олмаган (ёки RES йўқ) қаторлар ресурс базасидан, коди ва бирлиги мос келса, шу вилоят ва даврнинг ўрта нархи билан нархланади. Қўлда қўйилган нарх ўзгармайди.</p>
         <div class="flex flex-wrap gap-1.5">{% include "panel/_base_period.html" with r=base_period.region y=base_period.year q=base_period.quarter %}</div>
         <button class="w-full rounded-lg bg-slate-900 px-3 py-1.5 font-medium text-white hover:bg-slate-700">Қайта нархлаш</button>
       </form>

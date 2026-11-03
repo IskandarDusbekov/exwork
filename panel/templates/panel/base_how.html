@@ -1,0 +1,343 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Ресурс базаси қандай ишлайди — Панел{% endblock %}
+{% block panel %}
+{% include "panel/_base_ui.html" %}
+{% include "panel/_base_tabs.html" with base_tab="how" %}
+<style>
+  .hw { display: grid; grid-template-columns: 17rem minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+  @media (max-width: 1023.98px) { .hw { grid-template-columns: minmax(0, 1fr); } }
+  .hw-nav { border: 1px solid var(--ui-line); border-radius: 1rem; background: #fff; padding: .6rem; }
+  @media (min-width: 1024px) { .hw-nav { position: sticky; top: 1rem; } }
+  .hw-nav button { display: flex; width: 100%; align-items: center; gap: .65rem; border-radius: .7rem; padding: .55rem .6rem; text-align: left; font-size: .875rem; color: #334155; }
+  .hw-nav button:hover { background: var(--ui-soft); }
+  .hw-nav button i { display: grid; place-items: center; width: 1.6rem; height: 1.6rem; flex-shrink: 0; border-radius: 9999px; background: #f1f5f9; font-style: normal; font-size: .75rem; font-weight: 700; color: #64748b; }
+  .hw-nav button.on { background: var(--ui-blue-50); color: var(--ui-blue-d); font-weight: 600; }
+  .hw-nav button.on i { background: var(--ui-blue); color: #fff; }
+  .hw-nav button.done i { background: #dcfce7; color: #15803d; }
+
+  .hw-card { overflow: hidden; border: 1px solid var(--ui-line); border-radius: 1rem; background: #fff; }
+  .hw-head { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; border-bottom: 1px solid #f1f5f9; padding: 1rem 1.25rem; }
+  .hw-head h2 { font-size: 1.2rem; font-weight: 700; color: var(--ui-ink); }
+  .hw-head .num { border-radius: .5rem; background: var(--ui-blue-50); padding: .1rem .55rem; font-size: .8rem; font-weight: 600; color: var(--ui-blue-d); }
+  .hw-bar { height: 3px; background: #f1f5f9; } .hw-bar span { display: block; height: 100%; background: var(--ui-blue); transition: width .4s; }
+  .hw-stage { position: relative; min-height: 22rem; overflow: hidden; background: linear-gradient(180deg, #f8fafc, #fff); padding: 1.5rem 1.25rem; }
+  .hw-text { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; padding: 1rem 1.25rem; }
+  @media (max-width: 767.98px) { .hw-text { grid-template-columns: 1fr; } }
+  .hw-text h3 { margin-bottom: .3rem; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ui-muted); }
+  .hw-text p { font-size: .9rem; line-height: 1.5; color: #1e293b; }
+  .hw-foot { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; border-top: 1px solid #f1f5f9; padding: .75rem 1.25rem; }
+
+  .step { display: none; } .step.on { display: block; }
+  /* анимация фақат «.play» бўлганда — қадам очилганда ёки «Қайта кўрсатиш» босилганда */
+  .a { opacity: 0; }
+  .play .a { animation: hwIn .5s ease forwards; animation-delay: calc(var(--d, 0) * 1s); }
+  .play .a.pop { animation-name: hwPop; } .play .a.drop { animation-name: hwDrop; } .play .a.fade { animation-name: hwFade; }
+  @keyframes hwIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes hwPop { 0% { opacity: 0; transform: scale(.85); } 70% { opacity: 1; transform: scale(1.04); } 100% { opacity: 1; transform: none; } }
+  @keyframes hwDrop { 0% { opacity: 0; transform: translateY(-60px); } 70% { opacity: 1; transform: translateY(6px); } 100% { opacity: 1; transform: none; } }
+  @keyframes hwFade { to { opacity: 1; } }
+  .play .mark-ok { animation: mkOk .5s forwards; animation-delay: calc(var(--m, 0) * 1s); }
+  .play .mark-skip { animation: mkSkip .5s forwards; animation-delay: calc(var(--m, 0) * 1s); }
+  .play .mark-warn { animation: mkWarn .5s forwards; animation-delay: calc(var(--m, 0) * 1s); }
+  .play .mark-work { animation: mkWork .5s forwards; animation-delay: calc(var(--m, 0) * 1s); }
+  @keyframes mkOk { to { background: #dcfce7; } } @keyframes mkWarn { to { background: #fef3c7; } } @keyframes mkWork { to { background: #dbeafe; } }
+  @keyframes mkSkip { to { background: #f8fafc; color: #94a3b8; text-decoration: line-through; } }
+  /* пайдо бўлиш + ранг — иккала анимация бирга (бири иккинчисини алмаштирмасин) */
+  .play .a.mark-ok, .play .a.mark-skip, .play .a.mark-warn, .play .a.mark-work {
+    animation-duration: .5s, .5s; animation-fill-mode: forwards, forwards; animation-timing-function: ease, ease;
+    animation-delay: calc(var(--d, 0) * 1s), calc(var(--m, 0) * 1s); }
+  .play .a.mark-ok { animation-name: hwIn, mkOk; } .play .a.mark-skip { animation-name: hwIn, mkSkip; }
+  .play .a.mark-warn { animation-name: hwIn, mkWarn; } .play .a.mark-work { animation-name: hwIn, mkWork; }
+  .play .a.pop.glow { animation: hwPop .5s ease forwards, hwGlow 1.2s ease-in-out infinite alternate;
+    animation-delay: calc(var(--d, 0) * 1s), calc(var(--d, 0) * 1s + .5s); }
+  .g2 { display: grid; gap: 1.25rem; } .g3 { display: grid; gap: .75rem; } .gl { display: grid; gap: 1.25rem; } .gm { display: grid; gap: .75rem; }
+  @media (min-width: 768px) { .g2 { grid-template-columns: 1fr 1fr; } .g3 { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 1024px) { .gl { grid-template-columns: minmax(0, 1.3fr) auto minmax(0, 1fr); } .gm { grid-template-columns: auto auto minmax(0, 1fr); align-items: center; } }
+  .ic-blue { color: var(--ui-blue); } .ic-green { color: #059669; }
+  .gl > table.xl, .hw-stage > table.xl { display: block; overflow-x: auto; }  /* тор экранда жадвал сиғмаса — суриш */
+  .play .shake { animation: hwShake .5s; animation-delay: calc(var(--d, 0) * 1s); }
+  @keyframes hwShake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+  .play .glow { animation: hwGlow 1.2s ease-in-out infinite alternate; animation-delay: calc(var(--d, 0) * 1s); }
+  @keyframes hwGlow { from { box-shadow: 0 0 0 0 rgb(37 99 235 / 0); } to { box-shadow: 0 0 0 6px rgb(37 99 235 / .18); } }
+  @media (prefers-reduced-motion: reduce) { .a { opacity: 1 !important; animation: none !important; } .play [class*="mark-"] { animation-duration: .01s !important; animation-delay: 0s !important; } }
+
+  /* саҳна элементлари */
+  .xl { width: 100%; border-collapse: collapse; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .78rem; background: #fff; }
+  .xl td, .xl th { border: 1px solid #e2e8f0; padding: .35rem .5rem; white-space: nowrap; }
+  .xl th { background: #f1f5f9; font-weight: 600; color: #475569; text-align: left; }
+  .why { display: inline-block; margin-left: .4rem; border-radius: .4rem; padding: .05rem .45rem; font-family: ui-sans-serif, system-ui, sans-serif; font-size: .7rem; font-weight: 600; text-decoration: none; }
+  .why.ok { background: #16a34a; color: #fff; } .why.no { background: #94a3b8; color: #fff; } .why.warn { background: #d97706; color: #fff; } .why.work { background: #2563eb; color: #fff; }
+  .chip { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid var(--ui-line); border-radius: .7rem; background: #fff; padding: .45rem .7rem; font-size: .85rem; box-shadow: 0 1px 2px rgb(15 23 42 / .05); }
+  .chip b { font-variant-numeric: tabular-nums; }
+  .box { border: 2px dashed #cbd5e1; border-radius: 1rem; background: #fff; padding: 1rem; }
+  .arrow { display: grid; place-items: center; font-size: 1.6rem; color: #94a3b8; }
+  .big { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ui-ink); }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .9rem; }
+  .lbl { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--ui-muted); }
+</style>
+
+<div class="hw" id="how">
+  <nav class="hw-nav" aria-label="Қадамлар">
+    {% for t in steps %}<button type="button" data-go="{{ forloop.counter0 }}"><i>{{ forloop.counter }}</i><span>{{ t }}</span></button>{% endfor %}
+  </nav>
+
+  <div class="hw-card">
+    <div class="hw-head"><span class="num" id="hw-num">1 / {{ steps|length }}</span><h2 id="hw-title">{{ steps.0 }}</h2>
+      <label class="ml-auto flex items-center gap-1.5 text-xs text-slate-500"><input type="checkbox" id="hw-auto" checked> ўзи кейингисига ўтсин</label></div>
+    <div class="hw-bar"><span id="hw-bar" style="width:0"></span></div>
+
+    {# ===== 1. юклаш ===== #}
+    <section class="step" data-title="{{ steps.0 }}" data-len="6">
+      <div class="hw-stage">
+        <div class="flow" style="min-height:18rem">
+          <div class="grid gap-2">
+            <span class="chip a drop" style="--d:.2">{% icon "sheet" "ic-green h-4 w-4" %} bp1010.xls <span class="why ok">RES</span></span>
+            <span class="chip a drop" style="--d:.6">{% icon "sheet" "ic-blue h-4 w-4" %} bv1010.xls <span class="why work">ЛРВ</span></span>
+            <span class="chip a drop" style="--d:1">{% icon "sheet" "h-4 w-4 text-slate-500" %} Нархланган смета <span class="why no">иккаласи</span></span>
+          </div>
+          <div class="arrow a fade" style="--d:1.5">→</div>
+          <div class="box a pop" style="--d:1.8;min-width:15rem">
+            <div class="lbl">Админ танлайди</div>
+            <div class="mt-2 grid gap-1.5 text-sm">
+              <span class="chip a" style="--d:2.4">📍 Тошкент шаҳри</span>
+              <span class="chip a" style="--d:2.9">🗓 2025-йил · 2-чорак</span>
+            </div>
+          </div>
+          <div class="arrow a fade" style="--d:3.4">→</div>
+          <div class="box a pop glow" style="--d:3.7;border-style:solid;border-color:#93c5fd;background:#eff6ff;text-align:center">
+            <span class="ic-blue" style="display:inline-block">{% icon "database" "h-8 w-8" %}</span><div class="mt-1 font-semibold">Ресурс базаси</div>
+            <div class="text-xs text-slate-500">файл шу давр билан сақланади</div>
+          </div>
+        </div>
+      </div>
+      <div class="hw-text">
+        <div><h3>Нима бўлади</h3><p>Админ аввал <b>вилоят, йил ва чорак</b>ни танлайди, кейин файл юклайди (RES — нархлар, ЛРВ — ишлар) ёки фойдаланувчи нархлаган сметани белгилаб «Базага киритиш»ни босади.</p></div>
+        <div><h3>Нега</h3><p>Бир ресурснинг нархи <b>вилоят ва чоракка</b> қараб ўзгаради (бульдозер 2025-2 да 203 442, 2025-3 да 207 913). Давр аралашса, нарх нотўғри бўлади — шунинг учун ҳар файл аниқ давр билан сақланади.</p></div>
+      </div>
+    </section>
+
+    {# ===== 2. тур аниқланади ===== #}
+    <section class="step" data-title="{{ steps.1 }}" data-len="6">
+      <div class="hw-stage">
+        <div class="g2">
+          <div class="a" style="--d:.2">
+            <div class="lbl mb-1">Файл сарлавҳаси</div>
+            <table class="xl"><tr><th colspan="4">ЛОКАЛЬНЫЙ РЕСУРСНЫЙ СМЕТНЫЙ РАСЧЕТ</th></tr>
+              <tr><th>Код</th><th>Наименование</th><th>Ед.изм</th><th class="mark-ok" style="--m:1.2">Цена</th></tr></table>
+            <div class="a pop mt-2" style="--d:1.8"><span class="why ok" style="font-size:.85rem;padding:.25rem .6rem">«Цена» устуни бор → RES: нархлар олинади</span></div>
+          </div>
+          <div class="a" style="--d:2.5">
+            <div class="lbl mb-1">Файл сарлавҳаси</div>
+            <table class="xl"><tr><th colspan="5">ЛОКАЛЬНАЯ РЕСУРСНАЯ ВЕДОМОСТЬ</th></tr>
+              <tr><th>№</th><th class="mark-work" style="--m:3.4">Шифр</th><th>Наименование</th><th>Ед.изм</th><th>Кол-во</th></tr>
+              <tr><td>1</td><td class="mark-work" style="--m:3.8">Е0101-197-02</td><td>РАЗРАБОТКА ГРУНТА</td><td>1000 м3</td><td>1,55</td></tr></table>
+            <div class="a pop mt-2" style="--d:4.4"><span class="why work" style="font-size:.85rem;padding:.25rem .6rem">Норма шифри бор, нарх йўқ → ЛРВ: ишлар олинади</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="hw-text">
+        <div><h3>Нима бўлади</h3><p>Тизим ҳар листнинг сарлавҳасини ўқийди. <b>Нарх устуни</b> («Цена», «Сметная стоимость на ед.») бор лист — RES. <b>Норма шифрлари</b> (Е…, Ц…) бор, нархи йўқ лист — ЛРВ. Бир файлда иккаласи бўлса — иккаласи ҳам ўқилади.</p></div>
+        <div><h3>Нега</h3><p>RES ва ЛРВ турли маълумот беради: RES — <b>нима неча пул</b>, ЛРВ — <b>қайси ишга нима қанча кетади</b>. Устунлар жойи ҳар файлда бошқача, шунинг учун устунлар сарлавҳа сўзидан топилади.</p></div>
+      </div>
+    </section>
+
+    {# ===== 3. RES қаторлари ===== #}
+    <section class="step" data-title="{{ steps.2 }}" data-len="7">
+      <div class="hw-stage">
+        <table class="xl">
+          <tr><th>Код</th><th>Наименование</th><th>Ед.изм</th><th>Цена</th><th style="min-width:15rem">Тизим</th></tr>
+          <tr class="a mark-ok" style="--d:.3;--m:.9"><td>000258</td><td>БУЛЬДОЗЕРЫ 79 КВТ</td><td>маш.-ч</td><td>203 442</td><td><span class="why ok a" style="--d:1">олинди — код 258</span></td></tr>
+          <tr class="a mark-ok" style="--d:1.4;--m:2"><td>1</td><td>ЗАТРАТЫ ТРУДА РАБОЧИХ</td><td>чел.-ч</td><td>36 030,10</td><td><span class="why ok a" style="--d:2.1">олинди</span></td></tr>
+          <tr class="a mark-skip" style="--d:2.5;--m:3.1"><td></td><td>ИТОГО ПО МАШИНАМ</td><td>сум</td><td>2 375 718</td><td><span class="why no a" style="--d:3.2">ташланди — жами қатор</span></td></tr>
+          <tr class="a mark-skip" style="--d:3.6;--m:4.2"><td>3</td><td>ЗАТРАТЫ ТРУДА МАШИНИСТОВ</td><td>чел.-ч</td><td>--</td><td><span class="why no a" style="--d:4.3">ташланди — нархи йўқ</span></td></tr>
+          <tr class="a mark-warn" style="--d:4.7;--m:5.3"><td></td><td>СВЕТИЛЬНИК LED</td><td>шт</td><td>135 000</td><td><span class="why warn a" style="--d:5.4">кодсиз — ҳозирча олинмайди</span></td></tr>
+        </table>
+      </div>
+      <div class="hw-text">
+        <div><h3>Нима бўлади</h3><p>RES'нинг ҳар қатори текширилади: <b>код + бирлик + нарх</b> бўлса — олинади. «ИТОГО», нархсиз ёки 0, сарлавҳа ва устуни сурилган қаторлар ташланади. Кодсиз материал санаб қўйилади, лекин ҳозирча сақланмайди.</p></div>
+        <div><h3>Нега</h3><p>Код — ресурсни ҳамма файлда <b>бир хил танийдиган рақам</b>. Номлар ҳар сметада бошқача ёзилади («БУЛЬДОЗЕР 79 кВт» / «БУЛЬДОЗЕРЫ ПРИ РАБОТЕ…»), код эса ўзгармайди. Шунинг учун фақат коди бор нарх ишончли.</p></div>
+      </div>
+    </section>
+
+    {# ===== 4. ЛРВ қаторлари ===== #}
+    <section class="step" data-title="{{ steps.3 }}" data-len="7">
+      <div class="hw-stage">
+        <div class="gl">
+          <table class="xl">
+            <tr><th>№</th><th>Шифр / код</th><th>Наименование</th><th>Ед.изм</th><th>на ед.</th><th>всего</th></tr>
+            <tr class="a mark-work" style="--d:.3;--m:.8"><td>1</td><td>Е0101-197-02</td><td>РАЗРАБОТКА ГРУНТА</td><td>1000 м3</td><td>1,55</td><td></td></tr>
+            <tr class="a mark-ok" style="--d:1.5;--m:2"><td>1.1</td><td>1</td><td>ЗАТРАТЫ ТРУДА</td><td>чел.-ч</td><td>5,86</td><td>9,11</td></tr>
+            <tr class="a mark-ok" style="--d:2.5;--m:3"><td>1.2</td><td>258</td><td>БУЛЬДОЗЕРЫ</td><td>маш.-ч</td><td>3,92</td><td>6,10</td></tr>
+            <tr class="a mark-warn" style="--d:3.6;--m:4.1"><td>2</td><td></td><td>ПЕСЧАНО-ГРАВ. СМЕСЬ</td><td>м3</td><td>88,2</td><td></td></tr>
+          </table>
+          <div class="arrow a fade" style="--d:4.6">→</div>
+          <div class="box a pop" style="--d:5;border-style:solid">
+            <div class="lbl">Иш</div>
+            <div class="mt-1 font-mono text-sm font-bold" style="color:var(--ui-blue-d)">Е0101-197-02</div>
+            <div class="text-sm font-semibold">Разработка грунта · 1,55 × 1000 м3</div>
+            <div class="mt-2 grid gap-1 text-xs">
+              <span class="chip a" style="--d:5.6">1 · Затраты труда — <b>5,86</b> чел.-ч / 1000 м3</span>
+              <span class="chip a" style="--d:6">258 · Бульдозер — <b>3,92</b> маш.-ч / 1000 м3</span>
+              <span class="chip a" style="--d:6.4;background:#fffbeb">+ Песчано-гравийная смесь — 88,2 м3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="hw-text">
+        <div><h3>Нима бўлади</h3><p><b>Кўк</b> қатор (коди Е…/Ц… шифр) — <b>иш</b>: шифр, номи, бирлиги, ҳажми олинади. Остидаги <b>1.1, 1.2</b> қаторлар — шу ишнинг ресурслари: коди ва <b>1 бирлик ишга нормаси</b>. Ишдан кейинги рақамли қатор (масалан «3») — ишга қўшимча материал.</p></div>
+        <div><h3>Нега</h3><p>Норма — «1000 м3 грунт қазишга 3,92 маш.-соат бульдозер керак» деган маълумот. Нарх билан бирга бу <b>иш бирлиги нархини</b> беради ва сметаларни текширишга (норма ўзгартирилганми) ёрдам беради.</p></div>
+      </div>
+    </section>
+
+    {# ===== 5. ўрта нарх ===== #}
+    <section class="step" data-title="{{ steps.4 }}" data-len="8">
+      <div class="hw-stage">
+        <div class="lbl a" style="--d:.1">Бир код (258) — 5 та файлдан нарх, ҳаммаси Тошкент ш. · 2025-2</div>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <span class="chip a" style="--d:.4">000258 · <b>207 913</b></span><span class="chip a" style="--d:.7">258 · <b>203 442</b></span>
+          <span class="chip a" style="--d:1">258 С · <b style="color:#be123c">1 500 000</b></span><span class="chip a" style="--d:1.3">258 · <b>205 000</b></span>
+          <span class="chip a" style="--d:1.6">258 · <b>204 100</b></span>
+        </div>
+        <div class="a fade mt-2 text-xs text-slate-500" style="--d:2">000258 = 258 = «258 С» — битта ресурс (код бир хиллаштирилади)</div>
+        <div class="lbl a mt-5" style="--d:2.6">Тартибланади (арзонидан қимматига)</div>
+        <div class="mt-2 flex flex-wrap items-end gap-2">
+          <span class="chip a" style="--d:3">203 442</span><span class="chip a" style="--d:3.2">204 100</span>
+          <span class="chip a pop glow" style="--d:3.6;border-color:#2563eb;background:#eff6ff;font-size:1rem"><b>205 000</b> ← ўртадагиси</span>
+          <span class="chip a" style="--d:3.4">207 913</span><span class="chip a" style="--d:3.5;color:#be123c">1 500 000</span>
+        </div>
+        <div class="g2 mt-5" style="gap:.75rem">
+          <div class="box a pop" style="--d:4.6;border-style:solid;border-color:#86efac;background:#f0fdf4"><div class="lbl" style="color:#15803d">Ўрта нарх — смета шу билан нархланади</div><div class="big">205 000</div></div>
+          <div class="box a pop" style="--d:5.4;border-style:solid"><div class="lbl">Оддий ўртача бўлганда</div><div class="big" style="color:#be123c">464 091</div><div class="text-xs text-slate-500">битта хато нарх (1 500 000) ҳаммасини бузарди</div></div>
+        </div>
+        <div class="a fade mt-3 text-sm" style="--d:6.2">⚠️ 1 500 000 ўртадан 3 баравардан кўп фарқ қилади → <b>«Текширув»</b>га тушади, админ қабул ёки рад қилади.</div>
+      </div>
+      <div class="hw-text">
+        <div><h3>Нима бўлади</h3><p>Бир вилоят ва даврдаги шу коднинг <b>ҳамма нархлари</b> йиғилади, тартибланади ва <b>ўртадагиси</b> олинади. Ҳамма 5 таси ҳисобга киради — битта эмас. Қўлда қўйилган, истисно ва текширувдаги нархлар кирмайди.</p></div>
+        <div><h3>Нега</h3><p>Оддий ўртача битта хато нархдан бузилади (464 091). Ўртадагиси эса четдаги жуда арзон ёки жуда қиммат нархга қарамайди — <b>ҳақиқий бозор нархига яқин</b> бўлади.</p></div>
+      </div>
+    </section>
+
+    {# ===== 6. иш тури ва нормани бирлаштириш ===== #}
+    <section class="step" data-title="{{ steps.5 }}" data-len="8">
+      <div class="hw-stage">
+        <div class="flow" style="justify-content:flex-start">
+          <div class="box a pop" style="--d:.2;border-style:solid;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:1.4rem">
+            <span class="mark-work" style="--m:1;border-radius:.3rem;padding:0 .15rem">Е01</span><span>01-197-02</span></div>
+          <div class="arrow a fade" style="--d:1.5">→</div>
+          <div class="box a pop" style="--d:1.9;border-style:solid;border-color:#93c5fd;background:#eff6ff">
+            <div class="lbl">Иш тури (тўплам)</div><div class="text-lg font-bold" style="color:var(--ui-blue-d)">Е01 · {{ e01 }}</div>
+            <div class="text-xs text-slate-500">номини админ «Нормалар → номлари ✎» да ўзгартира олади</div></div>
+        </div>
+        <div class="lbl a mt-6" style="--d:3">Бир шифр 3 та файлда учради — битта нормага бирлашади</div>
+        <div class="gm mt-2">
+          <div class="grid gap-1.5">
+            <span class="chip a" style="--d:3.4">bv1010.xls · Затраты труда <b>5,86</b></span>
+            <span class="chip a" style="--d:3.8">bv2000.xls · Затраты труда <b>5,86</b></span>
+            <span class="chip a" style="--d:4.2">Смета «КЖ» · Затраты труда <b style="color:#b45309">6,10</b></span>
+          </div>
+          <div class="arrow a fade" style="--d:4.8">→</div>
+          <div class="box a pop" style="--d:5.2;border-style:solid">
+            <div class="font-mono text-sm font-bold" style="color:var(--ui-blue-d)">Е0101-197-02 · 3 та файлда</div>
+            <div class="mt-1 text-sm">Затраты труда — <b>5,86</b> <span class="text-slate-500">(2 файлда, асосий)</span></div>
+            <div class="text-sm"><span class="why warn" style="margin:0">бошқача норма</span> 6,10 <span class="text-slate-500">(1 файлда)</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="hw-text">
+        <div><h3>Нима бўлади</h3><p>Шифрнинг <b>боши</b> — тўплам: Е0101-… → <b>Е01</b>, Ц08-… → <b>Ц08</b>, Е310-… → юк ташиш. Бир хил шифр бир неча файлда учраса — <b>битта норма</b> бўлади, ёнида нечта файлда учрагани; нормаси фарқ қилса — «бошқача норма» деб кўрсатилади.</p></div>
+        <div><h3>Нега</h3><p>Иш тури бўйича ресурс ва нормаларни тартиб билан кўриш мумкин (масалан, фақат ер ишлари). Нормаларни бирлаштириш эса <b>энг кўп ишлатилган</b> нормани кўрсатади ва ўзгартирилганларини тутади.</p></div>
+      </div>
+    </section>
+
+    {# ===== 7. такрор ===== #}
+    <section class="step" data-title="{{ steps.6 }}" data-len="6">
+      <div class="hw-stage">
+        <div class="flow" style="min-height:14rem">
+          <span class="chip a drop" style="--d:.3">{% icon "sheet" "h-4 w-4" %} bp1010 (1).xls · 2025-2</span>
+          <div class="arrow a fade" style="--d:1">→</div>
+          <div class="box shake" style="--d:1.6;border-style:solid;min-width:16rem">
+            <div class="lbl">Базада бор</div>
+            <div class="chip mt-1">bp1010.xls · 2025-2 · 204 нарх</div>
+            <div class="a pop mt-3" style="--d:2.3"><span class="why warn" style="font-size:.85rem;padding:.25rem .6rem">Такрор — сақланмади</span></div>
+            <div class="a mt-2 flex gap-2" style="--d:3"><span class="chip">Ўтказиб юбориш</span><span class="chip" style="background:#d97706;color:#fff;border-color:#d97706">Алмаштириш</span></div>
+          </div>
+        </div>
+        <div class="a fade text-center text-sm text-slate-600" style="--d:3.8">Бошқа даврга юкланса — сақланади, лекин «бу файл 2025-3 га ҳам юкланган» деб эслатилади.</div>
+      </div>
+      <div class="hw-text">
+        <div><h3>Нима бўлади</h3><p>Шу даврга <b>айнан шу файл</b> ёки номи бошқа, лекин <b>мазмуни айнан бир хил</b> файл келса — сақланмайди. Админ «ўтказиб юбориш» (янгиси ташланади) ёки «алмаштириш» (эскиси ўчиб, янгиси ёзилади)ни танлайди.</p></div>
+        <div><h3>Нега</h3><p>Бир файл икки марта кирса, унинг нархлари ўрта нархга <b>икки марта таъсир қилади</b> ва натижа бузилади. Шунинг учун такрор файл ҳеч қачон ўзи кирмайди.</p></div>
+      </div>
+    </section>
+
+    {# ===== 8. натижа ва нархлаш ===== #}
+    <section class="step" data-title="{{ steps.7 }}" data-len="7">
+      <div class="hw-stage">
+        <div class="lbl a" style="--d:.1">Фойдаланувчи RES'сиз локал смета юклади (Тошкент ш. · 2025-2)</div>
+        <table class="xl mt-2">
+          <tr><th>Код</th><th>Ресурс</th><th>Миқдор</th><th>× Ўрта нарх</th><th>= Сумма</th></tr>
+          <tr class="a mark-ok" style="--d:.6;--m:1.4"><td>258</td><td>БУЛЬДОЗЕРЫ</td><td>6,10 маш.-ч</td><td>205 000</td><td><b>1 250 500</b></td></tr>
+          <tr class="a mark-ok" style="--d:1.8;--m:2.6"><td>1</td><td>ЗАТРАТЫ ТРУДА</td><td>9,11 чел.-ч</td><td>36 030,10</td><td><b>328 234</b></td></tr>
+          <tr class="a mark-warn" style="--d:3;--m:3.8"><td>99800</td><td>СВЕТИЛЬНИК LED</td><td>58 шт</td><td>—</td><td><span class="why warn">ТОПИЛМАДИ — смета­чи ўзи ёзади</span></td></tr>
+        </table>
+        <div class="g3 mt-5">
+          <div class="box a pop" style="--d:4.4;border-style:solid"><div class="lbl">Базада ҳозир</div><div class="big">{{ hw.n_resources }}</div><div class="text-xs text-slate-500">код · {{ hw.n_obs }} та нарх</div></div>
+          <div class="box a pop" style="--d:4.8;border-style:solid"><div class="lbl">Нормалар</div><div class="big">{{ hw.n_norms }}</div><div class="text-xs text-slate-500">шифр · {{ hw.n_books }} та иш тури</div></div>
+          <div class="box a pop" style="--d:5.2;border-style:solid"><div class="lbl">Манбалар</div><div class="big">{{ hw.n_res_files|add:hw.n_lrv_files|add:hw.n_smeta }}</div><div class="text-xs text-slate-500">{{ hw.n_res_files }} RES · {{ hw.n_lrv_files }} ЛРВ · {{ hw.n_smeta }} смета</div></div>
+        </div>
+      </div>
+      <div class="hw-text">
+        <div><h3>Нима бўлади</h3><p>Локал сметадаги ҳар ресурс <b>коди</b> бўйича базадан шу вилоят ва даврнинг <b>ўрта нархи</b> олинади: миқдор × ўрта нарх = сумма. Базада йўқ ресурс қизил/сариқ қолади — смета­чи нархини ўзи ёзади.</p></div>
+        <div><h3>Нега</h3><p>Шунда смета­чига <b>RES файл шарт эмас</b>: база қанча кўп файлдан йиғилса, шунча кўп қатор ўзи нархланади. Топилмаганлар яширилмайди — ҳар нархнинг қаердан келгани кўриниб туради.</p></div>
+      </div>
+    </section>
+
+    <div class="hw-foot">
+      <button type="button" class="ui-btn-o" style="color:#334155" id="hw-prev">← Олдинги</button>
+      <button type="button" class="ui-btn-o" id="hw-replay">↻ Қайта кўрсатиш</button>
+      <button type="button" class="ui-btn ml-auto" id="hw-next">Кейинги →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const root = document.getElementById("how");
+  const steps = [...root.querySelectorAll(".step")];
+  const navs = [...root.querySelectorAll("[data-go]")];
+  const auto = document.getElementById("hw-auto");
+  const bar = document.getElementById("hw-bar");
+  let cur = 0, timer = null, started = 0;
+
+  function play(i) {
+    clearTimeout(timer);
+    cur = (i + steps.length) % steps.length;
+    steps.forEach((s, k) => { s.classList.toggle("on", k === cur); s.classList.remove("play"); });
+    navs.forEach((b, k) => { b.classList.toggle("on", k === cur); b.classList.toggle("done", k < cur); });
+    const s = steps[cur];
+    void s.offsetWidth;  // анимацияни бошидан бошлаш
+    s.classList.add("play");
+    document.getElementById("hw-num").textContent = (cur + 1) + " / " + steps.length;
+    document.getElementById("hw-title").textContent = s.dataset.title;
+    document.getElementById("hw-next").textContent = cur === steps.length - 1 ? "Бошидан ↻" : "Кейинги →";
+    const len = (+s.dataset.len || 6) * 1000 + 4000;  // анимация + ўқиш учун вақт
+    started = Date.now();
+    bar.style.transition = "none"; bar.style.width = "0";
+    requestAnimationFrame(() => { bar.style.transition = auto.checked ? `width ${len}ms linear` : "none"; bar.style.width = auto.checked ? "100%" : "0"; });
+    if (auto.checked && cur < steps.length - 1) timer = setTimeout(() => play(cur + 1), len);
+  }
+  navs.forEach((b, k) => b.addEventListener("click", () => play(k)));
+  document.getElementById("hw-prev").onclick = () => play(cur - 1);
+  document.getElementById("hw-next").onclick = () => play(cur + 1);
+  document.getElementById("hw-replay").onclick = () => play(cur);
+  auto.onchange = () => play(cur);
+  document.addEventListener("keydown", e => {
+    if (e.target.closest("input, textarea, select")) return;
+    if (e.key === "ArrowRight") play(cur + 1);
+    if (e.key === "ArrowLeft") play(cur - 1);
+  });
+  play(0);
+})();
+</script>
+{% endblock %}

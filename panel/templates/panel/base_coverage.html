@@ -69,7 +69,7 @@
 <details class="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
   <summary class="cursor-pointer px-4 py-3 font-semibold">Ҳамма қаторлар · {{ report.total }}</summary>
   <div class="overflow-x-auto"><table class="w-full text-sm">
-    <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-4 py-2 font-medium">Қатор</th><th class="px-3 py-2 font-medium">Код</th><th class="px-3 py-2 font-medium">Номи</th><th class="px-3 py-2 text-right font-medium">Сметада</th><th class="px-3 py-2 text-right font-medium">База (медиана)</th></tr></thead>
+    <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-4 py-2 font-medium">Қатор</th><th class="px-3 py-2 font-medium">Код</th><th class="px-3 py-2 font-medium">Номи</th><th class="px-3 py-2 text-right font-medium">Сметада</th><th class="px-3 py-2 text-right font-medium">База (ўрта нарх)</th></tr></thead>
     <tbody class="divide-y divide-slate-100">
       {% for it in report.items %}<tr class="{% if it.kind == 'exact' %}bg-emerald-50/50{% elif it.kind == 'other' %}bg-amber-50/50{% endif %}">
         <td class="num px-4 py-1.5 text-slate-500">{{ it.row }}</td><td class="num px-3 py-1.5">{{ it.code }}</td>

@@ -2,106 +2,151 @@
 {% load narx %}
 {% block title %}{{ res.code }} {{ res.name }} — Панел{% endblock %}
 {% block panel %}
-{% include "panel/_base_tabs.html" with base_tab="search" %}
+{% include "panel/_base_ui.html" %}
+{% include "panel/_base_tabs.html" with base_tab="data" %}
 
-<section class="mb-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-  <div class="flex flex-wrap items-start gap-3">
-    <span class="num rounded-lg bg-slate-900 px-3 py-2 text-lg font-bold text-white">{{ res.code }}</span>
+<a href="{% url 'panel:base_data' %}{% if res.category %}?cat={{ res.category }}{% endif %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-3.5 w-3.5" %} {{ res.get_category_display|default:"Ресурслар" }}</a>
+
+{# ---------- сарлавҳа ---------- #}
+<section class="ui-group" style="padding:1.25rem">
+  <div class="flex flex-wrap items-start gap-4">
+    <div class="grid shrink-0 place-items-center rounded-2xl px-4 py-3 text-center text-white" style="background:var(--ui-blue);min-width:5.5rem" title="Ресурс коди — файллардаги «коды ресурсов» устунидан (000112 → 112)">
+      <span class="text-[11px] uppercase tracking-wider opacity-80">Код</span>
+      <span class="text-2xl font-bold" style="font-variant-numeric:tabular-nums">{{ res.code }}</span>
+    </div>
     <div class="min-w-0 flex-1">
-      <h2 class="break-words text-lg font-semibold">{{ res.name }}</h2>
-      <div class="mt-0.5 text-sm text-slate-500">{{ res.unit }}{% if res.category %} · <span class="rounded px-1.5 text-xs font-bold {{ res.category|cat_class }}">{{ res.category }}</span> {{ res.get_category_display }}{% endif %}
-        {% if res.edited %} · <span title="Йиғиш бу номни алмаштирмайди">админ таҳрирлаган</span>{% endif %}</div>
+      <h2 class="break-words text-xl font-semibold text-slate-900">{{ res.name }}</h2>
+      <div class="ui-tags">
+        <span class="ui-tag">бирлик: {{ res.unit }}</span>
+        {% if res.category %}<span class="ui-tag ic-{{ res.category }}" style="font-weight:600">{{ res.get_category_display }}</span>{% endif %}
+        {% if res.edited %}<span class="ui-tag warn" title="Йиғиш бу ном ва бирликни алмаштирмайди">админ таҳрирлаган</span>{% endif %}
+      </div>
+      
     </div>
     {% if can_act %}
-    <form method="post" action="{% url 'panel:base_resource_delete' res.code %}" data-confirm="{{ res.code }} коди ва унинг {{ obs|length }} та нархи ўчирилади. Манба қайта йиғилса, яна пайдо бўлади." data-confirm-title="Ресурсни ўчириш" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}
-      <button class="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-50">Ўчириш</button></form>
+    <div class="flex shrink-0 gap-2">
+      <form method="post" action="{% url 'panel:base_resource_delete' res.code %}" data-confirm="{{ res.code }} коди ва унинг {{ obs|length }} та нархи ўчирилади. Манба қайта йиғилса, яна пайдо бўлади." data-confirm-title="Ресурсни ўчириш" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}
+        <button class="ui-btn-o" style="color:#be123c;border-color:#fecdd3">Ўчириш</button></form>
+    </div>
     {% endif %}
   </div>
   {% if can_act %}
-  <details class="mt-3">
-    <summary class="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-900">✎ Таҳрирлаш</summary>
-    <form method="post" action="{% url 'panel:base_resource_edit' res.code %}" class="mt-2 grid gap-2 md:grid-cols-[minmax(0,1fr)_140px_180px_auto]">{% csrf_token %}
+  <details class="mt-4 rounded-xl" style="background:var(--ui-soft)">
+    <summary class="cursor-pointer px-3 py-2 text-sm font-medium text-slate-700">Номи, бирлиги ёки турини таҳрирлаш</summary>
+    <form method="post" action="{% url 'panel:base_resource_edit' res.code %}" class="grid gap-2 px-3 pb-3 md:grid-cols-[minmax(0,1fr)_140px_180px_auto]">{% csrf_token %}
       <input name="name" value="{{ res.name }}" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm" aria-label="Номи">
       <input name="unit" value="{{ res.unit }}" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm" aria-label="Бирлик">
       <select name="category" class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm" aria-label="Тури">
         <option value="">— тури —</option>
-        {% for c, label in categories %}<option value="{{ c }}" {% if res.category == c %}selected{% endif %}>{{ c }} · {{ label }}</option>{% endfor %}
+        {% for c, label in categories %}<option value="{{ c }}" {% if res.category == c %}selected{% endif %}>{{ label }}</option>{% endfor %}
       </select>
-      <button class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">Сақлаш</button>
+      <button class="ui-btn justify-center">Сақлаш</button>
     </form>
   </details>
   {% endif %}
 </section>
 
-<section class="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-  <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Нарх — вилоят ва давр бўйича</h2>
-    <p class="text-xs text-slate-500">Медиана — нархлашда ишлатиладиган нарх. Қўлда, истисно қилинган ва текширувдаги нархлар кирмайди.</p></div>
-  <table class="w-full text-sm">
-    <thead class="bg-slate-50 text-left text-xs text-slate-500">
-      <tr><th class="px-4 py-2 font-medium">Вилоят</th><th class="px-3 py-2 font-medium">Давр</th><th class="px-3 py-2 text-right font-medium">Медиана</th>
-        <th class="px-3 py-2 text-right font-medium">Кузатув</th><th class="px-3 py-2 text-right font-medium">Мин — Макс</th></tr>
-    </thead>
-    <tbody class="divide-y divide-slate-100">
-      {% for g in medians %}
-      <tr class="{% if not g.region or not g.year or not g.quarter %}bg-amber-50/60{% endif %}">
-        <td class="px-4 py-2">{{ region_labels|get_item:g.region|default:"номаълум" }}</td>
-        <td class="px-3 py-2">{% if g.year and g.quarter %}{{ g.year }} · {{ g.quarter }}-чорак{% else %}<span class="text-amber-700">номаълум</span>{% endif %}</td>
-        <td class="num px-3 py-2 text-right font-semibold">{% if g.median %}{{ g.median|som }}{% else %}—{% endif %}</td>
-        <td class="num px-3 py-2 text-right">{{ g.n }}{% if g.manual %} <span class="text-xs text-slate-400">+{{ g.manual }} қўлда</span>{% endif %}</td>
-        <td class="num px-3 py-2 text-right text-slate-500">{% if g.min %}{{ g.min|som }} — {{ g.max|som }}{% endif %}</td>
-      </tr>
-      {% empty %}<tr><td colspan="5" class="px-4 py-6 text-center text-slate-500">Нарх йўқ.</td></tr>{% endfor %}
-    </tbody>
-  </table>
-</section>
+{# ---------- қисқача ---------- #}
+<div class="ui-cards">
+  <div class="ui-card" {% if latest %}title="Охирги давр ўрта нархи: {{ region_labels|get_item:latest.region|default:'вилоят ?' }}, {{ latest.year }}-йил {{ latest.quarter }}-чорак"{% endif %}><span class="ic ic-all">{% icon "check-circle" "h-5 w-5" %}</span>
+    <span><span class="t block">{% if latest %}{{ latest.median|som }}{% else %}—{% endif %}</span><span class="n">{% if latest %}ўрта нарх · {{ latest.year }}-{{ latest.quarter }}{% else %}нарх йўқ{% endif %}</span></span></div>
+  <div class="ui-card"><span class="ic ic-I">{% icon "list" "h-5 w-5" %}</span>
+    <span><span class="t block">{{ obs|length }}</span><span class="n">нарх</span></span></div>
+  <div class="ui-card"><span class="ic ic-tr">{% icon "layers" "h-5 w-5" %}</span>
+    <span><span class="t block">{{ medians|length }}</span><span class="n">вилоят · давр</span></span></div>
+  <div class="ui-card"><span class="ic ic-mount">{% icon "tree" "h-5 w-5" %}</span>
+    <span><span class="t block">{{ works|length }}</span><span class="n">ишда</span></span></div>
+  {% if n_pending %}<a href="{% url 'panel:base_review' %}" class="ui-card" style="border-color:#fcd34d"><span class="ic ic-repair">{% icon "alert" "h-5 w-5" %}</span>
+    <span><span class="t block">{{ n_pending }}</span><span class="n">текширувда</span></span></a>{% endif %}
+</div>
 
-<section class="mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-  <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Ҳамма нархлар ({{ obs|length }})</h2>
-    <p class="text-xs text-slate-500">Ҳар бири — битта сметадан. Хато нархни истисно қилинг (медианага кирмайди) ёки ўчиринг.</p></div>
-  <div class="overflow-x-auto">
-  <table class="w-full text-sm">
-    <thead class="bg-slate-50 text-left text-xs text-slate-500">
-      <tr><th class="px-4 py-2 text-right font-medium">Нарх</th><th class="px-3 py-2 font-medium">Вилоят · давр</th><th class="px-3 py-2 font-medium">Манба</th>
-        <th class="px-3 py-2 font-medium">Сметада ёзилиши</th><th class="px-3 py-2"></th></tr>
-    </thead>
-    <tbody class="divide-y divide-slate-100">
-      {% for o in obs %}
-      <tr class="{% if o.excluded %}bg-slate-50 text-slate-400 line-through{% elif o.review == 'pending' %}bg-amber-50/60{% endif %}">
-        <td class="num whitespace-nowrap px-4 py-2 text-right font-medium">{{ o.price|som }}{% if o.manual %} <span class="rounded bg-sky-100 px-1 text-[11px] font-semibold text-sky-800 no-underline" title="Смета­чи қўлда қўйган — медианага кирмайди">қўлда</span>{% endif %}</td>
-        <td class="whitespace-nowrap px-3 py-2">{{ o.source.get_region_display|default:"вилоят ?" }} · {{ o.source.period_label }}</td>
-        <td class="max-w-xs px-3 py-2"><a href="{% url 'job' o.job_id %}" class="block truncate text-sky-700 hover:underline" title="{{ o.source.title }} — {{ o.row }}-қатор">{{ o.source.title }}</a>
-          <span class="text-xs text-slate-400">{{ o.row }}-қатор{% if o.source.owner %} · {{ o.source.owner.email }}{% endif %}</span></td>
-        <td class="max-w-sm px-3 py-2 text-xs text-slate-600"><span class="line-clamp-2">{{ o.name }}</span> <span class="text-slate-400">[{{ o.unit }}]</span>
-          {% if o.flags %}<div class="mt-0.5 flex flex-wrap gap-1 no-underline">{% for k, label in o.flag_list %}<span class="rounded bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-800">{{ label }}</span>{% endfor %}
-            {% if o.review == 'pending' %}<span class="text-[11px] text-amber-700">· текширувда — медианага кирмайди</span>{% elif o.review == 'accepted' %}<span class="text-[11px] text-emerald-700">· қабул қилинган</span>{% endif %}</div>{% endif %}</td>
-        <td class="whitespace-nowrap px-3 py-2 text-right">
-          {% if can_act %}
-          {% if o.review == 'pending' %}
-          <form method="post" action="{% url 'panel:base_obs' o.pk 'accept' %}" class="inline">{% csrf_token %}
-            <button class="rounded border border-emerald-300 px-2 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50">қабул</button></form>
-          <form method="post" action="{% url 'panel:base_obs' o.pk 'reject' %}" class="inline">{% csrf_token %}
-            <button class="rounded border border-rose-200 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-50">рад</button></form>
-          {% else %}
-          <form method="post" action="{% url 'panel:base_obs' o.pk 'exclude' %}" class="inline">{% csrf_token %}
-            <button class="rounded border border-slate-300 px-2 py-0.5 text-xs no-underline hover:bg-slate-100">{% if o.excluded %}қайтариш{% else %}истисно{% endif %}</button></form>
-          {% endif %}
-          <form method="post" action="{% url 'panel:base_obs' o.pk 'delete' %}" class="inline" data-confirm="{{ o.price|som }} нарх ўчирилади ({{ o.source.title }})." data-confirm-title="Нархни ўчириш" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}
-            <button class="rounded border border-rose-200 px-2 py-0.5 text-xs text-rose-700 no-underline hover:bg-rose-50">×</button></form>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+{# ---------- ўрта нархлар ---------- #}
+<details class="ui-group" open>
+  <summary>{% icon "layers" "ui-gi h-6 w-6 shrink-0" %}
+    <span class="gt">Ўрта нарх — вилоят ва давр бўйича<small title="Нархларнинг ўртадагиси: энг арзон ва энг қиммат четдагилар таъсир қилмайди">Смета шу нарх билан нархланади.</small></span>
+    <span class="ui-count">{{ medians|length }} та</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
+  {% for g in medians %}
+  <div class="ui-row">
+    <span class="doc">{% icon "clock" "h-5 w-5" %}</span>
+    <div class="main">
+      <div class="title font-medium">{{ region_labels|get_item:g.region|default:"Вилоят номаълум" }}</div>
+      <div class="ui-tags">
+        {% if g.year and g.quarter %}<span class="ui-tag">{{ g.year }}-йил · {{ g.quarter }}-чорак</span>{% else %}<span class="ui-tag warn">давр номаълум — нархлашга кирмайди</span>{% endif %}
+        <span class="ui-tag" title="Нархлар тартибланади ва ўртадагиси олинади — ҳамма нарх ҳисобга киради, четдаги жуда арзон ёки жуда қиммат битта нарх ўрта нархни бузмайди">{{ g.n }} та нархнинг ўртадагиси{% if g.manual %} · +{{ g.manual }} қўлда (кирмайди){% endif %}</span>
+        {% if g.min %}<span class="ui-tag">{{ g.min|som }} — {{ g.max|som }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="ui-price">{% if g.median %}{{ g.median|som }}{% else %}—{% endif %}<small>ўрта нарх, сўм / {{ res.unit }}</small></div>
   </div>
-</section>
+  {% empty %}<div class="ui-row text-sm text-slate-500">Нарх йўқ.</div>{% endfor %}
+</details>
+
+{# ---------- ҳамма нархлар ---------- #}
+<details class="ui-group" open>
+  <summary>{% icon "list" "ui-gi h-6 w-6 shrink-0" %}
+    <span class="gt">Ҳамма нархлар<small>Ҳар бири — битта файл ёки сметадан.</small></span>
+    <span class="ui-count">{{ obs|length }} та</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
+  {% for o in obs %}
+  <div class="ui-row" {% if o.excluded %}style="opacity:.55"{% elif o.review == 'pending' %}style="background:#fffbeb"{% endif %}>
+    <span class="doc">{% icon "sheet" "h-5 w-5" %}</span>
+    <div class="main">
+      <div class="title">{% if o.source.is_file %}<a href="{% url 'panel:base_data' %}?region={{ o.source.region }}&year={{ o.source.year|default:'' }}&quarter={{ o.source.quarter|default:'' }}&src={{ o.source_id }}" class="font-medium hover:underline">{{ o.source.title }}</a>
+        {% else %}<a href="{% url 'job' o.job_id %}" class="font-medium hover:underline">{{ o.source.title }}</a>{% endif %}
+        <span class="text-xs text-slate-400">{{ o.row }}-қатор{% if o.source.owner %} · {{ o.source.owner.email }}{% endif %}</span></div>
+      <div class="ui-tags">
+        <span class="ui-tag">{{ o.source.get_region_display|default:"вилоят ?" }} · {{ o.source.period_label }}</span>
+        <span class="ui-tag">{{ o.source.get_kind_display }}</span>
+        {% if o.name != res.name %}<span class="ui-tag" title="Файлда шундай ёзилган">«{{ o.name|truncatechars:60 }}» [{{ o.unit }}]</span>{% endif %}
+        {% if o.manual %}<span class="ui-tag book" title="Смета­чи қўлда қўйган — ўрта нархга кирмайди">қўлда</span>{% endif %}
+        {% for k, label in o.flag_list %}<span class="ui-tag warn">{{ label }}</span>{% endfor %}
+        {% if o.review == 'pending' %}<span class="ui-tag warn">текширувда</span>{% elif o.review == 'accepted' %}<span class="ui-tag ok">қабул қилинган</span>{% endif %}
+        {% if o.excluded %}<span class="ui-tag bad">истисно</span>{% endif %}
+      </div>
+    </div>
+    <div class="ui-price">{{ o.price|som }}<small>сўм / {{ o.unit }}</small></div>
+    {% if can_act %}
+    <div class="flex shrink-0 gap-1.5">
+      {% if o.review == 'pending' %}
+      <form method="post" action="{% url 'panel:base_obs' o.pk 'accept' %}">{% csrf_token %}<button class="ui-btn-o" style="color:#15803d">Қабул</button></form>
+      <form method="post" action="{% url 'panel:base_obs' o.pk 'reject' %}">{% csrf_token %}<button class="ui-btn-o" style="color:#be123c">Рад</button></form>
+      {% else %}
+      <form method="post" action="{% url 'panel:base_obs' o.pk 'exclude' %}">{% csrf_token %}<button class="ui-btn-o" style="color:#334155">{% if o.excluded %}Қайтариш{% else %}Истисно{% endif %}</button></form>
+      {% endif %}
+      <form method="post" action="{% url 'panel:base_obs' o.pk 'delete' %}" data-confirm="{{ o.price|som }} нарх ўчирилади ({{ o.source.title }})." data-confirm-title="Нархни ўчириш" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}
+        <button class="ui-btn-o" style="color:#be123c" aria-label="Ўчириш">×</button></form>
+    </div>
+    {% endif %}
+  </div>
+  {% empty %}<div class="ui-row text-sm text-slate-500">Нарх йўқ.</div>{% endfor %}
+</details>
+
+{# ---------- қайси ишларда ---------- #}
+<details class="ui-group" {% if works %}open{% endif %}>
+  <summary>{% icon "tree" "ui-gi h-6 w-6 shrink-0" %}
+    <span class="gt">Қайси ишларда ишлатилади<small>1 бирлик ишга нормаси билан.</small></span>
+    <span class="ui-count">{{ works|length }} та иш</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
+  {% regroup works by work__book as wgroups %}{% for wg in wgroups %}
+  <div class="flex items-center gap-2 border-t border-slate-100 px-5 py-2" style="background:var(--ui-blue-50)"><span class="ui-tag book">{{ wg.grouper }}</span><span class="text-sm font-semibold" style="color:var(--ui-blue-d)">{{ wg.list.0.label }}</span><span class="ml-auto text-xs text-slate-500">{{ wg.list|length }} та иш</span></div>
+  {% for w in wg.list %}
+  <div class="ui-row">
+    <span class="doc">{% icon "file" "h-5 w-5" %}</span>
+    <div class="code"><small>Шифр</small><span class="mono">{{ w.work__shifr }}</span></div>
+    <div class="main">
+      <div class="title">{{ w.name }}</div>
+      <div class="ui-tags"><span class="ui-tag">иш бирлиги: {{ w.unit }}</span><span class="ui-tag ok">{{ w.n_files }} та файлда</span></div>
+    </div>
+    <div class="ui-price">{% if w.lo is not None %}{{ w.lo|qty }}{% if w.hi != w.lo %} – {{ w.hi|qty }}{% endif %}{% else %}—{% endif %}<small>норма, {{ res.unit }}</small></div>
+    <a href="{% url 'panel:base_norm' w.work__shifr %}" class="ui-btn-o">{% icon "search" "h-4 w-4" %}Таркиби</a>
+  </div>
+  {% endfor %}
+  {% empty %}<div class="ui-row text-sm text-slate-500">Ҳали ЛРВ (ишлар) файлларида учрамаган.</div>{% endfor %}
+</details>
 
 {% if names %}
-<section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-  <h2 class="mb-2 font-semibold">Сметаларда учраган номлари</h2>
-  <ul class="space-y-1 text-sm">
-    {% for n in names %}<li class="flex gap-2"><span class="num w-10 shrink-0 text-right text-slate-400">{{ n.seen }}×</span><span>{{ n.name }} <span class="text-slate-400">[{{ n.unit }}]</span></span></li>{% endfor %}
-  </ul>
-</section>
+<details class="ui-group">
+  <summary>{% icon "list" "ui-gi h-6 w-6 shrink-0" %}<span class="gt">Файлларда қандай ёзилган</span>
+    <span class="ui-count">{{ names|length }} та</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
+  {% for n in names %}<div class="ui-row text-sm"><span class="ui-pill">{{ n.seen }}×</span><span class="main">{{ n.name }} <span class="text-slate-400">[{{ n.unit }}]</span></span></div>{% endfor %}
+</details>
 {% endif %}
 {% endblock %}

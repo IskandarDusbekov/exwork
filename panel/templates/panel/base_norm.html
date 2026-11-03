@@ -1,0 +1,93 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}{{ d.shifr }} — нормалар — Панел{% endblock %}
+{% block panel %}
+<style>
+  .nb-grid { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .8125rem; }
+  .nb-grid th { background: rgb(248 250 252); border-bottom: 1px solid rgb(226 232 240); padding: .45rem .6rem; text-align: left;
+                font-weight: 600; font-size: .6875rem; text-transform: uppercase; letter-spacing: .03em; color: rgb(71 85 105); white-space: nowrap; }
+  .nb-grid td { border-bottom: 1px solid rgb(241 245 249); padding: .45rem .6rem; vertical-align: top; }
+  .nb-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .75rem; white-space: nowrap; }
+</style>
+
+{% include "panel/_base_ui.html" %}
+{% include "panel/_base_tabs.html" with base_tab="norms" %}
+
+<a href="{{ back_url }}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-3.5 w-3.5" %} {{ d.book }} · {{ book_label }}</a>
+
+<section class="ui-group" style="padding:1.25rem">
+  <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    <h2 class="nb-mono text-lg font-semibold text-sky-800" style="font-size:1.125rem">{{ d.shifr }}</h2>
+    <span class="text-lg font-semibold">{{ d.name }}</span>
+    <span class="text-sm text-slate-500">бирлик: {{ d.unit }}</span>
+  </div>
+  {% if d.names %}<p class="mt-1 text-xs text-slate-500">Бошқа файлларда бу номда ҳам: {% for n in d.names %}«{{ n }}»{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  <div class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+    <div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-slate-500">Файлларда</div><div class="num text-xl font-semibold">{{ d.n_files }}</div></div>
+    <div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-slate-500">Ишлатилган</div><div class="num text-xl font-semibold">{{ d.n_uses }} марта</div></div>
+    <div class="rounded-lg bg-slate-50 p-3"><div class="text-xs text-slate-500">Таркибда ресурс</div><div class="num text-xl font-semibold">{{ d.rows|length }}</div></div>
+    <div class="rounded-lg {% if d.n_variants %}bg-amber-50{% else %}bg-slate-50{% endif %} p-3"><div class="text-xs {% if d.n_variants %}text-amber-800{% else %}text-slate-500{% endif %}">Нормаси фарқли</div><div class="num text-xl font-semibold">{{ d.n_variants }}</div></div>
+  </div>
+</section>
+
+<section class="ui-group">
+  <div class="border-b border-slate-100 px-4 py-3">
+    <h3 class="font-semibold">Таркиби — 1 {{ d.unit }} ишга</h3>
+    <p class="text-xs text-slate-500">Ҳар ресурс — бир қатор. Бир хил норма бир неча файлда бўлса — «N файлда». Норма файлларда фарқ қилса — энг кўп учрагани асосий, қолганлари сариқ билан кўрсатилади (масалан «ДОП.» ёки коэффициентли нормада).</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="nb-grid">
+      <thead><tr><th>Код</th><th>Ресурс</th><th>Бирлик</th><th style="text-align:right">Норма</th><th style="text-align:right">Файлларда</th><th>Бошқача норма</th></tr></thead>
+      <tbody>
+      {% for r in d.rows %}
+        <tr>
+          <td class="nb-mono">{% if r.code %}<a href="{% url 'panel:base_resource' r.code %}" class="text-sky-700 hover:underline">{{ r.code }}</a>{% else %}<span class="text-slate-400">—</span>{% endif %}</td>
+          <td style="min-width:16rem">{{ r.name }}</td>
+          <td class="whitespace-nowrap text-slate-600">{{ r.unit }}</td>
+          <td class="num text-right font-medium">{{ r.norma|qty|default:"—" }}</td>
+          <td class="num text-right text-slate-500">{{ r.n }}</td>
+          <td>{% for n, c in r.others %}<span class="mr-1 rounded bg-amber-100 px-1.5 text-xs text-amber-900">{{ n|qty|default:"—" }} · {{ c }} файлда</span>{% empty %}<span class="text-xs text-slate-300">—</span>{% endfor %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="px-4 py-8 text-center text-sm text-slate-500">Таркиби ёзилмаган.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if d.extras %}
+<section class="ui-group">
+  <div class="border-b border-slate-100 px-4 py-3">
+    <h3 class="font-semibold">Иш билан бирга ёзилган материаллар</h3>
+    <p class="text-xs text-slate-500">Нормада йўқ, сметада шу иш ортидан алоҳида қатор бўлиб келган (масалан, «ПЕСЧАНО-ГРАВИЙНАЯ СМЕСЬ»): нормаси йўқ, ҳар файлда ўз миқдори.</p>
+  </div>
+  <table class="nb-grid">
+    <thead><tr><th>Код</th><th>Материал</th><th>Бирлик</th><th style="text-align:right">Файлларда</th></tr></thead>
+    <tbody>
+    {% for e in d.extras %}
+      <tr><td class="nb-mono">{{ e.code|default:"—" }}</td><td>{{ e.name }}</td><td class="text-slate-600">{{ e.unit }}</td><td class="num text-right">{{ e.files }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<section class="ui-group">
+  <div class="border-b border-slate-100 px-4 py-3"><h3 class="font-semibold">Қайси файлларда ишлатилган</h3></div>
+  <table class="nb-grid">
+    <thead><tr><th>Файл</th><th>Вилоят · давр</th><th>Бўлим</th><th style="text-align:right">Ҳажми</th><th>Қатор</th></tr></thead>
+    <tbody>
+    {% for w in d.uses %}
+      <tr>
+        <td><a href="{% url 'panel:base_data' %}?region={{ w.source.region }}&year={{ w.source.year|default:'' }}&quarter={{ w.source.quarter|default:'' }}&src={{ w.source_id }}" class="hover:underline">{{ w.source.title }}</a></td>
+        <td class="whitespace-nowrap text-xs text-slate-600">{{ region_labels|get_item:w.source.region|default:"—" }} · {% if w.source.year %}{{ w.source.year }}-{{ w.source.quarter }}{% else %}?{% endif %}</td>
+        <td class="text-xs text-slate-500">{{ w.section|default:"—" }}</td>
+        <td class="num whitespace-nowrap text-right">{{ w.qty|qty }} {{ w.unit }}</td>
+        <td class="nb-mono text-slate-400">{{ w.sheet }}!{{ w.row }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -8,7 +8,8 @@ from django.db import models
 from .regions import REGIONS
 
 QUARTERS = [(1, "1-чорак"), (2, "2-чорак"), (3, "3-чорак"), (4, "4-чорак")]
-CATEGORIES = [("I", "Иш ҳақи"), ("J", "Машина"), ("K", "Материал"), ("L", "Кабель"), ("M", "Ускуна")]
+CATEGORIES = [("I", "Меҳнат ресурслари (иш ҳақи)"), ("J", "Машина ва механизмлар"), ("K", "Материаллар ва конструкциялар"),
+              ("L", "Кабель маҳсулотлари"), ("M", "Ускуналар")]
 
 
 class BaseConfig(models.Model):
@@ -65,12 +66,14 @@ class ResourceName(models.Model):
 
 
 class Source(models.Model):
-    """Bazaga qo'shilgan ish (papka / obyekt / smeta) va uning narxlari qaysi viloyat va davrga tegishli."""
+    """Bazaga qo'shilgan ish (papka / obyekt / smeta) yoki to'g'ridan-to'g'ri yuklangan RES fayl va uning narxlari
+    qaysi viloyat va davrga tegishli. Fayl uchun ``work_id`` — o'zi yaratilgan UUID (ishga bog'lanmagan)."""
 
     class Kind(models.TextChoices):
         FOLDER = "folder", "Папка"
         OBJECT = "object", "Объект"
         SMETA = "smeta", "Смета"
+        FILE = "file", "Файл"
 
     kind = models.CharField(max_length=10, choices=Kind.choices)
     work_id = models.UUIDField()
@@ -82,6 +85,12 @@ class Source(models.Model):
     quarter = models.PositiveSmallIntegerField(choices=QUARTERS, null=True, blank=True)
     region_hint = models.CharField(max_length=80, blank=True)  # viloyat qaysi so'zdan taxmin qilingan
     stats = models.JSONField(default=dict, blank=True)  # {"rows": .., "taken": .., "skipped": {sabab: soni}}
+    # faqat «Файл»: saqlangan nusxa (MEDIA_ROOT ga nisbatan), bayt xeshi va mazmun izi (resfile.fingerprint) — takror
+    file_path = models.CharField(max_length=300, blank=True)
+    # «bp1010» (narxlar) va «bv1010» (ishlar) — bitta smetaning ikki fayli: shu kalit bir xil (davr + raqam)
+    pair_key = models.CharField(max_length=60, blank=True, db_index=True)
+    file_hash = models.CharField(max_length=64, blank=True, db_index=True)
+    fingerprint = models.CharField(max_length=64, blank=True, db_index=True)
     added_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
                                  related_name="+")
     created = models.DateTimeField(auto_now_add=True)
@@ -93,6 +102,10 @@ class Source(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def is_file(self) -> bool:
+        return self.kind == self.Kind.FILE
 
     @property
     def period_known(self) -> bool:
@@ -129,13 +142,66 @@ class Observation(models.Model):
     excluded = models.BooleanField(default=False)  # admin istisno qilgan — medianaga kirmaydi
     flags = models.CharField(max_length=30, blank=True)  # «name,unit,price» — services.recheck
     review = models.CharField(max_length=10, choices=Review.choices, blank=True, db_index=True)
+    # иш турлари: шу файл (ёки жуфти — bp↔bv) ЛРВ'сида бу код қайси тўпламлар ишида ишлатилган — «,Е01,Е27,»
+    books = models.CharField(max_length=300, blank=True, db_index=True)
 
     class Meta:
         indexes = [models.Index(fields=["resource", "source"])]
 
     @property
+    def book_list(self) -> list:
+        return [b for b in self.books.split(",") if b]
+
+    @property
     def flag_list(self) -> list:
         return [(f, FLAG_LABELS.get(f, f)) for f in self.flags.split(",") if f]
+
+
+class BookName(models.Model):
+    """Тўплам (иш тури) номи — админ ёзган («Е01», «Ц38», «ТР»). Ёзилмаган бўлса — стандарт ном (normbook)."""
+    key = models.CharField(max_length=6, unique=True)
+    name = models.CharField(max_length=200)
+    updated = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                   related_name="+")
+
+    class Meta:
+        ordering = ["key"]
+
+
+class WorkItem(models.Model):
+    """ЛРВ: манбадаги битта иш — норма шифри («Е0101-197-02»), тўплами («Е01» — иш тури), номи, бирлиги, ҳажми.
+    Бир смета ичида бир шифр бир неча марта учраши мумкин (ҳар бири — ўз ҳажми билан алоҳида ёзилади)."""
+    source = models.ForeignKey(Source, on_delete=models.CASCADE, related_name="works")
+    sheet = models.CharField(max_length=60, blank=True)
+    row = models.PositiveIntegerField()
+    shifr = models.CharField(max_length=40, db_index=True)
+    raw = models.CharField(max_length=120, blank=True)  # файлда қандай ёзилган («… ДОП. 11 ГОСАРХИТЕКТСТРОЙ …»)
+    book = models.CharField(max_length=6, db_index=True)
+    name = models.CharField(max_length=500)
+    unit = models.CharField(max_length=60, blank=True)
+    qty = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
+    section = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        ordering = ["source", "row"]
+
+
+class WorkResource(models.Model):
+    """Иш ичидаги ресурс: ``norma`` — 1 бирлик ишга, ``qty`` — жами. ``extra`` — нормада йўқ, иш ортидан алоҳида
+    ёзилган материал (нормаси йўқ). ``code`` бўш — кодсиз."""
+    work = models.ForeignKey(WorkItem, on_delete=models.CASCADE, related_name="resources")
+    row = models.PositiveIntegerField()
+    code = models.CharField(max_length=12, blank=True, db_index=True)
+    raw_code = models.CharField(max_length=40, blank=True)
+    name = models.CharField(max_length=500)
+    unit = models.CharField(max_length=40, blank=True)
+    norma = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
+    qty = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
+    extra = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["work", "row"]
 
 
 def counted_q(prefix: str = "") -> models.Q:

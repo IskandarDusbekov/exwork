@@ -1,0 +1,41 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Ресурс базаси: тўплам номлари — Панел{% endblock %}
+{% block panel %}
+{% include "panel/_base_ui.html" %}
+{% include "panel/_base_tabs.html" with base_tab="norms" %}
+
+<a href="{% url 'panel:base_norms' %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-3.5 w-3.5" %} Нормалар</a>
+
+<form method="post" class="ui-group">{% csrf_token %}
+  <div class="flex flex-wrap items-center gap-3 px-5 py-4">
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style="background:var(--ui-blue-50);color:var(--ui-blue)">{% icon "layers" "h-5 w-5" %}</span>
+    <div class="min-w-0 flex-1">
+      <div class="font-semibold text-slate-900">Тўплам (иш тури) номлари</div>
+      <div class="text-xs text-slate-500">Тўплам — шифрнинг боши: <b>Е0101</b>-197-02 → <b>Е01</b>, <b>Ц08</b>-03-599-7 → <b>Ц08</b>, Е310-… → <b>ТР</b> (юк ташиш).
+        Стандарт номни тизим ёзган; ўзингиз ёзсангиз — шу ном ҳамма жойда чиқади. Бўш қолдирсангиз — стандартга қайтади.</div>
+    </div>
+    {% if can_act %}<button class="ui-btn">Сақлаш</button>{% endif %}
+  </div>
+  {% for r in rows %}
+  <div class="ui-row">
+    <div class="code" style="width:4.5rem"><small>Тўплам</small><span class="mono">{{ r.key }}</span></div>
+    <div class="main">
+      {% if can_act %}
+      <input name="name_{{ r.key }}" value="{{ r.name }}" placeholder="{{ r.default }}" maxlength="200"
+             class="w-full rounded-lg border px-3 py-1.5 text-sm {% if r.name %}border-blue-300{% else %}border-slate-300{% endif %}" style="{% if r.name %}border-color:#93c5fd;background:#eff6ff{% endif %}">
+      {% else %}<div class="title">{{ r.name|default:r.default }}</div>{% endif %}
+      <div class="ui-tags">
+        <span class="ui-tag">{{ r.group }}</span>
+        <span class="ui-tag {% if r.n %}ok{% endif %}">{{ r.n }} та норма</span>
+        {% if r.name %}<span class="ui-tag book" title="Стандарт: {{ r.default }}">админ ёзган{% if r.by.updated_by %} · {{ r.by.updated_by.email }}{% endif %}</span>
+        {% else %}<span class="ui-tag">стандарт ном</span>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="ui-empty" style="border:0">Ҳали норма йўқ — ЛРВ файл ёки нархланган смета киритинг.</div>
+  {% endfor %}
+  {% if rows and can_act %}<div class="flex justify-end border-t border-slate-100 px-5 py-3"><button class="ui-btn">Сақлаш</button></div>{% endif %}
+</form>
+{% endblock %}

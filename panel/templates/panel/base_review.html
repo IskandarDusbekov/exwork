@@ -8,7 +8,7 @@
   <div class="flex flex-wrap items-start gap-3">
     <div class="min-w-0 flex-1">
       <h2 class="font-semibold">Шубҳали нархлар · <span class="num">{{ total }}</span></h2>
-      <p class="text-xs text-slate-500">Коди бир хил, лекин номи бошқа, бирлиги бошқа ёки нархи шу вилоят ва давр медианасидан {{ ratio }} баравардан кўп фарқ қилади. Қарор қилмагунингизча медианага (нархлашга) кирмайди. «Қабул» — нарх ҳисобга олинади, шу ном ва бирлик кейин шубҳали бўлмайди; «рад» — истисно қилинади.</p>
+      <p class="text-xs text-slate-500">Коди бир хил, лекин номи бошқа, бирлиги бошқа ёки нархи шу вилоят ва давр ўрта нархидан {{ ratio }} баравардан кўп фарқ қилади. Қарор қилмагунингизча нархлашга кирмайди. «Қабул» — нарх ҳисобга олинади, шу ном ва бирлик кейин шубҳали бўлмайди; «рад» — истисно қилинади.</p>
     </div>
     {% if can_act %}
     <form method="post" action="{% url 'panel:base_recheck' %}">{% csrf_token %}
@@ -37,7 +37,7 @@
   <div class="overflow-x-auto"><table class="w-full text-sm">
     <thead class="bg-slate-50 text-left text-xs text-slate-500">
       <tr>{% if can_act %}<th class="w-8 px-4 py-2"></th>{% endif %}<th class="px-3 py-2 font-medium">Код · базадаги номи</th><th class="px-3 py-2 font-medium">Сметада</th>
-        <th class="px-3 py-2 text-right font-medium">Нарх</th><th class="px-3 py-2 text-right font-medium">Медиана</th><th class="px-3 py-2 font-medium">Вилоят · давр · манба</th>{% if can_act %}<th class="px-3 py-2"></th>{% endif %}</tr>
+        <th class="px-3 py-2 text-right font-medium">Нарх</th><th class="px-3 py-2 text-right font-medium" title="Шу вилоят ва даврдаги нархларнинг ўртадагиси">Ўрта нарх</th><th class="px-3 py-2 font-medium">Вилоят · давр · манба</th>{% if can_act %}<th class="px-3 py-2"></th>{% endif %}</tr>
     </thead>
     <tbody class="divide-y divide-slate-100">
       {% for o in page %}
