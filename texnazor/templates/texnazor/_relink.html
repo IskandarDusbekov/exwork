@@ -15,7 +15,8 @@
   </form>
   {% elif done %}
   <table>
-    <tr><th>Катак</th><th>Файлда эди</th><th>Тузатилди</th></tr>
+    <tr><th>Катак</th><th>{% if done.fix == "drop_const" or done.fix == "drop_const_on" %}Файлда (офёрта){% else %}Файлда эди{% endif %}</th>
+      <th>{% if done.fix == "drop_const" or done.fix == "drop_const_on" %}Далолатномада{% else %}Тузатилди{% endif %}</th></tr>
     {% for c, old, new in done.items|slice:":6" %}<tr><td>{{ c }}</td><td><code class="old">{{ old }}</code></td><td><code class="new">{{ new }}</code></td></tr>{% endfor %}
   </table>
   {% if done.count > 6 %}<div class="tn-rl-sum">… жами {{ done.count }} та.</div>{% endif %}

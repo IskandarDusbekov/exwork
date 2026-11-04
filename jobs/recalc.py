@@ -91,7 +91,7 @@ def run(job_id, worker: str):
     mine = Job.objects.filter(pk=job_id, recalc_worker=worker)
     if not mine.exists():
         return  # lease boshqasiga o'tgan (uzoq javob bermadik) — natijani o'sha yozadi
-    job.save(update_fields=RESULT_FIELDS)
+    job.save(update_fields=RESULT_FIELDS + (["cleared", "auto_cleared"] if getattr(job, "auto_cleared_now", False) else []))
     mine.update(recalc_done=seq, recalc_worker="", recalc_heartbeat=None)
     if not Job.objects.filter(pk=job_id).filter(_pending()).exists():
         # smetachi sahifada kutyapti: sahifa yangilanishi bilan jadval ochiladi — ko'rinish hozir tayyorlanadi

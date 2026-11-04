@@ -49,6 +49,8 @@
   .part-chip:hover { border-color: #64748b; }
   .part-chip.is-on { background: #0f172a; border-color: #0f172a; color: #fff; }
   .part-chip.is-on svg { color: inherit; }
+  /* katta ekranda (2000px+) asosiy qism cho'zilib ketmasin: tugmalar bir-biridan uzoqlashmaydi, ko'z bir joyda */
+  .proj-main { width: 100%; max-width: 1360px; margin: 0 auto; }
   .stat-filter { cursor: var(--cur-hand, pointer); }
   .stat-filter[aria-disabled="true"] { cursor: var(--cur, default); }
   .stat-filter.is-on { box-shadow: 0 0 0 2px #0f172a; }

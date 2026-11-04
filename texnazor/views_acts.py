@@ -17,6 +17,7 @@ from . import services_acts as sa
 from . import services, tasks
 from .formula import col_letter
 from .sheet import list_sheets
+from .warn_help import explain
 from .models import Act, SiteObject
 from .services import TexnazorError
 from .views import _obj, audit
@@ -91,11 +92,12 @@ def detail(request, o: SiteObject):
     view = request.GET.get("view") if request.GET.get("view") in ("ofyorta", "act", "report") else None
     view = view or ("act" if acts else "ofyorta")
     t = sa.totals(o)
-    has_qty = sa.ActQty.objects.filter(act__obj=o).exists()
+    services.remember_card(o, t)  # объектлар рўйхати шу суммани қайта ҳисобламасин
+    has_qty =sa.ActQty.objects.filter(act__obj=o).exists()
     return render(request, "texnazor/acts.html", {
         "nav": "texnazor", "o": o, "acts": acts, "totals": t, "view": view, "blk": view != "ofyorta" and bool(acts),
         "has_qty": has_qty,
-        "warnings": [w for w in (o.warnings or []) if w.get("level") != "error"], "check": (o.layout or {}).get("check"),
+        "warnings": [explain(w) for w in (o.warnings or []) if w.get("level") != "error"], "check": (o.layout or {}).get("check"),
         "prop_fix": next((w for w in (o.warnings or []) if w.get("fix") == "prop_res"), None),
         "xlsx_est": _xlsx_est(o, "report", len(acts)), "f2_est": _xlsx_est(o, "f2", len(acts)),
         "fix": _fix_ctx(o),
@@ -163,7 +165,7 @@ def data(request, obj_id):
         acts.append({"n": a.number, "id": a.pk, "closed": a.closed, "name": a.name, "date": a.date.strftime("%d.%m.%Y") if a.date else "",
                      "qty": {str(k): v for k, v in q.items()}, "v": _rounded(b.block(ev, rows)), "sum": sa._final(b, ev)})
     rest_q = sa.rest_qty(b, per)
-    rest = b.evaluate(rest_q)
+    rest = b.evaluate(rest_q, full=True)
     lay = b.lay
     return JsonResponse({
         "layout": {k: v for k, v in (o.layout or {}).items() if k not in sa.LAYOUT_META},
@@ -366,8 +368,19 @@ def mark(request, obj_id):
     if not _can_mark(o):
         return _to(o)
     has_qty = sa.ActQty.objects.filter(act__obj=o).exists()
-    return render(request, "texnazor/mark.html", {"nav": "texnazor", "o": o, "reason": o.error if o.status != SiteObject.Status.READY else "",
-                                                  "has_qty": has_qty, "several": len(o.sheets or []) > 1})
+    # o'qilgan obyekt: tizim (yoki avval foydalanuvchi) qanday belgilagani ko'rsatiladi — «ko'rish» rejimi
+    ready = o.status == SiteObject.Status.READY
+    manual = bool(((o.layout or {}).get("manual") or {}).get("header"))
+    # o'qish tugagach (?auto=1): belgilangan jadval bir necha soniya ko'rinadi — to'g'ri bo'lsa o'zi ofyortaga o'tadi,
+    # tekshiruvdan o'tmasa — to'xtab turadi
+    auto = ready and request.GET.get("auto") == "1"
+    check = (o.layout or {}).get("check") or {}
+    return render(request, "texnazor/mark.html", {"nav": "texnazor", "o": o, "reason": "" if ready else o.error,
+                                                  "has_qty": has_qty, "several": len(o.sheets or []) > 1,
+                                                  "view_only": ready, "manual": manual, "auto": auto,
+                                                  "auto_ok": not check or check.get("ok", True),
+                                                  "auto_fails": check.get("fails") or [],
+                                                  "auto_warns": sum(1 for w in (o.warnings or []) if w.get("level") != "error")})
 
 
 def mark_rows(request, obj_id):
@@ -455,4 +468,15 @@ def prop_res(request, obj_id):
     sa.set_prop_res(o, on, key)
     audit(request, o, ("ресурслар формуласи ўз иши ҳажмига уланди" if key == "relink" else
                        "ресурслар ўз иши ҳажмига мутаносиб қилинди") if on else "ресурслар тузатиши бекор қилинди — файлдагидек")
+    return _to(o)
+
+
+@require_POST
+def drop_const(request, obj_id):
+    """Svodka formulasiga qo'lda qo'shilgan sonni dalolatnomalarda olmaslik / qaytarish."""
+    o = _obj(request, obj_id)
+    on = request.POST.get("on") == "1"
+    sa.set_drop_const(o, on)
+    audit(request, o, "сводкадаги қўлда қўшилган сон далолатномаларда олинмайди" if on else
+                      "сводкадаги қўлда қўшилган сон қайтарилди — файлдагидек")
     return _to(o)

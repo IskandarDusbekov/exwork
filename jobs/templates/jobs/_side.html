@@ -4,33 +4,35 @@
 <div class="side-backdrop" data-side-close></div>
 <aside id="app-side" class="app-side flex-col border-r border-slate-200 bg-white" aria-label="Бўлимлар">
   <div class="flex h-[61px] shrink-0 items-center gap-2.5 border-b border-slate-100 px-3.5">
-    <a href="{% url 'index' %}" class="flex min-w-0 items-center gap-2.5 text-slate-900" title="mhisobot — бош саҳифа">
+    <a href="{% url 'index' %}" class="flex min-w-0 items-center gap-2.5 text-slate-900" title="mhisobot — муҳандис ҳисобот">
       <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-900 text-emerald-400">{% icon "logo" "h-6 w-6" "2.2" %}</span>
       <span class="side-label min-w-0 leading-none">
         <span class="block truncate text-[15px] font-bold tracking-tight">mhisobot</span>
-        <span class="mt-1 block text-[11px] font-medium tracking-wide text-slate-400">mhisobot.uz</span></span></a>
+        <span class="mt-1 block text-[11px] font-medium tracking-wide text-slate-400">муҳандис ҳисобот</span></span></a>
     <button type="button" class="ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 lg:hidden" data-side-close aria-label="Ёпиш">{% icon "x" "h-4 w-4" %}</button>
   </div>
-  <nav class="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2.5 text-sm">
-    {% if nav != "upload" %}
-    <a href="{% url 'index' %}" title="Янги юклаш" class="side-link mb-2 bg-slate-900 text-white hover:bg-slate-700">
-      {% icon "plus" "h-5 w-5 shrink-0" %}<span class="side-label">Янги юклаш</span></a>
-    {% endif %}
+  {# bo'limlar: ish (har kuni) va yordam; «yuklash» — bitta joyda (Смета нархлаш), ortiqcha tugma yo'q #}
+  <nav class="side-nav flex flex-1 flex-col gap-0.5 overflow-y-auto p-2.5 text-sm">
+    <div class="side-cap">Иш</div>
     {% include "jobs/_side_link.html" with key="dashboard" url="dashboard" ic="chart" label="Иш столи" %}
-    {% include "jobs/_side_link.html" with key="upload" url="index" ic="upload" label="Юклаш" %}
+    {% include "jobs/_side_link.html" with key="upload" url="index" ic="upload" label="Смета нархлаш" %}
     {% include "jobs/_side_link.html" with key="texnazor" url="texnazor:index" ic="building" label="Офёрта ва далолатнома" %}
     {% include "jobs/_side_link.html" with key="calc" url="calc" ic="calculator" label="Калькулятор" %}
-    <div class="side-sep my-2 border-t border-slate-100"></div>
+    <div class="side-cap">Ёрдам</div>
     {% include "jobs/_side_link.html" with key="help" url="help" ic="help" label="Йўриқнома" %}
     {% include "jobs/_side_link.html" with key="landing" url="landing" ic="monitor" label="Тизим ҳақида" %}
     {% if user.is_staff %}{% include "jobs/_side_link.html" with key="panel" url="panel:overview" ic="shield" label="Панел" %}{% endif %}
   </nav>
-  <div class="shrink-0 border-t border-slate-100 p-2.5">
-    <div class="side-label mb-1.5 truncate px-2.5 text-xs text-slate-500" title="{{ user.email }}">{{ user.get_full_name|default:user.email }}</div>
-    <form method="post" action="{% url 'logout' %}">{% csrf_token %}
-      <button type="submit" title="Чиқиш" class="side-link w-full text-slate-500 hover:bg-slate-100 hover:text-slate-900">{% icon "arrow-left" "h-5 w-5 shrink-0" %}<span class="side-label">Чиқиш</span></button>
-    </form>
-    <button type="button" data-side-toggle class="side-link mt-0.5 hidden w-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 lg:flex" title="Менюни йиғиш / ёйиш">
+  <div class="side-nav shrink-0 border-t border-slate-100 p-2.5">
+    <div class="side-user">
+      <span class="side-ava" title="{{ user.email }}">{{ user.first_name|first|default:user.email|first|upper }}{{ user.last_name|first|upper }}</span>
+      <span class="side-label min-w-0 flex-1 leading-tight">
+        <span class="block truncate text-sm font-semibold text-slate-800">{{ user.get_full_name|default:user.email }}</span>
+        {% if user.get_full_name %}<span class="block truncate text-xs text-slate-400">{{ user.email }}</span>{% endif %}</span>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}
+        <button type="submit" class="side-out" title="Чиқиш" aria-label="Чиқиш">{% icon "logout" "h-5 w-5" %}</button></form>
+    </div>
+    <button type="button" data-side-toggle class="side-link mt-1 hidden w-full lg:flex" title="Менюни йиғиш / ёйиш">
       {% icon "sidebar" "h-5 w-5 shrink-0" %}<span class="side-label">Менюни йиғиш</span></button>
   </div>
 </aside>

@@ -26,6 +26,7 @@ urlpatterns = [
     path("<uuid:obj_id>/hide/", views_acts.hide_rows, name="hide"),
     path("<uuid:obj_id>/hide-col/", views_acts.hide_col, name="hide_col"),
     path("<uuid:obj_id>/prop-res/", views_acts.prop_res, name="prop_res"),
+    path("<uuid:obj_id>/drop-const/", views_acts.drop_const, name="drop_const"),
     path("<uuid:obj_id>/layout/check/", views_acts.layout_check, name="layout_check"),
     path("<uuid:obj_id>/layout/", views_acts.layout_save, name="layout_save"),
     path("<uuid:obj_id>/qty/", views_acts.set_qty, name="qty"),

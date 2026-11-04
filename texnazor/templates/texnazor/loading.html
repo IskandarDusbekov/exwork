@@ -21,18 +21,87 @@
       <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-500 hover:bg-rose-50 hover:text-rose-700">Объектни ўчириш</button></form>
   </div>
   {% else %}
-  <p class="mt-3 text-sm text-slate-600">Офёрта ўқилмоқда — бу бир марта бўлади. Тугагач, саҳифа ўзи очилади.</p>
+  {# ekran o'rtasida: bosqichlar, o'tgan vaqt, qatorlar va umumiy foiz (burchakdagi kichik oyna o'rniga) #}
+  <style>
+    .tl-wrap { display: grid; place-items: center; min-height: calc(100vh - 260px); padding: 24px 0; }
+    .tl-box { width: min(520px, 100%); padding: 26px 28px 22px; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; box-shadow: 0 20px 50px rgba(15, 23, 42, .12); }
+    .tl-h { display: flex; align-items: center; gap: 12px; }
+    .tl-spin { flex: none; width: 34px; height: 34px; border: 3px solid #dbeafe; border-top-color: #2563eb; border-radius: 999px; animation: tl-rot .9s linear infinite; }
+    .tl-box.is-ok .tl-spin { animation: none; border-color: #16a34a; background: #16a34a; }
+    .tl-box.is-bad .tl-spin { animation: none; border-color: #e11d48; background: #e11d48; }
+    .tl-t { font-size: 18px; font-weight: 700; color: #0f172a; }
+    .tl-s { font-size: 13px; color: #64748b; }
+    .tl-time { margin-left: auto; font: 600 15px/1 ui-monospace, Consolas, monospace; color: #334155; }
+    .tl-bar { position: relative; height: 10px; margin: 20px 0 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+    .tl-bar i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: inherit; background: linear-gradient(90deg, #3b82f6, #2563eb); transition: width .5s ease-out; }
+    .tl-box.is-ok .tl-bar i { background: #16a34a; }
+    .tl-pct { display: flex; justify-content: space-between; font-size: 13px; color: #475569; }
+    .tl-pct b { color: #0f172a; }
+    .tl-steps { margin-top: 16px; display: grid; gap: 8px; }
+    .tl-step { display: flex; align-items: center; gap: 10px; font-size: 14.5px; color: #94a3b8; }
+    .tl-step i { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border: 2px solid #cbd5e1; border-radius: 999px; font-style: normal; font-size: 12px; font-weight: 700; }
+    .tl-step.is-now { color: #0f172a; font-weight: 600; }
+    .tl-step.is-now i { border-color: #2563eb; color: #2563eb; }
+    .tl-step.is-done { color: #166534; }
+    .tl-step.is-done i { border-color: #16a34a; background: #16a34a; color: #fff; }
+    .tl-step em { margin-left: auto; font-style: normal; font-size: 13px; font-weight: 500; color: #64748b; }
+    .tl-err { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: #fff1f2; color: #9f1239; font-size: 14px; }
+    @keyframes tl-rot { to { transform: rotate(360deg); } }
+  </style>
+  <div class="tl-wrap">
+    <div class="tl-box" id="tl-box" role="status" aria-live="polite">
+      <div class="tl-h"><span class="tl-spin"></span>
+        <div><div class="tl-t" id="tl-t">Офёрта ўқилмоқда</div><div class="tl-s">Бу бир марта бўлади. Тугагач, саҳифа ўзи очилади.</div></div>
+        <span class="tl-time" id="tl-time">0:00</span></div>
+      <div class="tl-bar"><i id="tl-bar"></i></div>
+      <div class="tl-pct"><span id="tl-now">Бошланмоқда…</span><b id="tl-pct">0%</b></div>
+      <div class="tl-steps" id="tl-steps"></div>
+      <div class="tl-err" id="tl-err" hidden></div>
+    </div>
+  </div>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      if (!window.narxProgress) return;
-      var np = narxProgress.start({title: "Офёрта ўқилмоқда", steps: ["Файл очилмоқда", "Листлар кўрилмоқда", "Офёрта ўқилмоқда", "Базага ёзилмоқда"]});
-      var order = {"Файл очилмоқда": 0, "Листлар кўрилмоқда": 1, "Офёрта ўқилмоқда": 2, "Базага ёзилмоқда": 3, "Янги тартибга ўтказилмоқда": 2};
+      var STEPS = ["Файл очилмоқда", "Листлар кўрилмоқда", "Офёрта ўқилмоқда", "Базага ёзилмоқда"];
+      var order = {"Файл очилмоқда": 0, "Листлар кўрилмоқда": 1, "Офёрта ўқилмоқда": 2, "Базага ёзилмоқда": 3, "Янги тартибга ўтказилмоқда": 2, "Тайёр": 4};
+      var box = document.getElementById("tl-box"), list = document.getElementById("tl-steps"), t0 = Date.now(), cur = 0, ended = false;
+      list.innerHTML = STEPS.map(function (s, i) { return '<div class="tl-step"><i>' + (i + 1) + "</i><span>" + s + "</span><em></em></div>"; }).join("");
+      var rows = list.children;
+      function paint(k, sub, frac) {
+        cur = Math.max(cur, k);  // orqaga qaytmaydi
+        for (var i = 0; i < rows.length; i++) {
+          rows[i].className = "tl-step" + (i < cur ? " is-done" : i === cur ? " is-now" : "");
+          rows[i].firstChild.textContent = i < cur ? "✓" : i + 1;
+          rows[i].lastChild.textContent = i === cur ? sub : "";
+        }
+        var pct = Math.min(100, Math.round((Math.min(cur, STEPS.length) + (cur < STEPS.length ? frac : 0)) / STEPS.length * 100));
+        document.getElementById("tl-bar").style.width = pct + "%";
+        document.getElementById("tl-pct").textContent = pct + "%";
+        document.getElementById("tl-now").textContent = cur < STEPS.length ? STEPS[cur] + "…" : "Тайёр";
+      }
+      setInterval(function () {
+        if (ended) return;
+        var s = Math.floor((Date.now() - t0) / 1000);
+        document.getElementById("tl-time").textContent = Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2);
+      }, 1000);
+      paint(0, "", 0);
       (function poll() {
         fetch("{% url 'texnazor:state' o.pk %}", {credentials: "same-origin", cache: "no-store"}).then(function (r) { return r.json(); }).then(function (s) {
-          if (s.status === "ready" || s.status === "choose") { np.done(s.status === "choose" ? "Листлар тайёр" : "Офёрта тайёр"); location.reload(); return; }
-          if (s.status === "failed") { np.fail(s.error || "хато"); setTimeout(function () { location.reload(); }, 1500); return; }
-          var p = s.progress || {};
-          np.step(order[p.step] || 0, p.total ? p.done + " / " + p.total + " қатор" : "");
+          if (s.status === "ready" || s.status === "choose") {
+            ended = true; paint(STEPS.length, "", 0); box.classList.add("is-ok");
+            document.getElementById("tl-t").textContent = s.status === "choose" ? "Листлар тайёр" : "Офёрта тайёр";
+            // tayyor — avval tizim jadvalni qanday belgilagani bir ko'rinib o'tadi (to'g'ri bo'lsa o'zi ofyortaga o'tadi)
+            if (s.status === "ready") location.replace("{% url 'texnazor:mark' o.pk %}?auto=1"); else location.reload();
+            return;
+          }
+          if (s.status === "failed") {
+            ended = true; box.classList.add("is-bad");
+            document.getElementById("tl-t").textContent = "Офёртани ўқиб бўлмади";
+            var e = document.getElementById("tl-err"); e.hidden = false; e.textContent = s.error || "Хато";
+            setTimeout(function () { location.reload(); }, 1500); return;
+          }
+          var p = s.progress || {}, k = order[p.step];
+          if (k === undefined) k = cur;  // «Қайта уринилмоқда» kabi — joriy bosqich qoladi
+          paint(k, p.total ? p.done + " / " + p.total + " қатор" : "", p.total ? p.done / p.total : 0);
           setTimeout(poll, 1200);
         }).catch(function () { setTimeout(poll, 3000); });
       })();

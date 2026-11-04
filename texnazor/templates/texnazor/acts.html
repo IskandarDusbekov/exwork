@@ -80,18 +80,29 @@
       {% if warnings %}
       <details class="tn-dd tn-dd-r">
         <summary class="tn-tb tn-tb-warn" title="Офёрта файли ҳақида огоҳлантиришлар">⚠ {{ warnings|length }}</summary>
-        <div class="tn-pop tn-pop-warn">
-        {% for w in warnings %}<div class="tn-w"><div class="font-semibold">{{ w.title }}</div>
-          {% if w.text %}<p>{{ w.text }}</p>{% endif %}
-          {% if w.row %}<button type="button" data-goto="{{ w.row }}">Excel'да {{ w.row }}-қатор — жадвалда кўрсатиш</button>{% endif %}
+        <div class="tn-pop tn-pop-warn" role="dialog" aria-label="Офёрта бўйича огоҳлантиришлар">
+        <div class="tn-wm-h"><b>⚠ Офёрта файли бўйича огоҳлантиришлар</b><span>{{ warnings|length }} та</span>
+          <button type="button" class="tn-wm-x" data-close-dd aria-label="Ёпиш">✕ Ёпиш</button></div>
+        <div class="tn-wm-b">
+        {% for w in warnings %}<div class="tn-w"><div class="tn-w-t"><span class="tn-w-n">{{ forloop.counter }}</span>{{ w.title }}</div>
+          {% if w.text %}<div class="tn-w-s"><div class="tn-w-l">Нима бўлди</div><p>{{ w.text }}</p></div>{% endif %}
+          {% if w.why %}<div class="tn-w-s"><div class="tn-w-l">Нима учун муҳим</div><p>{{ w.why|safe }}</p></div>{% endif %}
+          {% if w.todo %}<div class="tn-w-s tn-w-do"><div class="tn-w-l">Нима қилиш керак</div><ul>{% for t in w.todo %}<li>{{ t|safe }}</li>{% endfor %}</ul></div>{% endif %}
+          {% if w.row %}<button type="button" class="tn-w-goto" data-goto="{{ w.row }}">→ Excel'да {{ w.row }}-қаторни жадвалда кўрсатиш</button>{% endif %}
           {% if w.fix == "prop_res" and w.relink %}{% include "texnazor/_relink.html" with rl=w.relink %}{% endif %}
           {% if w.fix == "relink_on" %}{% include "texnazor/_relink.html" with done=w %}{% endif %}
+          {% if w.fix == "drop_const" or w.fix == "drop_const_on" %}{% include "texnazor/_relink.html" with done=w %}
+          <form method="post" action="{% url 'texnazor:drop_const' o.pk %}" class="tn-w-fix">{% csrf_token %}
+            <input type="hidden" name="on" value="{% if w.fix == 'drop_const' %}1{% else %}0{% endif %}">
+            <button class="{% if w.fix == 'drop_const' %}tn-w-go{% endif %}">{% if w.fix == "drop_const" %}Бу сонни далолатномаларда ҳисобламаслик{% else %}Бекор қилиш — файлдагидек{% endif %}</button></form>{% endif %}
           {% if w.fix == "prop_res" or w.fix == "prop_res_on" or w.fix == "relink_on" %}<form method="post" action="{% url 'texnazor:prop_res' o.pk %}" class="tn-w-fix">{% csrf_token %}
             <input type="hidden" name="on" value="{% if w.fix == 'prop_res' %}1{% else %}0{% endif %}">
             <button class="{% if w.fix == 'prop_res' %}tn-w-go{% endif %}">{% if w.fix == "prop_res" %}Мутаносиб қилиш (ўз иши ҳажмига, жами ўзгармайди){% else %}Бекор қилиш — файлдагидек{% endif %}</button></form>{% endif %}</div>{% endfor %}
         </div>
+        </div>
       </details>
       {% endif %}
+      <a href="{% url 'texnazor:mark' o.pk %}" class="tn-tb tn-tb-ghost" title="Тизим жадвални қандай тушунгани: сарлавҳа, ишлар, ресурслар, сводка, ҳажм / нарх / сумма устунлари ва жами қатор — кўриш ва ўзгартириш">{% icon "table" "h-4 w-4" %}Жадвал тузилиши</a>
       <a href="#info" data-open-info class="tn-tb tn-tb-ghost{% if info_missing %} tn-tb-warn{% endif %}" title="Объект ва пудратчи маълумотлари (Ф-3 учун){% if info_missing %} — тўлдирилмаган: {{ info_missing|join:', ' }}{% endif %}">{% icon "building" "h-4 w-4" %}Объект</a>
       <details class="tn-dd tn-dd-r">
         <summary class="tn-tb tn-tb-ghost tn-tb-ico" title="Ёрдам, клавиатура ва бошқа амаллар" aria-label="Ёрдам">{% icon "help" "h-[18px] w-[18px]" %}</summary>
@@ -139,6 +150,11 @@
   {% elif fix.manual %}
   <div class="tn-manual">{% icon "check" "h-4 w-4" %} {% if fix.manual.header %}Жадвал{% else %}Устунлар{% endif %} қўлда белгиланган{% if fix.memo %} (шу шаблондаги аввалги файлдан){% endif %} — текширувдан ўтди.
     <button type="button" data-fix-open>ўзгартириш</button> · <a href="{% url 'texnazor:mark' o.pk %}">жадвални белгилаш</a></div>
+  {% else %}
+  {# tizim o'zi o'qidi — nimani qanday belgilaganini ko'rish (sarlavha, ishlar, ustunlar, jami); × — shu obyektda yashiriladi #}
+  <div class="tn-manual tn-auto" id="tn-auto" hidden>{% icon "check" "h-4 w-4" %} Жадвални тизим ўзи белгилади{% if check %} — текширувдан ўтди{% endif %}.
+    <a href="{% url 'texnazor:mark' o.pk %}">Нимани қандай белгилаганини кўриш</a> · <button type="button" data-fix-open>устунларни ўзгартириш</button>
+    <button type="button" class="tn-auto-x" aria-label="Ёпиш" title="Бу хабарни ёпиш (тугма тепада «Жадвал тузилиши»да қолади)">×</button></div>
   {% endif %}
 
   {# ---- tuzatish oynasi: tizim adashsa — ustunlar va jami qatorni foydalanuvchi ko'rsatadi ---- #}
@@ -292,6 +308,8 @@
   a.tn-lfix-open:hover { background: #ffe4e6; }
   .tn-manual { flex: none; display: flex; align-items: center; gap: 6px; padding: 6px 16px; border-bottom: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; font-size: 13px; }
   .tn-manual button, .tn-manual a { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+  .tn-manual .tn-auto-x { margin-left: auto; width: 24px; height: 24px; border-radius: 6px; font-size: 18px; line-height: 1; text-decoration: none; color: #15803d; }
+  .tn-manual .tn-auto-x:hover { background: #dcfce7; }
   .tn-lfix { width: min(620px, calc(100vw - 32px)); margin: auto; padding: 0; border: 0; border-radius: 14px; box-shadow: 0 20px 50px rgba(15, 23, 42, .25); color: #0f172a; }
   .tn-lfix::backdrop { background: rgba(15, 23, 42, .45); }
   .tn-lfix form { display: grid; gap: 10px; padding: 20px; }
@@ -396,10 +414,32 @@
   .tn-ar-add { display: flex; align-items: center; gap: 8px; margin-top: 4px; padding: 8px 6px 4px; border-top: 1px solid #f1f5f9; white-space: nowrap; }
   .tn-ar-add span { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: #065f46; }
   .tn-ar-add .tn-mbtn { padding: 3px 12px; }
-  .tn-pop-warn { width: min(520px, 90vw); padding: 0; }
-  .tn-w { padding: 8px 12px; border-bottom: 1px solid #fde68a; background: #fffbeb; color: #78350f; }
-  .tn-w p { margin-top: 3px; line-height: 1.45; }
-  .tn-w button { margin-top: 3px; font-size: 12px; text-decoration: underline; color: #92400e; }
+  /* ogohlantirishlar — ekran o'rtasida katta oyna, orqasi xiralashgan (tashqarisini bosish yoki «Ёпиш» — yopiladi) */
+  .tn-dd-r .tn-pop.tn-pop-warn { position: fixed; z-index: 70; top: 50%; left: 50%; right: auto; transform: translate(-50%, -50%);
+    width: min(880px, calc(100vw - 32px)); max-height: 86vh; display: flex; flex-direction: column; padding: 0; overflow: hidden;
+    border: 0; border-radius: 16px; font-size: 15px; box-shadow: 0 0 0 100vmax rgba(15, 23, 42, .45), 0 24px 60px rgba(15, 23, 42, .35); }
+  .tn-wm-h { flex: none; display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid #fde68a; background: #fef3c7; color: #78350f; }
+  .tn-wm-h b { font-size: 17px; }
+  .tn-wm-h span { padding: 1px 8px; border-radius: 999px; background: #fde68a; font-size: 13px; font-weight: 600; }
+  .tn-wm-x { margin-left: auto; height: 34px; padding: 0 14px; border-radius: 9px; background: #fff; border: 1px solid #fcd34d; font-weight: 600; color: #78350f; }
+  .tn-wm-x:hover { background: #78350f; border-color: #78350f; color: #fff; }
+  .tn-wm-b { overflow: auto; padding: 6px 0; background: #fff; }
+  .tn-w { padding: 14px 20px 16px; border-bottom: 1px solid #fde68a; background: #fff; color: #1f2937; }
+  .tn-w:last-child { border-bottom: 0; }
+  .tn-w-t { display: flex; align-items: flex-start; gap: 10px; font-size: 16px; font-weight: 700; color: #78350f; line-height: 1.35; }
+  .tn-w-n { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: #f59e0b; color: #fff; font-size: 13px; }
+  .tn-w-s { margin: 10px 0 0 34px; }
+  .tn-w-l { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #92400e; }
+  .tn-w p { margin-top: 2px; line-height: 1.55; overflow-wrap: anywhere; }
+  .tn-w-do { padding: 8px 12px; border-radius: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .tn-w-do .tn-w-l { color: #166534; }
+  .tn-w-do ul { margin: 4px 0 0; padding-left: 18px; list-style: disc; line-height: 1.55; }
+  .tn-w-do li + li { margin-top: 4px; }
+  .tn-w .tn-rl, .tn-w .tn-w-fix { margin-left: 34px; }
+  .tn-w .tn-rl { overflow-x: auto; }
+  .tn-w button.tn-w-goto { margin: 10px 0 0 34px; font-size: 13.5px; text-decoration: underline; color: #92400e; }
+  .tn-pop-warn .tn-w-fix button { font-size: 14px; }
+  .tn-pop-warn .tn-w-fix button.tn-w-go, .tn-pop-warn .tn-rl button.tn-w-go { height: 38px; padding: 0 16px; border-radius: 10px; font-size: 14.5px; }
   .tn-pop-help { width: min(420px, 90vw); padding: 10px 12px; line-height: 1.45; }
   .tn-pop-help p { margin-bottom: 8px; color: #475569; }
   .tn-pop-help form { display: inline-block; margin: 2px 6px 2px 0; }
@@ -631,6 +671,17 @@
   .tn-lens .tn-x tr.is-cur td { box-shadow: none; }
   .tn-kb.is-auto { background: rgba(120, 53, 15, .96); border-left-color: #fbbf24; color: #fff; }
   .tn-kb.is-auto .kb-k { color: #fde68a; }
+  .tn-spd { position: fixed; left: 0; right: 0; bottom: 64px; z-index: 60; width: max-content; max-width: calc(100vw - 32px); margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px 18px; border-radius: 16px; background: rgba(120, 53, 15, .97); color: #fff; font: 15px/1.3 "Segoe UI", Arial, sans-serif; box-shadow: 0 18px 40px rgba(15, 23, 42, .4); animation: tnPop .28s ease-out; }
+  .tn-spd[hidden] { display: none; }
+  .tn-spd-h { font-weight: 700; font-size: 16px; }
+  .tn-spd-h b { margin-left: 8px; color: #fde68a; font-weight: 600; }
+  .tn-spd-b { display: flex; gap: 8px; }
+  .tn-spd button { display: inline-flex; align-items: center; gap: 8px; min-width: 112px; justify-content: center; padding: 10px 16px; border: 2px solid rgba(253, 230, 138, .45); border-radius: 12px; background: transparent; color: #fff; font: 600 16px/1 "Segoe UI", Arial, sans-serif; cursor: pointer; }
+  .tn-spd button:hover { border-color: #fde68a; background: rgba(253, 230, 138, .12); }
+  .tn-spd button.is-on { background: #fbbf24; border-color: #fbbf24; color: #000; }
+  .tn-spd button kbd { padding: 1px 6px; border-radius: 4px; background: rgba(0, 0, 0, .25); font: inherit; font-size: 13px; }
+  .tn-spd button.tn-spd-x { min-width: 0; border-color: #fca5a5; color: #fecaca; }
+  .tn-spd button.tn-spd-x:hover { background: #dc2626; border-color: #dc2626; color: #fff; }
   .tn-kb kbd { font: inherit; font-weight: 700; padding: 0 4px; margin: 0 2px 0 6px; border-radius: 3px; background: #334155; color: #fff; }
   .tn-kb kbd:first-child { margin-left: 0; }
 
@@ -1494,10 +1545,17 @@
     }
     return 0;
   }
+  function spent(row) {  // oldingi dalolatnomalarda 100% bajarilgan (Остатка 0) va bu dalolatnomada ham yozilmagan
+    var a = D.acts.find(function (x) { return x.n === curAct(); }), mine = (a && a.qty[row]) || 0;
+    var base = D.contract[row] || 0;  // kasr qoldig'i (1e-12) ham «0» deb olinadi
+    return !mine && (D.done[row] || 0) !== 0 && Math.abs(full(row)) <= 1e-9 * Math.max(1, Math.abs(base));
+  }
   function step(dir) {
-    var ids = pickable(), i = ids.indexOf(CUR), j = i < 0 ? firstInView(ids) : i + dir;
-    if (j < 0 || j >= ids.length) { flash(CUR, "skip"); return false; }
+    var ids = pickable(), i = ids.indexOf(CUR), j = i < 0 ? firstInView(ids) : i + dir, d = i < 0 ? 1 : dir, n = 0;
+    while (j >= 0 && j < ids.length && spent(ids[j])) { j += d; n++; }  // Остаткаси qolmaganlar ustidan sakrab o'tadi
+    if (j < 0 || j >= ids.length) { flash(CUR, "skip"); if (n && !AUTO) note("Бу томонда Остаткаси қолган иш йўқ"); return false; }
     setCur(ids[j], true);
+    if (n && !AUTO) note("⤼ " + n + " та тўлиқ бажарилган иш ўтказиб юборилди");
     return true;
   }
   function flash(row, kind) {
@@ -1517,7 +1575,7 @@
   function mark(row) {
     if (actClosed(curAct())) { note("№" + curAct() + " ёпилган — ёзиш учун Alt+L билан очинг"); return Promise.resolve(false); }
     var act = curAct(), a = D.acts.find(function (x) { return x.n === act; }), want = full(row);
-    if (Math.abs(want - (a.qty[row] || 0)) <= 1e-9 * Math.max(1, Math.abs(want))) { flash(row, "skip"); return Promise.resolve(true); }
+    if (Math.abs(want - (a.qty[row] || 0)) <= 1e-9 * Math.max(1, Math.abs(want))) { flash(row, "skip"); return Promise.resolve("same"); }  // yozadigan narsa yo'q
     return put(act, row, String(+want.toPrecision(12))).then(function (ok) { flash(row, ok ? "ok" : "skip"); return ok; });
   }
   function undo() {
@@ -1539,28 +1597,59 @@
       mark(CUR).then(function (ok) {
         if (!AUTO) return;
         if (!ok) return autoEnd();
-        AUTO.n++;
+        if (ok !== "same") AUTO.n++;  // faqat haqiqatan yozilganlar sanaladi
         kbShow();
+        var sp = SPEEDS[spd];  // har qadamda o'qiladi: yurish paytida tezlik almashsa darhol ta'sir qiladi
         setTimeout(function () {
           if (!AUTO) return;
           if (!step(1)) return autoEnd();
-          setTimeout(next, 280);  // ko'z ilg'asin: qaysi qatorga o'tgani ko'rinib tursin
-        }, 220);
+          setTimeout(next, SPEEDS[spd].go);  // ko'z ilg'asin: qaysi qatorga o'tgani ko'rinib tursin
+        }, sp.mark);
       });
     })();
+  }
+  // avto-yurish tezligi: 1 — секин, 2 — ўрта, 3 — тез (oldingi tezlik); tanlov eslab qolinadi
+  var SPEEDS = {
+    "1": {name: "секин", mark: 800, go: 1000},
+    "2": {name: "ўрта", mark: 450, go: 550},
+    "3": {name: "тез", mark: 220, go: 280}
+  }, SPD_KEY = "tn-auto-speed", spd = "2";
+  var spBox = null;  // avto-yurish paytidagi katta panel: tezlik tugmalari + to'xtatish
+  try { if (SPEEDS[localStorage.getItem(SPD_KEY)]) spd = localStorage.getItem(SPD_KEY); } catch (e) { /* — */ }
+  function setSpeed(s) {
+    if (!SPEEDS[s]) return;
+    spd = s;
+    try { localStorage.setItem(SPD_KEY, s); } catch (e) { /* — */ }
+    spPaint();
+  }
+  function spPaint() {
+    if (!AUTO) { if (spBox) spBox.hidden = true; return; }
+    if (!spBox) {
+      spBox = document.createElement("div");
+      spBox.className = "tn-spd";
+      spBox.innerHTML = '<div class="tn-spd-h">▶ Авто 100% <b class="tn-spd-n"></b></div><div class="tn-spd-b">' +
+        Object.keys(SPEEDS).map(function (s) { return '<button type="button" data-sp="' + s + '"><kbd>' + s + "</kbd>" + SPEEDS[s].name + "</button>"; }).join("") +
+        '<button type="button" class="tn-spd-x" data-sp="x">■ Тўхтатиш</button></div>';
+      document.body.appendChild(spBox);
+    }
+    spBox.querySelector(".tn-spd-n").textContent = AUTO.n + " та ёзилди";
+    spBox.querySelectorAll("[data-sp]").forEach(function (b) { b.classList.toggle("is-on", b.dataset.sp === spd); });
+    spBox.hidden = false;
   }
   function autoEnd() {
     if (!AUTO) return;
     var n = AUTO.n;
     AUTO = null;
+    spPaint();
     note("■ Тўхтади: " + n + " та иш 100% қилинди · Ctrl+Z — биттадан қайтариш");
   }
   function note(t) { kbMsg = t; kbShow(); clearTimeout(note.t); note.t = setTimeout(function () { kbMsg = null; kbShow(); }, 2600); }
   function kbShow() {  // qora oyna faqat qisqa xabar va avto-yurish uchun (ish ma'lumoti / klavishlar ro'yxati — kerak emas)
+    spPaint();
     if (!kbMsg && !AUTO) { if (kb) kb.hidden = true; return; }
     if (!kb) { kb = document.createElement("div"); kb.className = "tn-kb"; kb.setAttribute("role", "status"); document.body.appendChild(kb); }
     kb.classList.toggle("is-auto", !!AUTO);
-    var text = kbMsg ? esc(kbMsg) : "<b>▶ Авто 100%</b> · " + AUTO.n + " та · тўхтатиш — исталган тугма ёки сичқонча";
+    var text = kbMsg ? esc(kbMsg) : "<b>▶ Авто 100%</b> · " + AUTO.n + " та ёзилди · тўхтатиш — исталган тугма ёки сичқонча";
     kb.innerHTML = '<div class="kb-k">' + text + "</div>";
     kb.hidden = false;
     kbPlace();
@@ -1679,11 +1768,21 @@
   window.addEventListener("resize", lensLater);
   box.addEventListener("focusout", function () { setTimeout(lensLater); });
   document.addEventListener("mousedown", function (e) {
-    if (AUTO) { autoEnd(); e.preventDefault(); e.stopPropagation(); }
+    if (!AUTO) return;
+    e.preventDefault(); e.stopPropagation();
+    var b = e.target.closest && e.target.closest(".tn-spd [data-sp]");
+    if (b && b.dataset.sp !== "x") { setSpeed(b.dataset.sp); return; }  // tezlik tugmasi yurishni to'xtatmaydi
+    if (!b && e.target.closest && e.target.closest(".tn-spd")) return;  // panelning bo'sh joyi — hech narsa
+    autoEnd();
   }, true);
   document.addEventListener("keydown", function (e) {
     if (!CAN_SEL || !D) return;
-    if (AUTO) { e.preventDefault(); e.stopPropagation(); autoEnd(); return; }
+    if (AUTO) {
+      e.preventDefault(); e.stopPropagation();
+      if (SPEEDS[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey) { setSpeed(e.key); return; }  // 1/2/3 — tezlik, to'xtatmaydi
+      autoEnd();
+      return;
+    }
     var t = e.target;
     if (t.closest && t.closest("input, select, textarea, [contenteditable], details[open]")) return;
     if (!document.getElementById("tn-info-modal").hidden || document.querySelector("#narx-dialog:not(.hidden), #tn-c2:not(.hidden)")) return;
@@ -1968,6 +2067,17 @@
     DONE.hidden = false;
     DONE.querySelector("[data-dl]").focus();
   }
+  // «Жадвални тизим ўзи белгилади» — × bosilmaguncha ko'rinadi (shu obyekt uchun eslab qolinadi)
+  var AUTO_BAR = document.getElementById("tn-auto"), AUTO_KEY = "tn-auto-x-{{ o.pk }}";
+  if (AUTO_BAR) {
+    var autoGone = false;
+    try { autoGone = localStorage.getItem(AUTO_KEY) === "1"; } catch (e) { autoGone = false; }
+    AUTO_BAR.hidden = autoGone;
+    AUTO_BAR.querySelector(".tn-auto-x").addEventListener("click", function () {
+      AUTO_BAR.hidden = true;
+      try { localStorage.setItem(AUTO_KEY, "1"); } catch (e) { /* — */ }
+    });
+  }
   // sudrash: bosib turib istalgan joyga; 4px dan kam siljisa — oddiy bosish. O'ng tugma — avtomatik joyiga qaytaradi
   var fabDrag = null, fabMoved = false;
   if (FAB) {
@@ -2058,9 +2168,14 @@
   // menyular: tashqarisini bosganda yopiladi; ichidagi «жадвалда кўрсатиш» ham yopadi
   document.addEventListener("click", function (e) {
     document.querySelectorAll("details.tn-dd[open]").forEach(function (d) {
-      if (!d.contains(e.target) || e.target.closest("[data-goto]")) d.open = false;
+      if (!d.contains(e.target) || e.target.closest("[data-goto], [data-close-dd]")) d.open = false;
     });
   });
+  document.addEventListener("keydown", function (e) {  // Esc — ochiq ogohlantirish oynasini yopadi
+    if (e.key !== "Escape") return;
+    var d = document.querySelector("details.tn-dd[open] .tn-pop-warn");
+    if (d) { d.closest("details").open = false; e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
   var modal = document.getElementById("tn-info-modal");
   function infoOpen(on) { modal.hidden = !on; if (on) document.getElementById("info").open = true; }
   document.addEventListener("click", function (e) {  // _info.html'dagi «pastga surish» o'rniga — oyna ustida ochiladi

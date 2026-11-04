@@ -380,7 +380,7 @@ def change_set(obj: SiteObject, act: Act, row: int) -> dict:
     q = per.get(act.pk, {})
     ev = b.evaluate(q)
     rq = rest_qty(b, per)
-    rest = b.evaluate(rq)
+    rest = b.evaluate(rq, full=True)
     return {"act": act.number, "rows": rows, "v": b.block(ev, act_rows(b, q, rows)), "rest": b.block(rest, rest_rows(b, rq, rows)),
             "qty": per.get(act.pk, {}).get(row, 0.0), "sum": _final(b, ev), "rest_sum": _final(b, rest),
             "done": {row: sum(q.get(row, 0.0) for q in per.values())}}
@@ -565,7 +565,7 @@ def parse_marks(data, obj: SiteObject) -> dict:
         v = hide_ranges(old.get(k) or (obj.layout or {}).get(k), out["header_end"])
         if v:
             out[k] = v
-    for k in ("hide_cols", "prop_res", "relink"):
+    for k in ("hide_cols", "prop_res", "relink", "drop_const"):
         if old.get(k):
             out[k] = old[k]
     return out
@@ -591,7 +591,7 @@ def retry(obj: SiteObject):
 
 
 # foydalanuvchi belgilari — qayta belgilash / «avtomatikka qaytarish» da saqlanadi (faqat shu faylniki)
-KEEP_KEYS = ("hide", "svod", "hide_cols", "prop_res", "relink")
+KEEP_KEYS = ("hide", "svod", "hide_cols", "prop_res", "relink", "drop_const")
 
 
 def set_hide(obj: SiteObject, add: Optional[List[int]] = None, remove: Optional[int] = None, key: str = "hide") -> int:
@@ -648,6 +648,18 @@ def set_prop_res(obj: SiteObject, on: bool, key: str = "prop_res"):
     manual.pop("relink", None)
     if on:
         manual[key] = True
+    obj.layout = dict(obj.layout or {}, manual=manual or None)
+    obj.save(update_fields=["layout"])
+    reread(obj)
+
+
+def set_drop_const(obj: SiteObject, on: bool):
+    """Svodka formulasiga qo'lda qo'shilgan son («SUM(…)+124,25») — foydalanuvchi tasdig'i bilan dalolatnomalarda
+    olinmaydi (ofyorta va «Остатка» fayldagidek). Fayl qayta o'qiladi (hajmlar saqlanadi)."""
+    manual = dict((obj.layout or {}).get("manual") or {})
+    manual.pop("drop_const", None)
+    if on:
+        manual["drop_const"] = True
     obj.layout = dict(obj.layout or {}, manual=manual or None)
     obj.save(update_fields=["layout"])
     reread(obj)
