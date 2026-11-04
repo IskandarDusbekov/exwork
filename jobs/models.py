@@ -160,6 +160,10 @@ class Job(models.Model):
     error = models.TextField(blank=True)
     duration = models.FloatField(null=True, blank=True)  # oxirgi narxlash necha soniya davom etdi
     rows = models.PositiveIntegerField(null=True, blank=True)  # nechta qator ko'rib chiqildi (100/1000 qator tezligi)
+    # ``result``дан қисқа жамлама (рўйхат ва дашборд учун): катта JSON ҳар сафар ўқилмасин — save() ўзи тўлдиради
+    sum_total = models.FloatField(null=True, blank=True)  # result.totals.s_nds
+    sum_not_priced = models.PositiveIntegerField(default=0)  # result.stats.NOT_PRICED
+    sum_checks = models.BooleanField(default=False)  # result.checks бўш эмас
 
     # Qayta hisoblash navbati (jobs/recalc.py): smetachining har o'zgarishi recalc_seq ni oshiradi, worker
     # hisoblab bo'lgach recalc_done ga yozadi. recalc_seq > recalc_done — navbatda yoki hisoblanyapti.
@@ -172,10 +176,32 @@ class Job(models.Model):
 
     class Meta:
         ordering = ["-created"]
+        # рўйхат учун тўлиқ (covering) индекс: SQLite жадвал қаторига тегмайди — катта ``result`` орқали
+        # охирги устунларга (sum_*) етиб бориш учун уни бутун ўқиб чиқмайди (views.light_jobs)
+        indexes = [models.Index(fields=["batch", "id", "created", "status", "owner", "batch_order", "local_name",
+                                        "local_sheet", "sum_total", "sum_not_priced", "sum_checks"],
+                                name="job_list_cover")]
+
+    SUMMARY_FIELDS = ["sum_total", "sum_not_priced", "sum_checks"]
 
     @property
     def recalc_pending(self) -> bool:
         return self.recalc_seq > self.recalc_done
+
+    def fill_summary(self):
+        res = self.result or {}
+        total = (res.get("totals") or {}).get("s_nds")
+        self.sum_total = float(total) if isinstance(total, (int, float)) else None
+        self.sum_not_priced = int((res.get("stats") or {}).get("NOT_PRICED") or 0)
+        self.sum_checks = bool(res.get("checks"))
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if "result" not in self.get_deferred_fields() and (update_fields is None or "result" in update_fields):
+            self.fill_summary()
+            if update_fields is not None:
+                kwargs["update_fields"] = [*update_fields, *self.SUMMARY_FIELDS]
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.local_name} ({self.get_status_display()})"

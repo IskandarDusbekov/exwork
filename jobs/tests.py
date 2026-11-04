@@ -904,3 +904,20 @@ class NfModeTests(LoggedInTestCase):
         self.assertContains(self.client.get(reverse("index")), 'value="manual" checked')
         self.client.post(reverse("nf_mode"), {"nf_mode": "auto"})
         self.assertTrue(nf_auto_of(self.user))
+
+
+class JobSummaryTests(LoggedInTestCase):
+    """Рўйхат ва дашборд ``result``ни ўқимайди: жамлама (``sum_*``) ҳар сақлашда ``result``дан олинади."""
+
+    def test_summary_follows_result(self):
+        from .views import work_items
+        job = Job.objects.create(owner=self.user, local_name="a.xlsx", res_name="r.xlsx", local_path="a", res_path="r",
+                                 status=Job.Status.DONE,
+                                 result={"totals": {"s_nds": 1500.5}, "stats": {"NOT_PRICED": 3}, "checks": ["x"]})
+        self.assertEqual((job.sum_total, job.sum_not_priced, job.sum_checks), (1500.5, 3, True))
+        job.result = {"totals": {"s_nds": 99}, "stats": {}, "checks": []}
+        job.save(update_fields=["result"])
+        job.refresh_from_db()
+        self.assertEqual((job.sum_total, job.sum_not_priced, job.sum_checks), (99.0, 0, False))
+        [item] = work_items(self.user)
+        self.assertEqual((item["total"], item["state"]), (99.0, "done"))

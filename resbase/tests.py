@@ -313,7 +313,7 @@ class PricingFromBaseTests(TestCase):
         self.assertEqual(services.price_map({"region": "samarqand", "year": 2026, "quarter": 4}), {})
         self._enable()
         self.assertEqual(base_period_of(self.user), {"region": "samarqand", "year": 2026, "quarter": 4})  # админ сукути
-        self.assertContains(self.client.get(reverse("index")), "Нарх манбаи")
+        self.assertContains(self.client.get(reverse("index")), 'id="base-period"')  # база танлови кўринади
         r = self.client.post(reverse("base_period"), {"region": "buxoro", "year": "2025", "quarter": "9"})
         self.assertEqual(r.json()["ok"], True)
         self.assertEqual(base_period_of(self.user), {"region": "buxoro", "year": 2025, "quarter": None})
