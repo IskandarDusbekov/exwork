@@ -31,7 +31,7 @@ from .folders import (
 from .models import Batch, Job, Project
 from .services import (
     BASE_RES, UploadError, analyze_batch, base_period_of, check_quota, pair_ready, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job,
-    parse_percents, remember_base_period, remember_percents, remembered_percents, unpriced_res,
+    nf_auto_of, parse_percents, remember_base_period, remember_nf_auto, remember_percents, remembered_percents, unpriced_res,
 )
 from .templatetags.narx import file_title, pct as pct_text, pct_input, readable, som
 
@@ -128,7 +128,8 @@ def index(request):
             error = str(e)
     recent = work_items(request.user, limit=6)
     return render(request, "jobs/index.html", {"error": error, "recent": recent, "resume": recent[0] if recent else None,
-                                               "nav": "upload", **_base_ctx(base_period_of(request.user))})
+                                               "nav": "upload", "nf_auto": nf_auto_of(request.user),
+                                               **_base_ctx(base_period_of(request.user))})
 
 
 def _base_ctx(period) -> dict:
@@ -150,6 +151,13 @@ def base_period(request):
     period = parse_period(request.POST)
     remember_base_period(request.user, period)
     return JsonResponse({"ok": True, "label": period_label(period)})
+
+
+@require_POST
+def nf_mode(request):
+    """Юклаш саҳифасида танланган усул: «Автоматик» — бўлим номлари ўзи тозаланади, «Қўлда» — смета­чи ўзи."""
+    remember_nf_auto(request.user, request.POST.get("nf_mode") != "manual")
+    return JsonResponse({"ok": True})
 
 
 # Рўйхатлар учун сметанинг фақат жами суммаси ва ҳолати керак: тўлиқ ``result`` (минглаб қатор) юкланмайди
@@ -570,32 +578,39 @@ def project_download(request, project_id):
 
 # ===================== tizim haqida (landing) =====================
 LANDING_FEATURES = [
-    ("layers", "Локал ва RES'ни ўзи жуфтлайди",
-     "Файлдаги ҳар бир листни мазмунидан танийди: локал смета, нарх рўйхати ёки свод. Ҳар бир локалга энг мос RES'ни мослик фоизи билан таклиф қилади."),
-    ("search", "Ном ва бирлик бўйича мослаштириш",
-     "Ресурс номи ва ўлчов бирлиги RES билан солиштирилади: аниқ мос бўлса — нарх ёзилади, ўхшаш ёки шубҳали бўлса — таклиф берилади, смета­чи тасдиқлайди."),
-    ("calculator", "Сумма ва свод ҳисобланади",
-     "Жами миқдор × нарх, иш ҳақи, машина, материаллар, транспорт, прочие, суғурта ва НДС — фоизларни ўзгартириш мумкин."),
-    ("alert-circle", "Топилмаганлар қизил",
-     "RES'да йўқ ресурс «ТОПИЛМАДИ» деб қизил белгиланади ва энг яқин ўхшаши таклиф қилинади — ҳеч нарса яширинмайди."),
-    ("folder-open", "Бутун папкани юклаш",
-     "ZIP, RAR ёки папка — ичидаги ҳамма локал ва RES топилиб, қисмлар бўйича нархланади. Натижа битта ZIP ёки битта Excel файлда."),
-    ("building", "Техназор: ойма-ой бажарилган иш",
-     "Офёртани юкланг — блок ва бўлимлар бўйича ҳар ойда бажарилган ҳажмни ёзасиз. Ресурслар меъёр бўйича ўзи ҳисобланади, қолдиқ ва Ф-3 фарқи кўринади."),
+    ("folder-open", "Бутун объект бир йўла",
+     "ZIP, RAR архив ёки папкани юкланг. Ичидаги локал сметалар ва нарх файллари топилади, ҳар бир қисм ўз нархлари билан ҳисобланади."),
+    ("layers", "Листларни ўзи танийди",
+     "Қайси лист локал смета, қайсиси нарх рўйхати ёки йиғма смета эканини мазмунидан аниқлайди. Хато бўлса, турини бир босишда ўзгартирасиз."),
+    ("calculator", "Йиғма смета тайёр",
+     "Иш ҳақи, машина ва механизмлар, материаллар, транспорт, устама харажатлар, суғурта ва ҚҚС ҳисобланади. Фоизларни ўзингиз ўзгартира оласиз."),
+    ("list", "Ҳар бир нарх изоҳли",
+     "Натижа файлидаги «LOG» листида қайси қаторга қайси нарх ва қаердан олингани, қўлда нима ўзгартирилгани ёзиб борилади."),
 ]
 LANDING_STEPS = [
-    ("Юклаш", "Локал смета ва RES файлини (.xls, .xlsx) ёки бутун объект папкасини юкланг."),
-    ("Текшириш", "Тизим листларни танийди ва жуфтлайди. Нотўғри бўлса — тури ёки устунини бир босишда тузатинг."),
-    ("Нархлаш", "Ҳар бир ресурс RES билан солиштирилади, нарх ва сумма ёзилади, свод ҳисобланади."),
-    ("Юклаб олиш", "Тайёр Excel: нархлар, ранг билан белгиланган ҳолатлар, свод ва LOG листи."),
+    ("Юкланг", "Локал смета ва ресурс нархлари файлини (.xls, .xlsx) ёки бутун объект папкасини юкланг."),
+    ("Текширинг", "Тизим листлар ва устунларни аниқлаб кўрсатади. Бирортаси нотўғри бўлса, шу ернинг ўзида тузатасиз."),
+    ("Нархланг", "Ҳар бир ресурс нарх файли билан солиштирилади, нарх ва сумма ёзилади, йиғма смета ҳисобланади."),
+    ("Юклаб олинг", "Тайёр Excel файл: нархлар, рангли ҳолатлар, йиғма смета ва «LOG» листи."),
 ]
 LANDING_SECURITY = [
-    ("Интернетга юборилмайди", "Файллар фақат тизим ўрнатилган серверда ишланади ва сақланади. Ташқи хизматларга, сунъий интеллектга ёки бошқа серверга юборилмайди."),
-    ("Асл файл ўзгармайди", "Юкланган смета нусхаси устида ишланади. Натижа алоҳида «…_narxlandi.xlsx» файлда — асл ҳужжат ҳар доим сақланиб қолади."),
-    ("Маълумот бузилмайди", "Тизим устунларни ишонч билан жойлай олмаса — нархламайди ва сабабини айтади. Номаълум маълумот устидан ҳеч қачон ёзилмайди."),
-    ("Ҳар бир қадам кўринади", "Қайси ресурсга қайси нарх олингани, ўхшашлик фоизи ва смета­чининг қўлда ўзгаришлари LOG листида ёзилади."),
-    ("Тасодифий ҳавола", "Ҳар бир иш ва объект тахмин қилиб бўлмайдиган узун ҳавола (UUID) орқали очилади."),
-    ("Файл чекланган", "Фақат Excel файллари (.xls, .xlsx, .xlsm) қабул қилинади, битта файл 30 МБ гача. Бошқа турдаги файллар рад этилади."),
+    ("database", "Файллар серверда қолади", "Сметалар фақат шу серверда ишланади ва сақланади. Ташқи хизматларга ҳам, сунъий интеллектга ҳам юборилмайди."),
+    ("file", "Асл файл ўзгармайди", "Иш юкланган нусха устида бажарилади. Натижа алоҳида «…_narxlandi.xlsx» файлда чиқади."),
+    ("users", "Ҳар ким ўз ишини кўради", "Ҳар бир фойдаланувчи ўз ҳисоби билан киради. Бошқа одамнинг сметаси ёки объекти унга кўринмайди."),
+    ("lock", "Фақат Excel", "Қабул қилинадиган файллар: .xls, .xlsx, .xlsm ва уларнинг архиви. Битта файл 30 МБ гача."),
+]
+LANDING_FAQ = [
+    ("Ресурс нархлари файли (RES) нима?",
+     "Объект учун тузилган ресурслар рўйхати: ҳар бир материал, машина-соат ва иш кучининг номи, ўлчов бирлиги ва нархи. "
+     "Тизим локал сметадаги ресурсларни шу рўйхат билан солиштириб, нархини олади."),
+    ("Нарх топилмаса нима бўлади?",
+     "Қатор қизил «ТОПИЛМАДИ» деб белгиланади ва тизим нархни тахмин қилмайди. Ёнида номи энг яқин учта ресурс ўхшашлик фоизи билан "
+     "кўрсатилади: бирини танлайсиз ёки нархни ўзингиз ёзасиз."),
+    ("Техник назорат бўлими нима қилади?",
+     "Шартнома офертасини бир марта юклайсиз. Кейин ҳар бир далолатномада фақат бажарилган иш ҳажмини белгилайсиз: ресурслар меъёр "
+     "бўйича ўзи ҳисобланади, бажарилган сумма ва қолдиқ кўриниб туради."),
+    ("Бирлик бошқача ёзилган бўлса-чи?",
+     "Бирлик ҳам ном билан бирга солиштирилади. «м3» ва «т» каби бошқа бирликдаги ресурсга нарх ёзилмайди, у текшириш учун белгиланади."),
 ]
 
 
@@ -603,7 +618,8 @@ LANDING_SECURITY = [
 def landing(request):
     """Тизим ҳақида: нима қилади, қандай ишлайди, тезлик, хавфсизлик."""
     return render(request, "jobs/landing.html",
-                  {"features": LANDING_FEATURES, "steps": LANDING_STEPS, "security": LANDING_SECURITY})
+                  {"features": LANDING_FEATURES, "steps": LANDING_STEPS, "security": LANDING_SECURITY,
+                   "faq": LANDING_FAQ})
 
 
 # ===================== obyekt (bir/ko'p fayl) =====================
@@ -664,6 +680,14 @@ def _sheet_verdict(s, cv, by_key) -> dict:
     if s["role"] == "local":
         return {"tone": "ok", "text": "Нархланади", "hint": f'{s.get("rows") or 0} та қатор'}
     return {"tone": "res", "text": "Нарх манбаи", "hint": f'{s.get("rows") or 0} та нарх'}
+
+
+def _by_kind(sheets) -> list:
+    """Ўтказилган листлар тури бўйича: [(«сводка / умумий ҳисоб», [листлар]), …] — ҳар бирига ёрлиқ қайта ёзилмайди."""
+    groups: dict = {}
+    for s in sheets:
+        groups.setdefault(KIND_LABELS.get(s.get("kind"), "бошқа"), []).append(s)
+    return list(groups.items())
 
 
 def _sheet_groups(batch) -> list:
@@ -812,6 +836,7 @@ def batch_detail(request, batch_id):
         "locals": loc_titles,
         "duplicates": [s for s in sheets if s.get("duplicate_of")],
         "unknown": [s for s in sheets if s["role"] == "unknown"],
+        "unknown_groups": _by_kind(s for s in sheets if s["role"] == "unknown"),
         "sheets_by_file": [(i, f, [s for s in sheets if s["file"] == i]) for i, f in enumerate(batch.files)],
         "sheet_groups": _sheet_groups(batch),
         "row_hints": ROW_HINTS,
@@ -888,13 +913,23 @@ def job_detail(request, job_id):
     ctx = {"job": job, "modes": MODE_LABELS.items(), "crumbs": crumbs_for(job=job),
            "siblings": list(job.batch.jobs.order_by("batch_order")) if job.batch_id else [],
            **_base_ctx(job.base_period)}
+    if (job.status == Job.Status.DONE and job.mode == "smart" and not job.auto_cleared
+            and job.recalc_seq <= job.recalc_done and job.owner_id == request.user.pk and nf_auto_of(job.owner_id)):
+        # олдин нархланган смета: бўлим номлари (бирлиги ҳам, таклифи ҳам йўқ) бир марта ўзи тозаланади
+        a = [r["row"] for r in _not_found_stage(job.result.get("rows", []))["group_a"]]
+        job.auto_cleared = True
+        if a:
+            recalc.request(job, cleared=sorted(set(job.cleared or []) | set(a)))
+        else:
+            job.save(update_fields=["auto_cleared"])
     if job.status == Job.Status.DONE:
         res = job.result
         totals = res["totals"]
         mode = res.get("mode", "compat")
         labels = column_labels(job) if mode == "smart" else dict(CATEGORY_LABELS)
         res_groups = _res_groups(res, labels) if mode == "smart" else []
-        view = request.GET.get("view") or ("res" if res_groups else "local")
+        # жадвал нархланган сметанинг ўзидан (Excel кўриниши) очилади
+        view = request.GET.get("view") or ("xl_out" if job.output_path else "res" if res_groups else "local")
         if view not in XL_FILES and not res_groups:
             view = "local"
         ctx.update(
@@ -1186,6 +1221,7 @@ def _not_found_stage(rows):
         "group_b_near": [r for r in pending if _has_unit(r) and r.get("near")],
         "group_b_none": [r for r in pending if _has_unit(r) and not r.get("near")],
         "cleared": [r for r in rows if r.get("cleared")],
+        "cleared_a": sum(1 for r in rows if r.get("cleared") and not _has_unit(r)),
     }
 
 

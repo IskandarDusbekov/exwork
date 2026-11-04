@@ -26,7 +26,7 @@
 </aside>
 
 {# ================= асосий қисм ================= #}
-<section class="min-w-0 space-y-5 p-4 lg:p-6">
+<section class="proj-main min-w-0 space-y-5 p-4 lg:p-6">
   <div class="flex flex-wrap items-start gap-4">
     <button type="button" class="tree-show mt-0.5 shrink-0" data-tree-toggle title="Папка дарахтини кўрсатиш">{% icon "sidebar" "h-4 w-4" %} Дарахт</button>
     <div class="min-w-0 flex-1 basis-72">
@@ -56,10 +56,10 @@
   <div data-guide="awaiting" class="rounded-xl border border-violet-300 bg-violet-50 p-4 shadow-sm">
     <div class="flex flex-wrap items-center gap-4">
       <div class="min-w-0 flex-1 text-sm text-slate-800">
-        <div class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-violet-700">Файллар очилди ва текширилди — ҳали ҳисобланмади {% help "awaiting" %}</div>
-        <b>{{ count_ready }} та қисм</b>да <b>{{ count_pairs_ready }} та локал → ресурс жуфтлиги</b> топилди.
-        Пастдаги жадвалда қайси локал қайси ресурс билан ҳисобланишини кўринг; ўзгартириш учун қисмни очинг
-        (у ерда ресурсни бошқасига алмаштириш мумкин).{% if count_review %} <b class="text-amber-800">{{ count_review }} та қисмда ресурсни ўзингиз танланг.</b>{% endif %}
+        <div class="flex items-center gap-1.5 text-base font-semibold text-violet-900">Файллар очилди — ҳисоблашдан олдин бир кўриб чиқинг {% help "awaiting" %}</div>
+        <div class="mt-1 text-slate-700"><b>{{ count_ready }} та қисм</b>да <b>{{ count_pairs_ready }} та локал → ресурс жуфтлиги</b> топилди.
+          Пастдаги жадвалда қайси локал қайси ресурс билан ҳисобланишини кўринг; ўзгартириш керак бўлса — қисмни очинг.</div>
+        {% if count_review %}<div class="mt-1 font-semibold text-amber-800">{{ count_review }} та қисмда ресурсни ўзингиз танланг.</div>{% endif %}
       </div>
     </div>
     <form method="post" action="{% url 'project_price' project.id %}" class="mt-4 border-t border-violet-200 pt-4">{% csrf_token %}
@@ -179,7 +179,7 @@
         {% if count_warn %}<button type="button" data-part-filter="warn" class="part-chip">{% icon "alert-circle" "h-3.5 w-3.5 text-rose-600" %} Нархланмаган <span class="num">{{ count_warn }}</span></button>{% endif %}
         {% if count_done %}<button type="button" data-part-filter="done" class="part-chip">{% icon "check" "h-3.5 w-3.5 text-emerald-600" "2.5" %} Тайёр <span class="num">{{ count_done }}</span></button>{% endif %}
       </div>
-      <span class="ml-auto text-xs text-slate-500">ҳар бир ички папка — алоҳида смета · қаторни босинг — очилади{% if count_skipped %} · {{ count_skipped }} та олдинги натижа олинмади {% help "skipped" %}{% endif %}</span>
+      <span class="ml-auto text-xs text-slate-500">қаторни босинг — қисм очилади{% if count_skipped %} · {{ count_skipped }} та олдинги натижа олинмади {% help "skipped" %}{% endif %}</span>
     </div>
     <div id="part-empty" class="hidden px-4 py-6 text-center text-sm text-slate-500">Бу ҳолатда қисм йўқ.</div>
     <div class="overflow-x-auto">

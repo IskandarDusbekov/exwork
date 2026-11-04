@@ -11,7 +11,22 @@
     .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
     {% include "jobs/_cursor_css.html" %}
     /* чап меню (jobs/_side.html) */
-    .side-link { display: flex; align-items: center; gap: .75rem; border-radius: .5rem; padding: .5rem .625rem; font-weight: 500; white-space: nowrap; }
+    .side-link { position: relative; display: flex; align-items: center; gap: .75rem; border-radius: .625rem; padding: .55rem .7rem; font-weight: 500; white-space: nowrap; }
+    .side-nav .side-link { color: #475569; }
+    .side-nav .side-link:hover { background: #f1f5f9; color: #0f172a; }
+    .side-nav .side-link svg { color: #94a3b8; }
+    .side-nav .side-link:hover svg { color: #475569; }
+    .side-nav .side-link.is-on { background: #ecfdf5; color: #065f46; font-weight: 600; }
+    .side-nav .side-link.is-on svg { color: #059669; }
+    .side-nav .side-link.is-on::before { content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: #10b981; }
+    .side-cap { padding: .9rem .7rem .35rem; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; }
+    .side-user { display: flex; align-items: center; gap: .6rem; padding: .4rem .45rem; border-radius: .625rem; }
+    .side-ava { flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 999px; background: #0f172a; color: #fff; font-size: 12px; font-weight: 700; }
+    .side-out { margin-left: auto; flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: .5rem; color: #94a3b8; }
+    .side-out:hover { background: #f1f5f9; color: #be123c; }
+    html[data-side=rail] .app-side .side-cap { visibility: hidden; height: .6rem; padding: 0; }
+    html[data-side=rail] .app-side .side-user { flex-direction: column; padding: .2rem 0; }
+    html[data-side=rail] .app-side .side-out { margin-left: 0; }
     .app-side { display: flex; }
     .side-backdrop { display: none; }
     @media (max-width: 1023.98px) {
@@ -46,11 +61,11 @@
       {% if user.is_authenticated %}
       <button type="button" data-side-open class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 lg:hidden" aria-label="Меню" aria-controls="app-side">{% icon "menu" "h-5 w-5" %}</button>
       {% endif %}
-      <a href="{% url 'index' %}" class="flex items-center gap-2.5 text-slate-900 {% if user.is_authenticated %}lg:hidden{% endif %}" title="mhisobot — бош саҳифа">
+      <a href="{% url 'index' %}" class="flex items-center gap-2.5 text-slate-900 {% if user.is_authenticated %}lg:hidden{% endif %}" title="mhisobot — муҳандис ҳисобот">
         <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-900 text-emerald-400">{% icon "logo" "h-6 w-6" "2.2" %}</span>
         <span class="hidden leading-none sm:block">
           <span class="block whitespace-nowrap text-[15px] font-bold tracking-tight">mhisobot</span>
-          <span class="mt-1 block text-[11px] font-medium tracking-wide text-slate-400">mhisobot.uz</span></span></a>
+          <span class="mt-1 block text-[11px] font-medium tracking-wide text-slate-400">муҳандис ҳисобот</span></span></a>
       {% if user.is_authenticated %}
       {% if crumbs %}{% include "jobs/_crumbs.html" %}{% endif %}
       {% block header_extra %}{% endblock %}

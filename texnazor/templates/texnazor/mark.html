@@ -108,11 +108,11 @@ sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. S
     <span class="mk-ic">{% icon "table" "h-6 w-6" %}</span>
     <div class="min-w-0">
       <div class="mk-eyebrow">Жадвални белгилаш</div>
-      <h1 class="mk-h1">Тизимга жадвални кўрсатинг</h1>
+      <h1 class="mk-h1">{% if view_only %}{% if manual %}Жадвал сиз белгилагандек ўқилган{% else %}Тизим жадвални шундай белгилади{% endif %}{% else %}Тизимга жадвални кўрсатинг{% endif %}</h1>
       <p class="mk-sub">«<b>{{ o.source_name }}</b>» · лист «<b>{{ o.sheet }}</b>» · <span id="mk-total">…</span></p>
     </div>
     <div class="mk-tools">
-      {% if o.status == "ready" %}<a href="{% url 'texnazor:object' o.pk %}" class="mk-btn">{% icon "x" "h-4 w-4" %}Бекор қилиш</a>{% endif %}
+      {% if o.status == "ready" %}<a href="{% url 'texnazor:object' o.pk %}" class="mk-btn">{% icon "arrow-left" "h-4 w-4" %}Офёртага қайтиш</a>{% endif %}
       {% if several and not has_qty %}
       <form method="post" action="{% url 'texnazor:change_sheet' o.pk %}">{% csrf_token %}
         <button class="mk-btn">{% icon "swap" "h-4 w-4" %}Бошқа лист</button></form>
@@ -130,7 +130,8 @@ sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. S
       <div class="mt-0.5">Қуйида файлнинг ўзи. 4 та нарсани босиб кўрсатинг — тизим қолганини шунга қараб ўқийди. Файл ўзгармайди.</div></div></div>
   {% else %}
   <div class="mk-note mk-note-info">{% icon "help" "h-5 w-5" %}
-    <div>Тизим ҳозир жадвални қандай тушунгани белгиланган. Нотўғрисини босиб ўзгартиринг ва «Сақлаш»ни босинг — офёрта шу бўйича қайта ўқилади.
+    <div>Ранглар — {% if manual %}жадвал ҳозир қандай ўқилгани{% else %}тизим ўзи нимани нима деб топгани{% endif %}: сарлавҳа, ишлар, ресурслар, сводка, жами қатор; тепада — ҳажм, нарх, сумма устунлари.
+      Ҳаммаси тўғри бўлса — ҳеч нарса қилманг, «Офёртага қайтиш». Нотўғрисини босиб ўзгартиринг ва «Сақлаш»ни босинг — офёрта шу бўйича қайта ўқилади.
       {% if has_qty %}<div class="mt-0.5">Далолатномаларга ёзилган ҳажмлар сақланади (Excel қатори бўйича).</div>{% endif %}</div></div>
   {% endif %}
 
@@ -501,7 +502,80 @@ sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. S
     if (M.end || M.final) touched4 = true;
     step = !M.header ? 1 : !M.start ? 2 : !done(3) ? 3 : 1;
     render();
+    if (window.mkAutoStart) mkAutoStart();  // jadval chizildi — endi sanash boshlanadi
   }).catch(function () { $("mk-wrap").innerHTML = '<div class="mk-load">Листни очиб бўлмади — саҳифани янгиланг</div>'; });
 })();
 </script>
+
+{% if auto %}
+{# o'qish tugagach: belgilangan jadval ko'rinib turadi; to'g'ri bo'lsa — sanab, o'zi ofyortaga o'tadi; xato bo'lsa — to'xtaydi #}
+<style>
+  .mk-auto { position: fixed; z-index: 60; left: 0; right: 0; bottom: 100px; width: max-content; max-width: calc(100vw - 32px); margin: 0 auto;
+    display: flex; align-items: center; gap: 14px; padding: 14px 16px 14px 18px; border-radius: 16px; color: #fff; font-size: 15px;
+    box-shadow: 0 18px 44px rgba(15, 23, 42, .35); animation: mk-auto-in .3s ease-out; }
+  .mk-auto[hidden] { display: none; }
+  .mk-auto.is-ok { background: #15803d; }
+  .mk-auto.is-warn { background: #b45309; }
+  .mk-auto.is-bad { background: #be123c; align-items: flex-start; }
+  .mk-auto-ring { flex: none; position: relative; width: 42px; height: 42px; }
+  .mk-auto-ring svg { width: 42px; height: 42px; transform: rotate(-90deg); }
+  .mk-auto-ring circle { fill: none; stroke-width: 4; }
+  .mk-auto-ring .bg { stroke: rgba(255, 255, 255, .25); }
+  .mk-auto-ring .fg { stroke: #fff; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+  .mk-auto-ring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; }
+  .mk-auto-t { font-weight: 700; font-size: 16px; }
+  .mk-auto-s { margin-top: 2px; font-size: 13.5px; opacity: .92; }
+  .mk-auto ul { margin: 4px 0 0; padding-left: 18px; list-style: disc; font-size: 13.5px; }
+  .mk-auto-b { display: flex; gap: 8px; margin-left: 8px; }
+  .mk-auto-b a, .mk-auto-b button { height: 38px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 10px; font-weight: 600; font-size: 14px; white-space: nowrap; }
+  .mk-auto-go { background: #fff; color: #0f172a; }
+  .mk-auto-stop { border: 1.5px solid rgba(255, 255, 255, .7); color: #fff; }
+  .mk-auto-stop:hover { background: rgba(255, 255, 255, .15); }
+  @keyframes mk-auto-in { from { opacity: 0; transform: translateY(14px); } }
+  @media (max-width: 700px) { .mk-auto { flex-wrap: wrap; } .mk-auto-b { margin-left: 0; width: 100%; } }
+</style>
+<div class="mk-auto {% if not auto_ok %}is-bad{% elif auto_warns %}is-warn{% else %}is-ok{% endif %}" id="mk-auto" role="status" aria-live="polite">
+  {% if auto_ok %}
+  <span class="mk-auto-ring"><svg viewBox="0 0 42 42"><circle class="bg" cx="21" cy="21" r="18"/><circle class="fg" id="mk-auto-fg" cx="21" cy="21" r="18"/></svg><b id="mk-auto-n"></b></span>
+  <div><div class="mk-auto-t">✓ Офёрта ўқилди ва текширувдан ўтди</div>
+    <div class="mk-auto-s" id="mk-auto-s">Жадвал шундай белгиланди{% if auto_warns %} · {{ auto_warns }} та огоҳлантириш бор — офёртада ⚠ тугмасида{% endif %}. Тўғри бўлса — ҳеч нарса босманг, офёрта ўзи очилади.</div></div>
+  <div class="mk-auto-b"><a class="mk-auto-go" href="{% url 'texnazor:object' o.pk %}">Ҳозир очиш</a>
+    <button type="button" class="mk-auto-stop" id="mk-auto-stop">Тўхта, текшираман</button></div>
+  {% else %}
+  <div><div class="mk-auto-t">⚠ Тизим жадвални тўлиқ тушунмади — текшириб кўринг</div>
+    <ul>{% for f in auto_fails|slice:":3" %}<li>{{ f.title }}</li>{% endfor %}</ul>
+    <div class="mk-auto-s">Рангларга қаранг: нотўғри белгиланганини босиб тузатинг ва «Сақлаш ва ўқиш»ни босинг. Файлнинг ўзида хато бўлса — шундай давом этинг.</div></div>
+  <div class="mk-auto-b"><button type="button" class="mk-auto-stop" id="mk-auto-stop">Шу ерда тузатаман</button>
+    <a class="mk-auto-go" href="{% url 'texnazor:object' o.pk %}">Шундай давом этиш</a></div>
+  {% endif %}
+</div>
+<script>
+(function () {
+  var bar = document.getElementById("mk-auto"), stop = document.getElementById("mk-auto-stop");
+  var URL = "{% url 'texnazor:object' o.pk %}", OK = {{ auto_ok|yesno:"true,false" }}, SEC = {% if auto_warns %}10{% else %}6{% endif %};
+  var timer = null, left = SEC, started = false;
+  function halt() {  // foydalanuvchi o'zi ko'rmoqchi — sanash to'xtaydi, panel yo'qoladi
+    clearInterval(timer); timer = null; bar.hidden = true;
+  }
+  stop.addEventListener("click", halt);
+  if (!OK) return;
+  var fg = document.getElementById("mk-auto-fg"), L = 2 * Math.PI * 18;
+  fg.style.strokeDasharray = L;
+  function tick() {
+    document.getElementById("mk-auto-n").textContent = left;
+    fg.style.strokeDashoffset = L * (1 - left / SEC);
+    if (left <= 0) { clearInterval(timer); location.replace(URL); return; }
+    left--;
+  }
+  window.mkAutoStart = function () {
+    if (started) return;
+    started = true; tick(); timer = setInterval(tick, 1000);
+  };
+  setTimeout(window.mkAutoStart, 4000);  // jadval kech chizilsa ham — kutib qolmasin
+  // jadvalni bosa boshlasa (tuzatmoqchi) — o'zi o'tib ketmaydi
+  document.getElementById("mk-wrap").addEventListener("mousedown", function () { if (timer) halt(); });
+  document.addEventListener("keydown", function (e) { if (timer && e.key === "Escape") halt(); });
+})();
+</script>
+{% endif %}
 {% endblock %}

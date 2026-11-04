@@ -4,7 +4,7 @@
 {% block side %}rail{% endblock %}
 {% block main_class %}px-4 lg:px-6 py-5{% endblock %}
 {% block content %}
-<div class="lg:grid lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-6">
+<div class="obj-page lg:grid lg:grid-cols-[264px_minmax(0,1fr)] lg:gap-6">
 
 {# ================= ён панел ================= #}
 <aside class="mb-6 lg:mb-0">
@@ -60,7 +60,6 @@
       {% if jobs %}<a href="#results" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "list" "h-4 w-4 shrink-0 text-slate-400" %}Натижалар</a>{% endif %}
       <a href="#structure" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "tree" "h-4 w-4 shrink-0 text-slate-400" %}Тузилиш ва жуфтликлар</a>
       <a href="#sheets" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100">{% icon "layers" "h-4 w-4 shrink-0 text-slate-400" %}Листлар тури</a>
-      <a href="{% url 'index' %}" class="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-slate-500 hover:bg-slate-100">{% icon "upload" "h-4 w-4 shrink-0 text-slate-400" %}Янги юклаш</a>
     </nav>
   </div>
 </aside>
@@ -83,14 +82,11 @@
 {% if not jobs %}
 <div data-guide="todo" class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-800">
   <div class="text-xs font-semibold uppercase tracking-wide text-sky-700">Ҳозир нима қилиш керак</div>
-  Тизим {{ batch.files|length }} та файлдаги листларни ўқиб, ҳар бир <b>локал</b> (иш ҳажмлари) учун мос <b>ресурс</b> (нархлар) листини топди
-  — <span class="tag tag-loc">Л1</span> → <span class="tag tag-res">Р1</span> каби. Лист номини босинг — ичини Excel'дагидек кўрасиз;
-  ўртадаги <b>фоизни</b> босинг — локал ва ресурс ёнма-ён очилади. Нотўғри бўлса — <b>«алмаштириш»</b> (★ — энг мос).
-  Ҳар бир жуфтликда <b>мослик</b>ни кўринг — бу локалдаги ресурсларнинг неча фоизи ресурс листида аниқ топилганини билдиради
-  (<span class="rounded bg-emerald-100 px-1 text-emerald-800">70%+</span> яхши,
-  <span class="rounded bg-amber-100 px-1 text-amber-800">40–70%</span> текширинг,
-  <span class="rounded bg-rose-100 px-1 text-rose-800">кам</span> — эҳтимол бошқа ресурс керак).
-  Тўғри бўлса — пастдаги <b>«Тасдиқлаш ва нархлаш»</b>.
+  <ol class="obj-steps mt-1.5">
+    <li><span>1</span><div>Ҳар бир <b>локал</b> <span class="tag tag-loc">Л1</span> (иш ҳажмлари) учун <b>ресурс</b> <span class="tag tag-res">Р1</span> (нархлар) топилди — <b>мос</b>лигини кўринг.</div></li>
+    <li><span>2</span><div>Нотўғри бўлса — <b>«алмаштириш»</b> (★ — энг мос). Нархламайдиганини ✓ дан олинг.</div></li>
+    <li><span>3</span><div>Тўғри бўлса — пастдаги <b>«Тасдиқлаш ва нархлаш»</b>.</div></li>
+  </ol>
 </div>
 {% elif not_priced_total %}
 <div data-guide="todo" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-slate-800">
@@ -155,9 +151,13 @@
       <span class="flex items-center gap-1.5"><span class="side-dot bg-emerald-500"></span><b class="text-slate-800">Локал</b> — иш ҳажмлари</span>
       <span class="text-slate-300">→</span>
       <span class="flex items-center gap-1.5"><span class="side-dot bg-sky-500"></span><b class="text-slate-800">Ресурс</b> — нархлар</span>
-      <span class="ml-auto flex flex-wrap items-center gap-x-3 text-slate-500">
-        <span>{% icon "table" "inline h-3.5 w-3.5" %} лист номини босинг — Excel кўриниши</span>
-        <span class="inline-flex items-center gap-1"><span class="rounded bg-emerald-100 px-1 font-semibold text-emerald-800">86%</span> ни босинг — иккаласи ёнма-ён {% help "overlap" %}</span>
+      <span class="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-500">
+        <span class="inline-flex items-center gap-1" title="Локалдаги ресурсларнинг неча фоизи ресурс листида аниқ топилди">мослик:
+          <span class="rounded bg-emerald-100 px-1 font-semibold text-emerald-800">70%+</span> яхши
+          <span class="rounded bg-amber-100 px-1 font-semibold text-amber-800">40–70%</span> текширинг
+          <span class="rounded bg-rose-100 px-1 font-semibold text-rose-800">кам</span> бошқа ресурс {% help "overlap" %}</span>
+        <span class="text-slate-300">|</span>
+        <span>номни босинг — Excel кўриниши · фоизни — ёнма-ён</span>
       </span>
     </div>
 
@@ -251,15 +251,19 @@
         </div>{% endfor %}
         </div>
       </div>{% endif %}
-      {% if unknown %}<div>
-        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Ўтказилди — смета эмас ({{ unknown|length }})</div>
-        {% for s in unknown %}<button type="button" class="sheet-open mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-slate-50" data-k="{{ s.key }}" title="{{ s.reason }}">
-          <span class="side-dot bg-slate-300"></span><span class="min-w-0 flex-1 truncate text-slate-600">{{ s.sheet }} <span class="text-xs text-slate-400">· {% if s.kind %}{{ kind_labels|get_item:s.kind }}{% else %}{{ s.file_name }}{% endif %}</span></span>{% icon "table" "h-4 w-4 shrink-0 text-slate-400" %}</button>{% endfor %}
+      {% if unknown %}<div class="md:col-span-3">
+        <div class="mb-1.5 flex flex-wrap items-baseline gap-x-2"><span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Ўтказилди — смета эмас ({{ unknown|length }})</span>
+          <span class="text-xs text-slate-400">нархланмайди · босинг — ичини кўрасиз · нотўғри бўлса — пастда «Листлар тури»да ўзгартиринг</span></div>
+        {% for kind, items in unknown_groups %}
+        <div class="obj-chips"><span class="obj-chips-k">{{ kind }}</span>
+          {% for s in items %}<button type="button" class="sheet-open obj-chip" data-k="{{ s.key }}" title="{{ s.file_name }}{% if s.reason %} — {{ s.reason }}{% endif %}">{{ s.sheet }}</button>{% endfor %}
+        </div>
+        {% endfor %}
       </div>{% endif %}
-      {% if duplicates %}<div>
-        <div class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Нусхалар — бир марта олинди ({{ duplicates|length }})</div>
-        {% for s in duplicates %}<button type="button" class="sheet-open mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-slate-50" data-k="{{ s.key }}">
-          <span class="side-dot bg-slate-300"></span><span class="min-w-0 flex-1 truncate text-slate-600">{{ s.sheet }} <span class="text-xs text-slate-400">· {{ s.file_name }}</span></span>{% icon "table" "h-4 w-4 shrink-0 text-slate-400" %}</button>{% endfor %}
+      {% if duplicates %}<div class="md:col-span-3">
+        <div class="mb-1.5 flex flex-wrap items-baseline gap-x-2"><span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Нусхалар ({{ duplicates|length }})</span>
+          <span class="text-xs text-slate-400">бошқа листнинг айнан ўзи — бир марта олинди</span></div>
+        <div class="obj-chips">{% for s in duplicates %}<button type="button" class="sheet-open obj-chip" data-k="{{ s.key }}" title="{{ s.file_name }}">{{ s.sheet }}</button>{% endfor %}</div>
       </div>{% endif %}
     </div>
   </section>
@@ -301,12 +305,12 @@
       <th class="px-3 py-2 text-left font-medium">Ҳолати</th><th class="px-3 py-2 text-left font-medium">Устунлар</th>
     </tr></thead>
     {% for g in sheet_groups %}
-    <tbody>
+    <tbody class="sh-g">
     <tr class="border-t border-slate-200 bg-slate-50/70"><td colspan="4" class="px-4 py-1.5 text-xs font-semibold text-slate-600">
       <span class="inline-flex items-center gap-1.5">{% icon "file" "h-3.5 w-3.5 text-slate-400" %}{{ g.name }}</span>
       <span class="font-normal text-slate-400">· {{ g.rows|length }} та лист</span></td></tr>
     {% for i, s, cv, v in g.rows %}
-    <tr data-k="{{ s.key }}" class="sheet-row border-t border-slate-100 {% if v.tone == 'off' %}text-slate-400{% endif %}" data-i="{{ i }}">
+    <tr data-k="{{ s.key }}" class="sheet-row border-t border-slate-100 {% if v.tone == 'off' %}is-off text-slate-400{% endif %}" data-i="{{ i }}">
       <td class="py-2 pl-4 pr-3 align-top">
         <span class="flex items-start gap-2">
           <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full {% if v.tone == 'ok' %}bg-emerald-500{% elif v.tone == 'res' %}bg-sky-500{% elif v.tone == 'warn' %}bg-amber-500{% else %}bg-slate-300{% endif %}"></span>
@@ -338,7 +342,7 @@
       </td>
     </tr>
     {# ---- устунларни қўлда кўрсатиш ---- #}
-    <tr class="cols-row {% if not s.manual %}hidden{% endif %} bg-violet-50/40" data-i="{{ i }}">
+    <tr class="cols-row {% if not s.manual %}hidden{% endif %} {% if v.tone == 'off' %}is-off{% endif %} bg-violet-50/40" data-i="{{ i }}">
       <td colspan="4" class="px-4 py-3">
         <input type="hidden" name="cols_{{ i }}_on" value="{% if s.manual %}1{% endif %}" class="cols-on">
         <div class="flex flex-wrap items-end gap-3 text-xs">
@@ -461,10 +465,24 @@
       b.addEventListener("click", function (e) {
         e.preventDefault(); e.stopPropagation();
         document.getElementById("sheets").open = true;
-        window.narxTour(build(pickRow(b.dataset.i)));
+        var row = pickRow(b.dataset.i), g = row.closest(".sh-g");
+        if (g && row.classList.contains("is-off")) g.classList.add("show-off");
+        window.narxTour(build(row));
       });
     });
   })();
+
+  // ===== ўтказилган листлар йиғиқ туради: «N та ўтказилган лист» — босилса очилади =====
+  document.querySelectorAll("#sheets .sh-g").forEach(function (g) {
+    var n = g.querySelectorAll(".sheet-row.is-off").length;
+    if (!n) return;
+    var tr = document.createElement("tr");
+    tr.className = "sh-off-row border-t border-slate-100";
+    tr.innerHTML = '<td colspan="4" class="px-4 py-1.5"><button type="button" class="sh-off-btn">' +
+      '<span class="sh-off-a">▸</span> ' + n + ' та ўтказилган лист <span class="text-slate-400">— свод, акт ва ҳ.к.</span></button></td>';
+    g.appendChild(tr);
+    tr.querySelector("button").addEventListener("click", function () { g.classList.toggle("show-off"); });
+  });
 </script>
 </details>
 
@@ -482,6 +500,20 @@
   .eye { flex-shrink: 0; border-radius: 6px; padding: 2px; color: #94a3b8; }
   .eye:hover { background: #f1f5f9; color: #0f172a; }
   .pair-row.is-off { opacity: .5; }
+  .obj-page { max-width: 1360px; margin: 0 auto; }
+  .obj-steps { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+  .obj-steps li { display: flex; align-items: flex-start; gap: 8px; flex: 1 1 260px; }
+  .obj-steps li > span { display: grid; place-items: center; width: 20px; height: 20px; flex-shrink: 0; border-radius: 9999px;
+    background: #0284c7; color: #fff; font-size: 11px; font-weight: 700; margin-top: 1px; }
+  .obj-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+  .obj-chips-k { font-size: 11px; color: #94a3b8; margin-right: 2px; }
+  .obj-chip { border: 1px solid #e2e8f0; border-radius: 9999px; padding: 2px 10px; font-size: 12px; color: #475569; background: #f8fafc; }
+  .obj-chip:hover { border-color: #94a3b8; background: #fff; color: #0f172a; }
+  #sheets .sh-g:not(.show-off) tr.is-off { display: none; }
+  .sh-off-btn { font-size: 12px; color: #475569; font-weight: 500; }
+  .sh-off-btn:hover { color: #0f172a; text-decoration: underline; }
+  .sh-off-a { display: inline-block; transition: transform .15s; }
+  .sh-g.show-off .sh-off-a { transform: rotate(90deg); }
 </style>
 <script>
 (function () {

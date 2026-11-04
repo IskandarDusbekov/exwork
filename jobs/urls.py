@@ -27,6 +27,7 @@ urlpatterns = [
     path("job/<uuid:job_id>/run/", views.job_run, name="job_run"),
     path("job/<uuid:job_id>/base/", views.job_base, name="job_base"),
     path("base-period/", views.base_period, name="base_period"),
+    path("nf-mode/", views.nf_mode, name="nf_mode"),
     path("job/<uuid:job_id>/categories/", views.job_categories, name="job_categories"),
     path("job/<uuid:job_id>/prices/", views.job_prices, name="job_prices"),
     path("job/<uuid:job_id>/not-found/", views.job_not_found, name="job_not_found"),

@@ -33,7 +33,7 @@ from .classify import (
     CABLE, COLUMN_KIND, EQUIPMENT, KIND_COLUMN, OTHER, is_chel_ch, is_machinists_labor, is_workers_row, name_hint, row_kind,
 )
 from .columns import detect_local_columns, num as as_number, prepare_local
-from .detect import cell_value, detect_layout, override_layout
+from .detect import _is_numbering_row, cell_value, detect_layout, override_layout
 from .log_sheet import LOG_TITLE, log_row, write_log
 from .matcher import AMBIGUOUS, EXACT, FUZZY, NOT_FOUND, Match, ResourceIndex
 from .normalize import norm_code, norm_name, norm_unit, unit_key
@@ -86,6 +86,7 @@ class Options:
     column_names: Optional[Dict[str, str]] = None  # smart: ustun nomlari {"K": "…", "N": "Монтаж"}; N.. — qo'shilgan
     cleared: Optional[List[int]] = None  # smart: «ТОПИЛМАДИ» so'zi olib tashlangan qatorlar (birligi bor — qizil qoladi)
     marked: Optional[List[int]] = None  # smart: sariq — so'z olinadi, G qizil emas sariq («ko'rib chiqildi»)
+    auto_clear: bool = False  # smart: birligi ham, taklifi ham yo'q qatorlar (bo'lim nomlari) o'zi tozalanadi
     local_columns: Optional[dict] = None  # smart: smetachi ko'rsatgan lokal ustun/qatorlari (detect.override_layout)
     res_columns: Optional[dict] = None    # smart: resurs listi uchun xuddi shunday
     # smart: ресурс базаси {kod: {"price", "n", "unit_key", "category"}} — RES narxlay olmagan qatorlar kod bo'yicha
@@ -297,6 +298,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         # sariq belgilangan qator ham «ТОПИЛМАДИ» so'zi olib tashlangan qator — faqat rangi boshqa
         to_clear = sorted({int(r) for r in (opts.cleared or [])} | {int(r) for r in (opts.marked or [])})
         priced, ln, lu = _price_smart(ws, index, threshold, opts.ambiguity_delta, warnings, opts.prices, to_clear,
+                                      auto_clear=opts.auto_clear,
                                       layout=local_cols.as_layout() if local_cols else None,
                                       base=opts.base_prices, base_label=opts.base_label)
     else:
@@ -337,7 +339,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     if smart:
         w.num_fmt = SMART_NUM_FMT
     write_priced_rows(w, start_r, end_r, priced.g, kinds, safe_amount_formula if smart else amount_formula,
-                      skip={r for r, st in priced.status.items() if st == CLEARED})
+                      skip={r for r, st in priced.status.items() if st == CLEARED}, keep=getattr(priced, "repeats", ()))
     sum_row = end_r + 1
     write_sum_row(w, sum_row, start_r, end_r, extra=[c for c, _n in extra_columns])
     # compat: svodka darhol sum qatoridan keyin (pastki «СОСТАВИЛ» ustiga tushishi mumkin);
@@ -768,7 +770,7 @@ def _real_unit(ws, r: int, ln: int, lu: int) -> bool:
 
 def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warnings: List[str],
                  prices: Optional[Dict[int, float]] = None, cleared=None, layout=None,
-                 base: Optional[Dict[str, dict]] = None, base_label: str = ""):
+                 base: Optional[Dict[str, dict]] = None, base_label: str = "", auto_clear: bool = False):
     """``base`` — ресурс базаси narxlari (kod bo'yicha): RES aniq narxlay olmagan qator (topilmadi, o'xshash,
     birlik boshqa, narxsiz) kodi va birligi mos kelsa, shu narx bilan BASE bo'ladi; qo'lda narx baribir ustun.
     ``cleared`` — smetachi «ТОПИЛМАДИ» so'zini olib tashlagan qatorlar: birligi borida G bo'sh
@@ -808,10 +810,18 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
         if v < 0:
             raise ValueError(f"{r}-qator: narx manfiy bo'lishi mumkin emas ({v})")
 
+    # har sahifada qaytarilgan jadval sarlavhasi («Наименование… | Единица измерения») va «1 2 3 …» qatori —
+    # resurs emas: narxlanmaydi, fayldagidek tegilmay qoladi
+    head = layout.header_row if layout else None
+    head_sig = (norm_name(_peek(ws, head, ln)), norm_unit(_peek(ws, head, lu))) if head else None
+    repeats = set()
     for r in range(start, stop):
         name_raw, unit_raw = _peek(ws, r, ln), _peek(ws, r, lu)
         local_name = norm_name(name_raw)
         if not local_name:
+            continue
+        if head_sig and r != head and ((local_name, norm_unit(unit_raw)) == head_sig or _is_numbering_row(ws, r)):
+            repeats.add(r)
             continue
         named.append(r)
         local_unit = norm_unit(unit_raw)
@@ -891,6 +901,9 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
                              "same_unit": u == local_unit, "res_row": (index.position_of(u, name) or (None, None))[1]})
             near[r]["alts"] = alts
 
+        # birligi ham, taklifi ham yo'q (bo'lim nomi, izoh) — narxi bo'lmaydi: «ТОПИЛМАДИ» o'zi olinadi
+        if auto_clear and not real_unit and st in UNPRICED_STATUSES and r not in near:
+            to_clear.add(r)
         # smetachi G dagi yozuvni («ТОПИЛМАДИ», «ТЕКШИРИНГ» …) olib tashlagan: birligi borida G bo'sh
         # (Excel'da qizil qoladi, narx kutadi), birligi yo'g'ida G va H bo'sh
         if r in to_clear and st in UNPRICED_STATUSES:
@@ -929,6 +942,7 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
     p.numbering_row = layout.numbering_row if layout else None
     p.cleared = applied_clear
     p.near = near
+    p.repeats = repeats
     return p, ln, lu
 
 

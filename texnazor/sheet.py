@@ -91,6 +91,9 @@ class Layout:
     # foydalanuvchi tasdiqlagan: o'sha resurslar formulasi tuzatiladi («=E4880*$E$149» → «=E4880*E4879») — ofyorta
     # jami ham o'zgaradi (taklifda oldindan ko'rsatiladi); Excel hisobotga ham tuzatilgan formula yoziladi
     relink: bool = False
+    # foydalanuvchi tasdiqlagan: svodka formulasiga qo'lda qo'shilgan son («SUM(…)+124,25») dalolatnomalarda olinmaydi —
+    # ofyorta va «Остатка» fayldagidek (son bilan) qoladi
+    drop_const: bool = False
 
     def as_dict(self) -> dict:
         return dict(self.__dict__)
@@ -111,7 +114,7 @@ def _apply_manual(lay: Layout, manual: Optional[dict]):
     lay.header_end = max(lay.header_end, lay.header)
     lay.hide = hide_ranges((manual or {}).get("hide"), lay.header_end) or lay.hide
     lay.svod = hide_ranges((manual or {}).get("svod"), lay.header_end) or lay.svod
-    for k in ("prop_res", "relink"):
+    for k in ("prop_res", "relink", "drop_const"):
         if isinstance((manual or {}).get(k), bool):
             setattr(lay, k, manual[k])
     cols = (manual or {}).get("hide_cols")
@@ -221,6 +224,21 @@ _BAD = ("ф-2", "ф2", "ф-3", "ф3", "остат", "хисобот", "ҳисо�
 
 _SVOD_NAME = re.compile(r"^(JAMI\b|ИТОГО\b|ВСЕГО\b|ЗАРПЛАТА|ЗАРАБОТНАЯ|QURUVCHI-ISHCHILAR|ISH\s*HAQQI|ИШ\s*ҲАҚИ)", re.I)
 _MANUAL = re.compile(r"\)\s*[-+]\s*\d|[A-Z]\$?\d+\s*[-+]\s*\d+(?:[.,]\d+)?\s*$", re.I)  # «SUM(…)+124,25», «…+H4573-1»
+_NUM = r"\d+(?:[.,]\d+)?(?:[eE][-+]?\d+)?"
+_CONST_PAREN = re.compile(rf"\)\s*[-+]\s*{_NUM}(?=\s*(?:[-+]|$))")  # «SUM(…)+124,25» (keyin * / , kelsa — tegilmaydi)
+_CONST_END = re.compile(rf"([A-Z]\$?\d+)\s*[-+]\s*{_NUM}\s*$", re.I)  # «…+H4573-1»
+
+
+def strip_const(f: str) -> str:
+    """Svodka formulasidan qo'lda qo'shilgan / ayirilgan sonni olib tashlaydi: «=SUM(L13:L403)+124.25» → «=SUM(L13:L403)»."""
+    prev = None
+    while prev != f:
+        prev = f
+        f = _CONST_PAREN.sub(")", f, count=1)
+        f = _CONST_END.sub(r"\1", f, count=1)
+    return f
+
+
 _TOTAL = re.compile(r"итог|всего|jami|жами|ҳаммаси|hammasi|qiymati|қиймати")
 _VAT = re.compile(r"ндс|qqs|ққс|ккс")
 _SUM = re.compile(r"SUM\(\$?[A-Z]{1,3}\$?(\d+):\$?[A-Z]{1,3}\$?(\d+)\)", re.I)
@@ -683,7 +701,7 @@ def _fix_cache(grid: Grid):
     if not bad:
         return
     b = Book(grid.layout.as_dict(), grid.rows)
-    ev = b.evaluate({t: b.contract_qty(t) for t in b.tops})
+    ev = b.evaluate({t: b.contract_qty(t) for t in b.tops}, full=True)
     fixed, first = 0, bad[0][0]["vals"][bad[0][1]].strip()
     for r, j in bad:
         v = ev(j, r["row"])
@@ -698,6 +716,7 @@ def _fix_cache(grid: Grid):
 
 
 def _check(grid: Grid):
+    from .formula import col_letter
     lay = grid.layout
     svod_f = sum(len(r["fmls"]) for r in grid.rows if r["kind"] == "svod")
     if not svod_f and any(r["kind"] == "svod" and any(v is not None for v in r["vals"]) for r in grid.rows):
@@ -706,13 +725,27 @@ def _check(grid: Grid):
                                       "Далолатномаларда сводка қаторлари ҳисобланмайди — фақат иш қаторлари."})
     manual = [(r["row"], f) for r in grid.rows if r["kind"] == "svod" for f in r["fmls"].values() if _MANUAL.search(f)]
     if manual:
-        grid.warnings.append({"row": manual[0][0], "title": "Сводка формуласида қўлда қўшилган сон бор",
-                              "text": f"{len(manual)} та формулада ҳисобга қўлда сон қўшилган ёки айрилган (масалан "
-                                      f"{manual[0][0]}-қатор: {manual[0][1][:60]}). Тизим уни файлдагидек қолдиради, шунинг учун бу сон "
-                                      "ҳар бир далолатномага тушади. Смета тузувчи билан аниқлаштиринг."})
+        items = [[f"{col_letter(int(j))}{r['row']}", "=" + f.lstrip("="), "=" + strip_const(f).lstrip("=")]
+                 for r in grid.rows if r["kind"] == "svod" for j, f in sorted(r["fmls"].items()) if _MANUAL.search(f)]
+        try:  # shu son har bir dalolatnomaga qancha pul qo'shadi (foizlar va QQS bilan): hajmsiz — son bilan − sonsiz
+            bb = Book(dict(lay.as_dict(), drop_const=True), grid.rows)
+            extra = _money(bb.grand(bb.evaluate({}, full=True)) - bb.grand(bb.evaluate({})))
+        except Exception:  # noqa: BLE001 — faqat tushuntirish uchun; hisob buzilmasin
+            extra = ""
+        if lay.drop_const:
+            grid.warnings.append({"row": manual[0][0], "fix": "drop_const_on", "items": items, "count": len(items), "amount": extra,
+                                  "title": "Қўлда қўшилган сон далолатномаларда олинмайди (сиз тасдиқлагансиз)",
+                                  "text": f"{len(items)} та сводка формуласидаги қўлда қўшилган сон далолатномаларга тушмайди. "
+                                          "Офёрта ва «Остатка» файлдагидек (шу сон билан) қолади."})
+        else:
+            grid.warnings.append({"row": manual[0][0], "fix": "drop_const", "items": items, "count": len(items), "amount": extra,
+                                  "title": "Сводка формуласида қўлда қўшилган сон бор",
+                                  "text": f"{len(manual)} та формулада ҳисобга қўлда сон қўшилган ёки айрилган (масалан "
+                                          f"{manual[0][0]}-қатор: {manual[0][1][:60]}). Тизим уни файлдагидек қолдиради, шунинг учун бу сон "
+                                          "ҳар бир далолатномага тушади (ҳажм ёзилмаса ҳам). Смета тузувчи билан аниқлаштиринг "
+                                          "ёки пастдаги тугмани босинг."})
     # resurs jami boshqa qatordagi hajmga ko'paytirilgan («=E4880*$E$149» — formula ko'chirilganda $ qotib qolgan):
     # bu pul o'z ishining hajmiga bog'lanmagan, faylning jamisi ham shu qism bo'yicha noto'g'ri bo'lishi mumkin
-    from .formula import col_letter
     foreign: Dict[int, set] = {}
     bad_res = []
     for r in grid.rows:
@@ -732,7 +765,7 @@ def _check(grid: Grid):
             items.append([f"{col_letter(lay.total)}{r['row']}", "=" + r["fmls"][lay.total].lstrip("="), "=" + new.lstrip("=")])
             r["fmls"][lay.total] = new
         b = Book(lay.as_dict(), grid.rows)
-        ev = b.evaluate({t: b.contract_qty(t) for t in b.tops})
+        ev = b.evaluate({t: b.contract_qty(t) for t in b.tops}, full=True)
         for r in grid.rows:  # ofyortada va fayl tekshiruvida yangi formula natijasi
             if r["kind"] == "head":
                 continue
@@ -758,7 +791,7 @@ def _check(grid: Grid):
             if not isinstance(r["vals"][lay.total], (int, float)):  # faylda saqlangan natija yo'q — shartnoma hajmida hisoblanadi
                 if ev is None:
                     b = Book(lay.as_dict(), grid.rows)
-                    ev = b.evaluate({t: b.contract_qty(t) for t in b.tops})
+                    ev = b.evaluate({t: b.contract_qty(t) for t in b.tops}, full=True)
                 v = ev(lay.total, r["row"])
                 r["vals"][lay.total] = v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
         for r in done:
@@ -812,7 +845,7 @@ def _relink_offer(grid: Grid, done: List[dict]) -> dict:
     b0 = Book(lay.as_dict(), grid.rows)
     b1 = Book(lay.as_dict(), [dict(r, fmls={**r["fmls"], lay.total: new[r["row"]]}) if r["row"] in new else r
                               for r in grid.rows])
-    full = lambda b: b.evaluate({t: b.contract_qty(t) for t in b.tops})  # noqa: E731
+    full = lambda b: b.evaluate({t: b.contract_qty(t) for t in b.tops}, full=True)  # noqa: E731
     ev0, ev1 = full(b0), full(b1)
     num = lambda v: _money(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else "—"  # noqa: E731
     F = col_letter(lay.total)
@@ -853,7 +886,16 @@ class Book:
                 for j, f in r["fmls"].items():
                     if "!" not in f:  # boshqa varaq / fayl (VLOOKUP('[1]F-6'!…)) — fayldagi qiymati o'zgarmas
                         self.formulas[(int(j), r["row"])] = compile_formula(f)
-        self.tops = [r["row"] for r in rows if r["kind"] in ("work", "free")]
+        # ofyorta va «Остатка» — fayldagi formula; dalolatnoma — qo'lda qo'shilgan sonsiz (foydalanuvchi tasdiqlagan bo'lsa)
+        self.full_formulas = self.formulas
+        if self.lay.drop_const:
+            self.formulas = dict(self.formulas)
+            for r in rows:
+                if r["kind"] == "svod":
+                    for j, f in r["fmls"].items():
+                        if "!" not in f and _MANUAL.search(f):
+                            self.formulas[(int(j), r["row"])] = compile_formula(strip_const(f))
+        self.tops =[r["row"] for r in rows if r["kind"] in ("work", "free")]
         self.children: Dict[int, List[int]] = {}
         for r in rows:
             if r["kind"] == "res":
@@ -902,8 +944,9 @@ class Book:
                 out[(lay.total, ch)] = (f * q / base) if (base and f is not None) else norm * q
         return out
 
-    def evaluate(self, qty: Dict[int, float]) -> Evaluator:
-        return Evaluator(self.values, self.formulas, self.override(qty)).run_all()
+    def evaluate(self, qty: Dict[int, float], full: bool = False) -> Evaluator:
+        """full — ofyorta / «Остатка» hisobi (fayldagi formula); aks holda — dalolatnoma (``drop_const`` hisobga olinadi)."""
+        return Evaluator(self.values, self.full_formulas if full else self.formulas, self.override(qty)).run_all()
 
     def block(self, ev: Evaluator, rows=None) -> Dict[int, list]:
         """Blok qiymatlari (E..oxirgi ustun) — ish, resurs va svodka qatorlari uchun; bo'sh qator yuborilmaydi."""
@@ -967,7 +1010,7 @@ class Book:
     def contract_total(self) -> float:
         """Shartnoma bo'yicha jami — to'liq hajm bilan qayta hisoblanadi (bir marta)."""
         if not hasattr(self, "_contract"):
-            self._contract = self.grand(self.evaluate({r: self.contract_qty(r) for r in self.tops}))
+            self._contract = self.grand(self.evaluate({r: self.contract_qty(r) for r in self.tops}, full=True))
         return self._contract
 
     def total_mismatch(self) -> List[dict]:

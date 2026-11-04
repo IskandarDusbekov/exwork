@@ -144,10 +144,11 @@ def safe_amount_formula(r: int) -> str:
 
 
 def write_priced_rows(w: SheetWriter, start: int, end: int, g_values: Dict[int, object], kinds: Dict[int, str],
-                      formula=amount_formula, skip=()):
+                      formula=amount_formula, skip=(), keep=()):
     """G..K ustunlarini ``start..end`` oralig'ida to'ldiradi va A–H ramka chizadi.
-    ``skip`` qatorlarida G va H bo'sh, kategoriya ustuniga ham hech narsa yozilmaydi."""
-    rows = range(start, end + 1)
+    ``skip`` qatorlarida G va H bo'sh, kategoriya ustuniga ham hech narsa yozilmaydi.
+    ``keep`` qatorlari (sahifada qaytarilgan sarlavha) — umuman tegilmaydi."""
+    rows = [r for r in range(start, end + 1) if r not in keep]
     for r in rows:
         w.set(f"{PRICE_COL}{r}", g_values.get(r))
     w.number_format(PRICE_COL, start, end)

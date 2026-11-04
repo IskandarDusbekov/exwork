@@ -102,6 +102,16 @@ def remember_base_period(owner, period: dict):
     Setting.objects.update_or_create(owner_id=getattr(owner, "pk", owner), key="base_period", defaults={"value": period})
 
 
+def nf_auto_of(owner) -> bool:
+    """Юклашда танланган усул: True — бирлиги ҳам, таклифи ҳам йўқ қаторлар ўзи тозаланади (сукут), False — қўлда."""
+    s = Setting.objects.filter(owner_id=getattr(owner, "pk", owner), key="nf_mode").first()
+    return not (s and isinstance(s.value, dict) and s.value.get("auto") is False)
+
+
+def remember_nf_auto(owner, auto: bool):
+    Setting.objects.update_or_create(owner_id=getattr(owner, "pk", owner), key="nf_mode", defaults={"value": {"auto": bool(auto)}})
+
+
 BASE_RES = "__base__"  # жуфтликда RES ўрнига «ресурс базаси» танланди
 
 
@@ -129,7 +139,8 @@ def create_job(owner, local_file, res_file=None) -> Job:
     res_ext = _check_upload(res_file, "Ресурс файл") if res_file else local_ext
 
     job = Job(owner=owner, local_name=Path(local_file.name).name, res_name=Path((res_file or local_file).name).name,
-              percents=remembered_percents(owner), base_period=base_period_of(owner))
+              percents=remembered_percents(owner), base_period=base_period_of(owner),
+              auto_cleared=not nf_auto_of(owner))  # «Қўлда» усули: бўлим номлари ўзи тозаланмайди
     clock = FileClock()
     try:
         _save(local_file, job.abs(f"upload/local{local_ext}"))
@@ -203,7 +214,7 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
 
 # sozlamalar (smetachi o'zgartiradi) — qayta hisoblash ularga tegmaydi, aks holda hisob davomidagi o'zgarish yo'qoladi
 SETTING_FIELDS = ["local_sheet", "res_sheet", "fuzzy", "mode", "percents", "categories", "prices", "cleared", "marked",
-                  "local_columns", "res_columns", "column_names", "base_period"]
+                  "auto_cleared", "local_columns", "res_columns", "column_names", "base_period"]
 # natija — faqat qayta hisoblash yozadi
 RESULT_FIELDS = ["status", "error", "duration", "rows", "output_path", "result", "preview_ready"]
 
@@ -219,6 +230,7 @@ def apply_settings(job: Job, local_sheet: Optional[str], res_sheet: Optional[str
         job.prices = {}
         job.cleared = []
         job.marked = []
+        job.auto_cleared = False  # yangi listning bo'lim nomlari ham o'zi tozalansin
         job.local_columns = {}  # ustunlar boshqa listga tegishli
     if res_sheet and res_sheet != job.res_sheet:
         job.res_columns = {}
@@ -248,6 +260,7 @@ def recompute(job: Job) -> Job:
     out = job.abs("out") / job.download_name
     tmp = out.with_name(f".{out.stem}.tmp{out.suffix}")
     t0 = time.monotonic()
+    auto_clear = job.mode == "smart" and not job.auto_cleared
     try:
         result = run(job.abs(job.local_path), job.abs(job.res_path) if job.res_path else None, Options(
             fuzzy_percent=job.fuzzy, mode=job.mode, local_sheet=job.local_sheet, res_sheet=job.res_sheet,
@@ -257,6 +270,7 @@ def recompute(job: Job) -> Job:
             column_names=job.column_names or None, cleared=job.cleared or None, marked=job.marked or None,
             local_columns=job.local_columns or None, res_columns=job.res_columns or None, **base_options(job),
             match_cache=job.abs("match_cache.json"),  # qayta hisoblashda RES bilan solishtirish takrorlanmaydi
+            auto_clear=auto_clear,
         ))
     except Exception as e:  # foydalanuvchiga ko'rsatamiz, server yiqilmasin
         job.status = Job.Status.FAILED
@@ -266,6 +280,10 @@ def recompute(job: Job) -> Job:
         return job
 
     tmp.replace(out)
+    if auto_clear:
+        # bo'lim nomlari o'zi tozalandi — sozlamaga yoziladi (smetachi «қайтариш» qilsa, qayta tozalanmaydi)
+        job.cleared, job.auto_cleared = sorted(set(job.cleared or []) | set(result.cleared)), True
+        job.auto_cleared_now = True
     job.preview_ready = False  # yangi natija — ko'rinish qayta tayyorlanadi (jobs/preview.py)
     job.status = Job.Status.DONE
     job.error = ""
@@ -485,6 +503,7 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
             if not p.get("res"):
                 p["base"] = False
     todo = sum(1 for p in batch.pairs if pair_ready(p))
+    nf_auto = nf_auto_of(batch.owner_id)
     for n, p in enumerate(batch.pairs):
         if not pair_ready(p):
             continue
@@ -498,6 +517,7 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
                   local_sheets=lf["sheets"], res_sheets=rf["sheets"] if rf else [],
                   local_sheet=loc["sheet"], res_sheet=res["sheet"] if res else "", mode="smart",
                   percents=remembered_percents(batch.owner_id), base_period=base_period,
+                  auto_cleared=not nf_auto,  # «Қўлда» усули: бўлим номлари ўзи тозаланмайди
                   local_columns=(batch.columns or {}).get(p["local"], {}),
                   res_columns=(batch.columns or {}).get(p["res"], {}) if res else {})
         local_dst = job.abs(f"conv/{loc['file']}.xlsx")

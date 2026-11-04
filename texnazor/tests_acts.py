@@ -176,6 +176,22 @@ class ActsFlowTests(TestCase):
         self.assertAlmostEqual(t["contract"], expected_total(), places=4)
         self.assertEqual(t["done"], 0)
 
+    def test_list_shows_contract_and_done_of_acts(self):
+        """Объектлар рўйхати: далолатномали объектда ҳам шартнома ва бажарилган сумма (0 эмас); ҳажм ўзгарса — янгиланади."""
+        from .services import object_cards
+        b = self.ready()
+        card = object_cards(self.user)[0]
+        self.assertAlmostEqual(card["contract"], expected_total(), places=2)
+        self.assertEqual(card["done"], 0)
+        self.assertContains(self.client.get(reverse("texnazor:index")), "далолатнома йўқ")
+        act = sa.add_act(self.obj)
+        work = next(r for r in b.rows if r["kind"] == "work")
+        sa.set_qty(act, work["row"], 1.0)
+        card = object_cards(self.user)[0]  # ҳажм ўзгарди — сақланган сумма эскирди, қайта ҳисобланади
+        self.assertGreater(card["done"], 0)
+        self.assertEqual(card["acts"], 1)
+        self.assertEqual(SiteObject.objects.get().contract_totals["card"]["done"], card["done"])
+
     def test_manual_columns_check_save_and_memo(self):
         b = self.ready()
         lay = b.lay
@@ -647,6 +663,9 @@ class PropResTests(TestCase):
     def test_user_makes_foreign_resources_proportional(self):
         self.assertEqual(self.obj.status, SiteObject.Status.READY, self.obj.error)
         self.assertIn("empty", [f["code"] for f in self.obj.layout["check"]["fails"]])
+        mark = self.client.get(reverse("texnazor:mark", args=[self.obj.pk]) + "?auto=1")
+        self.assertContains(mark, "Тизим жадвални тўлиқ тушунмади")  # tekshiruvdan o'tmagan — o'zi o'tib ketmaydi
+        self.assertNotContains(mark, 'id="mk-auto-fg"')
         page = self.client.get(reverse("texnazor:object", args=[self.obj.pk]))
         self.assertContains(page, "Мутаносиб қилиш: формулага тегмасдан")
         full = self.obj.layout["check"]["full"]
@@ -690,6 +709,76 @@ class PropResTests(TestCase):
             self.client.post(url, {"on": "0"})
         self.obj.refresh_from_db()
         self.assertFalse(self.obj.layout["check"]["ok"])
+
+
+class DropConstTests(TestCase):
+    """Svodka formulasiga qo'lda qo'shilgan son («=SUM(…)+124,25»): hajmsiz dalolatnomada ham pul chiqadi —
+    foydalanuvchi tasdiqlasa, dalolatnomada olinmaydi; ofyorta va «Остатка» fayldagidek (son bilan)."""
+
+    def setUp(self):
+        Path(TMP_MEDIA).mkdir(parents=True, exist_ok=True)
+        self.user = User.objects.create_user("const@test.uz", "Kuchli-parol-2026", first_name="A", last_name="B")
+        self.client.force_login(self.user)
+        path = build_sahovat(f"{TMP_MEDIA}/const.xlsx")
+        wb = load_workbook(path)
+        del wb["Ф-2 №1"]
+        ws = wb["Оферта "]
+        self.cell = next(c.coordinate for row in ws.iter_rows() for c in row
+                         if isinstance(c.value, str) and c.value.upper().startswith("=SUM(I"))  # → ЗАРПЛАТА → ВСЕГО
+        self.orig = ws[self.cell].value
+        ws[self.cell].value = self.orig + "+124.25"
+        wb.save(path)
+        with open(path, "rb") as f, patch("texnazor.tasks.start", lambda pk: None):
+            self.client.post(reverse("texnazor:create"), {"ofyorta": SimpleUploadedFile("const.xlsx", f.read())})
+        self.obj = SiteObject.objects.get()
+        tasks.run_now(self.obj.pk)
+        with patch("texnazor.tasks.start", lambda pk: None):
+            self.client.post(reverse("texnazor:choose_sheet", args=[self.obj.pk]), {"sheet": "Оферта "})
+        tasks.run_now(self.obj.pk)
+        self.obj.refresh_from_db()
+
+    def test_strip_const(self):
+        from .sheet import strip_const
+        self.assertEqual(strip_const("=SUM(L13:L403)+124.250527712138"), "=SUM(L13:L403)")
+        self.assertEqual(strip_const("=SUM(A1:A3)+5-2"), "=SUM(A1:A3)")
+        self.assertEqual(strip_const("=I5+H4573-1"), "=I5+H4573")
+        self.assertEqual(strip_const("=SUM(A1:A3)*1.2"), "=SUM(A1:A3)*1.2")
+        self.assertEqual(strip_const("=ROUND(SUM(A1)+5,2)"), "=ROUND(SUM(A1)+5,2)")
+
+    def test_user_drops_const_from_acts(self):
+        self.assertEqual(self.obj.status, SiteObject.Status.READY, self.obj.error)
+        self.assertIn("drop_const", [w.get("fix") for w in self.obj.warnings])
+        act = sa.add_act(self.obj)
+        before = sa.totals(self.obj)
+        self.assertGreater(abs(before["acts"][0]["sum"]), 100)  # hajmsiz dalolatnomada son chiqadi
+        page = self.client.get(reverse("texnazor:object", args=[self.obj.pk]))
+        self.assertContains(page, "Бу сонни далолатномаларда ҳисобламаслик")
+        self.assertContains(page, "Нима қилиш керак")
+        self.assertContains(page, f"{self.cell} катакда")
+        mark = self.client.get(reverse("texnazor:mark", args=[self.obj.pk]) + "?auto=1")
+        self.assertContains(mark, 'id="mk-auto"')  # o'qilgach — belgilangan jadval va o'zi o'tib ketish paneli
+        self.assertNotContains(self.client.get(reverse("texnazor:mark", args=[self.obj.pk])), 'id="mk-auto"')
+        url = reverse("texnazor:drop_const", args=[self.obj.pk])
+        with patch("texnazor.tasks.start", lambda pk: tasks.run_now(pk)):
+            self.client.post(url, {"on": "1"})
+        self.obj.refresh_from_db()
+        self.assertTrue(self.obj.layout["manual"]["drop_const"])
+        self.assertIn("drop_const_on", [w.get("fix") for w in self.obj.warnings])
+        after = sa.totals(self.obj)
+        self.assertAlmostEqual(after["acts"][0]["sum"], 0, places=2)
+        self.assertAlmostEqual(after["contract"], before["contract"], places=2)  # ofyorta fayldagidek
+        from texnazor.hisobot import build_report
+        ws = load_workbook(io.BytesIO(build_report(self.obj))).active
+        self.assertTrue(ws[self.cell].value.endswith("+124.25"))  # ofyortada son qoladi
+        self.assertTrue(any(isinstance(c.value, str) and c.value.startswith("=SUM(") and "124.25" not in c.value
+                            and c.column > ws[self.cell].column for row in ws.iter_rows(min_row=ws[self.cell].row,
+                            max_row=ws[self.cell].row) for c in row))  # dalolatnoma blokida — sonsiz
+        with patch("texnazor.tasks.start", lambda pk: tasks.run_now(pk)):
+            self.client.post(url, {"on": "0"})
+        self.obj.refresh_from_db()
+        self.assertNotIn("drop_const", self.obj.layout.get("manual") or {})
+        self.assertGreater(abs(sa.totals(self.obj)["acts"][0]["sum"]), 100)
+        act.delete()
 
 
 class ReportOpensCleanTests(TestCase):

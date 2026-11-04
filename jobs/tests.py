@@ -50,7 +50,8 @@ class FlowTests(LoggedInTestCase):
     def test_index_page(self):
         r = self.client.get(reverse("index"))
         self.assertContains(r, 'name="files"')
-        self.assertContains(r, "1 та катта файл")
+        self.assertContains(r, "Файл танлаш")
+        self.assertContains(r, "Папка танлаш")
 
     # ---------------- объект: бир/кўп файл ----------------
     def _upload_files(self, *paths):
@@ -82,7 +83,7 @@ class FlowTests(LoggedInTestCase):
         page = self.client.get(reverse("batch", args=[batch.id]))
         self.assertContains(page, "Стройка:")
         self.assertContains(page, "МОСТ НА ПК 75+34")
-        self.assertContains(page, "Нусхалар — бир марта олинди (6)")
+        self.assertContains(page, "Нусхалар (6)")
         self.assertContains(page, "93% мос")              # ҳар бир вариантнинг мослиги
         self.assertContains(page, "★ ")                    # энг мос вариант белгиланган
         self.assertContains(page, "Л1")                    # боғланиш белгилари: Л1 → Р…
@@ -888,3 +889,18 @@ class JobPageExplainTests(TestCase):
         self.assertEqual(zero_reason({"status": "EXACT", "g": 0, "name": "ГВОЗДИ"})["tag"], "RES'да 0")
         self.assertEqual(zero_reason({"status": "WORK_HEADER", "g": 0, "name": "x"})["tag"], "иш сарлавҳаси")
         self.assertEqual(zero_reason({"status": "EXACT", "g": 100, "name": "ГВОЗДИ"}), {})
+
+
+class NfModeTests(LoggedInTestCase):
+    """Юклашда танланган усул: «Автоматик» (сукут) — бўлим номлари ўзи тозаланади, «Қўлда» — ҳеч нарса ўзи олинмайди."""
+
+    def test_choice_is_remembered_and_shown(self):
+        from .services import nf_auto_of
+        self.assertTrue(nf_auto_of(self.user))  # сукут — автоматик
+        page = self.client.get(reverse("index"))
+        self.assertContains(page, 'value="auto" checked')
+        self.assertEqual(self.client.post(reverse("nf_mode"), {"nf_mode": "manual"}).status_code, 200)
+        self.assertFalse(nf_auto_of(self.user))
+        self.assertContains(self.client.get(reverse("index")), 'value="manual" checked')
+        self.client.post(reverse("nf_mode"), {"nf_mode": "auto"})
+        self.assertTrue(nf_auto_of(self.user))

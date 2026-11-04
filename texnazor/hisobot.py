@@ -22,7 +22,7 @@ from openpyxl.worksheet.merge import MergedCellRange
 
 from . import services_acts as sa
 from .formula import Err, move_refs
-from .sheet import hidden_set
+from .sheet import hidden_set, strip_const
 from .models import Act, SiteObject
 
 # hisobot qoidalari o'zgarsa oshiriladi — diskda saqlangan eski Excel fayllar qayta yasaladi
@@ -200,7 +200,7 @@ def _blocks(obj: SiteObject, b) -> List[Tuple[str, Dict[int, float], Optional[Ac
 
 
 # ===================== Хисобот =====================
-def _write_block(ws, b, start: int, title: str, qty: Dict[int, float], collapsed: bool = False):
+def _write_block(ws, b, start: int, title: str, qty: Dict[int, float], collapsed: bool = False, act: bool = True):
     """Bitta blok: ofyortaning ``qty..block_end`` ustunlari ``start`` (0 dan) ustunidan boshlab. Hajm / me'yor / narx
     ustunlari Excel guruhida («свернуть» — faqat summa ustuni qoladi); collapsed — yig'ilgan holda (saytdagidek)."""
     lay = b.lay
@@ -243,6 +243,8 @@ def _write_block(ws, b, start: int, title: str, qty: Dict[int, float], collapsed
             if isinstance(v, str) and v.startswith("="):
                 if "!" in v:
                     continue  # boshqa varaqqa havola — ko'chmaydi
+                if act and kind == "svod" and lay.drop_const:
+                    v = strip_const(v)  # qo'lda qo'shilgan son dalolatnomaga tushmaydi («Остатка»da qoladi)
                 v = move_refs(v, mover)
             elif (j, r) in over:
                 v = over[(j, r)] if over[(j, r)] else None
@@ -292,7 +294,7 @@ def build_report(obj: SiteObject, collapsed=()) -> bytes:
     starts = [lay.block_end + 1 + k * width for k in range(len(blocks))]
     last = ws.max_row
     for k, (start, (title, qty, act)) in enumerate(zip(starts, blocks)):
-        _write_block(ws, b, start, title, qty, (f"a{act.number}" if act else "rest") in collapsed)
+        _write_block(ws, b, start, title, qty, (f"a{act.number}" if act else "rest") in collapsed, act is not None)
         # rang indeksi bir marta — har katakka ``.fill =`` uslublar ro'yxatini qayta xeshlaydi (sekin)
         fid = wb._fills.add(PatternFill("solid", fgColor=BLOCK_FILLS[k % len(BLOCK_FILLS)] if act else REST_FILL))
         for r in range(max(1, lay.header - 1), last + 1):
@@ -310,8 +312,8 @@ def build_report(obj: SiteObject, collapsed=()) -> bytes:
     if ws.print_area:  # fayldagi bosma maydoni faqat ofyortani olardi — bloklar ham kirsin
         ws.print_area = f"A1:{get_column_letter(starts[-1] + width if starts else lay.block_end + 1)}{last}"
     wb.active = 0
-    full = b.evaluate({t: b.contract_qty(t) for t in b.tops})
-    evs = [(s, s + width, b.evaluate(qty)) for s, (_t, qty, _a) in zip(starts, blocks)]
+    full = b.evaluate({t: b.contract_qty(t) for t in b.tops}, full=True)
+    evs = [(s, s + width, b.evaluate(qty, full=a is None)) for s, (_t, qty, a) in zip(starts, blocks)]  # «Остатка» — fayldagi formula
 
     def value(c, r):
         for s, e, ev in evs:
@@ -403,6 +405,8 @@ def _filter(ws, src, b, qty: Dict[int, float]):
             s = src.cell(row=r, column=j + 1)
             v = s.value
             if isinstance(v, str) and v.startswith("=") and "!" not in v and kind != "head":
+                if kind == "svod" and b.lay.drop_const:
+                    v = strip_const(v)  # qo'lda qo'shilgan son dalolatnomaga tushmaydi (tasdiqlangan)
                 v = move_refs(v, mover)
             elif (j, r) in over:
                 v = over[(j, r)] if over[(j, r)] else None

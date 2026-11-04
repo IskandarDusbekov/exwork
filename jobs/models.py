@@ -150,6 +150,8 @@ class Job(models.Model):
     res_columns = models.JSONField(default=dict, blank=True)
     cleared = models.JSONField(default=list, blank=True)  # «ТОПИЛМАДИ» so'zi olib tashlangan qatorlar [183, 281]
     marked = models.JSONField(default=list, blank=True)  # sariq belgilangan (so'z olingan, G sariq — «ko'rib chiqildi»)
+    # birligi ham, taklifi ham yo'q qatorlar (bo'lim nomlari) bir marta o'zi tozalandi — smetachi qaytarsa, qayta tozalanmaydi
+    auto_cleared = models.BooleanField(default=False)
     base_period = models.JSONField(default=dict, blank=True)  # ресурс базаси: {"region", "year", "quarter"}; {} — ишлатилмайди
     table_checked = models.BooleanField(default=False)  # 2-bosqich: L/M ko'chirildi, jadval ko'rib chiqildi
 

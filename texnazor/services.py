@@ -171,7 +171,11 @@ def delete_object(obj: SiteObject):
 def object_cards(owner) -> list:
     """Объектлар рўйхати ва дашборд учун: шартнома (пудратчи, ҚҚС билан), бошидан бажарилган, қолдиқ, фоиз, ойлар сони."""
     cards = []
+    acts_marks = _acts_marks(owner)
     for o in SiteObject.objects.filter(owner=owner):
+        if o.mode == SiteObject.Mode.ACTS:
+            cards.append(_acts_card(o, acts_marks.get(o.pk)))
+            continue
         last = o.periods.order_by("-year", "-month").first()
         t = period_totals(last) if last and o.status == SiteObject.Status.READY else None
         contract = (o.contract_totals or {}).get("contractor", 0.0)
@@ -179,6 +183,53 @@ def object_cards(owner) -> list:
         cards.append({"o": o, "last": last, "contract": contract, "done": done, "left": contract - done,
                       "pct": 100 * done / contract if contract else 0.0, "months": o.periods.count()})
     return cards
+
+
+def _acts_marks(owner) -> dict:
+    """Далолатномали объектлар: ҳажмлар охирги ўзгарган пайт ва сони — рўйхатдаги сумма шу ўзгармаса қайта ҳисобланмайди."""
+    from django.db.models import Count, Max
+    from .models import ActQty
+    return {r["act__obj"]: (r["m"], r["n"]) for r in ActQty.objects.filter(act__obj__owner=owner)
+            .values("act__obj").annotate(m=Max("updated"), n=Count("id"))}
+
+
+def _card_key(o: SiteObject, n_acts: int, mark) -> str:
+    """Лист (``stamp``), далолатномалар сони ва ҳажмлар (охирги ўзгариш, сони) — шулар ўзгармаса, сумма ҳам ўзгармайди."""
+    return f"{(o.layout or {}).get('stamp')}:{n_acts}:{mark[0].isoformat() if mark else ''}:{mark[1] if mark else 0}"
+
+
+def remember_card(o: SiteObject, t: dict):
+    """Далолатнома саҳифаси ҳисоблаган суммани объектда сақлайди — рўйхат уни қайта ҳисобламайди.
+    Далолатномали объектда ``contract_totals`` бошқа ишлатилмайди (у — ойлар режими учун)."""
+    from django.db.models import Count, Max
+    from .models import ActQty
+    m = ActQty.objects.filter(act__obj=o).aggregate(m=Max("updated"), n=Count("id"))
+    key = _card_key(o, o.acts.count(), (m["m"], m["n"]) if m["n"] else None)
+    card = {"key": key, **{k: t[k] for k in ("contract", "done", "left", "pct")}}
+    if (o.contract_totals or {}).get("card") != card:
+        o.contract_totals = {**(o.contract_totals or {}), "card": card}
+        SiteObject.objects.filter(pk=o.pk).update(contract_totals=o.contract_totals)
+
+
+def _acts_card(o: SiteObject, mark) -> dict:
+    """Далолатномали объект картаси: шартнома, бажарилган, қолдиқ — ``services_acts.totals`` дан (формулалар билан).
+    Ҳисоб оғир (листни компиляция қилиш), шунинг учун объектда сақланган (``remember_card``): лист ёки ҳажмлар
+    ўзгармагунча шуниси; ўзгарган бўлса — бир марта ҳисобланиб, яна сақланади."""
+    acts = list(o.acts.all())
+    card = {"o": o, "acts_mode": True, "acts": len(acts), "last": acts[-1] if acts else None,
+            "contract": 0.0, "done": 0.0, "left": 0.0, "pct": 0.0, "months": len(acts)}
+    if o.status != SiteObject.Status.READY:
+        return card
+    saved = (o.contract_totals or {}).get("card") or {}
+    if saved.get("key") != _card_key(o, len(acts), mark):
+        from . import services_acts
+        try:
+            remember_card(o, services_acts.totals(o))
+        except Exception:  # noqa: BLE001 — битта объект рўйхатни бузмасин; очилганда сабаби кўринади
+            return card
+        saved = o.contract_totals["card"]
+    card.update({k: saved[k] for k in ("contract", "done", "left", "pct")})
+    return card
 
 
 def periods(obj: SiteObject):
