@@ -31,6 +31,7 @@ from .models import Batch, Job, Project
 from .services import (
     BASE_RES, UploadError, analyze_batch, base_period_of, check_quota, pair_ready, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job,
     nf_auto_of, parse_percents, remember_base_period, remember_nf_auto, remember_percents, remembered_percents, unpriced_res,
+    price_source_of, remember_price_source, base_only,
 )
 from .templatetags.narx import file_title, pct as pct_text, pct_input, readable, som
 
@@ -103,6 +104,7 @@ def index(request):
             return redirect_to_login(request.get_full_path())
         return landing(request)
     error = None
+    xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"  # юклаш саҳифаси файлларни XHR билан юборади
     if request.method == "POST":
         try:
             check_quota(request.user)  # файллар ўқилишидан олдин
@@ -112,12 +114,12 @@ def index(request):
                 # ZIP/RAR — ичида папкалар бўлади: папка каби очилади (ҳисоблаш смета­чи босгандагина)
                 project = create_project(request.user, files, [f.name for f in files])
                 audit(request, Event.Kind.UPLOAD, work=project, work_kind="folder", detail=project.name)
-                return redirect("project", project_id=project.id)
+                return _went(xhr, reverse("project", args=[project.id]))
             if files:
                 # Universal yuklash: bitta obyekt fayli yoki bir nechta fayl — tizim o'zi ajratadi
                 batch = create_batch(request.user, files)
                 audit(request, Event.Kind.UPLOAD, work=batch, work_kind="object", detail=batch.name)
-                return redirect("batch", batch_id=batch.id)
+                return _went(xhr, reverse("batch", args=[batch.id]))
             if local:
                 job = create_job(request.user, local, request.FILES.get("res"))  # eski ikki maydonli usul
                 audit(request, Event.Kind.UPLOAD, work=job, work_kind="smeta", detail=job.local_name)
@@ -125,10 +127,19 @@ def index(request):
             error = "Файлни танланг."
         except UploadError as e:
             error = str(e)
+        if xhr:
+            return JsonResponse({"ok": False, "error": error}, status=400)
     recent = work_items(request.user, limit=6)
     return render(request, "jobs/index.html", {"error": error, "recent": recent, "resume": recent[0] if recent else None,
                                                "nav": "upload", "nf_auto": nf_auto_of(request.user),
+                                               "price_source": price_source_of(request.user),
+                                               "pct_form": _pct_form(request.user.pk),
                                                **_base_ctx(base_period_of(request.user))})
+
+
+def _went(xhr, url):
+    """Юклаш тугади: XHR'га — қаерга ўтиш (JSON), оддий формага — redirect."""
+    return JsonResponse({"ok": True, "url": url}) if xhr else redirect(url)
 
 
 def _base_ctx(period) -> dict:
@@ -156,6 +167,25 @@ def base_period(request):
 def nf_mode(request):
     """Юклаш саҳифасида танланган усул: «Автоматик» — бўлим номлари ўзи тозаланади, «Қўлда» — смета­чи ўзи."""
     remember_nf_auto(request.user, request.POST.get("nf_mode") != "manual")
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+def price_source(request):
+    """Юклаш саҳифасидаги «Нарх манбаи»: ``res`` — локал + RES (олдинги усул), ``base`` — фақат ресурс базаси."""
+    remember_price_source(request.user, request.POST.get("source", "res"))
+    return JsonResponse({"ok": True, "source": price_source_of(request.user)})
+
+
+@require_POST
+def upload_percents(request):
+    """Юклаш саҳифасида («Автоматик» усул) тасдиқланган сводка фоизлари — кейинги сметалар шу фоизлар билан."""
+    saved = remembered_percents(request.user)
+    data = {f"pct_{k}": (request.POST.get(f"pct_{k}", "").strip() or "0") for k in DEFAULT_PERCENTS
+            if f"pct_{k}" in request.POST}  # бўш катак — 0 (смета саҳифасидагидек)
+    if not data:
+        return JsonResponse({"ok": False, "error": "фоиз йўқ"}, status=400)
+    remember_percents(request.user, {**saved, **parse_percents(data, saved)})
     return JsonResponse({"ok": True})
 
 
@@ -838,6 +868,7 @@ def batch_detail(request, batch_id):
         "role_labels": ROLE_LABELS.items(),
         "ready": sum(1 for p in batch.pairs if pair_ready(p)),
         **_base_ctx(base_period_of(batch.owner_id)), "base_res": BASE_RES,
+        **({} if base_only(batch.owner_id) else {"base_label": ""}),  # «Ресурс базаси» варианти — фақат «фақат база» режимида
         "jobs": jobs,
         "grand_total": sum(j.result.get("totals", {}).get("s_nds") or 0 for j in jobs
                            if isinstance(j.result.get("totals", {}).get("s_nds"), (int, float))),
@@ -904,7 +935,8 @@ def job_detail(request, job_id):
     job = _get_work(request, Job, id=job_id)
     ctx = {"job": job, "modes": MODE_LABELS.items(), "crumbs": crumbs_for(job=job),
            "siblings": list(job.batch.jobs.order_by("batch_order")) if job.batch_id else [],
-           **_base_ctx(job.base_period)}
+           # база танлови фақат RES'сиз (базадан нархланган) сметада — RES'лисида база ишлатилмайди
+           **(_base_ctx(job.base_period) if not job.res_path else {"base_on": False})}
     if (job.status == Job.Status.DONE and job.mode == "smart" and not job.auto_cleared
             and job.recalc_seq <= job.recalc_done and job.owner_id == request.user.pk and nf_auto_of(job.owner_id)):
         # олдин нархланган смета: бўлим номлари (бирлиги ҳам, таклифи ҳам йўқ) бир марта ўзи тозаланади

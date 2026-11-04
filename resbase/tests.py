@@ -323,6 +323,7 @@ class PricingFromBaseTests(TestCase):
     def test_local_without_res_priced_from_base(self):
         from core.tests.conftest import build_local
         self._enable()
+        self.client.post(reverse("price_source"), {"source": "base"})  # база фақат смета­чи танласа
         local = build_local(TMP_MEDIA / "Локал.xlsx")
         self.client.post(reverse("index"), {"files": [SimpleUploadedFile("Локал.xlsx", local.read_bytes())]})
         batch = Batch.objects.get()

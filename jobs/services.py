@@ -121,14 +121,36 @@ def base_ready(owner) -> bool:
     return period_complete(base_period_of(owner))
 
 
+def price_source_of(owner) -> str:
+    """Юклаш саҳифасидаги «Нарх манбаи»: ``"res"`` — локал + RES (RES'да йўқлари базадан, сукут),
+    ``"base"`` — фақат ресурс базаси (RES юкланган бўлса ҳам ишлатилмайди)."""
+    s = Setting.objects.filter(owner_id=getattr(owner, "pk", owner), key="price_source").first()
+    return "base" if s and isinstance(s.value, dict) and s.value.get("source") == "base" else "res"
+
+
+def remember_price_source(owner, source: str):
+    Setting.objects.update_or_create(owner_id=getattr(owner, "pk", owner), key="price_source",
+                                     defaults={"value": {"source": "base" if source == "base" else "res"}})
+
+
+def base_only(owner) -> bool:
+    """Смета тўлиқ ресурс базасидан нархланадими: «фақат база» танланган, база ёқилган ва давр тўлиқ.
+    Давр танланмаган бўлса — олдинги усул (локал + RES)."""
+    return price_source_of(owner) == "base" and base_ready(owner)
+
+
 def pair_ready(p: dict) -> bool:
     """Жуфтлик нархланадими: белгиланган ва RES (ёки RES ўрнига ресурс базаси) танланган."""
     return bool(p.get("include") and (p.get("res") or p.get("base")))
 
 
 def base_options(job: Job) -> dict:
-    """``Options`` uchun: ресурс базаси narxlari (baza o'chiq yoki davr tanlanmagan — bo'sh)."""
+    """``Options`` uchun: ресурс базаси narxlari (baza o'chiq yoki davr tanlanmagan — bo'sh).
+    RES bilan narxlanadigan smetada baza umuman ishlatilmaydi — narxlar aralashmaydi; baza faqat RES'siz
+    («Фақат ресурс базаси» yoki juftlikda «Ресурс базаси» tanlangan) smetada."""
     from resbase.services import period_label, price_map
+    if job.res_path:
+        return {"base_prices": None, "base_label": ""}
     prices = price_map(job.base_period)
     return {"base_prices": prices or None, "base_label": period_label(job.base_period) if prices else ""}
 
@@ -164,6 +186,8 @@ def create_job(owner, local_file, res_file=None) -> Job:
     job.local_path = str(local_xlsx.relative_to(job.dir))
     job.res_path = str(res_xlsx.relative_to(job.dir))
     job.local_sheet, job.res_sheet = pair_sheets(job.local_sheets, job.res_sheets)
+    if base_only(owner):  # «фақат ресурс базаси»: RES (юкланган бўлса ҳам) нархлашда ишлатилмайди
+        job.res_path, job.res_sheet, job.res_sheets, job.res_name = "", "", [], "ресурс базаси"
     job.save()
     save_timings(clock, job.owner_id, job=job)
     return job
@@ -312,7 +336,43 @@ def recompute(job: Job) -> Job:
         "cleared": result.cleared,
         "marked": result.marked,
     }
+    if auto_clear and auto_apply(job):
+        recompute(job)  # takliflar va L/M qo'yildi — shu sozlama bilan qayta (auto_cleared endi True: takrorlanmaydi)
     return job
+
+
+def auto_apply(job: Job) -> bool:
+    """«Автоматик» усул, биринчи нархлашдан кейин: смета­чи қиладиган ишларнинг бир қисми ўзи бажарилади —
+    1-босқич: бирлиги мос яқин RES ресурси таклифи (нархи) қабул қилинади (бирлиги бошқа таклиф — смета­чига);
+    2-босқич: кабель / ускуна таклифлари L / M га ўтказилади ва жадвал «текширилди» бўлади.
+    Сводка фоизлари — юклашда тасдиқланган (эслаб қолинган) фоизлар. True — бирор нарса ўзгарди."""
+    from .views import _lm_stage, _not_found_stage, _res_groups, column_labels
+    if job.mode != "smart" or job.status != Job.Status.DONE or not nf_auto_of(job.owner_id):
+        return False
+    rows = job.result.get("rows", [])
+    prices, categories = dict(job.prices or {}), dict(job.categories or {})
+    for r in _not_found_stage(rows)["group_b_near"]:
+        near = r.get("near") or {}
+        price = _as_number(near.get("price"))
+        if near.get("same_unit") and price is not None and str(r["row"]) not in prices:
+            prices[str(r["row"])] = price
+    labels = column_labels(job)
+    for card in _lm_stage(rows, _res_groups(job.result, labels), labels)["cards"]:
+        for r in card["rows"]:
+            if str(r["row"]) not in categories:
+                categories[str(r["row"])] = card["col"]
+    changed = prices != (job.prices or {}) or categories != (job.categories or {})
+    job.prices, job.categories, job.table_checked = prices, categories, True
+    job.auto_applied_now = True
+    return changed
+
+
+def _as_number(v) -> Optional[float]:
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    return parse_text_number(str(v)) if v is not None else None
 
 
 # ===================== obyekt: bir yoki bir nechta fayl =====================
@@ -446,9 +506,12 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
     mark_duplicates(infos)
     pairs, _unused = plan_pairs(infos)
     batch.sheets = [dict(i.to_dict(), prices=prices.get(i.key)) for i in infos]
-    # RES топилмаган локал — база ёқилган ва давр танланган бўлса, ресурс базасидан нархланади
-    base = base_ready(batch.owner_id)
-    batch.pairs = [dict(p.to_dict(), include=p.res is not None or base, base=p.res is None and base) for p in pairs]
+    # «Фақат ресурс базаси» танланган бўлса — ҳамма локал базадан (топилган RES жуфтга қўйилмайди).
+    # «Локал + RES» — фақат RES билан: RES топилмаган локал нархланмайди (база аралашмайди)
+    if base_only(batch.owner_id):
+        batch.pairs = [dict(p.to_dict(), res=None, include=True, base=True) for p in pairs]
+    else:
+        batch.pairs = [dict(p.to_dict(), include=p.res is not None, base=False) for p in pairs]
     return batch
 
 
@@ -475,10 +538,13 @@ def unpriced_res(batch: "Batch") -> set:
 def apply_decisions(batch: "Batch", decisions: dict):
     """Смета­чи танлови (қайси локал нархлансин, қайси RES билан, номи) жуфтликларга ёзилади."""
     resources = {s["key"] for s in batch.sheets if s["role"] == "resource" and not s.get("duplicate_of")}
+    allow_base = base_only(batch.owner_id)  # «Локал + RES» режимида база танланмайди (аралашмасин)
     for n, p in enumerate(batch.pairs):
         d = decisions.get(n, {})
         p["include"] = bool(d.get("include", p.get("include")))
-        if d.get("res") == BASE_RES:
+        if d.get("res") == BASE_RES and not allow_base:
+            p["res"], p["base"] = None, False
+        elif d.get("res") == BASE_RES:
             p["res"], p["base"] = None, True
         elif "res" in d:
             p["res"] = d["res"] if d["res"] in resources else None

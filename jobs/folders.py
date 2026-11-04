@@ -524,7 +524,7 @@ def analyze_part(part: Batch):
         resources = [s for s in part.sheets if s["role"] == "resource" and not s.get("duplicate_of")]
         if len(resources) == 1:
             for p in part.pairs:
-                if not p.get("res"):
+                if not p.get("res") and not p.get("base"):  # «ресурс базасидан»: RES (ягона бўлса ҳам) олинмайди
                     p["res"], p["include"] = resources[0]["key"], True
                     p.setdefault("reasons", []).append("папкада ягона ресурс")
         part.save()

@@ -42,16 +42,32 @@
   .up-more details summary::-webkit-details-marker { display: none; }
   .up-rules { margin-top: 10px; padding: 14px 16px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; line-height: 1.55; }
   .up-rules li + li { margin-top: 6px; }
-  .up-mode { margin: 18px 0 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .up-mode-t { grid-column: 1 / -1; font-size: 13px; font-weight: 600; color: #334155; }
+  .up-opts { margin-top: 18px; display: grid; gap: 14px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; }
+  .up-opt-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: #334155; }
+  .up-ok { font-size: 12px; font-weight: 500; color: #047857; }
+  .up-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .up-mode-o { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; cursor: pointer; }
-  .up-mode-o:has(input:checked) { border-color: #10b981; background: #ecfdf5; box-shadow: 0 0 0 1px #10b981; }
+  .up-mode-o.is-on { border-color: #10b981; background: #ecfdf5; box-shadow: 0 0 0 1px #10b981; }
   .up-mode-o input { margin-top: 3px; accent-color: #059669; }
   .up-mode-o b { display: block; font-size: 14px; color: #0f172a; }
   .up-mode-o small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.4; color: #64748b; }
   @media (max-width: 640px) { .up-mode { grid-template-columns: 1fr; } }
-  .up-src { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; color: #475569; }
-  .up-err[hidden], .up-bar[hidden], .up-sel[hidden] { display: none; }
+  .up-src { margin-top: -4px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; background: #f8fafc; font-size: 14px; color: #475569; }
+  .up-warn { font-size: 12px; color: #b45309; }
+  .up-err[hidden], .up-bar[hidden], .up-sel[hidden], .up-src[hidden], .up-warn[hidden] { display: none; }
+  .up-dlg { width: min(560px, calc(100vw - 32px)); padding: 0; border: 0; border-radius: 18px; box-shadow: 0 20px 50px rgba(15, 23, 42, .25); }
+  .up-dlg::backdrop { background: rgba(15, 23, 42, .45); }
+  .up-dlg form { padding: 20px; }
+  .up-dlg h2 { font-size: 18px; font-weight: 700; color: #0f172a; }
+  .up-dlg h2 + p { margin-top: 4px; font-size: 13px; color: #64748b; }
+  .up-pcts { margin: 16px 0 6px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .up-pcts label > span:first-child { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #475569; }
+  .up-pct { margin-top: 4px; display: flex; align-items: center; gap: 4px; font-size: 14px; color: #64748b; }
+  .up-pct input { width: 84px; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 8px; text-align: right; font-size: 14px; color: #0f172a; }
+  .up-pct input.is-changed { border-color: #fbbf24; background: #fffbeb; }
+  .up-dlg-b { margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px; }
+  .up-dlg-b button { height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #cbd5e1; font-weight: 600; color: #0f172a; background: #fff; }
+  .up-dlg-b .is-main { border-color: #0f172a; background: #0f172a; color: #fff; }
   .up-recent { margin-top: 36px; }
   .up-recent h2 { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #334155; }
   .up-recent h2 a { margin-left: auto; font-size: 13px; font-weight: 500; color: #64748b; }
@@ -95,44 +111,82 @@
   {% else %}<div class="up-err" id="ferror" hidden></div>{% endif %}
   <div class="up-bar" id="fprogress" hidden><div><i id="fprogress-bar"></i></div><p><span id="fprogress-text">Юкланяпти…</span><span id="fprogress-pct" class="num">0%</span></p></div>
 
-  {# топилмаганлар: бўлим номлари ва изоҳлар (бирлиги ҳам, таклифи ҳам йўқ) — ким тозалайди #}
-  <form id="nf-mode" class="up-mode" data-guide="nf-mode">{% csrf_token %}
-    <div class="up-mode-t">Нархи топилмаган бўлим номлари ва изоҳлар</div>
-    <label class="up-mode-o"><input type="radio" name="nf_mode" value="auto" {% if nf_auto %}checked{% endif %}>
-      <span><b>Автоматик</b><small>бирлиги ҳам, таклифи ҳам йўқ қаторлардан «ТОПИЛМАДИ» ўзи олинади — кейин бир тугма билан кўриб, қайтариш мумкин</small></span></label>
-    <label class="up-mode-o"><input type="radio" name="nf_mode" value="manual" {% if not nf_auto %}checked{% endif %}>
-      <span><b>Қўлда</b><small>ҳеч нарса ўзи олинмайди — ҳар бирини ўзингиз кўриб ҳал қиласиз</small></span></label>
-    <span id="nf-saved" class="hidden text-xs text-emerald-700">✓ сақланди</span>
-  </form>
-  <script>
-  (function () {
-    var form = document.getElementById("nf-mode"), saved = document.getElementById("nf-saved");
-    form.addEventListener("change", function () {
-      fetch("{% url 'nf_mode' %}", {method: "POST", body: new FormData(form), headers: {"X-CSRFToken": form.csrfmiddlewaretoken.value}})
-        .then(function (r) { if (r.ok) { saved.classList.remove("hidden"); setTimeout(function () { saved.classList.add("hidden"); }, 1500); } });
-    });
-  })();
-  </script>
+  {# юклашдан олдинги танловлар: нарх манбаи (база ёқилган бўлса) ва нархлаш усули — иккаласи ҳам эслаб қолинади #}
+  <section class="up-opts" data-guide="nf-mode">
+    {% if base_on %}
+    <form id="price-source" class="up-opt">{% csrf_token %}
+      <div class="up-opt-h">Нарх қаердан олинади <span id="src-saved" class="up-ok hidden">✓ сақланди</span></div>
+      <div class="up-mode">
+        <label class="up-mode-o"><input type="radio" name="source" value="res" {% if price_source != "base" %}checked{% endif %}>
+          <span><b>Юкланган RES файлдан</b><small>Локал ва RES файлини бирга юкланг</small></span></label>
+        <label class="up-mode-o"><input type="radio" name="source" value="base" {% if price_source == "base" %}checked{% endif %}>
+          <span><b>Ресурс базасидан</b><small>Ҳамма нарх базадан. RES юкланса ҳам ишлатилмайди, ўзгармайди</small></span></label>
+      </div>
+    </form>
+    <form id="base-period" class="up-src"{% if price_source != "base" %} hidden{% endif %}>{% csrf_token %}
+      <span>Вилоят ва давр:</span>
+      {% include "panel/_base_period.html" with r=base_period.region y=base_period.year q=base_period.quarter %}
+      <span id="base-saved" class="up-ok hidden">✓ сақланди</span>
+    </form>
+    <p id="base-warn" class="up-warn"{% if price_source != "base" or base_period.region and base_period.year and base_period.quarter %} hidden{% endif %}>
+      Вилоят, йил ва чоракни танланг — акс ҳолда нарх RES файлдан олинади.</p>
+    {% endif %}
+    <form id="nf-mode" class="up-opt">{% csrf_token %}
+      <div class="up-opt-h">Нархлаш усули <span id="nf-saved" class="up-ok hidden">✓ сақланди</span></div>
+      <div class="up-mode">
+        <label class="up-mode-o"><input type="radio" name="nf_mode" value="auto" {% if nf_auto %}checked{% endif %}>
+          <span><b>Автоматик</b><small>Бирлиги йўқ қаторлар (бўлим номлари, изоҳлар) олиб ташланади, бирлиги мос нарх таклифлари қабул қилинади,
+            кабель ва ускуналар «Кабель» ва «Ускуна» устунларига ўтади</small></span></label>
+        <label class="up-mode-o"><input type="radio" name="nf_mode" value="manual" {% if not nf_auto %}checked{% endif %}>
+          <span><b>Қўлда</b><small>Ҳаммасини ўзингиз кўриб ҳал қиласиз</small></span></label>
+      </div>
+    </form>
+  </section>
 
   <button type="button" id="go" class="up-go" disabled data-guide="go">{% icon "upload" "h-5 w-5" %}<span id="go-t">Юклаш</span></button>
 
-
-  {% if base_on %}
-  <form id="base-period" class="up-src">{% csrf_token %}
-    <span>Ресурс файлида нархи йўқ қаторлар учун база:</span>
-    {% include "panel/_base_period.html" with r=base_period.region y=base_period.year q=base_period.quarter %}
-    <span id="base-saved" class="hidden text-xs text-emerald-700">✓ сақланди</span>
-  </form>
+  {# юклаш олдидан (иккала усулда) сводка фоизлари тасдиқланади — ҳамма смета шу фоизлар билан ҳисобланади #}
+  <dialog id="pct-dlg" class="up-dlg">
+    <form id="auto-pct" method="dialog">{% csrf_token %}
+      <h2>Сводка фоизлари</h2>
+      <p>Ҳамма смета шу фоизлар билан ҳисобланади. Охирги танлов эслаб қолинади.
+        Ҳозир текширмасангиз ҳам бўлади — фоизларни кейин смета саҳифасида ўзгартириш мумкин.</p>
+      <div class="up-pcts">
+        {% for f in pct_form %}
+        <label>
+          <span title="{{ f.text }}">{{ f.text }}</span>
+          <span class="up-pct"><input type="text" inputmode="decimal" name="pct_{{ f.key }}" value="{{ f.pct|pct_input }}" autocomplete="off"
+                 class="num{% if f.pct != f.default %} is-changed{% endif %}" title="Стандарт: {{ f.default|pct }}">%</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p id="pct-err" class="up-warn" hidden></p>
+      <div class="up-dlg-b">
+        <button type="button" data-later>Кейин тўғрилайман</button>
+        <button type="submit" value="ok" class="is-main">Тасдиқлаш ва юклаш</button>
+      </div>
+    </form>
+  </dialog>
   <script>
   (function () {
-    var form = document.getElementById("base-period"), saved = document.getElementById("base-saved");
-    form.addEventListener("change", function () {
-      fetch("{% url 'base_period' %}", {method: "POST", body: new FormData(form), headers: {"X-CSRFToken": form.csrfmiddlewaretoken.value}})
-        .then(function (r) { if (r.ok) { saved.classList.remove("hidden"); setTimeout(function () { saved.classList.add("hidden"); }, 1500); } });
-    });
+    function post(form, url, saved, done) {
+      fetch(url, {method: "POST", body: new FormData(form), headers: {"X-CSRFToken": form.csrfmiddlewaretoken.value}})
+        .then(function (r) { if (r.ok) { saved.classList.remove("hidden"); setTimeout(function () { saved.classList.add("hidden"); }, 1500); if (done) done(); } });
+    }
+    var mode = document.getElementById("nf-mode");
+    mode.addEventListener("change", function () { post(mode, "{% url 'nf_mode' %}", document.getElementById("nf-saved")); });
+    var src = document.getElementById("price-source"), period = document.getElementById("base-period");
+    if (!src) return;
+    function refresh() {
+      var base = src.querySelector("input[name=source]:checked").value === "base";
+      period.hidden = !base;  // давр фақат «базадан» режимида керак
+      var full = Array.prototype.every.call(period.querySelectorAll("select"), function (s) { return s.value; });
+      document.getElementById("base-warn").hidden = !base || full;
+    }
+    src.addEventListener("change", function () { refresh(); post(src, "{% url 'price_source' %}", document.getElementById("src-saved")); });
+    period.addEventListener("change", function () { refresh(); post(period, "{% url 'base_period' %}", document.getElementById("base-saved")); });
   })();
   </script>
-  {% endif %}
 
   <div class="up-more">
     <details data-guide="folder-rules">
@@ -270,54 +324,82 @@
       });
     });
 
+    // танланган вариант ажралиб турсин (:has() ишлатилмайди — эски браузерлар)
+    function marks() {
+      document.querySelectorAll(".up-mode-o").forEach(function (o) { o.classList.toggle("is-on", o.querySelector("input").checked); });
+    }
+    document.querySelectorAll(".up-opts").forEach(function (el) { el.addEventListener("change", marks); });
+    marks();
+
+    // юклашдан олдин сводка фоизлари сўралади (алоҳида ойна), кейин юклаш бошланади
+    var dlg = document.getElementById("pct-dlg"), pct = document.getElementById("auto-pct"), pctErr = document.getElementById("pct-err");
+    // «Кейин тўғрилайман»: фоизлар ўзгармайди (охирги танлов), юклаш давом этади
+    pct.querySelector("[data-later]").addEventListener("click", function () { dlg.close(); send(); });
+    pct.addEventListener("submit", function (e) {
+      e.preventDefault();
+      pctErr.hidden = true;
+      fetch("{% url 'upload_percents' %}", {method: "POST", body: new FormData(pct), headers: {"X-CSRFToken": pct.csrfmiddlewaretoken.value}})
+        .then(function (r) {
+          if (!r.ok) throw new Error();
+          dlg.close(); send();
+        })
+        .catch(function () { pctErr.textContent = "Фоизлар сақланмади — қайта уриниб кўринг"; pctErr.hidden = false; });
+    });
     go.addEventListener("click", function () {
-      if (mode === "files") {  // Excel fayllar — oddiy forma (jarayon oynasi bilan)
-        var dt = new DataTransfer();
-        files.forEach(function (f) { dt.items.add(f); });
-        filesIn.files = dt.files;
-        go.disabled = true;
-        document.getElementById("go-t").textContent = "Юкланяпти…";
-        form.requestSubmit();
-        return;
-      }
-      if (mode !== "folder") return;
-      var take = tree.filter(function (x) { return !why(x.path); });
-      var fd = new FormData();
+      if (!mode) return;
+      if (dlg.showModal) { pctErr.hidden = true; dlg.showModal(); return; }  // ҳар юклашда — иккала усулда ҳам
+      send();
+    });
+
+    // файллар ҳам, папка ҳам XHR билан юборилади (DataTransfer орқали формага файл қўйиш Chrome'да саҳифани йиқитиши мумкин)
+    function send() {
+      var fd = new FormData(), url, np;
       fd.append("csrfmiddlewaretoken", form.csrfmiddlewaretoken.value);
-      take.forEach(function (x) { fd.append("files", x.file, x.file.name); fd.append("paths", x.path); });
-      // olinmagan Excel (oldingi natija) daraxtda ko'rinsin; PDF va boshqa fayllar yuborilmaydi
-      tree.forEach(function (x) { if (why(x.path) === "олдинги натижа") fd.append("skipped", x.path); });
+      if (mode === "files") {
+        files.forEach(function (f) { fd.append("files", f, f.name); });
+        url = "{% url 'index' %}";
+        np = window.narxProgress && narxProgress.start({title: "Файллар юкланмоқда", steps: [
+          "Файллар юборилмоқда", "Excel файллар очилмоқда", "Листлар таниб олинмоқда", "Локал ва RES жуфтланмоқда"]});
+      } else if (mode === "folder") {
+        var take = tree.filter(function (x) { return !why(x.path); });
+        take.forEach(function (x) { fd.append("files", x.file, x.file.name); fd.append("paths", x.path); });
+        // olinmagan Excel (oldingi natija) daraxtda ko'rinsin; PDF va boshqa fayllar yuborilmaydi
+        tree.forEach(function (x) { if (why(x.path) === "олдинги натижа") fd.append("skipped", x.path); });
+        url = "{% url 'project_create' %}";
+        np = window.narxProgress && narxProgress.start({title: "Папка юкланмоқда", steps: [
+          "Файллар серверга юборилмоқда", "Архивлар очилмоқда", "Смета файллари саралаб олинмоқда", "Папка саҳифаси очилмоқда"]});
+      } else return;
       var xhr = new XMLHttpRequest();
-      xhr.open("POST", "{% url 'project_create' %}");
+      xhr.open("POST", url);
+      xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
       go.disabled = true;
+      document.getElementById("go-t").textContent = "Юкланяпти…";
       prog.hidden = false;
-      var np = window.narxProgress && narxProgress.start({title: "Папка юкланмоқда", steps: [
-        "Файллар серверга юборилмоқда", "Архивлар очилмоқда", "Смета файллари саралаб олинмоқда", "Папка саҳифаси очилмоқда"]});
       xhr.upload.onprogress = function (e) {
         if (!e.lengthComputable) return;
-        var pct = Math.round(100 * e.loaded / e.total);
-        document.getElementById("fprogress-bar").style.width = pct + "%";
-        document.getElementById("fprogress-pct").textContent = pct + "%";
-        if (np) np.note(pct + "%").percent(Math.round(pct * 0.5));
-        if (pct >= 100) {
-          document.getElementById("fprogress-text").textContent = "Сақланяпти, архивлар ва файллар очиляпти…";
+        var p = Math.round(100 * e.loaded / e.total);
+        document.getElementById("fprogress-bar").style.width = p + "%";
+        document.getElementById("fprogress-pct").textContent = p + "%";
+        if (np) np.note(p + "%").percent(Math.round(p * 0.5));
+        if (p >= 100) {
+          document.getElementById("fprogress-text").textContent = "Сақланяпти, файллар очиляпти…";
           if (np) np.step(1).percent(null).auto(2);
         }
       };
+      function failed(msg) {
+        if (np) np.fail(msg);
+        prog.hidden = true; render();
+        err.textContent = msg; err.hidden = false;
+      }
       xhr.onload = function () {
         var data = {};
         try { data = JSON.parse(xhr.responseText); } catch (e) { data = {error: "сервер хатоси (" + xhr.status + ")"}; }
         if (data.ok) { if (np) np.step(3); location.href = data.url; return; }
-        if (np) np.fail(data.error || "хато");
-        err.textContent = data.error || "хато"; err.hidden = false;
-        prog.hidden = true; go.disabled = false;
+        failed(data.error || "хато");
       };
-      xhr.onerror = function () {
-        if (np) np.fail("Тармоқ хатоси — интернет уланишини текширинг");
-        err.textContent = "Тармоқ хатоси — интернет уланишини текширинг"; err.hidden = false; prog.hidden = true; go.disabled = false;
-      };
+      xhr.onerror = function () { failed("Тармоқ хатоси — интернет уланишини текширинг"); };
       xhr.send(fd);
-    });
+    }
     render();
   })();
 </script>
