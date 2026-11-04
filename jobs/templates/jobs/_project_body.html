@@ -219,7 +219,7 @@
                       title="Локал ва таклиф қилинган ресурслар ёнма-ён (ҳар бирининг мослиги билан)">→ {% widthratio x.overlap 1 100 %}%</button>
               <span class="tag tag-res !min-w-0 !leading-4">Р</span><button type="button" class="pv-open truncate text-left text-sky-700 hover:underline" data-part="{{ b.id }}" data-k="{{ x.rk }}" title="Ресурс — {{ x.res }} (лист {{ x.res_sheet }})">{{ x.res_sheet }}{% if x.same_file %} <span class="text-slate-400">(шу файлда)</span>{% else %} · {{ x.res|file_title }}{% endif %}</button>
               {% else %}
-              <a href="{% url 'batch' b.id %}#structure" class="shrink-0 rounded bg-rose-50 px-1.5 font-semibold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100">{% icon "search" "inline h-3 w-3" %} ресурс топилмади — танлаш</a>{% help "res_missing" "text-rose-400" %}
+              {% if x.base %}<span class="tag !min-w-0 !leading-4 bg-violet-100 text-violet-800">Б</span><span class="truncate font-medium text-violet-700" title="Нарх ресурс базасидан олинади — RES файл ишлатилмайди">ресурс базасидан</span>{% else %}<a href="{% url 'batch' b.id %}#structure" class="shrink-0 rounded bg-rose-50 px-1.5 font-semibold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100">{% icon "search" "inline h-3 w-3" %} ресурс топилмади — танлаш</a>{% help "res_missing" "text-rose-400" %}{% endif %}
               {% endif %}
             </div></div>
           {% empty %}{% for f in b.files %}<div class="truncate text-slate-400">{{ f.name }}</div>{% endfor %}{% endfor %}{% endfor %}
@@ -227,7 +227,7 @@
             <button type="button" class="pv-open block max-w-full truncate text-left text-[13px] font-medium text-slate-800 hover:text-emerald-700 hover:underline" data-part="{{ b.id }}" data-k="{{ x.lk }}" title="{{ x.title }} — локални Excel кўринишида очиш ({{ x.local }})">{{ x.title }}</button>
             <div class="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-slate-400">
               <span class="tag tag-loc !min-w-0 !leading-4">Л</span><span class="truncate">{{ x.local_sheet }}</span>
-              <a href="{% url 'batch' b.id %}#structure" class="shrink-0 rounded bg-rose-50 px-1.5 font-semibold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100">{% icon "search" "inline h-3 w-3" %} ресурс топилмади — танлаш</a>{% help "res_missing" "text-rose-400" %}
+              {% if x.base %}<span class="tag !min-w-0 !leading-4 bg-violet-100 text-violet-800">Б</span><span class="truncate font-medium text-violet-700" title="Нарх ресурс базасидан олинади — RES файл ишлатилмайди">ресурс базасидан</span>{% else %}<a href="{% url 'batch' b.id %}#structure" class="shrink-0 rounded bg-rose-50 px-1.5 font-semibold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100">{% icon "search" "inline h-3 w-3" %} ресурс топилмади — танлаш</a>{% help "res_missing" "text-rose-400" %}{% endif %}
             </div></div>{% endif %}{% endfor %}{% endif %}
           {% if p.unused and p.state != "queued" and p.state != "converting" %}<a href="{% url 'batch' b.id %}#unused" class="mt-1.5 inline-flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 ring-1 ring-inset ring-sky-200 hover:bg-sky-100" title="Ҳеч бир локалга бириктирилмаган ресурс листлари — очиб, керакли локалга бириктиринг">{{ p.unused }} та ишлатилмаган ресурс</a> {% help "unused_res" "text-sky-500" %}{% endif %}
         </td>

@@ -830,6 +830,32 @@ def batch_sheet(request, batch_id):
     return JsonResponse({**data, "file": f["name"], "role": info["role"], "limit": n})
 
 
+def batch_pair_preview(request, batch_id):
+    """Жуфтлик картаси учун қисқа намуна: ``k`` — локал листи, ``r`` — RES листи ёки ``BASE_RES`` (ресурс базаси)."""
+    from resbase.services import period_label, price_map
+
+    from . import pair_preview
+    batch = _get_work(request, Batch, id=batch_id)
+    k, r = request.GET.get("k", ""), request.GET.get("r", "")
+    loc = batch.sheet(k)
+    if loc is None or loc["role"] != "local":
+        raise Http404("Лист топилмади")
+    base = None
+    if r == BASE_RES:
+        period = base_period_of(batch.owner_id)
+        base, r = price_map(period), ""
+        tag = f"{period_label(period)}|{len(base)}"
+    else:
+        res = batch.sheet(r) if r else None
+        if r and (res is None or res["role"] != "resource"):
+            raise Http404("Лист топилмади")
+        tag = ""
+    try:
+        return JsonResponse(pair_preview.cached(batch, k, r, base, tag))
+    except Exception as e:
+        return JsonResponse({"error": f"{type(e).__name__}: {e}"}, status=500)
+
+
 def _sheets_js(batch):
     """Модал учун: ҳар бир лист (файл тартибида) — тури ва белгиси (Л1/Р2), файл ичида листдан листга ўтиш учун."""
     loc_tag, res_tag, _resources = _batch_tags(batch)
@@ -853,8 +879,12 @@ def batch_detail(request, batch_id):
         "crumbs": crumbs_for(batch=batch),
         "tree": _batch_tree(batch),
         "resources": [s for s in sheets if s["role"] == "resource" and not s.get("duplicate_of")],
-        "unused": [dict(s, title=sheet_title(s), same_files=[t for t in loc_titles if t["file"] == s["file"]])
+        # «ресурс базасидан» режимида RES листлари атайлаб ишлатилмайди — «ишлатилмаган» деб кўрсатилмайди
+        "unused": [] if base_only(batch.owner_id) else
+                  [dict(s, title=sheet_title(s), same_files=[t for t in loc_titles if t["file"] == s["file"]])
                    for s in sheets if s["role"] == "resource" and not s.get("duplicate_of") and s["key"] not in used_res],
+        "base_ignored": [s for s in sheets if s["role"] == "resource" and not s.get("duplicate_of")]
+                        if base_only(batch.owner_id) else [],
         "locals": loc_titles,
         "duplicates": [s for s in sheets if s.get("duplicate_of")],
         "unknown": [s for s in sheets if s["role"] == "unknown"],

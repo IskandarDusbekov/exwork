@@ -1,0 +1,61 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Базадан нархлаш — Ресурс базаси — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+{% include "panel/_base_tabs.html" with base_tab="usage" %}
+
+<section class="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <h2 class="font-semibold">Ресурс базаси сметаларни қанчалик нархлай оляпти?</h2>
+  <p class="mb-3 text-xs text-slate-500">RES файлсиз — фақат ресурс базасидан нархланган сметалар (охирги {{ limit }} та).
+    Фоиз — смета ресурс қаторларининг неча фоизига базадан нарх топилди (машинистлар ва иш сарлавҳалари ҳисобга олинмайди).</p>
+  <div class="grid gap-2 sm:grid-cols-3">
+    <div class="rounded-lg border border-violet-200 bg-violet-50 p-3">
+      <div class="text-xs text-violet-800">Ўртача (сметалар бўйича)</div>
+      <div class="num text-3xl font-semibold text-violet-900">{% if summary.average is not None %}{{ summary.average }}%{% else %}—{% endif %}</div>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div class="text-xs text-slate-500">Ҳамма қаторлар бўйича</div>
+      <div class="num text-2xl font-semibold">{% if summary.weighted is not None %}{{ summary.weighted }}%{% else %}—{% endif %}
+        <span class="text-sm font-normal text-slate-500">({{ summary.base }} / {{ summary.total }} қатор)</span></div>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div class="text-xs text-slate-500">Базадан нархланган сметалар</div>
+      <div class="num text-2xl font-semibold">{{ summary.jobs }}</div>
+    </div>
+  </div>
+</section>
+
+<section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+  {% if rows %}
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-xs text-slate-500">
+      <tr><th class="px-3 py-2">Смета</th><th class="px-3 py-2">Фойдаланувчи</th><th class="px-3 py-2">Вилоят · давр</th>
+        <th class="px-3 py-2 text-right">Базадан</th><th class="px-3 py-2 text-right">Нархланмади</th><th class="w-56 px-3 py-2">Фоиз</th><th class="px-3 py-2">Сана</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}{% with j=r.job %}
+      <tr class="border-t border-slate-100 hover:bg-slate-50">
+        <td class="max-w-[22rem] px-3 py-2"><a href="{% url 'panel:work' 'smeta' j.pk %}" class="block truncate font-medium text-slate-800 hover:underline" title="{{ j.local_name }}">{{ j.local_name }}</a>
+          {% if j.batch %}<div class="truncate text-xs text-slate-400">{% if j.batch.project %}{{ j.batch.project.name }} · {% endif %}{{ j.batch.name }}</div>{% endif %}</td>
+        <td class="px-3 py-2 text-xs text-slate-600">{{ j.owner.get_full_name|default:j.owner.email }}</td>
+        <td class="whitespace-nowrap px-3 py-2 text-xs text-slate-600">{{ r.period }}</td>
+        <td class="num px-3 py-2 text-right">{{ r.base }}</td>
+        <td class="num px-3 py-2 text-right {% if r.left %}text-rose-700{% else %}text-slate-400{% endif %}">{{ r.left }}</td>
+        <td class="px-3 py-2">
+          <div class="flex items-center gap-2">
+            <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-100"><span class="block h-full {% if r.pct >= 70 %}bg-emerald-500{% elif r.pct >= 40 %}bg-amber-400{% else %}bg-rose-500{% endif %}" style="width: {{ r.pct|stringformat:'s' }}%"></span></div>
+            <span class="num w-14 text-right font-semibold {% if r.pct >= 70 %}text-emerald-700{% elif r.pct >= 40 %}text-amber-700{% else %}text-rose-700{% endif %}">{{ r.pct }}%</span>
+          </div></td>
+        <td class="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{{ j.created|date:"d.m.Y H:i" }}</td>
+      </tr>
+      {% endwith %}{% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="px-4 py-6 text-sm text-slate-500">Ҳали ресурс базасидан нархланган смета йўқ. Юклаш саҳифасида «Ресурс базасидан» танланса, шу ерда кўринади.</p>
+  {% endif %}
+</section>
+{% endblock %}

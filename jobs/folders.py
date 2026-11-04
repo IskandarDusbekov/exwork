@@ -652,12 +652,14 @@ def _planned(part: Batch):
                     "title": readable(p.get("label") or loc.get("part") or file_title(loc["file_name"])),
                     "res": res["file_name"] if res else "", "res_sheet": res["sheet"] if res else "",
                     "same_file": bool(res) and loc["file"] == res["file"], "overlap": p.get("overlap", 0),
-                    "lk": p["local"], "rk": p.get("res") or "", "i": i})
+                    "lk": p["local"], "rk": p.get("res") or "", "i": i, "base": bool(p.get("base")) and not res})
     return out
 
 
 def _unused(part: Batch) -> int:
     """Hech bir lokalga biriktirilmagan resurs listlari soni — smetachi qismni ochib biriktirishi mumkin."""
+    if part.pairs and all(p.get("base") and not p.get("res") for p in part.pairs):
+        return 0  # «ресурс базасидан»: RES атайлаб ишлатилмайди
     used = {p.get("res") for p in part.pairs}
     return sum(1 for s in part.sheets if s["role"] == "resource" and not s.get("duplicate_of") and s["key"] not in used)
 

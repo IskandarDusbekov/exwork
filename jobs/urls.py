@@ -21,6 +21,7 @@ urlpatterns = [
     path("folder/<uuid:project_id>/viewer/<uuid:batch_id>/", views.project_viewer, name="project_viewer"),
     path("object/<uuid:batch_id>/", views.batch_detail, name="batch"),
     path("object/<uuid:batch_id>/sheet/", views.batch_sheet, name="batch_sheet"),
+    path("object/<uuid:batch_id>/pair-preview/", views.batch_pair_preview, name="batch_pair_preview"),
     path("object/<uuid:batch_id>/replan/", views.batch_replan, name="batch_replan"),
     path("object/<uuid:batch_id>/confirm/", views.batch_confirm, name="batch_confirm"),
     path("object/<uuid:batch_id>/download/", views.batch_download, name="batch_download"),

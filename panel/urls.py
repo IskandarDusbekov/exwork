@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_base, views_settings, views_tn
+from . import views, views_base, views_base_usage, views_settings, views_tn
 
 app_name = "panel"
 
@@ -45,6 +45,7 @@ urlpatterns = [
     path("base/r/<str:code>/delete/", views_base.base_resource_delete, name="base_resource_delete"),
     path("base/obs/<int:pk>/<str:action>/", views_base.base_obs, name="base_obs"),
     path("base/coverage/", views_base.base_coverage, name="base_coverage"),
+    path("base/usage/", views_base_usage.base_usage, name="base_usage"),
     path("base/review/", views_base.base_review, name="base_review"),
     path("base/review/decide/", views_base.base_review_decide, name="base_review_decide"),
     path("base/review/recheck/", views_base.base_recheck, name="base_recheck"),

@@ -85,7 +85,7 @@
   <ol class="obj-steps mt-1.5">
     <li><span>1</span><div>Ҳар бир <b>локал</b> <span class="tag tag-loc">Л1</span> (иш ҳажмлари) учун <b>ресурс</b> <span class="tag tag-res">Р1</span> (нархлар) топилди — <b>мос</b>лигини кўринг.</div></li>
     <li><span>2</span><div>Нотўғри бўлса — <b>«алмаштириш»</b> (★ — энг мос). Нархламайдиганини ✓ дан олинг.</div></li>
-    <li><span>3</span><div>Тўғри бўлса — пастдаги <b>«Тасдиқлаш ва нархлаш»</b>.</div></li>
+    <li><span>3</span><div>Тўғри бўлса — пастдаги <b>«Ҳисоблашни бошлаш»</b>.</div></li>
   </ol>
 </div>
 {% elif not_priced_total %}
@@ -218,6 +218,11 @@
           </select>
         </div>
       </div>
+      {# ---- қисқа намуна: локалда нима бор, ресурсда (RES ёки база) қанчаси топилди ---- #}
+      <div class="pair-pv mt-2 md:ml-9" data-k="{{ p.local }}">
+        <div class="pv-head"><span class="pv-sum">намуна юкланяпти…</span></div>
+        <div class="pv-grid"></div>
+      </div>
       <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 pl-8 text-xs text-slate-500 md:pl-9">
         <label class="flex min-w-0 items-center gap-1.5">{% icon "pencil" "h-3.5 w-3.5 shrink-0 text-slate-400" %} натижа номи:
           <input type="text" name="label_{{ p.n }}" value="{{ p.label }}" class="w-64 max-w-full rounded border border-transparent px-1 py-0.5 text-slate-800 hover:border-slate-300 focus:border-slate-400 focus:outline-none"></label>
@@ -229,6 +234,14 @@
     <div class="px-4 py-6 text-rose-800">Локал (ресурслар рўйхати) лист топилмади. Пастда «Листлар тури»ни текширинг. {% help "empty" %}</div>
     {% endfor %}
   </section>
+
+  {% if base_ignored %}
+  <section class="flex flex-wrap items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900">
+    {% icon "alert-circle" "h-4 w-4 shrink-0" %}
+    <span><b>Нарх ресурс базасидан олинади.</b> Юкланган RES {% for s in base_ignored %}«{{ s.sheet }}» ({{ s.file_name }}){% if not forloop.last %}, {% endif %}{% endfor %}
+      ишлатилмайди ва ўзгармайди. RES'дан нархлаш керак бўлса — юклаш саҳифасида «Юкланган RES файлдан»ни танланг.</span>
+  </section>
+  {% endif %}
 
   {# ---- қолган листлар: ишлатилмаган ресурслар ва ўтказилганлар (ҳар бирини очиб кўриш мумкин) ---- #}
   {% if unused or unknown or duplicates %}
@@ -270,11 +283,12 @@
   {% endif %}
 
   <div data-guide="confirm" class="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 rounded-2xl bg-slate-900 px-4 py-3 text-white shadow-2xl">
-    <button type="submit" class="rounded-lg bg-emerald-500 px-5 py-2.5 font-semibold text-white hover:bg-emerald-600 disabled:opacity-60">
-      <span class="when-idle">{% if jobs %}Қайта тасдиқлаш ва нархлаш{% else %}Тасдиқлаш ва нархлаш{% endif %}</span>
-      <span class="when-busy">Нархланяпти…</span>
+    <button type="submit" class="flex items-center gap-2 rounded-lg bg-violet-600 px-5 py-3 font-semibold text-white shadow-sm hover:bg-violet-700 disabled:opacity-60">
+      {% icon "calculator" "h-5 w-5" %}
+      <span class="when-idle">{% if jobs %}Қайта ҳисоблаш{% else %}Ҳисоблашни бошлаш{% endif %}</span>
+      <span class="when-busy">Ҳисобланяпти…</span>
     </button>
-    <span class="text-sm text-slate-300"><b id="pair-count" class="text-white"></b> нархланади{% if jobs %} · олдинги натижалар ва қисмлардаги қўлда ўзгаришлар ўчади{% endif %}</span>
+    <span class="text-sm text-slate-300"><b id="pair-count" class="text-white"></b> ҳисобланади{% if jobs %} · олдинги натижалар ва қисмлардаги қўлда ўзгаришлар ўчади{% endif %}</span>
   </div>
 </form>
 </details>
@@ -458,7 +472,7 @@
         {el: q(".replan-btn", form), title: "3-қадам. «Қайта жуфтлаш»ни босинг",
          text: "Тизим листни сиз кўрсатганингиз бўйича қайта ўқийди. Кейин текширинг: нуқта <span class='tour-dot bg-emerald-500'></span> яшил (локал) ёки <span class='tour-dot bg-sky-500'></span> кўк (ресурс) бўлиши, «N та қатор / нарх» 0 бўлмаслиги керак."},
         confirm && {el: confirm, before: function () { var d = confirm.closest("details"); if (d) d.open = true; }, title: "4-қадам. Нархлаш",
-         text: "Ҳаммаси тўғри бўлса — юқоридаги жуфтликларда локал ва RES бир-бирига уланганини кўрасиз. <b>«Тасдиқлаш ва нархлаш»</b>ни босинг."},
+         text: "Ҳаммаси тўғри бўлса — юқоридаги жуфтликларда локал ва RES бир-бирига уланганини кўрасиз. <b>«Ҳисоблашни бошлаш»</b>ни босинг."},
       ].filter(function (st) { return st && st.el; });
     }
     document.querySelectorAll(".tour-start").forEach(function (b) {
@@ -500,6 +514,25 @@
   .eye { flex-shrink: 0; border-radius: 6px; padding: 2px; color: #94a3b8; }
   .eye:hover { background: #f1f5f9; color: #0f172a; }
   .pair-row.is-off { opacity: .5; }
+  .pair-row .pair-ov { font-size: 15px; padding: 3px 12px; }
+  .pv-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: #475569; }
+  .pv-head b { color: #0f172a; }
+  .pv-pct { border-radius: 999px; padding: 0 8px; font-weight: 700; }
+  .pv-bar { width: 90px; height: 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+  .pv-bar i { display: block; height: 100%; }
+  /* Excel кўриниши: ингичка катаклар, кулранг сарлавҳа */
+  .pv-grid { margin-top: 4px; overflow-x: auto; }
+  .pv-t { width: 100%; min-width: 520px; table-layout: fixed; border-collapse: collapse; font-family: Calibri, "Segoe UI", Arial, sans-serif; font-size: 12px; }
+  .pv-t th, .pv-t td { border: 1px solid #d4d4d8; padding: 1px 6px; height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pv-t th { background: #f3f4f6; color: #52525b; font-weight: 600; text-align: center; }
+  .pv-t td { background: #fff; color: #18181b; }
+  .pv-t .rn { width: 30px; background: #f3f4f6; color: #71717a; text-align: center; }
+  .pv-t .cd { width: 56px; }
+  .pv-t .un { width: 66px; text-align: center; }
+  .pv-t .q, .pv-t .pr { width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
+  .pv-t td.pr { background: #f0fdf4; }
+  .pv-t td.pr.no { background: #fff; }
+  .pv-more { margin-top: 2px; font-size: 11px; color: #94a3b8; }
   .obj-page { max-width: 1360px; margin: 0 auto; }
   .obj-steps { display: flex; flex-wrap: wrap; gap: 6px 20px; }
   .obj-steps li { display: flex; align-items: flex-start; gap: 8px; flex: 1 1 260px; }
@@ -582,10 +615,44 @@
       if (why) why.textContent = "қўлда танландингиз";
       if (sel.value) { inc.checked = true; sel.classList.add("hidden"); }  // ресурс танланди — демак нархлаш керак
       refresh();
+      preview(row);
     });
     inc.addEventListener("change", refresh);
   });
   refresh();
+
+  // ---- қисқа намуна: локалдаги ресурслар ва танланган ресурсда (RES / база) топилганлари ----
+  var PV_URL = "{% url 'batch_pair_preview' batch.id %}";
+  function money(v) { return v == null ? "" : Number(v).toLocaleString("ru-RU", {maximumFractionDigits: 2}); }
+  function preview(row) {
+    var pv = row.querySelector(".pair-pv"), sel = row.querySelector(".pair-res"), want = sel.value;
+    var head = pv.querySelector(".pv-head"), grid = pv.querySelector(".pv-grid");
+    fetch(PV_URL + "?k=" + encodeURIComponent(pv.dataset.k) + "&r=" + encodeURIComponent(want))
+      .then(function (x) { return x.json(); })
+      .then(function (d) {
+        if (sel.value !== want) return;  // орада бошқаси танланди
+        if (d.error) { head.innerHTML = '<span class="pv-sum">намуна очилмади</span>'; grid.innerHTML = ""; return; }
+        var src = d.kind === "base" ? "ресурс базаси" : d.kind === "res" ? "RES" : "";
+        var h = "<span>Локалда <b>" + d.total + "</b> та ресурс</span>";
+        if (d.kind) {
+          var pct = Math.round((d.pct || 0) * 100), col = pct >= 70 ? "#059669" : pct >= 40 ? "#d97706" : "#e11d48";
+          h += "<span>· нархи " + src + "да бор: <b>" + d.found + "</b></span>" +
+               '<span class="pv-bar"><i style="width:' + pct + "%;background:" + col + '"></i></span>' +
+               '<span class="pv-pct" style="background:' + col + "1a;color:" + col + '">' + pct + "%</span>";
+        }
+        head.innerHTML = h;
+        grid.innerHTML = '<table class="pv-t"><thead><tr><th class="rn"></th><th class="cd">Код</th><th>Наименование</th>' +
+          '<th class="un">Ед. изм.</th><th class="q">Кол-во</th>' + (d.kind ? '<th class="pr" title="Нарх: ' + src + '">' + (d.kind === "base" ? "Нарх (база)" : "Нарх (RES)") + "</th>" : "") + "</tr></thead><tbody>" +
+          d.rows.map(function (r, i) {
+            return "<tr><td class='rn'>" + (i + 1) + "</td><td class='cd'>" + esc(r.code) + "</td><td title='" + esc(r.name) + "'>" + esc(r.name) +
+                   "</td><td class='un'>" + esc(r.unit) + "</td><td class='q'>" + money(r.qty) + "</td>" +
+                   (d.kind ? "<td class='pr" + (r.found ? "" : " no") + "'>" + (r.found ? money(r.price) : "") + "</td>" : "") + "</tr>";
+          }).join("") + "</tbody></table>" +
+          (d.total > d.rows.length ? '<div class="pv-more">… яна ' + (d.total - d.rows.length) + " та қатор — тўлиқ кўриш учун номни босинг</div>" : "");
+      })
+      .catch(function () { if (sel.value === want) head.innerHTML = '<span class="pv-sum">намуна очилмади</span>'; });
+  }
+  rows.forEach(preview);
 
   // ---- лист кўриниши (умумий модал, jobs/_sheet_viewer.html): ресурсни шу ердан танлаш ----
   var V = window.narxViewer;
@@ -735,7 +802,7 @@
    text: "<p>Рўйхатдан бошқа ресурс листини танланг. <b>★</b> — тизим энг мос деб ҳисоблагани.</p><div class='tip'>Ресурс умуман топилмаган бўлса — «Ресурс қидириш».</div>"},
   {sel: ".pair-include", title: "Нархланадиганларни белгиланг",
    text: "<p>Белгиланган жуфтликлар нархланади.</p><div class='tip'>Кераксизини (нусха, эски вариант) белгидан чиқаринг.</div>"},
-  {sel: '[data-guide="confirm"]', title: "«Тасдиқлаш ва нархлаш»",
+  {sel: '[data-guide="confirm"]', title: "«Ҳисоблашни бошлаш»",
    text: "<p>Ҳаммаси тўғри бўлса — шуни босинг. Белгиланган локаллар нархланади, натижалар шу саҳифада чиқади.</p>"},
   {sel: "#sheets > summary", title: "Листлар тури — тизим нимани таниди",
    text: "<p>Ҳар бир лист:</p><ul><li><b class='text-emerald-700'>локал</b></li><li><b class='text-sky-700'>ресурс</b></li><li><b>ўтказилди</b> — сводка, акт ва бошқалар</li></ul>" +

@@ -119,7 +119,58 @@ class BaseOnlyTests(TestCase):
             part = project.parts.get()
             self.assertTrue(part.pairs)
             self.assertTrue(all((p["res"], p["base"]) == (None, True) for p in part.pairs), part.pairs)
+            page = self.client.get(reverse("project", args=[project.id]))
+            self.assertContains(page, "ресурс базасидан")
+            self.assertNotContains(page, "ресурс топилмади — танлаш")
+            self.assertNotContains(page, "ишлатилмаган ресурс")
+            page = self.client.get(reverse("batch", args=[part.id]))
+            res = [x["key"] for x in part.sheets if x["role"] == "resource"]
+            self.assertEqual([x["key"] for x in page.context["base_ignored"]], res)
+            if res:
+                self.assertContains(page, "Нарх ресурс базасидан олинади.")
+            self.assertNotContains(page, 'id="unused"')
+            n = self.client.get(reverse("batch_pair_preview", args=[part.id]),
+                                {"k": part.pairs[0]["local"], "r": "__base__"}).json()
+            self.assertEqual(n["kind"], "base")
+            self.assertTrue(n["total"])
             self.client.post(reverse("project_price", args=[project.id]))
         jobs = list(Job.objects.filter(batch__project=project))
         self.assertTrue(jobs)
         self.assertTrue(all((j.res_path, j.res_name) == ("", "ресурс базаси") for j in jobs))
+
+    def test_object_page_base_note_and_preview(self):
+        self.client.post(reverse("price_source"), {"source": "base"})
+        batch = self._upload()
+        page = self.client.get(reverse("batch", args=[batch.id]))
+        self.assertContains(page, "Нарх ресурс базасидан олинади.")
+        self.assertNotContains(page, 'id="unused"')
+        p = batch.pairs[0]
+        res_key = next(s["key"] for s in batch.sheets if s["role"] == "resource")
+        url = reverse("batch_pair_preview", args=[batch.id])
+        d = self.client.get(url, {"k": p["local"], "r": res_key}).json()
+        self.assertEqual(d["kind"], "res")
+        self.assertTrue(d["rows"] and d["found"])
+        self.assertLessEqual(d["found"], d["total"])
+        self.assertTrue(all(r["price"] is None for r in d["rows"] if not r["found"]))
+        self.assertEqual(self.client.get(url, {"k": res_key}).status_code, 404)  # ресурс листи — локал эмас
+
+    @override_settings(NARXLASH_STAFF_2FA=False)  # икки босқичли кириш бу ерда текширилмайди
+    def test_panel_base_usage_shows_percent(self):
+        self.client.post(reverse("price_source"), {"source": "base"})
+        batch = self._upload()
+        data = {}
+        for n, p in enumerate(batch.pairs):
+            data.update({f"include_{n}": "1", f"res_{n}": "__base__"})
+        self.client.post(reverse("batch_confirm", args=[batch.id]), data)
+        self.user.is_staff = True
+        self.user.save()
+        self.client.force_login(self.user)
+        page = self.client.get(reverse("panel:base_usage"))
+        self.assertEqual(page.status_code, 200, page.get("Location"))
+        rows, summary = page.context["rows"], page.context["summary"]
+        self.assertEqual(len(rows), Job.objects.filter(batch=batch).count())
+        for r in rows:
+            st = r["job"].__class__.objects.get(pk=r["job"].pk).result["stats"]
+            self.assertEqual((r["base"], r["left"]), (st["BASE"], st["NOT_PRICED"]))
+        self.assertIsNotNone(summary["average"])
+        self.assertContains(page, "Ўртача (сметалар бўйича)")
