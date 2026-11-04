@@ -5,7 +5,6 @@ from django.contrib.auth.decorators import login_not_required
 from django.contrib.auth.views import redirect_to_login
 from django.core.cache import cache
 from django.db.models import Prefetch
-from django.db.models.fields.json import KeyTransform
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -160,23 +159,16 @@ def nf_mode(request):
     return JsonResponse({"ok": True})
 
 
-# Рўйхатлар учун сметанинг фақат жами суммаси ва ҳолати керак: тўлиқ ``result`` (минглаб қатор) юкланмайди
-_SUMMARY = {
-    "r_total": KeyTransform("s_nds", KeyTransform("totals", "result")),
-    "r_not_priced": KeyTransform("NOT_PRICED", KeyTransform("stats", "result")),
-    "r_checks": KeyTransform("checks", "result"),
-}
-
-
+# Рўйхатлар учун сметанинг фақат жами суммаси ва ҳолати керак: тўлиқ ``result`` (минглаб қатор) юкланмайди —
+# жамлама ``Job.sum_*`` майдонларида (SQLite JSON'дан қиймат олиш учун ҳар бир ``result``ни бутун ўқирди)
 def light_jobs(qs):
-    return qs.defer("result").annotate(**_SUMMARY)
+    return qs.only("id", "created", "status", "owner_id", "batch_id", "batch_order", "local_name", "local_sheet",
+                   *Job.SUMMARY_FIELDS)
 
 
 def _summary(j) -> dict:
-    """``result``дан керакли қисм — ``light_jobs`` билан олинган бўлса, тўлиқ натижани юкламасдан."""
-    if hasattr(j, "r_total"):
-        return {"totals": {"s_nds": j.r_total}, "stats": {"NOT_PRICED": j.r_not_priced or 0}, "checks": j.r_checks}
-    return j.result
+    """``result``дан керакли қисм — ``Job.sum_*`` майдонларидан, тўлиқ натижани юкламасдан."""
+    return {"totals": {"s_nds": j.sum_total}, "stats": {"NOT_PRICED": j.sum_not_priced}, "checks": j.sum_checks}
 
 
 def _job_sums(jobs):
