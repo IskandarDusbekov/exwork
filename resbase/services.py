@@ -31,6 +31,7 @@ SKIP_LABELS = {
     "not_exact": "аниқ мослашмаган (тахминий, топилмади)",
     "zero_price": "нарх йўқ ёки 0",
     "duplicate": "шу сметада такрор",
+    "code_conflict": "бир кодга ҳар хил ресурс (номи ва нархи бошқа)",
 }
 
 
@@ -106,7 +107,7 @@ def _num(v):
 
 def rows_from_job(job) -> tuple:
     """(olinadigan [{code, name, unit, price, manual, row, category}], tashlab ketilganlar Counter, jami resurs qatori)."""
-    taken, skipped, seen, total = [], Counter(), set(), 0
+    taken, cand, skipped, seen, total = [], [], Counter(), set(), 0
     for r in (job.result or {}).get("rows") or []:
         status = r.get("status")
         if status in ("WORK_HEADER",) or not r.get("unit"):
@@ -124,13 +125,18 @@ def rows_from_job(job) -> tuple:
         if price is None or price <= 0:
             skipped["zero_price"] += 1
             continue
-        if code in seen:
+        cand.append({"code": code, "name": str(r.get("name") or "").strip()[:500], "unit": str(r.get("unit")).strip()[:40],
+                     "price": price.quantize(Decimal("0.0001")), "manual": manual, "row": int(r.get("row") or 0),
+                     "category": (r.get("default_category") or r.get("category") or "")[:1]})
+    bad = resfile.conflict_codes((c["code"], c["name"], c["price"]) for c in cand)
+    for c in cand:
+        if c["code"] in bad:
+            skipped["code_conflict"] += 1
+        elif c["code"] in seen:
             skipped["duplicate"] += 1
-            continue
-        seen.add(code)
-        taken.append({"code": code, "name": str(r.get("name") or "").strip()[:500], "unit": str(r.get("unit")).strip()[:40],
-                      "price": price.quantize(Decimal("0.0001")), "manual": manual, "row": int(r.get("row") or 0),
-                      "category": (r.get("default_category") or r.get("category") or "")[:1]})
+        else:
+            seen.add(c["code"])
+            taken.append(c)
     return taken, skipped, total
 
 
@@ -393,6 +399,63 @@ def explore(f: dict):
     return qs, counts
 
 
+def resource_rows(f: dict):
+    """«Ресурс нархлари»: битта ресурс (код) — битта қатор. Танланган вилоят/давр/файл бўйича шу коднинг нархлари
+    бирлаштирилади: ўрта нарх (медиана), энг арзони ва энг қиммати, нечта манбадан. Қўлда қўйилган, истисно
+    қилинган ва текширувдаги нархлар ўрта нархга кирмайди (лекин сони кўрсатилади).
+
+    Қайтаради: (қаторлар, {"cat": {I: n}, "book": {Е01: n}}) — сонлар ресурс бўйича, ҳар таб ўз фильтрисиз."""
+    qs, _ = explore({**f, "cat": "", "book": "", "sort": ""})
+    agg = {}
+    for code, name, unit, cat, price, manual, excluded, review, books, sid in qs.values_list(
+            "resource__code", "resource__name", "resource__unit", "resource__category", "price", "manual", "excluded",
+            "review", "books", "job_id").order_by():
+        a = agg.get(code)
+        if a is None:
+            a = agg[code] = {"code": code, "name": name, "unit": unit, "category": cat, "prices": [], "pending": 0,
+                             "other": 0, "books": set(), "sources": set()}
+        if review == Observation.Review.PENDING:
+            a["pending"] += 1
+        elif manual or excluded:
+            a["other"] += 1
+        else:
+            a["prices"].append(price)
+        a["books"].update(b for b in books.split(",") if b)
+        a["sources"].add(sid)
+    rows = []
+    for a in agg.values():
+        ps = a.pop("prices")
+        a.update(n=len(ps), n_src=len(a["sources"]), books=sorted(a["books"], key=normbook.book_sort),
+                 median=Decimal(median(ps)).quantize(Decimal("0.01")) if ps else None,
+                 lo=min(ps) if ps else None, hi=max(ps) if ps else None)
+        rows.append(a)
+    cat, book = f.get("cat"), f.get("book")
+
+    def in_book(r):
+        return not book or (not r["books"] if book == "-" else book in r["books"])
+
+    counts = {"cat": Counter(r["category"] for r in rows if in_book(r)), "book": Counter()}
+    for r in rows:
+        if not cat or r["category"] == cat:
+            counts["book"].update(r["books"] or ["-"])
+    rows = [r for r in rows if (not cat or r["category"] == cat) and in_book(r)]
+    code_key = lambda r: (len(r["code"]), r["code"])  # noqa: E731 — «258» < «1360»
+    sort = f.get("sort") or ""
+    if sort == "name":
+        rows.sort(key=lambda r: r["name"])
+    elif sort in ("price", "-price"):
+        rows.sort(key=lambda r: (r["median"] is None, r["median"] or 0), reverse=False)
+        if sort == "-price":
+            rows.sort(key=lambda r: (r["median"] is not None, r["median"] or 0), reverse=True)
+    elif sort == "n":
+        rows.sort(key=lambda r: (-r["n"], code_key(r)))
+    elif sort == "code":
+        rows.sort(key=code_key)
+    else:
+        rows.sort(key=lambda r: (r["category"] or "Z", code_key(r)))
+    return rows, counts
+
+
 # ===================== нормалар (ЛРВ ишлари) =====================
 def _works(f: dict):
     qs = WorkItem.objects.all()
@@ -421,11 +484,9 @@ def norms(f: dict):
     books = dict(qs.values_list("book").annotate(n=Count("shifr", distinct=True)).order_by())
     if f.get("book"):
         qs = qs.filter(book=f["book"])
-    elif f.get("grp"):
-        qs = qs.filter(book__in=[b for b in books if normbook.group_of(b) == f["grp"]])
     rows = (qs.values("shifr", "book").annotate(n_files=Count("source", distinct=True), n_uses=Count("id"),
                                                  name=Min("name"), unit=Min("unit"))
-            .order_by("book", "shifr"))
+            .order_by("shifr"))
     return rows, books
 
 
@@ -441,8 +502,8 @@ def book_names() -> dict:
 
 
 def book_label(key: str) -> str:
-    """Тўплам номи: админ ёзгани, бўлмаса — стандарт (normbook)."""
-    return book_names().get(key) or normbook.book_label(key)
+    """Тўплам номи — фақат админ ёзгани; ёзилмаган бўлса бўш (кодининг ўзи кўрсатилади)."""
+    return book_names().get(key, "")
 
 
 @transaction.atomic
@@ -453,7 +514,7 @@ def save_book_names(names: dict, user=None) -> int:
     changed = 0
     for key, name in names.items():
         name = " ".join(str(name or "").split())[:200]
-        if not name or name == normbook.book_label(key):
+        if not name:
             changed += BookName.objects.filter(key=key).delete()[0]
         elif current.get(key) != name:
             BookName.objects.update_or_create(key=key, defaults={"name": name, "updated_by": user})
@@ -534,12 +595,14 @@ def norm_detail(shifr: str, f: dict) -> dict:
 def explore_tree(sel: dict) -> list:
     """Чап дарахт: вилоят → давр → манбалар (кузатувлар сони билан). Манбалар фақат очилган давр учун."""
     from django.db.models import Count
+    # сонлар — ресурс (код) бўйича: бир код бир неча сметада учраса ҳам бир марта
     n_obs = dict(((r, y, q), n) for r, y, q, n in Observation.objects.values_list(
-        "source__region", "source__year", "source__quarter").annotate(n=Count("id")).order_by())
+        "source__region", "source__year", "source__quarter").annotate(n=Count("resource", distinct=True)).order_by())
+    n_reg = dict(Observation.objects.values_list("source__region").annotate(n=Count("resource", distinct=True)).order_by())
     regions = defaultdict(lambda: {"n": 0, "periods": []})
     for r, y, q in Source.objects.values_list("region", "year", "quarter").distinct().order_by():
         n = n_obs.get((r, y, q), 0)
-        regions[r]["n"] += n
+        regions[r]["n"] = n_reg.get(r, 0)
         regions[r]["periods"].append({"year": y, "quarter": q, "n": n})
     out = []
     from .regions import REGIONS
@@ -729,23 +792,8 @@ def parse_period(data) -> dict:
 
 # ===================== текширув навбати =====================
 PRICE_RATIO = 3  # medianadan shuncha baravardan ko'p farq — shubhali
-NAME_MIN = 0.5   # nom o'xshashligi shundan past — shubhali
-_WORD = re.compile(r"[0-9a-zа-яўқғҳ]+")
-
-
-def _words(name) -> list:
-    return _WORD.findall(norm_name(name))
-
-
-def name_similarity(a, b) -> float:
-    """0..1: qisqa nomning so'zlaridan qanchasi uzunida bor (raqamlar bilan) — «БУЛЬДОЗЕРЫ 79 КВТ» va
-    «БУЛЬДОЗЕРЫ ПРИ РАБОТЕ … 79 (108) КВТ (Л.С.)» o'xshash; «ВОДА» va «ГВОЗДИ» — yo'q."""
-    wa, wb = _words(a), _words(b)
-    if not wa or not wb:
-        return 0.0
-    short, long_ = (wa, set(wb)) if len(wa) <= len(wb) else (wb, set(wa))
-    hit = sum(1 for w in short if w in long_ or (len(w) >= 5 and any(x.startswith(w[:5]) for x in long_)))
-    return hit / len(short)
+NAME_MIN = resfile.NAME_MIN  # nom o'xshashligi shundan past — shubhali
+name_similarity = resfile.name_similarity
 
 
 def recheck(resource_ids=None):

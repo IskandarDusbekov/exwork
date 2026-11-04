@@ -1,4 +1,4 @@
-{% load narx %}{# асл файллар жадвали: files = [{name, path, size, abs, skip, i, kind, work, created}], show_owner #}
+{% load narx %}{# асл файллар жадвали: files = [{name, path, size, abs, skip, i, kind, work, created}], show_owner; кўриш ва юклаб олиш — суперфойдаланувчига #}
 <div class="overflow-x-auto">
   <table class="w-full min-w-[44rem] text-sm">
     <thead class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
@@ -8,7 +8,7 @@
         <th class="px-3 py-2 font-medium">Иш</th>
         <th class="px-3 py-2 text-right font-medium">Ҳажми</th>
         <th class="px-3 py-2 font-medium">Санаси</th>
-        <th class="w-10 px-3 py-2"></th>
+        {% if can_act %}<th class="px-3 py-2 text-right font-medium">Амал</th>{% endif %}
       </tr>
     </thead>
     <tbody class="divide-y divide-slate-100">
@@ -24,9 +24,11 @@
           <span class="text-xs text-slate-400">{% if f.kind == "folder" %}Папка{% elif f.kind == "object" %}Объект{% else %}Смета{% endif %} ·</span> {% if f.kind == 'smeta' %}{{ f.work.local_name }}{% else %}{{ f.work.name }}{% endif %}</a></td>
         <td class="num px-3 py-2 text-right text-slate-600">{{ f.size|hsize }}</td>
         <td class="num px-3 py-2 text-slate-500">{{ f.created|date:"d.m.Y H:i" }}</td>
-        <td class="px-3 py-2 text-right">
-          {% if can_act and f.abs %}<a href="{% url 'panel:work_file' f.kind f.work.id f.i %}" class="inline-grid h-7 w-7 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900" title="Юклаб олиш (журналга ёзилади)" aria-label="Юклаб олиш: {{ f.name }}">{% icon "download" "h-4 w-4" %}</a>{% endif %}
-        </td>
+        {% if can_act %}<td class="whitespace-nowrap px-3 py-2 text-right">
+          {% if f.abs %}<a href="{% url 'panel:work_sheet' f.kind f.work.id f.i %}" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900" title="Excel кўринишида очиш (журналга ёзилади)">{% icon "table" "h-3.5 w-3.5" %} Кўриш</a>
+          <a href="{% url 'panel:work_file' f.kind f.work.id f.i %}" class="inline-grid h-7 w-7 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-900" title="Юклаб олиш (журналга ёзилади)" aria-label="Юклаб олиш: {{ f.name }}">{% icon "download" "h-4 w-4" %}</a>
+          {% else %}<span class="text-xs text-slate-300">дискда йўқ</span>{% endif %}
+        </td>{% endif %}
       </tr>
       {% empty %}
       <tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">Файл йўқ</td></tr>

@@ -1,6 +1,7 @@
 {% extends "panel/base.html" %}
 {% load narx %}
 {% block title %}{{ d.shifr }} — нормалар — Панел{% endblock %}
+{% block page_head %}{% endblock %}{# сарлавҳа — саҳифанинг ўзида #}
 {% block panel %}
 <style>
   .nb-grid { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .8125rem; }
@@ -13,7 +14,7 @@
 {% include "panel/_base_ui.html" %}
 {% include "panel/_base_tabs.html" with base_tab="norms" %}
 
-<a href="{{ back_url }}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-3.5 w-3.5" %} {{ d.book }} · {{ book_label }}</a>
+<a href="{{ back_url }}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-3.5 w-3.5" %} Иш нормалари</a>
 
 <section class="ui-group" style="padding:1.25rem">
   <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">

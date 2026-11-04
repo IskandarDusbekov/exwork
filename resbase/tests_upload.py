@@ -402,27 +402,25 @@ class SmetaWorksTests(TestCase):
 
 
 class BookNamesTests(TestCase):
-    """Тўплам номлари: стандарт (тизимда) ва админ ёзгани; бўш — стандартга қайтади."""
+    """Тўплам номлари: фақат админ ёзгани; ёзилмаган — бўш (кодининг ўзи кўринади)."""
 
     def setUp(self):
         self.admin = User.objects.create_superuser("admin@test.uz", PASSWORD, first_name="A", last_name="B")
         self.client.force_login(self.admin)
 
     def test_edit_and_reset(self):
-        self.assertEqual(services.book_label("Ц38"), "Монтаж оборудования, 38-тўплам")
+        self.assertEqual(services.book_label("Ц38"), "")
         url = reverse("panel:base_books")
-        self.client.post(url, {"name_Ц38": "Лифтлар монтажи", "name_Е01": "Земляные работы", "name_X1": "бузуқ"})
+        self.client.post(url, {"name_Ц38": "Лифтлар монтажи", "name_Е01": "", "name_X1": "бузуқ"})
         self.assertEqual(services.book_label("Ц38"), "Лифтлар монтажи")
-        self.assertEqual(services.book_label("Е01"), "Земляные работы")  # стандарт билан бир хил — сақланмайди
+        self.assertEqual(services.book_label("Е01"), "")
         from .models import BookName
         self.assertEqual(list(BookName.objects.values_list("key", flat=True)), ["Ц38"])
         self.assertContains(self.client.get(url), "Лифтлар монтажи")
         self.client.post(url, {"name_Ц38": ""})
-        self.assertEqual(services.book_label("Ц38"), "Монтаж оборудования, 38-тўплам")
+        self.assertEqual(services.book_label("Ц38"), "")
 
     def test_how_page(self):
-        for name in ("panel:base", "panel:base_norms"):
-            self.assertContains(self.client.get(reverse(name)), reverse("panel:base_how"))
         page = self.client.get(reverse("panel:base_how"))
         self.assertContains(page, "Ўрта нарх қандай топилади")
         self.assertContains(page, "Е0101-197-02")

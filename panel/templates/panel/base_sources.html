@@ -1,6 +1,7 @@
 {% extends "panel/base.html" %}
 {% load narx %}
-{% block title %}Ресурс базаси: манбалар — Панел{% endblock %}
+{% block title %}Ресурс базаси: юкланган файллар — Панел{% endblock %}
+{% block page_head %}{% endblock %}{# сарлавҳа — саҳифанинг ўзида #}
 {% block panel %}
 {% include "panel/_base_ui.html" %}
 {% include "panel/_base_tabs.html" with base_tab="sources" %}
@@ -45,43 +46,55 @@
   {% if n_unknown %}<a href="?f=unknown" class="ui-card {% if f == 'unknown' %}on{% endif %}" style="border-color:#fcd34d"><span class="ic ic-repair">?</span><span><span class="t block">Даври номаълум</span><span class="n">{{ n_unknown }}</span></span></a>{% endif %}
 </nav>
 
-<section class="ui-group">
-  {% for s in page %}
-  <div class="ui-row" {% if not s.period_known %}style="background:#fffbeb"{% endif %}>
-    <span class="doc">{% if s.is_file %}{% icon "upload" "h-5 w-5" %}{% else %}{% icon "sheet" "h-5 w-5" %}{% endif %}</span>
-    <div class="main">
-      <div class="title font-medium"><a href="{% url 'panel:base_source_detail' s.pk %}" class="hover:underline" title="Нима олинди, нега олинмади">{{ s.title }}</a></div>
-      <div class="ui-tags">
-        <span class="ui-tag {% if not s.period_known %}warn{% endif %}">{{ s.get_region_display|default:"вилоят ?" }} · {{ s.period_label }}</span>
-        <span class="ui-tag">{{ s.get_kind_display }}</span>
-        {% if s.n %}<span class="ui-tag ok">{{ s.n }} та нарх</span>{% endif %}
-        {% if s.w %}<span class="ui-tag book">{{ s.w }} та иш</span>{% endif %}
-        <span class="ui-tag">{{ s.created|date:"d.m.Y" }}{% if s.owner %} · {{ s.owner.email }}{% endif %}</span>
-      </div>
-      {% if can_act %}
-      <details class="mt-2">
-        <summary class="cursor-pointer text-xs font-medium text-slate-500 hover:text-slate-900">Даврини ўзгартириш</summary>
-        <form method="post" action="{% url 'panel:base_source' s.pk 'edit' %}" class="mt-2 flex flex-wrap items-center gap-1.5">{% csrf_token %}
-          <input type="hidden" name="next" value="{{ request.get_full_path }}">
-          {% include "panel/_base_period.html" with r=s.region y=s.year q=s.quarter %}
-          <button class="ui-btn-o" style="color:#334155">Сақлаш</button></form>
-      </details>
-      {% endif %}
-    </div>
-    {% if can_act %}
-    <div class="flex shrink-0 gap-1.5">
-      <form method="post" action="{% url 'panel:base_source' s.pk 'reharvest' %}" title="{% if s.is_file %}Файл қайта ўқилади{% else %}Сметадан нархлар қайта олинади{% endif %}">{% csrf_token %}
-        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-        <button class="ui-btn-o" style="color:#334155">Янгилаш</button></form>
-      <form method="post" action="{% url 'panel:base_source' s.pk 'delete' %}" data-confirm="«{{ s.title }}» дан олинган маълумотлар базадан ўчирилади.{% if s.is_file %} Файл нусхаси ҳам ўчади.{% else %} Сметанинг ўзига тегилмайди.{% endif %}" data-confirm-title="Манбани ўчириш" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}
-        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-        <button class="ui-btn-o" style="color:#be123c;border-color:#fecdd3">Ўчириш</button></form>
-    </div>
-    {% endif %}
-  </div>
-  {% empty %}
-  <div class="ui-empty" style="border:0">Ҳали манба йўқ.</div>
-  {% endfor %}
+<p class="mb-2 px-1 text-sm text-slate-600">Базага нима тушгани шу жадвалда: ҳар файл ёки сметадан <b>нечта нарх</b> ва <b>нечта иш</b> олинди,
+  нечта қатор <b>олинмади ва нега</b>. Файл номини босинг — батафсил.</p>
+<section class="ui-group overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead style="background:var(--ui-soft)" class="text-left text-xs text-slate-500">
+      <tr>
+        <th class="px-4 py-2 font-medium">Файл / смета</th>
+        <th class="px-3 py-2 font-medium">Вилоят · давр</th>
+        <th class="px-3 py-2 text-right font-medium" title="Базага тушган нархлар (код бўйича)">Нарх олинди</th>
+        <th class="px-3 py-2 text-right font-medium" title="ЛРВ листидан олинган ишлар (шифр билан)">Иш олинди</th>
+        <th class="px-3 py-2 font-medium">Олинмади — нега</th>
+        {% if can_act %}<th class="px-3 py-2"></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+    {% for s in page %}
+      <tr class="align-top" {% if not s.period_known %}style="background:#fffbeb"{% endif %}>
+        <td class="px-4 py-2.5">
+          <a href="{% url 'panel:base_source_detail' s.pk %}" class="font-medium text-slate-900 hover:underline">{{ s.title }}</a>
+          <div class="text-xs text-slate-500">{% if s.is_file %}юкланган файл{% else %}{{ s.get_kind_display|lower }} (тизимда нархланган){% endif %} · {{ s.created|date:"d.m.Y" }}{% if s.owner %} · {{ s.owner.email }}{% endif %}</div>
+        </td>
+        <td class="whitespace-nowrap px-3 py-2.5 {% if not s.period_known %}text-amber-700{% endif %}">{{ s.get_region_display|default:"вилоят ?" }}<div class="text-xs text-slate-500">{{ s.period_label }}</div>
+          {% if can_act %}<details class="mt-1"><summary class="cursor-pointer text-xs text-slate-500 hover:text-slate-900">ўзгартириш</summary>
+            <form method="post" action="{% url 'panel:base_source' s.pk 'edit' %}" class="mt-1 flex flex-col gap-1">{% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              {% include "panel/_base_period.html" with r=s.region y=s.year q=s.quarter %}
+              <button class="ui-btn-o" style="color:#334155">Сақлаш</button></form></details>{% endif %}
+        </td>
+        <td class="num px-3 py-2.5 text-right font-semibold {% if s.n %}text-emerald-700{% else %}text-slate-300{% endif %}">{{ s.n|default:"—" }}</td>
+        <td class="num px-3 py-2.5 text-right font-semibold {% if s.w %}text-sky-700{% else %}text-slate-300{% endif %}">{{ s.w|default:"—" }}</td>
+        <td class="px-3 py-2.5 text-xs text-slate-600">
+          {% for k, v in s.stats.skipped.items %}<div><b class="num text-slate-800">{{ v }}</b> — {{ skip_labels|get_item:k|default:k }}</div>{% empty %}<span class="text-slate-300">—</span>{% endfor %}
+        </td>
+        {% if can_act %}
+        <td class="whitespace-nowrap px-3 py-2.5 text-right">
+          <form method="post" action="{% url 'panel:base_source' s.pk 'reharvest' %}" class="inline" title="{% if s.is_file %}Файл қайта ўқилади{% else %}Сметадан нархлар қайта олинади{% endif %}">{% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="ui-btn-o" style="color:#334155">Қайта ўқиш</button></form>
+          <form method="post" action="{% url 'panel:base_source' s.pk 'delete' %}" class="inline" data-confirm="«{{ s.title }}» дан олинган маълумотлар базадан ўчирилади.{% if s.is_file %} Файл нусхаси ҳам ўчади.{% else %} Сметанинг ўзига тегилмайди.{% endif %}" data-confirm-title="Манбани ўчириш" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="ui-btn-o" style="color:#be123c;border-color:#fecdd3">Ўчириш</button></form>
+        </td>
+        {% endif %}
+      </tr>
+    {% empty %}
+      <tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">Ҳали ҳеч нарса юкланмаган — «Ресурс нархлари»даги юклаш қутисидан файл юкланг.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
 </section>
 {% include "panel/_pager.html" %}
 {% endblock %}

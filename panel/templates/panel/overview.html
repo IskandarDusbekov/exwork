@@ -1,59 +1,82 @@
 {% extends "panel/base.html" %}
 {% load narx %}
-{% block title %}Панел — mhisobot{% endblock %}
+{% block title %}Бош саҳифа — Панел{% endblock %}
+{% block page_title %}Бош саҳифа{% endblock %}
+{% block page_desc %}Тизимнинг ҳозирги ҳолати: нима ишлаяпти, нимага эътибор бериш керак ва жами кўрсаткичлар. «Ҳозир» блоки ҳар 3 сонияда ўзи янгиланади.{% endblock %}
+{% block page_actions %}<a href="{% url 'panel:stats' %}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">{% icon "chart" %} Батафсил статистика</a>{% endblock %}
 {% block panel %}
-<div class="mb-5 flex flex-wrap items-end justify-between gap-2">
-  <div>
-    <h1 class="text-2xl font-semibold">Умумий</h1>
-    <p class="text-sm text-slate-500">Тизимда ҳозир нима бўляпти ва жами кўрсаткичлар</p>
-  </div>
-  <a href="{% url 'panel:stats' %}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">{% icon "chart" %} Батафсил статистика</a>
-</div>
+
+{# ================= эътибор талаб қилади ================= #}
+<section class="mb-6 rounded-xl border {% if attention %}border-amber-200 bg-amber-50/60{% else %}border-emerald-200 bg-emerald-50/60{% endif %} p-4">
+  <h2 class="flex items-center gap-2 font-semibold {% if attention %}text-amber-900{% else %}text-emerald-800{% endif %}">
+    {% if attention %}{% icon "alert" "h-5 w-5" %} Эътибор талаб қилади{% else %}{% icon "check-circle" "h-5 w-5" %} Ҳаммаси жойида{% endif %}</h2>
+  {% if attention %}
+  <ul class="mt-2 space-y-1.5">
+    {% for a in attention %}
+    <li><a href="{{ a.url }}" class="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-inset ring-{{ a.color }}-200 hover:bg-{{ a.color }}-50">
+      <span class="h-2 w-2 shrink-0 rounded-full bg-{{ a.color }}-500"></span>
+      <span class="flex-1 text-slate-800">{{ a.text }}</span>
+      <span class="text-xs text-slate-400">кўриш →</span></a></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="mt-1 text-sm text-emerald-800/80">Ишчи (worker) ишлаяпти, тўхтаб қолган жараён, охирги кунда сервер хатоси ва блокланган ҳисоб йўқ.</p>
+  {% endif %}
+</section>
 
 {# ================= ҳозир (жонли) ================= #}
 <div id="live" data-url="{% url 'panel:live' %}">{% include "panel/_live.html" %}</div>
 
 {# ================= жами ================= #}
-<h2 class="mb-2 mt-8 text-sm font-semibold uppercase tracking-wider text-slate-500">Жами</h2>
-<div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+<h2 class="mb-1 mt-8 text-sm font-semibold uppercase tracking-wider text-slate-500">Жами (бутун вақт)</h2>
+<p class="mb-3 text-xs text-slate-500">Сайт ишга тушганидан бери тўпланган рақамлар. Картани босинг — батафсил рўйхат очилади.</p>
+<div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
   <a href="{% url 'panel:users' %}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300">
-    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">{% icon "users" "h-4 w-4" %} Фойдаланувчилар</div>
+    <div class="flex items-center gap-2 text-xs font-medium text-slate-500">{% icon "users" "h-4 w-4" %} Фойдаланувчилар</div>
     <div class="num mt-2 text-3xl font-semibold">{{ users_total }}</div>
-    <div class="mt-1 text-xs text-slate-500">+{{ users_new }} шу ҳафта · {{ users_online }} та 24 соатда кирган{% if users_inactive %} · <span class="text-rose-600">{{ users_inactive }} блокда</span>{% endif %}</div>
+    <div class="mt-1 text-xs text-slate-500">рўйхатдан ўтганлар · шу ҳафта +{{ users_new }}<br>24 соатда кирганлар: {{ users_online }}{% if users_inactive %} · <span class="text-rose-600">блокда: {{ users_inactive }}</span>{% endif %}</div>
+  </a>
+  <a href="{% url 'panel:files' %}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300">
+    <div class="flex items-center gap-2 text-xs font-medium text-slate-500">{% icon "layers" "h-4 w-4" %} Юкланган ишлар</div>
+    <div class="num mt-2 text-3xl font-semibold">{{ works.folder|add:works.object|add:works.smeta }}</div>
+    <div class="mt-1 text-xs text-slate-500">смета­чилар юклагани:<br>{{ works.folder }} папка · {{ works.object }} объект · {{ works.smeta }} алоҳида смета</div>
   </a>
   <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">{% icon "layers" "h-4 w-4" %} Ишлар</div>
-    <div class="num mt-2 text-3xl font-semibold">{{ works.folder|add:works.object|add:works.smeta }}</div>
-    <div class="mt-1 text-xs text-slate-500">{{ works.folder }} папка · {{ works.object }} объект · {{ works.smeta }} смета</div>
-  </div>
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-emerald-600">{% icon "check-circle" "h-4 w-4" %} Нархланган сметалар</div>
+    <div class="flex items-center gap-2 text-xs font-medium text-slate-500">{% icon "check-circle" "h-4 w-4" %} Нархланган сметалар</div>
     <div class="mt-2 flex items-baseline gap-2"><span class="num text-3xl font-semibold">{{ jobs_priced }}</span><span class="text-sm text-slate-400">/ {{ jobs_total }}</span></div>
     <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width: {% widthratio jobs_priced jobs_total 100 %}%"></div></div>
-    <div class="mt-1 text-xs {% if jobs_failed %}text-rose-600{% else %}text-slate-500{% endif %}">{{ jobs_failed }} та хато билан</div>
+    <div class="mt-1 text-xs text-slate-500">ҳамма сметалардан (папка ва объект ичидагилари ҳам){% if jobs_failed %} · <span class="text-rose-600">{{ jobs_failed }} хато</span>{% endif %}</div>
   </div>
+  <a href="{% url 'panel:texnazor' %}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300">
+    <div class="flex items-center gap-2 text-xs font-medium text-slate-500">{% icon "building" "h-4 w-4" %} Техназор объектлари</div>
+    <div class="num mt-2 text-3xl font-semibold">{{ tn_total }}</div>
+    <div class="mt-1 text-xs text-slate-500">юкланган офёрталар (объект = битта шартнома)</div>
+  </a>
   <a href="{% url 'panel:files' %}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300">
-    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">{% icon "database" "h-4 w-4" %} Дискда</div>
+    <div class="flex items-center gap-2 text-xs font-medium text-slate-500">{% icon "database" "h-4 w-4" %} Дискда банд</div>
     <div class="num mt-2 text-3xl font-semibold">{{ disk|hsize }}</div>
-    <div class="mt-1 text-xs text-slate-500">юкланган ва натижа файллари</div>
+    <div class="mt-1 text-xs text-slate-500">юкланган файллар, очилган нусхалар ва натижалар (5 дақиқада янгиланади)</div>
   </a>
 </div>
 
 <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
   <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="flex items-baseline justify-between"><h2 class="font-semibold">Юклашлар</h2><span class="text-xs text-slate-400">14 кун</span></div>
+    <h2 class="font-semibold">Кунига юклашлар</h2>
+    <p class="text-xs text-slate-500">охирги 14 кун · папка, объект ва смета бирга</p>
     {% include "panel/_days.html" with days=upload_days color="bg-emerald-500" %}
   </section>
   <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="flex items-baseline justify-between"><h2 class="font-semibold">Рўйхатдан ўтганлар</h2><span class="text-xs text-slate-400">14 кун</span></div>
+    <h2 class="font-semibold">Кунига рўйхатдан ўтганлар</h2>
+    <p class="text-xs text-slate-500">охирги 14 кун · янги фойдаланувчилар</p>
     {% include "panel/_days.html" with days=reg_days color="bg-violet-500" %}
   </section>
   <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
-    <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Энг фаол смета­чилар</h2></div>
+    <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Энг кўп смета нархлаганлар</h2>
+      <p class="text-xs text-slate-500">ўнгдаги рақам — жами сметалари сони</p></div>
     <ul class="divide-y divide-slate-100">
       {% for t in top %}
       <li><a href="{% url 'panel:user' t.user.pk %}" class="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50">
-        <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">{{ t.user.first_name|first|upper }}{{ t.user.last_name|first|upper }}</span>
+        <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">{{ t.user.first_name|first|default:t.user.email|first|upper }}{{ t.user.last_name|first|upper }}</span>
         <span class="min-w-0 flex-1"><span class="block truncate text-sm font-medium">{{ t.user.get_full_name|default:t.user.email }}</span>
           <span class="block truncate text-xs text-slate-500">{{ t.folder }} папка · {{ t.object }} объект · {{ t.smeta }} смета</span></span>
         <span class="text-right"><span class="num block text-sm font-semibold">{{ t.jobs }}</span><span class="block text-[11px] text-slate-400">смета</span></span>
@@ -65,7 +88,7 @@
 
 <section class="mt-3 rounded-xl border border-slate-200 bg-white shadow-sm">
   <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-    <h2 class="font-semibold">Сўнгги ҳаракатлар</h2>
+    <div><h2 class="font-semibold">Сўнгги ҳаракатлар</h2><p class="text-xs text-slate-500">журналнинг охирги ёзувлари: киришлар, юклашлар, админ амаллари</p></div>
     <a href="{% url 'panel:log' %}" class="text-xs text-slate-500 hover:text-slate-900">Тўлиқ журнал →</a>
   </div>
   <ul class="divide-y divide-slate-100">

@@ -1,6 +1,7 @@
 {% extends "panel/base.html" %}
 {% load narx %}
 {% block title %}{{ s.title }} — манба — Панел{% endblock %}
+{% block page_head %}{% endblock %}{# сарлавҳа — саҳифанинг ўзида #}
 {% block panel %}
 {% include "panel/_base_ui.html" %}
 {% include "panel/_base_tabs.html" with base_tab="sources" %}
@@ -82,13 +83,4 @@
 </details>
 {% endif %}
 
-{# ---------- иш турлари ---------- #}
-{% if books %}
-<details class="ui-group" open>
-  <summary>{% icon "layers" "ui-gi h-6 w-6 shrink-0" %}<span class="gt">Иш турлари<small>Иш шифрининг тўплами бўйича — нечта иш.</small></span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
-  <div class="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-4">
-    {% for k, n, label in books %}<a href="{% url 'panel:base_norms' %}?src={{ s.pk }}&book={{ k }}" class="ui-tag book" style="font-size:.8rem;padding:.25rem .6rem">{{ k }} · {{ label }} · {{ n }}</a>{% endfor %}
-  </div>
-</details>
-{% endif %}
 {% endblock %}

@@ -1,6 +1,8 @@
 {% extends "panel/base.html" %}
 {% load narx %}
 {% block title %}Журнал — Панел{% endblock %}
+{% block page_title %}Журнал ва хавфсизлик{% endblock %}
+{% block page_desc %}Ким, қачон, қаердан (IP, қурилма) нима қилди: киришлар, юклашлар, ўчиришлар ва админ амаллари (кўриш, юклаб олиш, блоклаш). Юқорида — ҳозир блокда турган ҳисоблар ва IP'лар.{% endblock %}
 {% block panel %}
 <div class="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3">
   <section class="rounded-xl border {% if locked_emails %}border-amber-200 bg-amber-50{% else %}border-slate-200 bg-white{% endif %} p-4 shadow-sm">

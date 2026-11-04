@@ -7,7 +7,7 @@ from functools import wraps
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -17,12 +17,13 @@ from django.views.decorators.http import require_POST
 
 from accounts.models import AuthAttempt
 from accounts.throttle import LOGIN_PER_EMAIL, LOGIN_PER_IP, WINDOW, client_ip
+from jobs import preview
 from jobs.folders import build_project_zip, stop_project
 from jobs.models import Batch, Job, Project
 from jobs.services import UploadError, build_combined
-from jobs.views import PART_STATES, STAT_CARDS, _job_sums, work_items
+from jobs.views import PART_STATES, STAT_CARDS, _audit_download, _job_sums, light_jobs, work_items
 
-from . import data, sessions
+from . import data, sessions, xl
 from .audit import log as audit
 from .logs import KEEP_DAYS
 from .models import BlockedIP, Event, LoginSession, ServerLog
@@ -61,13 +62,13 @@ def _ctx(request, tab, **kw):
 def _panel_items(user):
     """Фойдаланувчининг ишлари (дашборддаги каби), лекин ҳаволалар панелдаги кўринишга."""
     items = work_items(user)
-    download = {"folder": "project_download", "object": "batch_download", "smeta": "job_download"}
     for it in items:
         work_id = it["url"].rstrip("/").rsplit("/", 1)[-1]
         it["view_url"] = it["url"]  # смета­чининг ўз саҳифаси (суперфойдаланувчига — текширув режимида)
         it["url"] = reverse("panel:work", args=[it["kind"], work_id])
+        it["zip_url"] = reverse("panel:work_zip", args=[it["kind"], work_id])  # юклаган ҳамма асл файллари
         if it["total"] or it["state"] in ("done", "warn"):
-            it["download_url"] = reverse(download[it["kind"]], args=[work_id])
+            it["download_url"] = reverse("panel:work_result", args=[it["kind"], work_id])
     return items
 
 
@@ -97,24 +98,58 @@ def overview(request):
     names = {u.pk: u for u in users}
     top = sorted(counts.items(), key=lambda kv: kv[1]["jobs"], reverse=True)[:5]
     jobs = Job.objects.all()
+    live_ = data.live()
     return render(request, "panel/overview.html", _ctx(
-        request, "overview", live=data.live(),
+        request, "overview", live=live_, attention=_attention(live_),
         users_total=users.count(),
         users_new=users.filter(date_joined__gte=week).count(),
         users_online=users.filter(last_login__gte=day).count(),
         users_inactive=users.filter(is_active=False).count(),
         works={k: data.top_level(k).count() for k in data.KINDS},
+        tn_total=_tn_count(),
         jobs_total=jobs.count(),
         jobs_priced=jobs.filter(status=Job.Status.DONE).count(),
         jobs_failed=jobs.filter(status=Job.Status.FAILED).count(),
-        uploads_today=sum(data.top_level(k).filter(created__gte=day).count() for k in data.KINDS),
-        failed_logins=Event.objects.filter(kind=Event.Kind.LOGIN_FAILED, created__gte=day).count(),
         disk=data.disk_total(),
         reg_days=data.per_day(users, "date_joined"),
         upload_days=data.uploads_per_day(),
-        top=[{"user": names.get(uid), **c} for uid, c in top if uid in names],
-        events=Event.objects.select_related("actor", "target")[:15],
+        top=[{"user": names.get(uid), **c} for uid, c in top if uid in names and c["jobs"]],
+        events=Event.objects.select_related("actor", "target")[:12],
     ))
+
+
+def _tn_count():
+    from texnazor.models import SiteObject
+    return SiteObject.objects.count()
+
+
+def _attention(live_) -> list:
+    """«Эътибор талаб қилади»: ҳозир тузатиш ёки қараш керак бўлган нарсалар — ҳар бири ҳаволаси билан.
+    Бўш рўйхат — ҳаммаси жойида."""
+    from texnazor.models import SiteObject
+    now = timezone.now()
+    out = []
+    if live_["workers"]["mode"] == "worker" and not live_["workers"]["alive"]:
+        out.append(("rose", "Фондаги ишчи (worker) ишламаяпти — папкалар очилмайди ва нархланмайди",
+                    reverse("panel:processes")))
+    stalled = sum(1 for p in live_["procs"] if p["stalled"])
+    if stalled:
+        out.append(("rose", f"{stalled} та папка жараёни тўхтаб қолган (белги келмаяпти)", reverse("panel:processes")))
+    n = ServerLog.objects.filter(level__gte=logging.ERROR, created__gte=now - timedelta(days=1)).count()
+    if n:
+        out.append(("rose", f"Охирги 24 соатда {n} та сервер хатоси", reverse("panel:errors") + "?level=error"))
+    n = Job.objects.filter(status=Job.Status.FAILED, created__gte=now - timedelta(days=7)).count()
+    if n:
+        out.append(("amber", f"Охирги 7 кунда {n} та смета хато билан тугади", reverse("panel:processes")))
+    n = SiteObject.objects.filter(status=SiteObject.Status.READY, layout__check__ok=False).count()
+    if n:
+        out.append(("amber", f"{n} та техназор офёртасини тизим тўлиқ тушунмади", reverse("panel:texnazor") + "?status=unread"))
+    since = now - WINDOW
+    n = len([r for r in _group(AuthAttempt.objects.filter(kind=AuthAttempt.Kind.LOGIN, created__gte=since), "email")
+             if r["n"] >= LOGIN_PER_EMAIL])
+    if n:
+        out.append(("amber", f"{n} та ҳисоб кўп хато пароль сабабли вақтинча блокда", reverse("panel:log")))
+    return [{"color": c, "text": t, "url": u} for c, t, u in out]
 
 
 @staff_required
@@ -161,37 +196,57 @@ def users(request):
     page = Paginator(qs, 50).get_page(request.GET.get("page"))
     counts = data.counts_by_user()
     disk = data.disk_by_user()
+    tn = _tn_by_user()
     last = _last_sessions([u.pk for u in page])
     online = sessions.online_since()
-    rows = [{"user": u, "c": counts.get(u.pk, {}), "disk": disk.get(u.pk, 0), "s": last.get(u.pk),
+    rows = [{"user": u, "c": counts.get(u.pk, {}), "tn": tn.get(u.pk, 0), "disk": disk.get(u.pk, 0), "s": last.get(u.pk),
              "online": bool(last.get(u.pk) and not last[u.pk].ended and last[u.pk].last_seen >= online)} for u in page]
     return render(request, "panel/users.html", _ctx(request, "users", page=page, rows=rows, q=q, status=status,
                                                     total=User.objects.count(), here=request.get_full_path()))
 
 
+def _tn_by_user() -> dict:
+    """{owner_id: техназор объектлари сони}"""
+    from texnazor.models import SiteObject
+    return dict(SiteObject.objects.values("owner_id").annotate(n=Count("id")).values_list("owner_id", "n"))
+
+
+USER_TABS = (("works", "Ишлари"), ("files", "Юклаган файллари"), ("access", "Кириш ва рухсат"), ("events", "Ҳаракатлари"))
+
+
 @staff_required
 def user_detail(request, pk):
+    """Битта фойдаланувчи: юқорида — ким ва қисқа кўрсаткичлар; пастда — бўлимлар (таб): ишлари, файллари,
+    кириш (қурилма, IP, блок, диск чегараси), ҳаракатлари. Фақат танланган бўлим ҳисобланади."""
     u = get_object_or_404(User, pk=pk)
-    items = _panel_items(u)
-    files = []
-    for kind in data.KINDS:
-        for w in data.top_level(kind).filter(owner=u).defer(*(["result"] if kind == "smeta" else [])):
-            for i, f in enumerate(data.originals(kind, w)):
-                files.append({**f, "i": i, "kind": kind, "work": w, "created": w.created})
-    files.sort(key=lambda f: f["created"], reverse=True)
-    events = Event.objects.filter(Q(actor=u) | Q(target=u) | Q(email=u.email)).select_related("actor", "target")[:50]
+    tab = request.GET.get("tab", "works")
+    tab = tab if tab in dict(USER_TABS) else "works"
     since = timezone.now() - WINDOW
-    return render(request, "panel/user.html", _ctx(
-        request, "users", u=u, items=items, c=data.counts_by_user().get(u.pk, {}),
-        disk=data.disk_by_user().get(u.pk, 0), files=files[:200], files_total=len(files),
-        files_size=sum(f["size"] or 0 for f in files), events=events,
-        locked=AuthAttempt.objects.filter(kind=AuthAttempt.Kind.LOGIN, email=u.email,
-                                          created__gte=since).count() >= LOGIN_PER_EMAIL,
-        sessions=u.login_sessions.all()[:30], online_since=sessions.online_since(),
-        blocked_ips=sessions.blocked_ips(), my_ip=client_ip(request),
-        ips=list(u.login_sessions.values_list("ip").annotate(n=Count("id")).order_by("-n")[:10]),
-        tn=_tn_rows(u), disk_info=_disk_info(u),
-    ))
+    ctx = dict(u=u, utab=tab, utabs=USER_TABS, c=data.counts_by_user().get(u.pk, {}),
+               disk=data.disk_by_user().get(u.pk, 0), tn_n=_tn_by_user().get(u.pk, 0),
+               locked=AuthAttempt.objects.filter(kind=AuthAttempt.Kind.LOGIN, email=u.email,
+                                                 created__gte=since).count() >= LOGIN_PER_EMAIL,
+               online=_last_sessions([u.pk]).get(u.pk))
+    s = ctx["online"]
+    ctx["is_online"] = bool(s and not s.ended and s.last_seen >= sessions.online_since())
+    if tab == "works":
+        ctx.update(items=_panel_items(u), tn=_tn_rows(u))
+    elif tab == "files":
+        files = []
+        for kind in data.KINDS:
+            qs = data.top_level(kind).filter(owner=u)
+            for w in (qs.defer("result") if kind == "smeta" else qs):
+                for i, f in enumerate(data.originals(kind, w)):
+                    files.append({**f, "i": i, "kind": kind, "work": w, "created": w.created})
+        files.sort(key=lambda f: f["created"], reverse=True)
+        ctx.update(files=files[:300], files_total=len(files), files_size=sum(f["size"] or 0 for f in files))
+    elif tab == "access":
+        ctx.update(sessions=u.login_sessions.all()[:30], online_since=sessions.online_since(),
+                   blocked_ips=sessions.blocked_ips(), my_ip=client_ip(request), disk_info=_disk_info(u),
+                   ips=list(u.login_sessions.values_list("ip").annotate(n=Count("id")).order_by("-n")[:10]))
+    else:
+        ctx["events"] = Event.objects.filter(Q(actor=u) | Q(target=u) | Q(email=u.email)).select_related("actor", "target")[:100]
+    return render(request, "panel/user.html", _ctx(request, "users", **ctx))
 
 
 def _disk_info(u):
@@ -294,26 +349,48 @@ def _work_or_404(kind, work_id):
         raise Http404
 
 
+KIND_HINTS = {
+    "folder": "Папка — смета­чи бутун папка ёки ZIP/RAR архив юклаган; ҳар бир ички папка алоҳида қисм бўлиб нархланади.",
+    "object": "Объект — бир нечта Excel файл бирга юкланган; тизим локал ва ресурс листларини жуфтлаб, ҳар жуфтликни смета қилади.",
+    "smeta": "Смета — битта локал смета ва унинг ресурс файли (ёки ресурс базасидан) нархланган.",
+}
+
+
+def _light(qs):
+    """Иш саҳифасидаги сметалар рўйхати учун — катта ``result`` JSON'сиз."""
+    return qs.only("id", "created", "status", "owner_id", "batch_id", "batch_order", "local_name",
+                   "local_sheet", "batch_label", "error", "res_path", *Job.SUMMARY_FIELDS)
+
+
 @staff_required
 def work(request, kind, work_id):
+    """Битта иш: нима юкланган (асл файллар — кўриш ва юклаб олиш, ҳаммаси битта ZIP), нима чиққан
+    (нархланган сметалар ва натижа), шу иш бўйича журнал."""
     w = _work_or_404(kind, work_id)
-    ctx = {"kind": kind, "kind_label": data.KIND_LABELS[kind], "w": w, "files": data.originals(kind, w)}
+    files = data.originals(kind, w)
+    for f, src in zip(files, xl.sources(kind, w, files)):
+        f["viewable"] = src is not None
+    ctx = {"kind": kind, "kind_label": data.KIND_LABELS[kind], "kind_hint": KIND_HINTS[kind], "w": w, "files": files,
+           "files_ready": sum(1 for f in files if f["abs"]), "files_size": sum(f["size"] or 0 for f in files if f["abs"])}
     if kind == "folder":
-        parts = list(w.parts.prefetch_related("jobs").order_by("folder"))
+        parts = list(w.parts.prefetch_related(Prefetch("jobs", _light(Job.objects))).order_by("folder"))
         ctx["parts"] = [{"p": p, "state": PART_STATES.get(p.stage, (p.get_stage_display(), "slate")),
                          "jobs": list(p.jobs.all()), "total": _job_sums(list(p.jobs.all()))[0]} for p in parts]
         ctx["total"], ctx["not_priced"] = _job_sums([j for x in ctx["parts"] for j in x["jobs"]])
         ctx["skipped"] = sum(1 for f in w.files if f.get("skip"))
         ctx["working"] = w.status == Project.Status.PROCESSING
         ctx["has_result"] = any(x["jobs"] for x in ctx["parts"])
+        ctx["n_jobs"] = sum(len(x["jobs"]) for x in ctx["parts"])
     elif kind == "object":
-        ctx["jobs"] = list(w.jobs.all())
+        ctx["jobs"] = list(_light(w.jobs.all()))
         ctx["total"], ctx["not_priced"] = _job_sums(ctx["jobs"])
         ctx["has_result"] = any(j.status == Job.Status.DONE for j in ctx["jobs"])
+        ctx["n_jobs"] = len(ctx["jobs"])
     else:
         ctx["total"], ctx["not_priced"] = _job_sums([w]) if w.status == Job.Status.DONE else (0, 0)
         ctx["stats"] = {k: v for k, v in (w.result.get("stats") or {}).items() if v}
         ctx["has_result"] = w.status == Job.Status.DONE and bool(w.output_path)
+        ctx["n_jobs"] = 1
     ctx["events"] = Event.objects.filter(work_id=w.pk).select_related("actor")[:30]
     from .views_base import work_base_ctx
     ctx.update(work_base_ctx(kind, w))
@@ -328,8 +405,97 @@ def work_file(request, kind, work_id, i):
     if not 0 <= i < len(files) or files[i]["abs"] is None:
         raise Http404("Файл топилмади")
     f = files[i]
-    audit(request, Event.Kind.ADMIN_DOWNLOAD, target=w.owner, work=w, work_kind=kind, detail=f"асл файл: {f['path']}")
+    _audit_download(request, w, kind, f["path"], what="асл файл", force=True)
     return FileResponse(open(f["abs"], "rb"), as_attachment=True, filename=f["name"])
+
+
+@superuser_required
+def work_zip(request, kind, work_id):
+    """Ҳамма асл файллар битта ZIP'да — папка (ёки ZIP/RAR) юклаган бўлса, ичидаги тузилиши билан (журналга ёзилади)."""
+    w = _work_or_404(kind, work_id)
+    tmp, n = xl.originals_zip(kind, w, data.originals(kind, w))
+    if not n:
+        tmp.close()
+        raise Http404("Дискда асл файл қолмаган")
+    name = f"{(w.local_name.rsplit('.', 1)[0] if kind == 'smeta' else w.name) or 'иш'}_асл.zip"
+    _audit_download(request, w, kind, f"{name} ({n} та файл)", what="асл файллар (ZIP)", force=True)
+    return FileResponse(tmp, as_attachment=True, filename=name, content_type="application/zip")
+
+
+@superuser_required
+def work_sheet(request, kind, work_id, i):
+    """Асл файлни Excel кўринишида очиш (юклаб олмасдан). Кўрилгани журналга ёзилади."""
+    w = _work_or_404(kind, work_id)
+    files = data.originals(kind, w)
+    if not 0 <= i < len(files):
+        raise Http404("Файл топилмади")
+    f, src = files[i], xl.sources(kind, w, files)[i]
+    ctx = {"kind": kind, "w": w, "title": f["path"], "what": "Юкланган асл файл",
+           "back": reverse("panel:work", args=[kind, w.pk]),
+           "download": reverse("panel:work_file", args=[kind, w.pk, i]) if f["abs"] else None,
+           "full": request.GET.get("all") == "1"}
+    if src is None:
+        ctx["error"] = ("Бу файлни кўрсатиб бўлмайди: у ҳали очилмаган (.xls фонда .xlsx'га ўгирилгач кўринади) "
+                        "ёки дискда йўқ." + (" Юклаб олиб Excel'да очинг." if f["abs"] else ""))
+    else:
+        try:
+            ctx["data"] = xl.render(*src, sheet=request.GET.get("s") or None, full=ctx["full"])
+        except Exception as e:  # noqa: BLE001 — бузуқ файл саҳифани йиқитмасин
+            ctx["error"] = f"Файлни очиб бўлмади: {type(e).__name__}: {e}"
+    _audit_view(request, w, kind, f"асл файл кўрилди: {f['path']}")
+    return render(request, "panel/sheet.html", _ctx(request, "users", **ctx))
+
+
+JOB_FILES = {"out": "Нархланган натижа", "local": "Юкланган локал смета", "res": "Ресурс файли"}
+
+
+def _job_top(job):
+    """Смета қайси ишнинг ичида: (kind, юқори иш)."""
+    if job.batch_id is None:
+        return "smeta", job
+    if job.batch.project_id is None:
+        return "object", job.batch
+    return "folder", job.batch.project
+
+
+@superuser_required
+def job_sheet(request, job_id, f):
+    """Сметанинг (алоҳида, объект ёки папка ичидаги) натижаси / локали / ресурси — Excel кўринишида."""
+    job = get_object_or_404(Job.objects.select_related("owner", "batch__project__owner", "batch__owner"), pk=job_id)
+    if f not in JOB_FILES:
+        raise Http404
+    kind, top = _job_top(job)
+    full = request.GET.get("all") == "1"
+    ctx = {"kind": kind, "w": top, "job": job, "title": job.batch_label or job.local_name, "what": JOB_FILES[f],
+           "back": reverse("panel:work", args=[kind, top.pk]), "full": full, "job_files": JOB_FILES, "jf": f,
+           "download": reverse("panel:job_download", args=[job.pk]) if f == "out" and job.status == Job.Status.DONE else None}
+    try:
+        d = preview.sheet_data(job, f, request.GET.get("s") or None)
+        ctx["data"] = d if full else preview.head(d, xl.VIEW_ROWS)
+    except preview.NotAvailable as e:
+        ctx["error"] = str(e)
+    except Exception as e:  # noqa: BLE001
+        ctx["error"] = f"Файлни очиб бўлмади: {type(e).__name__}: {e}"
+    _audit_view(request, top, kind, f"{JOB_FILES[f].lower()} кўрилди: {job.local_name}")
+    return render(request, "panel/sheet.html", _ctx(request, "users", **ctx))
+
+
+@superuser_required
+def job_download(request, job_id):
+    """Объект ёки папка ичидаги битта сметанинг натижаси (журналга ёзилади)."""
+    job = get_object_or_404(Job.objects.select_related("owner"), pk=job_id)
+    path = job.abs(job.output_path) if job.output_path else None
+    if job.status != Job.Status.DONE or not path or not path.is_file():
+        raise Http404("Натижа йўқ")
+    _audit_download(request, job, "smeta", job.download_name, force=True)
+    return FileResponse(open(path, "rb"), as_attachment=True, filename=job.download_name)
+
+
+def _audit_view(request, w, kind, detail):
+    """Кўриш журнали: битта файлни 10 дақиқа ичида қайта очиш (лист алмаштириш) — битта ёзув."""
+    from django.core.cache import cache
+    if cache.add(f"panel:viewed:{request.user.pk}:{w.pk}:{hash(detail)}", 1, 600):
+        audit(request, Event.Kind.ADMIN_VIEW, target=w.owner, work=w, work_kind=kind, detail=detail)
 
 
 @superuser_required
@@ -347,7 +513,7 @@ def work_result(request, kind, work_id):
             path, name = w.abs(w.output_path), w.download_name
     except UploadError as e:
         raise Http404(str(e))
-    audit(request, Event.Kind.ADMIN_DOWNLOAD, target=w.owner, work=w, work_kind=kind, detail=f"натижа: {path.name}")
+    _audit_download(request, w, kind, path.name, force=True)
     return FileResponse(open(path, "rb"), as_attachment=True, filename=name or path.name)
 
 

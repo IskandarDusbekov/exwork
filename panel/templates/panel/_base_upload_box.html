@@ -58,7 +58,6 @@
         {% elif it.status == 'empty' %}<span class="ui-tag">маълумот йўқ</span>{% else %}<span class="ui-tag bad">хато</span>{% endif %}
         {% if it.n %}<span class="ui-tag">{{ it.n }} та нарх</span>{% endif %}
         {% if it.works %}<span class="ui-tag">{{ it.works }} та иш</span>{% endif %}
-        {% for b, n in it.books %}<span class="ui-tag book" title="{{ n }} та иш">{{ b }} · {{ n }}</span>{% endfor %}
       </div>
       {% if it.msg %}<div class="mt-1 text-xs text-slate-600">{{ it.msg }}</div>{% endif %}
       {% if it.other %}<div class="mt-1 text-xs text-sky-800">Эслатма: бу файл бошқа даврга ҳам юкланган — {% for d in it.other %}{{ d.period }} ({{ d.date }}){% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}

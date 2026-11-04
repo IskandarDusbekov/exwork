@@ -81,9 +81,11 @@ def _get_work(request, model, **kw):
     return get_object_or_404(model, owner=request.user, **kw)
 
 
-def _audit_download(request, obj, kind, name):
-    if getattr(request, "viewing_owner", None):
-        audit(request, Event.Kind.ADMIN_DOWNLOAD, target=obj.owner, work=obj, work_kind=kind, detail=f"натижа: {name}")
+def _audit_download(request, obj, kind, name, *, what="натижа", force=False):
+    """Админ бошқа одамнинг файлини юклаб олса — журналга: текширув режимида (``viewing_owner``)
+    ёки панелдан (``force``; ``what`` — нима: «натижа», «асл файл», «асл файллар (ZIP)»)."""
+    if force or getattr(request, "viewing_owner", None):
+        audit(request, Event.Kind.ADMIN_DOWNLOAD, target=obj.owner, work=obj, work_kind=kind, detail=f"{what}: {name}")
 
 
 def column_labels(job) -> dict:

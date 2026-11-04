@@ -1,0 +1,13 @@
+{% load narx %}{# иш саҳифасида битта смета: ҳолати, суммаси, Excel кўринишида очиш (натижа / локал / ресурс) ва юклаб олиш #}
+<li class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+  <span class="text-emerald-600">{% icon "sheet" "h-4 w-4" %}</span>
+  <span class="min-w-0 flex-1"><span class="block truncate font-medium">{{ j.batch_label|default:j.local_name }}</span>
+    {% if j.error %}<span class="block truncate text-xs text-rose-600">{{ j.error }}</span>{% elif j.local_sheet %}<span class="block truncate text-xs text-slate-500">лист: {{ j.local_sheet }}</span>{% endif %}</span>
+  <span class="shrink-0 rounded-full {% if j.status == 'done' %}bg-emerald-50 text-emerald-700{% elif j.status == 'failed' %}bg-rose-50 text-rose-700{% else %}bg-slate-100 text-slate-600{% endif %} px-2 py-0.5 text-xs font-medium">{{ j.get_status_display }}</span>
+  <span class="num w-32 shrink-0 text-right font-semibold text-slate-700">{% if j.status == 'done' and j.sum_total %}{{ j.sum_total|som }}{% else %}<span class="font-normal text-slate-300">—</span>{% endif %}</span>
+  {% if can_act %}<span class="inline-flex shrink-0 gap-1">
+    {% if j.status == 'done' %}<a href="{% url 'panel:job_sheet' j.pk 'out' %}" class="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-100" title="Нархланган натижа — Excel кўринишида">{% icon "table" "h-3.5 w-3.5" %} Натижа</a>
+    <a href="{% url 'panel:job_download' j.pk %}" class="inline-grid h-7 w-7 place-items-center rounded-md bg-white text-slate-500 ring-1 ring-inset ring-slate-200 hover:bg-slate-100" title="Натижани юклаб олиш (журналга ёзилади)" aria-label="Юклаб олиш">{% icon "download" "h-3.5 w-3.5" %}</a>{% endif %}
+    <a href="{% url 'panel:job_sheet' j.pk 'local' %}" class="inline-flex items-center rounded-md bg-white px-2 py-1 text-xs text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-100" title="Юкланган локал смета — Excel кўринишида">Локал</a>
+  </span>{% endif %}
+</li>

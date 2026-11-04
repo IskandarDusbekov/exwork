@@ -1,44 +1,132 @@
-{% extends "jobs/base.html" %}
-{% load narx %}
-{% block side %}rail{% endblock %}
-{% block main_class %}w-full{% endblock %}
-{% block content %}
-{% csrf_token %}
-<div class="lg:flex lg:min-h-[calc(100vh-61px)]">
-  {# ================= чап меню ================= #}
-  <aside class="bg-slate-900 text-slate-300 lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-60 lg:shrink-0 lg:flex-col">
-    <div class="hidden items-center gap-3 border-b border-white/10 px-5 py-5 lg:flex">
-      <span class="grid h-9 w-9 place-items-center rounded-lg bg-white/10 text-white">{% icon "shield" "h-5 w-5" %}</span>
-      <div class="min-w-0">
-        <div class="truncate text-sm font-semibold text-white">Бошқарув панели</div>
-        <div class="truncate text-[11px] text-slate-400">{% if can_act %}Суперфойдаланувчи{% else %}Фақат кўриш{% endif %}</div>
+{% load narx static %}<!doctype html>
+{% comment %}Бошқарув панелининг ўз қобиғи — сайтнинг чап менюси (jobs/_side.html) ва сарлавҳаси йўқ.
+   Ҳар бир саҳифа: page_title (сарлавҳа), page_desc (нимани кўрсатади), page_actions (тугмалар), page_back (ортга).
+   Ресурс базаси саҳифалари ўз сарлавҳасини (_base_tabs.html) ишлатади — уларда page_head бўш.{% endcomment %}
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Панел{% endblock %} · mhisobot</title>
+  <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <style>
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .pn-side { display: flex; }
+    .pn-backdrop { display: none; }
+    @media (max-width: 1023.98px) {
+      .pn-side { position: fixed; inset: 0 auto 0 0; z-index: 60; width: 16rem; transform: translateX(-100%); transition: transform .2s; }
+      html.pn-open .pn-side { transform: none; box-shadow: 0 10px 40px rgb(15 23 42 / .35); }
+      html.pn-open .pn-backdrop { display: block; position: fixed; inset: 0; z-index: 59; background: rgb(15 23 42 / .4); }
+    }
+    @media (min-width: 1024px) { .pn-side { position: sticky; top: 0; height: 100vh; width: 15.5rem; flex-shrink: 0; } }
+    {% block extra_css %}{% endblock %}
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+  {% icon_sprite %}
+  {% csrf_token %}
+  <div class="lg:flex">
+    {# ================= панел менюси ================= #}
+    <div class="pn-backdrop" data-pn-close></div>
+    <aside class="pn-side flex-col bg-slate-900 text-slate-300" aria-label="Панел бўлимлари">
+      <div class="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 px-4">
+        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/10 text-emerald-400">{% icon "shield" "h-5 w-5" %}</span>
+        <div class="min-w-0 flex-1 leading-tight">
+          <div class="truncate text-sm font-semibold text-white">Бошқарув панели</div>
+          <div class="truncate text-[11px] text-slate-400">mhisobot · {% if can_act %}тўлиқ рухсат{% else %}фақат кўриш{% endif %}</div>
+        </div>
+        <button type="button" class="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-white/10 lg:hidden" data-pn-close aria-label="Ёпиш">{% icon "x" "h-4 w-4" %}</button>
       </div>
-    </div>
-    <nav class="flex gap-1 overflow-x-auto px-3 py-2 text-sm lg:flex-1 lg:flex-col lg:overflow-visible lg:py-4" aria-label="Панел бўлимлари">
-      <div class="hidden px-3 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wider text-slate-500 lg:block">Асосий</div>
-      {% include "panel/_side_link.html" with key="overview" url="panel:overview" ic="grid" label="Умумий" %}
-      {% include "panel/_side_link.html" with key="processes" url="panel:processes" ic="activity" label="Жараёнлар" badge=running_count %}
-      {% include "panel/_side_link.html" with key="users" url="panel:users" ic="users" label="Фойдаланувчилар" %}
-      {% include "panel/_side_link.html" with key="texnazor" url="panel:texnazor" ic="building" label="Техназор" %}
-      {% include "panel/_side_link.html" with key="stats" url="panel:stats" ic="chart" label="Статистика" %}
-      {% include "panel/_side_link.html" with key="speed" url="panel:speed" ic="clock" label="Тезлик" %}
-      <div class="hidden px-3 pb-1 pt-4 text-[11px] font-medium uppercase tracking-wider text-slate-500 lg:block">Маълумот</div>
-      {% include "panel/_side_link.html" with key="base" url="panel:base" ic="database" label="Ресурс базаси" %}
-      {% include "panel/_side_link.html" with key="files" url="panel:files" ic="file" label="Файллар" %}
-      {% include "panel/_side_link.html" with key="log" url="panel:log" ic="lock" label="Журнал ва хавфсизлик" %}
-      {% include "panel/_side_link.html" with key="errors" url="panel:errors" ic="alert" label="Хатолар" alarm=error_count %}
-      <div class="hidden px-3 pb-1 pt-4 text-[11px] font-medium uppercase tracking-wider text-slate-500 lg:block">Бошқарув</div>
-      {% include "panel/_side_link.html" with key="settings" url="panel:settings" ic="sliders" label="Созламалар" %}
-      {% include "panel/_side_link.html" with key="backups" url="panel:backups" ic="database" label="Захира нусха" %}
-    </nav>
-    <div class="hidden border-t border-white/10 p-3 lg:block">
-      <a href="{% url 'dashboard' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white">{% icon "arrow-left" %} Ишчи қисмга қайтиш</a>
-    </div>
-  </aside>
+      <nav class="flex-1 overflow-y-auto px-3 py-3 text-sm">
+        <div class="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Кузатув</div>
+        {% include "panel/_side_link.html" with key="overview" url="panel:overview" ic="grid" label="Бош саҳифа" hint="Ҳозирги ҳолат ва эътибор талаб қиладиганлар" %}
+        {% include "panel/_side_link.html" with key="processes" url="panel:processes" ic="activity" label="Фондаги жараёнлар" badge=running_count hint="Ҳозир очилаётган ва нархланаётган папкалар" %}
+        {% include "panel/_side_link.html" with key="errors" url="panel:errors" ic="alert" label="Сервер хатолари" alarm=error_count hint="Сайт ва worker хатолари" %}
 
-  {# ================= контент ================= #}
-  <div class="min-w-0 flex-1 px-4 py-6 lg:px-8">
-    {% block panel %}{% endblock %}
+        <div class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Фойдаланувчилар</div>
+        {% include "panel/_side_link.html" with key="users" url="panel:users" ic="users" label="Фойдаланувчилар" hint="Рўйхат, ҳар бирининг ишлари ва файллари" %}
+        {% include "panel/_side_link.html" with key="files" url="panel:files" ic="file" label="Юкланган файллар" hint="Барча фойдаланувчиларнинг асл файллари" %}
+        {% include "panel/_side_link.html" with key="texnazor" url="panel:texnazor" ic="building" label="Техназор объектлари" hint="Офёрталар ва далолатномалар" %}
+
+        <div class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Таҳлил</div>
+        {% include "panel/_side_link.html" with key="stats" url="panel:stats" ic="chart" label="Статистика" hint="Юклашлар, нархлашлар, киришлар — давр бўйича" %}
+        {% include "panel/_side_link.html" with key="speed" url="panel:speed" ic="clock" label="Тезлик" hint="Файл очиш ва нархлаш вақти" %}
+        {% include "panel/_side_link.html" with key="base" url="panel:base_data" ic="database" label="Ресурс базаси" hint="Нархлар ва нормалар базаси" %}
+
+        <div class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Хавфсизлик ва тизим</div>
+        {% include "panel/_side_link.html" with key="log" url="panel:log" ic="lock" label="Журнал ва хавфсизлик" hint="Ким, қачон, нима қилди; блоклар" %}
+        {% include "panel/_side_link.html" with key="settings" url="panel:settings" ic="sliders" label="Созламалар" hint="Чегаралар ва рухсатлар" %}
+        {% include "panel/_side_link.html" with key="backups" url="panel:backups" ic="database" label="Захира нусха" hint="База ва файллар нусхаси" %}
+      </nav>
+      <div class="shrink-0 border-t border-white/10 p-3">
+        <div class="flex items-center gap-2.5 px-2 py-1.5">
+          <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-bold text-white">{{ user.first_name|first|default:user.email|first|upper }}{{ user.last_name|first|upper }}</span>
+          <span class="min-w-0 flex-1 leading-tight">
+            <span class="block truncate text-sm font-medium text-white">{{ user.get_full_name|default:user.email }}</span>
+            <span class="block truncate text-[11px] text-slate-400">{% if user.is_superuser %}Суперфойдаланувчи{% else %}Ходим (кўриш){% endif %}</span></span>
+          <form method="post" action="{% url 'logout' %}">{% csrf_token %}
+            <button type="submit" class="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-white/10 hover:text-rose-300" title="Чиқиш" aria-label="Чиқиш">{% icon "logout" "h-4 w-4" %}</button></form>
+        </div>
+        <a href="{% url 'dashboard' %}" class="mt-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white">{% icon "arrow-left" "h-4 w-4" %} Сайтга қайтиш</a>
+      </div>
+    </aside>
+
+    {# ================= саҳифа ================= #}
+    <div class="min-w-0 flex-1">
+      <div class="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 lg:hidden">
+        <button type="button" data-pn-open class="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-600" aria-label="Панел менюси">{% icon "menu" "h-5 w-5" %}</button>
+        <span class="truncate text-sm font-semibold">Бошқарув панели</span>
+      </div>
+      <main class="mx-auto max-w-[96rem] px-4 py-6 lg:px-8">
+        {% block page_head %}
+        <div class="mb-6">
+          {% block page_back %}{% endblock %}
+          <div class="flex flex-wrap items-end justify-between gap-3">
+            <div class="min-w-0 max-w-3xl">
+              <h1 class="text-2xl font-semibold text-slate-900">{% block page_title %}{% endblock %}</h1>
+              <p class="mt-1 text-sm text-slate-500">{% block page_desc %}{% endblock %}</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">{% block page_actions %}{% endblock %}</div>
+          </div>
+        </div>
+        {% endblock %}
+        {% block panel %}{% endblock %}
+      </main>
+    </div>
   </div>
-</div>
-{% endblock %}
+
+  {% include "jobs/_progress.html" %}
+  {% include "jobs/_dialog.html" %}
+  <script>
+    (function () {
+      var d = document.documentElement;
+      document.querySelectorAll("[data-pn-open]").forEach(function (b) { b.addEventListener("click", function () { d.classList.add("pn-open"); }); });
+      document.querySelectorAll("[data-pn-close]").forEach(function (b) { b.addEventListener("click", function () { d.classList.remove("pn-open"); }); });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape") d.classList.remove("pn-open"); });
+    })();
+    // Узоқ ишлайдиган форма: тугма блокланади; data-progress бўлса — жараён ойнаси (jobs/base.html дагидек)
+    document.querySelectorAll("form[data-busy]").forEach(function (f) {
+      f.addEventListener("submit", function () {
+        f.classList.add("busy");
+        if (f.dataset.progress && window.narxProgress) {
+          try { narxProgress.start(JSON.parse(f.dataset.progress)).auto(2); } catch (e) {}
+        }
+        setTimeout(function () { f.querySelectorAll("button[type=submit]").forEach(function (b) { b.disabled = true; }); }, 0);
+      });
+    });
+    document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+      a.addEventListener("click", function () {
+        var t = document.querySelector(a.getAttribute("href"));
+        if (t && t.tagName === "DETAILS") t.open = true;
+      });
+    });
+    document.querySelectorAll("input[type=range][data-out]").forEach(function (r) {
+      var out = document.getElementById(r.dataset.out);
+      var sync = function () { out.textContent = r.value + "%"; };
+      r.addEventListener("input", sync); sync();
+    });
+  </script>
+</body>
+</html>

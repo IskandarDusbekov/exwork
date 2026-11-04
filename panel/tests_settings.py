@@ -86,7 +86,7 @@ class SettingsTests(TestCase):
         self.client.post(reverse("panel:user_quota", args=[self.ali.pk]), {"quota_mb": ""})
         self.ali.refresh_from_db()
         self.assertIsNone(self.ali.quota_mb)
-        self.assertContains(self.client.get(reverse("panel:user", args=[self.ali.pk])), "Диск чегараси")
+        self.assertContains(self.client.get(reverse("panel:user", args=[self.ali.pk]) + "?tab=access"), "Диск чегараси")
 
 
 

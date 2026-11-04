@@ -1,49 +1,52 @@
 {% extends "panel/base.html" %}
 {% load narx texnazor_tags %}
 {% block title %}Техназор — Панел{% endblock %}
+{% block page_title %}Техназор объектлари{% endblock %}
+{% block page_desc %}Техник назорат бўлими: смета­чилар юклаган офёрталар (ҳар бири — битта объект/шартнома), ҳар ой бажарилган ҳажмлар ва улардан чиққан Ф-2 / Ф-3 ҳужжатлари. Объектни босинг — ойлари ва ким нима қилгани очилади.{% endblock %}
 {% block panel %}
-<div class="mb-5">
-  <h1 class="text-2xl font-semibold">Техназор</h1>
-  <p class="text-sm text-slate-500">Объектлар ва офёрталар: ким қайси объектда ишлаяпти, ойлар, ёзилган ҳажмлар, Ф-2 / Ф-3, тузатишлар.</p>
-</div>
 
-<div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">{% icon "building" "h-4 w-4" %} Объектлар</div>
-    <div class="num mt-2 text-3xl font-semibold">{{ c.objects }}</div>
-    <div class="mt-1 text-xs text-slate-500">{{ c.ready }} тайёр{% if c.parsing %} · <span class="text-sky-700">{{ c.parsing }} ўқиляпти</span>{% endif %}{% if c.failed %} · <span class="text-rose-600">{{ c.failed }} хато</span>{% endif %}{% if c.unread %} · <a href="?status=unread" class="font-medium text-rose-700 underline">{{ c.unread }} тизим тушунмади</a>{% endif %} · {{ c.users }} фойдаланувчи</div>
+<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+  <div class="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="text-sm font-medium text-slate-700">Объектлар (офёрталар)</div>
+    <div class="num mt-1 text-2xl font-semibold">{{ c.objects }}</div>
+    <div class="text-xs text-slate-500">{{ c.ready }} таси тайёр{% if c.parsing %} · <span class="text-sky-700">{{ c.parsing }} таси ҳозир ўқиляпти</span>{% endif %}{% if c.failed %} · <span class="text-rose-600">{{ c.failed }} таси ўқилмади</span>{% endif %}</div>
+    <p class="mt-2 border-t border-slate-100 pt-2 text-xs leading-relaxed text-slate-500">{{ c.users }} та фойдаланувчи юклаган.{% if c.unread %} <a href="?status=unread" class="font-medium text-rose-700 underline">{{ c.unread }} тасини тизим тўлиқ тушунмади</a> — суммалари нотўғри бўлиши мумкин.{% endif %}</p>
   </div>
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">{% icon "clock" "h-4 w-4" %} Ҳисобот ойлари</div>
-    <div class="num mt-2 text-3xl font-semibold">{{ c.months }}</div>
-    <div class="mt-1 text-xs text-slate-500">{{ c.open_months }} та очиқ (ҳажм ёзиляпти)</div>
+  <div class="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="text-sm font-medium text-slate-700">Ҳисобот ойлари</div>
+    <div class="num mt-1 text-2xl font-semibold">{{ c.months }}</div>
+    <div class="text-xs text-slate-500">ҳамма объектларда очилган ойлар · {{ c.open_months }} таси ҳали ёпилмаган</div>
+    <p class="mt-2 border-t border-slate-100 pt-2 text-xs leading-relaxed text-slate-500">Ҳар ой учун алоҳида далолатнома: очиқ ойда ҳажм ёзилади, ёпилгандан кейин ўзгармайди.</p>
   </div>
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-emerald-600">{% icon "pencil" "h-4 w-4" %} Ёзилган ҳажмлар</div>
-    <div class="num mt-2 text-3xl font-semibold">{{ c.done_week }}</div>
-    <div class="mt-1 text-xs text-slate-500">7 кунда · бугун (24 соат) {{ c.done_day }} та</div>
+  <div class="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="text-sm font-medium text-slate-700">Ёзилган ҳажмлар — охирги 7 кун</div>
+    <div class="num mt-1 text-2xl font-semibold">{{ c.done_week }}</div>
+    <div class="text-xs text-slate-500">шундан охирги 24 соатда: {{ c.done_day }} та</div>
+    <p class="mt-2 border-t border-slate-100 pt-2 text-xs leading-relaxed text-slate-500">Офёртадаги битта иш қаторига шу ой бажарилган ҳажм киритилса — 1 та.</p>
   </div>
-  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">{% icon "activity" "h-4 w-4" %} Амаллар</div>
-    <div class="num mt-2 text-3xl font-semibold">{{ c.actions_day }}</div>
-    <div class="mt-1 text-xs text-slate-500">24 соатда (ой, Ф-2/Ф-3, тузатиш…) · {{ c.my }} та тизимда тузилган офёрта</div>
+  <div class="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="text-sm font-medium text-slate-700">Амаллар — охирги 24 соат</div>
+    <div class="num mt-1 text-2xl font-semibold">{{ c.actions_day }}</div>
+    <div class="text-xs text-slate-500">ой очиш/ёпиш, Ф-2 ва Ф-3 олиш, тузатишлар</div>
+    <p class="mt-2 border-t border-slate-100 pt-2 text-xs leading-relaxed text-slate-500">Тизимнинг ўзида тузилган офёрталар: {{ c.my }} та (ҳозирча фойдаланувчиларга яширин).</p>
   </div>
 </div>
 
 <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
   <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-1">
-    <div class="flex items-baseline justify-between"><h2 class="font-semibold">Ёзилган ҳажмлар</h2><span class="text-xs text-slate-400">30 кун · катаклар сони</span></div>
+    <h2 class="font-semibold">Кунига ёзилган ҳажмлар</h2><p class="text-xs text-slate-500">охирги 30 кун · устун устидаги рақам — ўша куни нечта иш қаторига ҳажм киритилгани</p>
     {% include "panel/_days.html" with days=days color="bg-emerald-500" %}
   </section>
   <section class="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
-    <div class="flex items-baseline justify-between border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Охирги амаллар</h2><span class="text-xs text-slate-400">40 та</span></div>
+    <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Охирги 40 та амал</h2><p class="text-xs text-slate-500">ким, қайси объектда, нима қилгани</p></div>
     <ul class="max-h-80 divide-y divide-slate-100 overflow-y-auto">
       {% for ev in events %}{% include "panel/_event.html" %}{% empty %}<li class="px-4 py-6 text-center text-sm text-slate-400">Ҳали амал йўқ</li>{% endfor %}
     </ul>
   </section>
 </div>
 
-<h2 class="mb-2 mt-8 text-sm font-semibold uppercase tracking-wider text-slate-500">Объектлар</h2>
+<h2 class="mt-8 text-lg font-semibold text-slate-900">Ҳамма объектлар</h2>
+<p class="mb-3 text-sm text-slate-500">«Шартнома» — пудратчи суммаси ҚҚС билан; «Бажарилди» — охирги ойгача бажарилгани ва фоизи; «Ҳажмлар» — ёзилган иш қаторлари сони.</p>
 <form method="get" class="mb-3 flex flex-wrap items-center gap-2">
   <label class="relative block w-full sm:w-80">
     <span class="pointer-events-none absolute inset-y-0 left-2.5 grid place-items-center text-slate-400">{% icon "search" "h-4 w-4" %}</span>

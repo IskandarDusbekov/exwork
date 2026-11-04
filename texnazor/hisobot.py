@@ -26,7 +26,7 @@ from .sheet import hidden_set, strip_const
 from .models import Act, SiteObject
 
 # hisobot qoidalari o'zgarsa oshiriladi — diskda saqlangan eski Excel fayllar qayta yasaladi
-VERSION = 2
+VERSION = 3
 
 # bloklar foni — saytdagidek (har dalolatnoma o'z rangida, «Остатка» — yashil)
 BLOCK_FILLS = ["DDEBF7", "FFF2CC", "FCE4D6", "E4DFEC", "DBF1F3", "EDEDED"]
@@ -164,6 +164,16 @@ def _cached(data: bytes, value) -> bytes:
     return out.getvalue()
 
 
+def _src_value(cell, row: dict, j: int):
+    """Blokka ko'chiriladigan katak: fayldagi formula; formulasiz son bo'lsa, lekin tizim o'qishda formulasini
+    tiklagan bo'lsa («4500» × F = summa) — o'sha formula (aks holda dalolatnomada shartnoma summasi qolib ketadi)."""
+    v = cell.value
+    f = row["fmls"].get(j) if row["kind"] in ("work", "free", "res") else None
+    if f and not (isinstance(v, str) and v.startswith("=")):
+        return f
+    return v
+
+
 def _put(dst, src_cell, value):
     dst.value = value
     if src_cell.has_style:
@@ -188,8 +198,9 @@ def _merge(ws, min_row: int, max_row: int, min_col: int, max_col: int):
 
 
 def _act_values(b, qty: Dict[int, float]) -> Dict[Tuple[int, int], float]:
-    """Dalolatnomada o'zgaradigan kataklar: ish hajmi (E) va formulasiz resurs jami (F) — ``Book.override``."""
-    return b.override(qty)
+    """Dalolatnomada o'zgaradigan kataklar: ish hajmi (E), formulasiz resurs jami (F) — ``Book.override`` — va
+    formulasiz svodka sonlari (ishlarga mutanosib, ``Book.svod_groups``)."""
+    return b.act_values(qty)
 
 
 def _blocks(obj: SiteObject, b) -> List[Tuple[str, Dict[int, float], Optional[Act]]]:
@@ -239,7 +250,7 @@ def _write_block(ws, b, start: int, title: str, qty: Dict[int, float], collapsed
         done = kind == "svod" or top in tops_done
         for j in range(lay.qty, lay.block_end + 1):
             s = ws.cell(row=r, column=j + 1)
-            v = s.value
+            v = _src_value(s, row, j)
             if isinstance(v, str) and v.startswith("="):
                 if "!" in v:
                     continue  # boshqa varaqqa havola — ko'chmaydi
@@ -403,7 +414,7 @@ def _filter(ws, src, b, qty: Dict[int, float]):
         cells = []
         for j in range(max_col):
             s = src.cell(row=r, column=j + 1)
-            v = s.value
+            v = _src_value(s, row, j) if row else s.value
             if isinstance(v, str) and v.startswith("=") and "!" not in v and kind != "head":
                 if kind == "svod" and b.lay.drop_const:
                     v = strip_const(v)  # qo'lda qo'shilgan son dalolatnomaga tushmaydi (tasdiqlangan)

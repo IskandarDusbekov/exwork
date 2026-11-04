@@ -10,34 +10,34 @@
 {% endif %}
 <div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
   <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-    <div class="text-[11px] font-medium uppercase tracking-wider text-emerald-600">Онлайн</div>
+    <div class="text-xs font-medium text-emerald-700">Ҳозир сайтда</div>
     <div class="num mt-1 text-2xl font-semibold">{{ live.online|length }}</div>
-    <div class="text-[11px] text-slate-400">охирги 5 дақиқада</div>
+    <div class="text-[11px] text-slate-500">одам · охирги 5 дақиқада бирор нарса қилганлар</div>
   </div>
   <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-    <div class="text-[11px] font-medium uppercase tracking-wider text-sky-600">Фонда жараён</div>
+    <div class="text-xs font-medium text-sky-700">Фонда ишланаётган папкалар</div>
     <div class="num mt-1 text-2xl font-semibold">{{ live.procs|length }}</div>
-    <div class="text-[11px] text-slate-400">папка ишланяпти</div>
+    <div class="text-[11px] text-slate-500">ҳозир очилаётган ёки нархланаётган</div>
   </div>
   <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-    <div class="text-[11px] font-medium uppercase tracking-wider text-indigo-600">Нархланяпти</div>
+    <div class="text-xs font-medium text-indigo-700">Ҳозир нархланаётган ички папкалар</div>
     <div class="num mt-1 text-2xl font-semibold">{{ live.parts_pricing }}</div>
-    <div class="text-[11px] text-slate-400">қисм · {{ live.parts_opening }} очиляпти · {{ live.parts_queued }} навбатда</div>
+    <div class="text-[11px] text-slate-500">яна {{ live.parts_opening }} таси очиляпти, {{ live.parts_queued }} таси навбатда</div>
   </div>
   <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-    <div class="text-[11px] font-medium uppercase tracking-wider text-slate-500">Бугун юкланди</div>
+    <div class="text-xs font-medium text-slate-600">Бугун юкланган ишлар</div>
     <div class="num mt-1 text-2xl font-semibold">{{ live.today_uploads }}</div>
-    <div class="text-[11px] text-slate-400">папка, объект, смета</div>
+    <div class="text-[11px] text-slate-500">папка, объект ёки смета · 00:00 дан</div>
   </div>
   <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-    <div class="text-[11px] font-medium uppercase tracking-wider text-emerald-600">Бугун нархланди</div>
+    <div class="text-xs font-medium text-emerald-700">Бугун нархланган сметалар</div>
     <div class="num mt-1 text-2xl font-semibold">{{ live.today_priced }}</div>
-    <div class="text-[11px] {% if live.today_failed %}text-rose-600{% else %}text-slate-400{% endif %}">смета · {{ live.today_failed }} хато</div>
+    <div class="text-[11px] {% if live.today_failed %}text-rose-600{% else %}text-slate-400{% endif %}">тайёр бўлди{% if live.today_failed %} · {{ live.today_failed }} таси хато{% endif %}</div>
   </div>
   <a href="{% url 'panel:log' %}?kind=security" class="rounded-xl border {% if live.today_failed_logins %}border-rose-200 bg-rose-50{% else %}border-slate-200 bg-white{% endif %} p-3 shadow-sm hover:border-slate-300">
-    <div class="text-[11px] font-medium uppercase tracking-wider {% if live.today_failed_logins %}text-rose-600{% else %}text-slate-500{% endif %}">Бугун кириш</div>
+    <div class="text-xs font-medium {% if live.today_failed_logins %}text-rose-700{% else %}text-slate-600{% endif %}">Бугун сайтга киришлар</div>
     <div class="num mt-1 text-2xl font-semibold">{{ live.today_logins }}</div>
-    <div class="text-[11px] {% if live.today_failed_logins %}text-rose-600{% else %}text-slate-400{% endif %}">{{ live.today_failed_logins }} та хато уриниш</div>
+    <div class="text-[11px] {% if live.today_failed_logins %}text-rose-600{% else %}text-slate-400{% endif %}">марта · {{ live.today_failed_logins }} та хато пароль</div>
   </a>
 </div>
 

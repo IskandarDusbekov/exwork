@@ -1,6 +1,7 @@
 {% extends "panel/base.html" %}
 {% load narx texnazor_tags %}
 {% block title %}{{ o.name }} — Техназор — Панел{% endblock %}
+{% block page_head %}{% endblock %}{# сарлавҳа — саҳифанинг ўзида #}
 {% block panel %}
 <a href="{% url 'panel:texnazor' %}" class="text-sm text-slate-500 hover:text-slate-900">← Техназор</a>
 <section class="mt-2 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

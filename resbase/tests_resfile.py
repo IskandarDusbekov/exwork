@@ -112,6 +112,22 @@ class ResFileTests(SimpleTestCase):
         self.assertEqual([(r.code, r.obj, r.category) for r in res.rows], [("1", "ДЕМОНТАЖ", "I"), ("258", "МАФ", "J")])
         self.assertEqual(res.skipped["duplicate"], 1)
 
+    def test_one_code_for_different_resources_is_not_taken(self):
+        """№10 НВК: «1360» — ЗАГЛУШКА 179 400, ОТВОД 25 704 … — qaysi biri haqiqiy kod ekanini bilib bo'lmaydi."""
+        res = resfile.parse(self.rs_file(rows=[
+            [None, None, "МАТЕРИАЛЬНЫЕ РЕСУРСЫ"],
+            [1, "1360", "ЗАГЛУШКА СТ. Д=100ММ", "ШТ", 1, 179400],
+            [2, "1360", "ОТВОД 90 ГР. Д=75ММ ПОЛИЭТИЛЕНОВИЕ", "ШТ", 4, 25704],
+            [3, "1360", "ПОТРУБКА С ФЛАНСЫ Д=110", "ШТ", 2, 45000],
+            [4, "9219", "ВОДА", "М3", 3, 6800],
+            [5, "9219", "ВОДА", "М3", 1, 6800],                       # oddiy takror
+            [6, "12699", "ЩЕБЕНЬ ИЗ ПРИРОДНОГО КАМНЯ", "М3", 1, 54000],
+            [7, "12699", "ЩЕБЕНЬ ИЗ ПРИРОДНОГО КАМНЯ ФР. 20-40", "М3", 1, 56000],  # nomi o'xshash — takror
+        ]))
+        self.assertEqual([(r.code, r.price) for r in res.rows], [("9219", 6800), ("12699", 54000)])
+        self.assertEqual(res.skipped, {"code_conflict": 3, "duplicate": 2})
+        self.assertIn("1360", res.warnings[0])
+
     def test_svodno_and_uzbek_headers(self):
         wb = Workbook()
         ws = wb.active
@@ -193,9 +209,8 @@ class ResFileTests(SimpleTestCase):
                           ("Ц1009-003-11", ("Ц1009-003-11", "Ц10")), ("Е310-1015", ("Е310-1015", "ТР")),
                           ("258", None), ("С583", None), ("С203-101", None), ("", None)):
             self.assertEqual(normbook.parse(raw), want, raw)
-        self.assertEqual(normbook.book_label("Е01"), "Земляные работы")
-        self.assertEqual(normbook.book_label("Ц08"), "Электротехнические установки")
-        self.assertEqual(normbook.book_label("Е99"), "Е99 тўплами")
+        # тизим тўпламга ўзи ном қўймайди — номни админ ёзади
+        self.assertEqual(normbook.book_label("Е01"), "")
 
     def test_fingerprint_ignores_file_name_and_order(self):
         a = resfile.parse(self.rs_file("a.xlsx"))

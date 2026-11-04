@@ -69,6 +69,16 @@ class HarvestTests(TestCase):
         self.assertEqual(total, 6)
         self.assertTrue(taken[1]["manual"])
 
+    def test_one_code_for_different_resources_in_smeta(self):
+        job = make_job(self.user, [
+            row(11, "1360", "ЗАГЛУШКА СТ. Д=100ММ", "ШТ", 179400),
+            row(12, "1360", "ОТВОД 90 ГР. Д=75ММ", "ШТ", 25704),
+            row(13, "1", "ЗАТРАТЫ ТРУДА РАБОЧИХ-СТРОИТЕЛЕЙ", "ЧЕЛ.-Ч", 36030.1, cat="I"),
+        ])
+        taken, skipped, _ = services.rows_from_job(job)
+        self.assertEqual([t["code"] for t in taken], ["1"])
+        self.assertEqual(dict(skipped), {"code_conflict": 2})
+
     def test_harvest_median_and_period(self):
         jobs = [make_job(self.user, [row(11, "258", "БУЛЬДОЗЕРЫ 79 КВТ", "МАШ.-Ч", p, cat="J")], name=f"s{i}.xlsx")
                 for i, p in enumerate([100, 200, 250])]

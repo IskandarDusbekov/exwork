@@ -33,6 +33,7 @@ SKIP_LABELS = {
     "no_price": "нарх йўқ («--», матн)",
     "zero_price": "нарх 0",
     "duplicate": "шу файлда такрор",
+    "code_conflict": "бир кодга ҳар хил ресурс (номи ва нархи бошқа)",
 }
 
 _CODE_TAIL = re.compile(r"\s+[СC]$")          # «258 С» — ресурс коди (3.xlsx «РЕСУРС» листи)
@@ -367,8 +368,47 @@ def _parse_lrv(ws, out: ResFile, max_col: int) -> bool:
     return True
 
 
+NAME_MIN = 0.5  # nom o'xshashligi shundan past — boshqa resurs
+_WORD = re.compile(r"[0-9a-zа-яўқғҳ]+")
+
+
+def name_similarity(a, b) -> float:
+    """0..1: qisqa nomning so'zlaridan qanchasi uzunida bor (raqamlar bilan) — «БУЛЬДОЗЕРЫ 79 КВТ» va
+    «БУЛЬДОЗЕРЫ ПРИ РАБОТЕ … 79 (108) КВТ (Л.С.)» o'xshash; «ВОДА» va «ГВОЗДИ» — yo'q."""
+    wa, wb = _WORD.findall(norm_name(a)), _WORD.findall(norm_name(b))
+    if not wa or not wb:
+        return 0.0
+    short, long_ = (wa, set(wb)) if len(wa) <= len(wb) else (wb, set(wa))
+    hit = sum(1 for w in short if w in long_ or (len(w) >= 5 and any(x.startswith(w[:5]) for x in long_)))
+    return hit / len(short)
+
+
+def conflict_codes(items) -> set:
+    """``items`` — (kod, nom, narx). Smetachi bitta kodni bir nechta boshqa resursga bergan bo'lsa (nomi o'xshamaydi
+    va narxi boshqa: «1360» — ЗАГЛУШКА 179 400, ОТВОД 25 704 …), qaysi biri haqiqiy kod ekanini bilib bo'lmaydi —
+    bunday kodlar bazaga olinmaydi. Nomi o'xshash yoki narxi bir xil — oddiy takror (bloklarda qaytarilgan)."""
+    first, bad = {}, set()
+    for code, name, price in items:
+        if not code:
+            continue
+        if code not in first:
+            first[code] = (name, price)
+            continue
+        name0, price0 = first[code]
+        if price != price0 and name_similarity(name, name0) < NAME_MIN:
+            bad.add(code)
+    return bad
+
+
 def _dedupe(out: ResFile):
-    """Bir faylda bir resurs bir marta (birinchisi) — bir nechta obyekt blokida takrorlanadi."""
+    """Bir faylda bir resurs bir marta (birinchisi) — bir nechta obyekt blokida takrorlanadi. Bir kodga har xil
+    resurs yozilgan bo'lsa (``conflict_codes``) — shu kodning hech bir qatori olinmaydi."""
+    bad = conflict_codes((r.code, r.name, r.price) for r in out.rows)
+    if bad:
+        n = sum(1 for r in out.rows if r.code in bad)
+        out.skipped["code_conflict"] += n
+        out.rows = [r for r in out.rows if r.code not in bad]
+        out.warnings.append(f"Бир кодга ҳар хил ресурс ёзилган ({', '.join(sorted(bad, key=lambda c: (len(c), c)))}) — {n} та қатор олинмади")
     seen, rows = set(), []
     for r in out.rows:
         k = (r.key, r.unit_key)

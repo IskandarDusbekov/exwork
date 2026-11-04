@@ -1,0 +1,17 @@
+{% load narx %}{# «Ресурс нархлари»: битта ресурс (r) — код, ном, бирлик, ўрта нарх, нечта манбадан #}
+<div class="ui-row">
+  <div class="code"><small>Код</small><span class="mono">{{ r.code }}</span></div>
+  <div class="main">
+    <div class="title">{{ r.name }}</div>
+    <div class="ui-tags">
+      <span class="ui-tag">{{ r.unit }}</span>
+      <span class="ui-tag {% if r.n_src > 1 %}ok{% endif %}" title="Шу код нечта смета (ёки юкланган файл) дан олинган">{{ r.n_src }} та сметада</span>
+      {% if r.pending %}<span class="ui-tag warn" title="Бу нархлар ўрта нархга кирмайди, «Шубҳали нархлар»да кўриб чиқинг">{{ r.pending }} та шубҳали</span>{% endif %}
+      {% if r.other %}<span class="ui-tag" title="Қўлда қўйилган ёки рад этилган — ўрта нархга кирмайди">{{ r.other }} та ҳисобга олинмаган</span>{% endif %}
+    </div>
+  </div>
+  <div class="ui-price">{% if r.median is not None %}{{ r.median|som }}<small>сўм / {{ r.unit }}</small>
+    {% if r.lo != r.hi %}<small title="Энг арзон ва энг қиммат нарх">{{ r.lo|som }} – {{ r.hi|som }}</small>{% endif %}
+    {% else %}<span class="text-slate-400">—</span><small>ишончли нарх йўқ</small>{% endif %}</div>
+  <a href="{% url 'panel:base_resource' r.code %}" class="ui-btn-o" title="Қайси сметада қанча бўлгани">{% icon "search" "h-4 w-4" %}Батафсил</a>
+</div>

@@ -70,6 +70,6 @@ class ServerLogTests(TestCase):
         self.client.force_login(self.admin)
         self.client.post(reverse("panel:errors_test"))
         self.assertTrue(ServerLog.objects.filter(message__startswith="Синов хатоси").exists())
-        self.assertContains(self.client.get(reverse("panel:overview")), "Хатолар")
+        self.assertContains(self.client.get(reverse("panel:overview")), "сервер хатоси")  # «Эътибор талаб қилади»
         self.client.post(reverse("panel:errors_clear"))
         self.assertFalse(ServerLog.objects.exists())

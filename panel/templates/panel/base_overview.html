@@ -1,9 +1,10 @@
 {% extends "panel/base.html" %}
 {% load narx %}
-{% block title %}Ресурс базаси — Панел{% endblock %}
+{% block title %}Ресурс базаси: созламалар — Панел{% endblock %}
+{% block page_head %}{% endblock %}{# сарлавҳа — саҳифанинг ўзида #}
 {% block panel %}
 {% include "panel/_base_ui.html" %}
-{% include "panel/_base_tabs.html" with base_tab="overview" %}
+{% include "panel/_base_tabs.html" with base_tab="settings" %}
 
 {# ---------- базадан нархлаш: ёқиш / ўчириш ---------- #}
 <section class="ui-group" style="padding:1.1rem 1.25rem;{% if cfg.enabled %}border-color:#86efac;background:#f0fdf4{% endif %}">
@@ -46,12 +47,6 @@
   {% if n_unknown %}<a href="{% url 'panel:base_sources' %}?f=unknown" class="ui-card" style="border-color:#fcd34d"><span class="ic ic-repair">?</span>
     <span><span class="t block">{{ n_unknown }}</span><span class="n">даври номаълум</span></span></a>{% endif %}
 </div>
-
-<a href="{% url 'panel:base_how' %}" class="ui-group flex items-center gap-3" style="padding:.9rem 1.25rem">
-  <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white" style="background:var(--ui-blue)">{% icon "help" "h-5 w-5" %}</span>
-  <span class="gt min-w-0 flex-1 font-semibold text-slate-900">База қандай йиғилади?<small class="block text-xs font-normal text-slate-500">8 қадам, анимация билан: файлдан қайси қатор олинади, нима бирлашади, нега.</small></span>
-  <span class="ui-btn-o">Кўриш →</span>
-</a>
 
 {# ---------- вилоят × давр ---------- #}
 <details class="ui-group" open>

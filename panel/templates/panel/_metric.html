@@ -1,0 +1,9 @@
+{% comment %}Битта кўрсаткич картаси — рақам ўзи эмас, «нима» ва «қандай ўқиш» ҳам ёзилади:
+   label — савол ёки ном («Битта .xls'ни ўгириш»), value — рақам, note — рақам остида қисқа изоҳ,
+   hint — пастда тўлиқ жумла (нимани билдиради), tone — rose (ёмон ҳолат) ёки бўш.{% endcomment %}
+<div class="flex flex-col rounded-xl border {% if tone == 'rose' %}border-rose-200 bg-rose-50{% else %}border-slate-200 bg-white{% endif %} p-4 shadow-sm">
+  <div class="text-sm font-medium {% if tone == 'rose' %}text-rose-700{% else %}text-slate-700{% endif %}">{{ label }}</div>
+  <div class="num mt-1 text-2xl font-semibold text-slate-900">{{ value }}</div>
+  {% if note %}<div class="text-xs {% if tone == 'rose' %}text-rose-600{% else %}text-slate-500{% endif %}">{{ note }}</div>{% endif %}
+  {% if hint %}<p class="mt-2 border-t border-slate-100 pt-2 text-xs leading-relaxed text-slate-500">{{ hint }}</p>{% endif %}
+</div>

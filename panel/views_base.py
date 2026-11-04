@@ -296,8 +296,14 @@ def base_recheck(request):
 @staff_required
 def base_sources(request):
     flt = request.GET.get("f", "")
-    qs = (Source.objects.select_related("owner")
-          .annotate(n=Count("observations", distinct=True), w=Count("works", distinct=True)).order_by("-created"))
+    # нарх ва иш сонлари — алоҳида подсўровда (иккала жадвални бир JOIN'да санаш қаторларни кўпайтириб юборади)
+    from django.db.models import IntegerField, OuterRef, Subquery
+    from resbase.models import WorkItem as _W
+
+    def _cnt(model):
+        return Subquery(model.objects.filter(source=OuterRef("pk")).order_by().values("source")
+                        .annotate(c=Count("id")).values("c"), output_field=IntegerField())
+    qs = Source.objects.select_related("owner").annotate(n=_cnt(Observation), w=_cnt(_W)).order_by("-created")
     if flt == "unknown":
         qs = qs.filter(Q(year__isnull=True) | Q(quarter__isnull=True) | Q(region=""))
     elif flt in ("file", "smeta"):
@@ -348,6 +354,8 @@ def base_add(request, kind, work_id):
 
 SKIP_HELP = {  # «нега олинмади» — оддий тилда
     "duplicate": "Шу сметада шу код яна учраган — бир сметадан бир код бир марта олинади (масалан, «Затраты труда» ҳар иш остида).",
+    "code_conflict": "Смета­чи битта кодни бир неча бошқа ресурсга берган (номи ҳам, нархи ҳам бошқа) — қайси бири ҳақиқий "
+                     "код эканини билиб бўлмайди, шу коднинг бирорта нархи олинмайди.",
     "not_exact": "Локалдаги ресурс RES билан аниқ мос келмаган (ўхшаш ёки топилмаган) — нархи ишончсиз, олинмайди.",
     "no_code": "Кодсиз ресурс (маҳаллий материал ёки иш сарлавҳаси) — ҳозирча олинмайди.",
     "zero_price": "Нархи 0 ёки йўқ.",
@@ -510,19 +518,16 @@ _PER_PAGE = (25, 50, 100, 200)
 _CAT_SHORT = {"I": "ИҲ", "J": "М", "K": "Мт", "L": "К", "M": "У"}  # карточка ва гуруҳ белгиси
 _CAT_CARD = {"I": "Иш ҳақи", "J": "Машина-механизм", "K": "Материаллар", "L": "Кабеллар", "M": "Ускуналар"}  # қисқа
 _SORTS = [("", "Ресурс тури"), ("code", "Код"), ("name", "Номи"), ("price", "Нарх ↑"), ("-price", "Нарх ↓"),
-          ("new", "Янги юкланган")]
+          ("n", "Кўп учрагани")]
 
 
 def _data_filters(get) -> dict:
     region, year, quarter = _period(get)
     src = get.get("src", "")
     cat = get.get("cat", "")
-    book = get.get("book", "").strip().upper()
     per = int(get["per"]) if get.get("per", "").isdigit() and int(get["per"]) in _PER_PAGE else 50
     return {"region": region, "year": year, "quarter": quarter, "src": int(src) if src.isdigit() else None,
             "cat": cat if cat in dict(CATEGORIES) else "",
-            "book": book if book == "-" or re.fullmatch(r"[ЕЦ]\d{2}|" + normbook.TRANSPORT, book) else "",
-            "grp": get.get("grp", "") if get.get("grp") in normbook.GROUP_LABELS else "",
             "q": get.get("q", "").strip()[:100], "sort": get.get("sort", "") if get.get("sort") in dict(_SORTS) else "",
             "per": per}
 
@@ -539,19 +544,15 @@ def _link(f: dict, **change) -> str:
 
 @staff_required
 def base_data(request):
-    """Базани кўриш: чапда дарахт (вилоят → давр → файллар), ўнгда жадвал — ресурс тури бўйича ажратилган,
-    фильтр, қидирув ва саҳифалаш билан. Тепада — файл юклаш."""
+    """«Ресурс нархлари»: битта ресурс — битта қатор (ўрта нарх, нечта манбадан, энг арзон–қиммат). Чапда — вилоят →
+    давр → файл, иш тури; тепада — файл юклаш."""
     f = _data_filters(request.GET)
-    qs, counts = services.explore(f)
-    page = Paginator(qs, f["per"]).get_page(request.GET.get("page"))
-    shifrs = services.obs_shifrs(page.object_list)
-    for o in page.object_list:
-        o.shifrs = shifrs.get(o.pk, [])
+    rows, counts = services.resource_rows(f)
+    page = Paginator(rows, f["per"]).get_page(request.GET.get("page"))
     total_cat = sum(counts["cat"].values())
     cat_tabs = [{"key": "", "label": "Ҳаммаси", "n": total_cat, "url": _link(f, cat="")}] + [
         {"key": k, "label": _CAT_CARD[k], "title": label, "n": counts["cat"].get(k, 0), "url": _link(f, cat=k)}
         for k, label in CATEGORIES]
-    book_tabs = _book_tabs(f, counts["book"])
     tree = services.explore_tree(f)
     for node in tree:
         node["label"] = REGION_LABELS.get(node["region"], "Вилоят номаълум")
@@ -581,14 +582,12 @@ def base_data(request):
     pages = [{"n": n, "url": _link(f, page=n) if isinstance(n, int) else ""}
              for n in page.paginator.get_elided_page_range(page.number, on_each_side=2, on_ends=1)]
     return render(request, "panel/base_data.html", _bctx(
-        request, f=f, page=page, pages=pages, cat_tabs=cat_tabs, book_tabs=book_tabs, tree=tree, crumbs=crumbs, src=src,
+        request, f=f, page=page, pages=pages, cat_tabs=cat_tabs, tree=tree, crumbs=crumbs, src=src,
         sorts=_SORTS, per_page=_PER_PAGE, r=r, y=y, q=q, pending=pending, last=last,
-        show_period=show_period, show_src=show_src,
-        book_names={k: services.book_label(k) for k in counts["book"] if k != "-"},
-        book_base=_link({k: f[k] for k in ("region", "year", "quarter")}) + ("&" if f["region"] or f["year"] else ""),
+        show_period=show_period, show_src=show_src, mixed=not (f["region"] and f["year"] and f["quarter"]) and not f["src"],
         cat_short=_CAT_SHORT, cat_counts=counts["cat"], sort_label=dict(_SORTS).get(f["sort"], ""),
-        hidden=[(k, f[k]) for k in ("region", "year", "quarter", "src", "cat", "book") if f[k]],
-        n_files=Source.objects.filter(kind=Source.Kind.FILE).count(), n_all=Observation.objects.count(),
+        hidden=[(k, f[k]) for k in ("region", "year", "quarter", "src", "cat") if f[k]],
+        n_files=Source.objects.filter(kind=Source.Kind.FILE).count(), n_all=Resource.objects.count(),
         n_res=Resource.objects.count(), skip_labels=services.FILE_SKIP_LABELS,
         cat_labels=dict(CATEGORIES), region_labels=REGION_LABELS,
         max_mb=conf.get("max_upload_mb") // (1024 * 1024),
@@ -613,29 +612,16 @@ def _book_tabs(f: dict, counts: dict) -> list:
 def base_norms(request):
     """Нормалар (ЛРВ ишлари): тўплам (иш тури) → шифр. Бир шифр бир неча файлда учраса — бир қатор, сонлари билан."""
     f = _data_filters(request.GET)
-    if f["book"]:
-        f["grp"] = normbook.group_of(f["book"])
     rows, books = services.norms(f)
     page = Paginator(rows, f["per"]).get_page(request.GET.get("page"))
     period = {k: f[k] for k in ("region", "year", "quarter")}
     for r in page:
         r["url"] = reverse("panel:base_norm", args=[r["shifr"]]) + _link(period)
-    by_grp = Counter()
-    for k, n in books.items():
-        by_grp[normbook.group_of(k)] += n
-    cards = [{"key": "", "label": "Барча нормалар", "n": sum(books.values()), "url": _link(f, grp="", book="")}]
-    cards += [{"key": k, "label": label, "hint": hint, "n": by_grp[k], "url": _link(f, grp=k, book="")}
-              for k, label, hint in normbook.GROUPS]
-    book_list = [{"key": k, "label": services.book_label(k), "n": n, "url": _link(f, book="" if f["book"] == k else k)}
-                 for k, n in sorted(books.items(), key=lambda b: normbook.book_sort(b[0]))
-                 if not f["grp"] or normbook.group_of(k) == f["grp"]]
     pages = [{"n": n, "url": _link(f, page=n) if isinstance(n, int) else ""}
              for n in page.paginator.get_elided_page_range(page.number, on_each_side=2, on_ends=1)]
     return render(request, "panel/base_norms.html", _bctx(
-        request, f=f, page=page, pages=pages, books=book_list, cards=cards, book_counts=books,
-        book_labels={k: services.book_label(k) for k in books}, grp_label=normbook.GROUP_LABELS.get(f["grp"], ""),
-        per_page=_PER_PAGE, region_labels=REGION_LABELS,
-        hidden=[(k, f[k]) for k in ("grp", "book") if f[k]],
+        request, f=f, page=page, pages=pages, n_norms=sum(books.values()),
+        per_page=_PER_PAGE, region_labels=REGION_LABELS, hidden=[],
         prev_url=_link(f, page=page.previous_page_number()) if page.has_previous() else "",
         next_url=_link(f, page=page.next_page_number()) if page.has_next() else "", **_form_ctx()))
 
@@ -667,8 +653,7 @@ def base_books(request):
         return redirect("panel:base_books")
     used = dict(WorkItem.objects.values_list("book").annotate(n=Count("shifr", distinct=True)).order_by())
     custom = {b.key: b for b in BookName.objects.select_related("updated_by")}
-    rows = [{"key": k, "default": normbook.book_label(k), "name": custom[k].name if k in custom else "",
-             "by": custom.get(k), "n": used.get(k, 0), "group": normbook.GROUP_LABELS[normbook.group_of(k)]}
+    rows = [{"key": k, "name": custom[k].name if k in custom else "", "by": custom.get(k), "n": used.get(k, 0)}
             for k in sorted(set(used) | set(custom), key=normbook.book_sort)]
     return render(request, "panel/base_books.html", _bctx(request, rows=rows, n_custom=len(custom)))
 
@@ -681,7 +666,7 @@ def base_norm(request, shifr):
         raise Http404
     return render(request, "panel/base_norm.html", _bctx(
         request, d=d, f=f, book_label=services.book_label(d["book"]), region_labels=REGION_LABELS,
-        back_url=reverse("panel:base_norms") + _link({k: f[k] for k in ("region", "year", "quarter")}, book=d["book"])))
+        back_url=reverse("panel:base_norms") + _link({k: f[k] for k in ("region", "year", "quarter")})))
 
 
 @require_POST

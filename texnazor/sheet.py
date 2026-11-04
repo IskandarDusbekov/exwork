@@ -21,10 +21,10 @@ from openpyxl import load_workbook
 
 from .formula import Err, Evaluator, compile_formula, deps, refs
 
-NUM = re.compile(r"^\s*(\d+)(?:\s*[.,]\s*(\d+))?\s*$")  # «3. 1» (bo'shliq bilan) ham
+NUM = re.compile(r"^\s*(\d+)(?:\s*[.,]\s*(\d+))?\s*\.?\s*$")  # «3. 1» (bo'shliq bilan), «26.7.» (oxirida nuqta) ham
 MAX_COLS = 80  # undan o'ngdagi ustunlar (tasodifiy yozuvlar) olinmaydi
 PREVIEW = 12
-READER = 8  # o'qish qoidalari o'zgarsa oshiriladi — eski obyektlar o'zi qayta o'qiladi
+READER = 9  # o'qish qoidalari o'zgarsa oshiriladi — eski obyektlar o'zi qayta o'qiladi
 
 
 class SheetError(Exception):
@@ -304,7 +304,11 @@ def _classify(rows: List[tuple], lay: Layout, formulas: Optional[List[dict]] = N
         if num is None and _unnumbered_item(r, lay, formulas[i - 1] if formulas and i - 1 < len(formulas) else {}, i):
             kinds[i] = ["free", "", None]  # raqami yozilmagan material («ГОТОВАЯ ПЕРЕКЛАДИНА | ШТ | 2 | … =E*G»)
             continue
-        if i >= start:
+        # ishning o'z resursi pul birligida («92.2 | ПРОЧИЕ МАТЕРИАЛЫ | СУМ») — svodka emas, resurs (aks holda uning
+        # summasi o'zgarmas son bo'lib har bir dalolatnomaga tushadi)
+        own_res = bool(num and num[1] is not None and name and prev_top and kinds[prev_top][1] == num[0]
+                       and i - prev_top <= 200 and all(kinds[k][0] in ("res", "work", "free") for k in range(prev_top, i)))
+        if i >= start and not own_res:
             # bo'limlar ketma-ket: har birining o'z svodkasi, keyin yana ishlar (raqamlash 1 dan) — ular ham ish
             if not _is_item(r, lay, num, name, formulas[i - 1] if formulas and i - 1 < len(formulas) else {}, i):
                 kinds[i] = ["svod", "", None]
@@ -638,21 +642,38 @@ def _restore_formulas(grid: Grid):
     from .formula import col_letter
     lay = grid.layout
     A = col_letter
+    # summa formulalari narx sifatida oladigan ustunlar («=IF(G="",F*H,G*H)» — H) — ularga nusxa formula yozilmaydi
+    price_cols = {c for row in grid.rows if row["kind"] in ("work", "free", "res") and lay.amount in row["fmls"]
+                  for c, rr in refs(row["fmls"][lay.amount]) if rr == row["row"]} - {lay.qty, lay.total}
     for row in grid.rows:
         if row["kind"] not in ("work", "free", "res"):
             continue
         v, f, r = row["vals"], row["fmls"], row["row"]
-        get = lambda j: v[j] if j < len(v) and isinstance(v[j], (int, float)) and not isinstance(v[j], bool) else None  # noqa: E731
+        # narx ko'pincha matn bo'lib saqlangan («4500» — .xls dan): Excel uni formulada son deb oladi, biz ham
+        get = lambda j: _num(v[j], text=True) if j < len(v) else None  # noqa: E731
         amount = get(lay.amount)
         if amount is not None and lay.amount not in f:
-            base = lay.total if row["kind"] == "res" else lay.qty
+            # resurs: «narx × jami» (F); jami yozilmagan material («ЖЕЛОБА … | М | 48 | — | 5600 | 268800») — «narx ×
+            # miqdor» (E): dalolatnomada E o'z ishi hajmiga mutanosib (``Book.norm_money``)
+            base = lay.total if row["kind"] == "res" and get(lay.total) is not None else lay.qty
             price, q = get(lay.price), get(base)
             if price is not None and q is not None and abs(price * q - amount) <= max(0.5, abs(amount) * 1e-6):  # faylda yaxlitlangan
                 f[lay.amount] = f"={A(lay.price)}{r}*{A(base)}{r}"
         if amount is None and lay.amount not in f:
             continue
-        for j in range(lay.amount + 1, lay.block_end + 1):
+        # summaning nusxasi summa ustunidan chapda («Сметная стоимость … общая» = «Стоимость … сумма») — dalolatnomada
+        # ham summaga teng bo'lsin (narx ustuni va narxdan ajratib bo'lmaydigan hol — tegilmaydi)
+        price = get(lay.price)
+        used = {c for c, rr in refs(f[lay.amount]) if rr == r} if lay.amount in f else set()  # summa o'zi oladigan kataklar
+        for j in range(max(lay.qty, lay.total) + 1, lay.amount):
             x = get(j)
+            if j == lay.price or j in f or j in used or j in price_cols or x is None or amount is None                     or abs(amount) < 0.01 or price is None:
+                continue
+            if abs(x - amount) <= max(0.01, abs(amount) * 1e-9) and abs(price - amount) > 0.01:
+                f[j] = f"={A(lay.amount)}{r}"
+        num = lambda j: v[j] if j < len(v) and isinstance(v[j], (int, float)) and not isinstance(v[j], bool) else None  # noqa: E731
+        for j in range(lay.amount + 1, lay.block_end + 1):
+            x = num(j)
             if j not in f and x is not None and x != 0 and amount is not None and abs(x - amount) <= max(0.01, abs(amount) * 1e-9):
                 f[j] = f"={A(lay.amount)}{r}"
             # tur ustuni summa o'rniga narxni olgan («=G558», hajm 1 bo'lgani uchun faylda teng) — summaga bog'laymiz
@@ -720,7 +741,7 @@ def _check(grid: Grid):
     lay = grid.layout
     svod_f = sum(len(r["fmls"]) for r in grid.rows if r["kind"] == "svod")
     if not svod_f and any(r["kind"] == "svod" and any(v is not None for v in r["vals"]) for r in grid.rows):
-        grid.warnings.append({"row": 0, "title": "Сводкада формула йўқ",
+        grid.warnings.append({"row": 0, "code": "svod_nofml", "title": "Сводкада формула йўқ",
                               "text": "Офёрта пастидаги сводка (иш ҳақи, фоизлар, ҚҚС) сон сифатида ёзилган. "
                                       "Далолатномаларда сводка қаторлари ҳисобланмайди — фақат иш қаторлари."})
     manual = [(r["row"], f) for r in grid.rows if r["kind"] == "svod" for f in r["fmls"].values() if _MANUAL.search(f)]
@@ -941,12 +962,210 @@ class Book:
                 if (lay.total, ch) in self.formulas:
                     continue
                 f = _num(self.values.get((lay.total, ch)), text=True)
+                if f is None and ch in self.norm_money:
+                    continue  # jami yozilmagan — summa E dan, F bo'sh qoladi
                 out[(lay.total, ch)] = (f * q / base) if (base and f is not None) else norm * q
         return out
 
     def evaluate(self, qty: Dict[int, float], full: bool = False) -> Evaluator:
-        """full — ofyorta / «Остатка» hisobi (fayldagi formula); aks holda — dalolatnoma (``drop_const`` hisobga olinadi)."""
-        return Evaluator(self.values, self.full_formulas if full else self.formulas, self.override(qty)).run_all()
+        """full — ofyorta / «Остатка» hisobi (fayldagi formula); aks holda — dalolatnoma (``drop_const`` hisobga olinadi).
+        Formulasiz svodka (bo'lim jamlari son bo'lib yozilgan) — o'z ishlari pulига mutanosib (``svod_groups``)."""
+        ev = Evaluator(self.values, self.full_formulas if full else self.formulas, self.override(qty))
+        groups = self.svod_groups()
+        if groups:
+            money = self._top_money(ev)
+            for g in groups:
+                share = sum(money.get(t, 0.0) for t in g["tops"]) / g["base"]
+                for key in g["cells"]:
+                    ev.override[key] = self._fnum(key) * share
+        return ev.run_all()
+
+    def act_values(self, qty: Dict[int, float], full: bool = False) -> Dict[Tuple[int, int], float]:
+        """Dalolatnomada fayldagidan farq qiladigan formulasiz kataklar: ``override`` + mutanosib svodka sonlari."""
+        if not self.svod_groups():
+            return self.override(qty)
+        return dict(self.evaluate(qty, full).override)
+
+    def _fnum(self, key) -> float:
+        return _num(self.values.get(key), text=True) or 0.0
+
+    def _top_money(self, ev: Evaluator) -> Dict[int, float]:
+        """Har bir ish / mustaqil qatorning puli (resurslari bilan; ish qatori ularni takrorlasa — bir marta)."""
+        def amt(r):
+            v = ev(self.lay.amount, r)
+            return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else 0.0
+        out = {}
+        for top in self.tops:
+            own, kids = amt(top), sum(amt(c) for c in self.children.get(top, ()))
+            out[top] = kids + (0.0 if kids and abs(own - kids) <= max(0.5, abs(kids) * 1e-9) else own)
+        return out
+
+    def _linked(self, key, memo: dict) -> bool:
+        """Svodka katagi formulasi (bevosita yoki boshqa svodka orqali) ish / resurs qatorlariga tayanadimi."""
+        if key in memo:
+            return memo[key]
+        memo[key] = False
+        row = self.by_row.get(key[1])
+        f = row["fmls"].get(key[0]) if row else None
+        out = False
+        if f and "!" not in f:
+            for d in deps(f, limit=50000):
+                k = self.by_row.get(d[1])
+                if not k:
+                    continue
+                if k["kind"] in ("work", "free", "res") or (k["kind"] == "svod" and d in self.full_formulas and self._linked(d, memo)):
+                    out = True
+                    break
+        memo[key] = out
+        return out
+
+    def svod_groups(self) -> List[dict]:
+        """Formulasiz svodka guruhlari: «ИТОГО ПО РАЗДЕЛУ» ostidagi «ЗАТРАТЫ ТРУДА … / ЕСП 15% / … / ИТОГО С УЧЕТОМ
+        КОЭФФ.» — pul kataklari son bo'lib yozilgan (smeta dasturidan), formulalari ham faqat shu sonlarni qo'shadi.
+        Fayldagi qiymat dalolatnomaga o'zgarmay tushsa — hajm yozilmasa ham to'liq summa chiqadi. Shuning uchun har bir
+        guruhning sonlari o'z ishlari puliga mutanosib: dalolatnoma = son × (dalolatnomadagi pul / shartnomadagi pul).
+        Guruhning ishlari — tepasidagi bo'lim; bo'lim jami / svodka foizi boshqa bo'limlarnikiga o'xshamasa —
+        yuqoriroqdan boshlab (masalan, «ВСЕГО ПО ОБЪЕКТУ» — hamma ishlar). Topilmasa — guruh fayldagidek qoladi.
+        Natija: [{"rows": [dan, gacha], "cells": [(ustun, qator), …], "tops": [ish qatori, …], "base": pul}]."""
+        if hasattr(self, "_svod_groups"):
+            return self._svod_groups
+        self._svod_groups = []
+        lay = self.lay
+        if not self.svod_rows or not self.tops:
+            return self._svod_groups
+        item_kinds = ("work", "free", "res")
+        cols = {lay.amount} | {j for r in self.rows if r["kind"] in item_kinds for j in r["fmls"] if j > lay.amount}
+        groups, cur, last_n = [], None, None
+        for r in self.rows:
+            k = r["kind"]
+            if k in item_kinds:
+                cur = None
+                continue
+            if k != "svod":
+                continue
+            n = item_num(r["vals"][lay.num] if lay.num < len(r["vals"]) else None)
+            n = int(n[0]) if n and n[1] is None else None
+            if cur is None or (n is not None and last_n is not None and n <= last_n):  # raqamlash qaytadan — yangi guruh
+                cur = []
+                groups.append(cur)
+                last_n = None
+            cur.append(r["row"])
+            if n is not None:
+                last_n = n
+        memo: dict = {}
+        found = []
+        for g in groups:
+            if any(self._linked((j, r), memo) for r in g for j in self.by_row[r]["fmls"] if (j, r) in self.full_formulas):
+                continue  # svodka formulasi ishlarni oladi — fayldagidek hisoblanadi
+            cells = [(j, r) for r in g for j in sorted(cols) if (j, r) not in self.full_formulas
+                     and abs(_num(self.values.get((j, r)), text=True) or 0.0) >= 0.5]
+            # summa ustunida soni yo'q guruh («РАЗДЕЛ …» sarlavhasi, yonida tasodifiy yozuv) — svodka emas
+            if any(j == lay.amount for j, _r in cells):
+                found.append((g, cells))
+        if not found:
+            return self._svod_groups
+        money = self._top_money(Evaluator(self.values, self.full_formulas,
+                                          self.override({t: self.contract_qty(t) for t in self.tops})))
+        tops = sorted(self.tops)
+        # bo'lim chegarasi — puli bor svodka guruhi; ishlar orasidagi «РАЗДЕЛ …» sarlavhasi (jamisiz) chegara emas:
+        # uning ishlari keyingi «ИТОГО ПО РАЗДЕЛУ» ga kiradi
+        ends = [lay.header_end] + [g[-1] for g in groups if any(
+            (lay.amount, r) in self.full_formulas or abs(self._fnum((lay.amount, r))) >= 0.5 for r in g)]
+
+        def span(a, b):  # (a, b) oralig'idagi ishlar va ularning puli
+            ts = [t for t in tops if a < t < b]
+            return ts, sum(money.get(t, 0.0) for t in ts)
+
+        def big(cells):
+            return max(abs(self._fnum(c)) for c in cells)
+        near = {}
+        for g, cells in found:
+            prev = max(e for e in ends if e < g[0])
+            ts, s = span(prev, g[0])
+            near[g[0]] = (ts, s)
+        ratios = sorted(big(cells) / near[g[0]][1] for g, cells in found if near[g[0]][1] > 0.5)
+        if not ratios:
+            return self._svod_groups
+        target = ratios[len(ratios) // 2]
+        import math
+        fit = lambda s, cells: s > 0.5 and abs(math.log(big(cells) / s / target)) <= math.log(1.3)  # noqa: E731
+        done = []  # [(qamrov boshi, guruh boshi, guruh oxiri, jami)] — o'z ishlari topilgan guruhlar
+
+        def inner(e, g0):
+            """(e, g0) oralig'idagi topilgan guruhlar jamlari (boshqa yig'indi guruh ichidagilari — bir marta)."""
+            hs = [h for h in done if h[1] > e and h[2] < g0]
+            return [h for h in hs if not any(o is not h and o[0] < h[1] and o[1] > h[2] and o[0] >= e for o in hs)]
+        for g, cells in found:
+            ts, s = near[g[0]]
+            G = big(cells)
+            start = max(e for e in ends if e < g[0])
+            if not fit(s, cells):
+                # yig'indi guruh («ВСЕГО ПО ОБЪЕКТУ», blok jami): jami — ichidagi bo'lim jamlari yig'indisi (yaxlitlash
+                # farqi bilan); qaysi oraliqda shunday bo'lsa — o'sha ishlar. Topilmasa — foiz o'xshashligi bo'yicha
+                best = None
+                for e in ends:
+                    if e >= g[0]:
+                        continue
+                    hs = inner(e, g[0])
+                    if not hs:
+                        continue
+                    err = abs(sum(h[3] for h in hs) - G)
+                    if err <= max(2.0, G * 0.015):  # bo'lim jamlari yaxlitlangan (ba'zan qo'lda tuzatilgan)
+                        ts2, s2 = span(e, g[0])
+                        if s2 > 0.5 and (best is None or err < best[0] - 1e-6):
+                            best = (err, ts2, s2, e)
+                if best is None:
+                    for e in ends:
+                        if e >= g[0]:
+                            continue
+                        ts2, s2 = span(e, g[0])
+                        if fit(s2, cells):
+                            d = abs(math.log(G / s2 / target))
+                            if best is None or d < best[0]:
+                                best = (d, ts2, s2, e)
+                if best is None:
+                    continue
+                ts, s, start = best[1], best[2], best[3]
+            done.append((start, g[0], g[-1], G))
+            self._svod_groups.append({"rows": [g[0], g[-1]], "cells": cells, "tops": ts, "base": s})
+        if self._svod_groups:
+            self._copy_cols_group([r for g in groups for r in g], money)
+        return self._svod_groups
+
+    def _copy_cols_group(self, svod: List[int], money: Dict[int, float]):
+        """Summaning nusxa ustuni summadan chapda («Сметная стоимость … общая» = «Стоимость … сумма», ish qatorlarida
+        «=J13»): svodkada u yerda obyekt jamlari son bo'lib turadi («61 414 949» har bo'limda) — dalolatnomada
+        hamma ishlar ulushiga mutanosib (aks holda №1 blokida 517 mln ko'rinib turadi)."""
+        from .formula import col_letter
+        lay = self.lay
+        items = [r for r in self.rows if r["kind"] in ("work", "free", "res") and lay.amount in r["fmls"]]
+        if not items:
+            return
+        cols = []
+        for c in range(max(lay.qty, lay.total) + 1, lay.amount):
+            if c == lay.price:
+                continue
+            n = sum(1 for r in items if r["fmls"].get(c, "").replace("+", "").upper() == f"={col_letter(lay.amount)}{r['row']}")
+            if n * 2 >= len(items):
+                cols.append(c)
+        cells = [(c, r) for r in svod for c in cols if (c, r) not in self.full_formulas and abs(self._fnum((c, r))) >= 0.5]
+        base = sum(money.get(t, 0.0) for t in self.tops)
+        if cells and base > 0.5:
+            self._svod_groups.append({"rows": [cells[0][1], cells[-1][1]], "cells": cells, "tops": list(self.tops),
+                                      "base": base, "copy": True})
+
+    def svod_warnings(self) -> List[dict]:
+        """Formulasiz svodka mutanosib hisoblangani haqida — foydalanuvchi bilsin (xato emas)."""
+        gs = [g for g in self.svod_groups() if not g.get("copy")]
+        if not gs:
+            return []
+        rows = ", ".join(f"{g['rows'][0]}–{g['rows'][1]}" for g in gs[:4]) + (" …" if len(gs) > 4 else "")
+        return [{"row": gs[0]["rows"][0], "code": "svod_prop",
+                 "title": f"Сводка сон билан ёзилган — далолатномада ишларга мутаносиб ({len(gs)} та жамлама)",
+                 "text": f"Бўлим жамлари («ЗАТРАТЫ ТРУДА…», «ЕСП 15%», «ИТОГО С УЧЕТОМ КОЭФФ.» ва ҳ.к.) файлда формуласиз "
+                         f"сон ({rows}-қаторлар). Тизим уларни далолатномага ўзгармай қўшмайди: ҳар бир жамлама ўз бўлими "
+                         "ишларининг пулига мутаносиб ҳисобланади (ҳажм ёзилмаса — 0, бўлим тўлиқ бажарилса — файлдагидек). "
+                         "Иш ҳақи ва материал улуши бўлимда ҳар хил бўлса, бир неча сўм фарқ бўлиши мумкин."}]
 
     def block(self, ev: Evaluator, rows=None) -> Dict[int, list]:
         """Blok qiymatlari (E..oxirgi ustun) — ish, resurs va svodka qatorlari uchun; bo'sh qator yuborilmaydi."""

@@ -1,14 +1,12 @@
 {% extends "panel/base.html" %}
 {% load narx %}
 {% block title %}Жараёнлар — Панел{% endblock %}
+{% block page_title %}Фондаги жараёнлар{% endblock %}
+{% block page_desc %}Папка юкланганда файллар очилиши ва нархланиши фонда, алоҳида дастурда (worker) бажарилади — смета­чи саҳифани ёпиб кетса ҳам ишлайверади. Бу ерда: worker'лар тирикми, ҳозир қайси папка ишланяпти ва охирги хатолар. {{ stale_minutes }} дақиқа давомида белги келмаса, жараён «тўхтаб қолган» деб белгиланади.{% if procs %} Саҳифа ҳар 5 сонияда янгиланади.{% endif %}{% endblock %}
 {% block panel %}
-<div class="mb-5">
-  <h1 class="text-2xl font-semibold">Жараёнлар</h1>
-  <p class="text-sm text-slate-500">Фонда очилаётган ва нархланаётган папкалар. {{ stale_minutes }} дақиқа белги бўлмаса — «тўхтаб қолган».{% if procs %} Саҳифа ҳар 5 сонияда янгиланади.{% endif %}</p>
-</div>
 <section class="mb-4 rounded-xl border {% if workers.mode == 'worker' and not workers.alive %}border-rose-200 bg-rose-50{% else %}border-slate-200 bg-white{% endif %} shadow-sm">
   <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-    <h2 class="font-semibold">Фондаги ишчилар (worker)</h2>
+    <div><h2 class="font-semibold">Фондаги ишчилар (worker)</h2><p class="text-xs text-slate-500">Яшил нуқта — ишлаяпти. «Оқим» — бир вақтда нечта папкани ишлай олади.</p></div>
     <span class="text-xs text-slate-500">{% if workers.mode == 'worker' %}Режим: алоҳида жараён · {{ workers.alive }} та тирик{% else %}Режим: сайт ичида (ишлаб чиқиш) — алоҳида worker шарт эмас{% endif %}{% if workers.queued %} · {{ workers.queued }} та навбатда{% endif %}</span>
   </div>
   <ul class="divide-y divide-slate-100 text-sm">

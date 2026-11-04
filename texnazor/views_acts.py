@@ -375,12 +375,24 @@ def mark(request, obj_id):
     # tekshiruvdan o'tmasa — to'xtab turadi
     auto = ready and request.GET.get("auto") == "1"
     check = (o.layout or {}).get("check") or {}
+    if auto and not check.get("ok", True) and sa.accepted(o):  # shu xatolar bilan «Шундай давом этиш» деган — тўхтатмаймиз
+        return _to(o)
     return render(request, "texnazor/mark.html", {"nav": "texnazor", "o": o, "reason": "" if ready else o.error,
                                                   "has_qty": has_qty, "several": len(o.sheets or []) > 1,
                                                   "view_only": ready, "manual": manual, "auto": auto,
                                                   "auto_ok": not check or check.get("ok", True),
                                                   "auto_fails": check.get("fails") or [],
                                                   "auto_warns": sum(1 for w in (o.warnings or []) if w.get("level") != "error")})
+
+
+@require_POST
+def mark_accept(request, obj_id):
+    """«Шундай давом этиш»: tekshiruv xatosi bilan ofyortaga o'tish — keyingi qayta o'qishda shu xatolar uchun
+    belgilash sahifasida to'xtatilmaydi."""
+    o = _obj(request, obj_id)
+    if o.status == SiteObject.Status.READY:
+        sa.accept_check(o)
+    return _to(o)
 
 
 def mark_rows(request, obj_id):

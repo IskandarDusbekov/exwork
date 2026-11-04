@@ -21,6 +21,7 @@ urlpatterns = [
     path("<uuid:obj_id>/data/", views_acts.data, name="data"),
     path("<uuid:obj_id>/mark/", views_acts.mark, name="mark"),
     path("<uuid:obj_id>/mark/rows/", views_acts.mark_rows, name="mark_rows"),
+    path("<uuid:obj_id>/mark/accept/", views_acts.mark_accept, name="mark_accept"),
     path("<uuid:obj_id>/mark/save/", views_acts.mark_save, name="mark_save"),
     path("<uuid:obj_id>/retry/", views_acts.retry, name="retry"),
     path("<uuid:obj_id>/hide/", views_acts.hide_rows, name="hide"),

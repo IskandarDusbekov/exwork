@@ -1,6 +1,7 @@
 {% extends "panel/base.html" %}
 {% load narx %}
 {% block title %}{{ res.code }} {{ res.name }} — Панел{% endblock %}
+{% block page_head %}{% endblock %}{# сарлавҳа — саҳифанинг ўзида #}
 {% block panel %}
 {% include "panel/_base_ui.html" %}
 {% include "panel/_base_tabs.html" with base_tab="data" %}
@@ -125,9 +126,7 @@
   <summary>{% icon "tree" "ui-gi h-6 w-6 shrink-0" %}
     <span class="gt">Қайси ишларда ишлатилади<small>1 бирлик ишга нормаси билан.</small></span>
     <span class="ui-count">{{ works|length }} та иш</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
-  {% regroup works by work__book as wgroups %}{% for wg in wgroups %}
-  <div class="flex items-center gap-2 border-t border-slate-100 px-5 py-2" style="background:var(--ui-blue-50)"><span class="ui-tag book">{{ wg.grouper }}</span><span class="text-sm font-semibold" style="color:var(--ui-blue-d)">{{ wg.list.0.label }}</span><span class="ml-auto text-xs text-slate-500">{{ wg.list|length }} та иш</span></div>
-  {% for w in wg.list %}
+  {% for w in works %}
   <div class="ui-row">
     <span class="doc">{% icon "file" "h-5 w-5" %}</span>
     <div class="code"><small>Шифр</small><span class="mono">{{ w.work__shifr }}</span></div>
@@ -138,7 +137,6 @@
     <div class="ui-price">{% if w.lo is not None %}{{ w.lo|qty }}{% if w.hi != w.lo %} – {{ w.hi|qty }}{% endif %}{% else %}—{% endif %}<small>норма, {{ res.unit }}</small></div>
     <a href="{% url 'panel:base_norm' w.work__shifr %}" class="ui-btn-o">{% icon "search" "h-4 w-4" %}Таркиби</a>
   </div>
-  {% endfor %}
   {% empty %}<div class="ui-row text-sm text-slate-500">Ҳали ЛРВ (ишлар) файлларида учрамаган.</div>{% endfor %}
 </details>
 

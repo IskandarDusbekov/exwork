@@ -30,7 +30,18 @@ def _step(obj: SiteObject, text: str, done=0, total=0, beat=None):
 
 
 def _xlsx(obj: SiteObject):
-    xlsx = convert.ensure_xlsx(obj.abs(obj.source_path), obj.abs("conv"))
+    """O'qiladigan .xlsx. .xls bir marta o'giriladi: keyingi so'rovlarda (belgilash sahifasi, hisobot) tayyor nusxa
+    olinadi — aks holda har so'rov LibreOffice'ni qayta ishga tushirib (~4 s) «Лист очилмоқда…»da qotib qolardi."""
+    src = obj.abs(obj.source_path)
+    if src.suffix.lower() == ".xls":
+        done = obj.abs("conv") / (src.stem + ".xlsx")
+        try:
+            if done.is_file() and done.stat().st_size and done.stat().st_mtime >= src.stat().st_mtime:
+                check_xlsx(done)
+                return done
+        except OSError:
+            pass
+    xlsx = convert.ensure_xlsx(src, obj.abs("conv"))
     check_xlsx(xlsx)
     return xlsx
 
@@ -95,10 +106,14 @@ def import_raw(obj: SiteObject, xlsx, progress=None):
         bk = Book(grid.layout.as_dict(), grid.rows)
         _step(obj, "Ҳисоб текширилмоқда", beat=progress)
         check = bk.self_check()  # bo'sh ≈ 0, yarim ≈ 50%, to'liq ≈ fayldagi jami
+        accepted = (obj.layout or {}).get("accepted")  # «Шундай давом этиш» — qayta o'qilganda ham eslab qolinadi
         obj.layout = dict(grid.layout.as_dict(), stamp=time.time(), reader=READER, signature=grid.signature,
-                          manual=grid.manual, memo=any(memo_used),
+                          manual=grid.manual, memo=any(memo_used), **({"accepted": accepted} if accepted else {}),
                           check={k: v for k, v in check.items() if k != "fails"} | {"fails": check["fails"]})
-        obj.warnings = [dict(w, level="error") for w in check["fails"]] + grid.warnings + bk.total_mismatch() + bk.fixed_money()
+        svw = bk.svod_warnings()  # formulasiz svodka mutanosib hisoblanadi — «Сводкада формула йўқ» endi o'rinsiz
+        obj.warnings = [dict(w, level="error") for w in check["fails"]] + \
+            [w for w in grid.warnings if not (svw and w.get("code") == "svod_nofml")] + svw + \
+            bk.total_mismatch() + bk.fixed_money()
         if obj.mode != SiteObject.Mode.ACTS or (not old_acts and obj.periods.exists()):
             obj.warnings += _from_months(obj, grid)
         obj.mode = SiteObject.Mode.ACTS
@@ -180,7 +195,7 @@ def _from_months(obj: SiteObject, grid) -> List[dict]:
 
 
 # ===================== hisob =====================
-LAYOUT_META = ("stamp", "reader", "check", "signature", "manual", "memo")  # ``obj.layout`` dagi ``Layout`` maydoni bo'lmaganlar
+LAYOUT_META = ("stamp", "reader", "check", "signature", "manual", "memo", "accepted")  # ``obj.layout`` dagi ``Layout`` maydoni bo'lmaganlar
 _books: Dict[str, tuple] = {}
 _lock = threading.Lock()
 
@@ -579,6 +594,24 @@ def set_marks(obj: SiteObject, marks: dict):
     obj.progress = {"step": "Офёрта белгиланганидек ўқилмоқда"}
     obj.save(update_fields=["layout", "status", "error", "progress"])
     tasks.start(obj.pk)
+
+
+def check_key(obj: SiteObject) -> str:
+    """Tekshiruv xatolarining «barmoq izi» (turi va qatori): foydalanuvchi «Шундай давом этиш» degani shu xatolarga."""
+    fails = ((obj.layout or {}).get("check") or {}).get("fails") or []
+    return "|".join(sorted(f"{f.get('code')}:{f.get('row')}" for f in fails))
+
+
+def accept_check(obj: SiteObject):
+    """Foydalanuvchi tekshiruv xatosini ko'rdi va shundayligicha davom etdi — xuddi shu xatolar bilan qayta o'qilganda
+    belgilash sahifasida to'xtatilmaydi (yangi / boshqa xato chiqsa — yana to'xtaydi)."""
+    obj.layout = dict(obj.layout or {}, accepted=check_key(obj))
+    obj.save(update_fields=["layout"])
+
+
+def accepted(obj: SiteObject) -> bool:
+    key = check_key(obj)
+    return bool(key) and (obj.layout or {}).get("accepted") == key
 
 
 def retry(obj: SiteObject):

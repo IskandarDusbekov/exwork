@@ -546,7 +546,8 @@ sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. S
     <ul>{% for f in auto_fails|slice:":3" %}<li>{{ f.title }}</li>{% endfor %}</ul>
     <div class="mk-auto-s">Рангларга қаранг: нотўғри белгиланганини босиб тузатинг ва «Сақлаш ва ўқиш»ни босинг. Файлнинг ўзида хато бўлса — шундай давом этинг.</div></div>
   <div class="mk-auto-b"><button type="button" class="mk-auto-stop" id="mk-auto-stop">Шу ерда тузатаман</button>
-    <a class="mk-auto-go" href="{% url 'texnazor:object' o.pk %}">Шундай давом этиш</a></div>
+    <form method="post" action="{% url 'texnazor:mark_accept' o.pk %}" style="display:contents">{% csrf_token %}
+      <button type="submit" class="mk-auto-go">Шундай давом этиш</button></form></div>
   {% endif %}
 </div>
 <script>

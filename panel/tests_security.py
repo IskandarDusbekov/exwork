@@ -132,7 +132,7 @@ class SecurityPanelTests(TestCase):
         r = self.client.get(reverse("panel:live"))
         self.assertContains(r, "Жонли папка")
         self.assertContains(r, "1/3 смета нархланяпти")
-        self.assertContains(r, "Онлайн")
+        self.assertContains(r, "Ҳозир сайтда")
         for days in ("7", "30", "90", "abc"):
             self.assertEqual(self.client.get(reverse("panel:stats"), {"days": days}).status_code, 200)
         self.assertEqual(self.client.get(reverse("panel:processes")).status_code, 200)

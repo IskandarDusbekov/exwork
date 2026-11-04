@@ -1,0 +1,35 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}{{ title }} — Панел{% endblock %}
+{% block extra_css %}{% include "jobs/_xs_css.html" %}
+  .xs-tabs a { display: inline-block; padding: .3rem .8rem; font: 12px "Segoe UI", Arial, sans-serif; color: #444; border-radius: 0 0 4px 4px; }
+  .xs-tabs a:hover { background: #e7e7e7; }
+  .xs-tabs a.is-on { background: #fff; color: #107c41; font-weight: 600; box-shadow: inset 0 2px 0 #107c41; }{% endblock %}
+{% block page_back %}<a href="{{ back }}" class="mb-2 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" %} {% if kind == 'smeta' %}{{ w.local_name }}{% else %}{{ w.name }}{% endif %}</a>{% endblock %}
+{% block page_title %}<span class="break-all">{{ title }}</span>{% endblock %}
+{% block page_desc %}{{ what }} · эгаси <a href="{% url 'panel:user' w.owner_id %}" class="font-medium text-slate-700 hover:underline">{{ w.owner.email }}</a>. Фақат кўриш — файл ўзгармайди; очилгани журналга ёзилади.{% endblock %}
+{% block page_actions %}
+  {% if job_files %}<span class="inline-flex overflow-hidden rounded-lg border border-slate-200 bg-white text-sm">
+    {% for k, label in job_files.items %}{% if k != 'res' or job.res_path %}<a href="{% url 'panel:job_sheet' job.pk k %}" class="{% if not forloop.first %}border-l border-slate-200 {% endif %}px-3 py-1.5 {% if jf == k %}bg-slate-900 font-medium text-white{% else %}text-slate-700 hover:bg-slate-50{% endif %}">{{ label }}</a>{% endif %}{% endfor %}
+  </span>{% endif %}
+  {% if download %}<a href="{{ download }}" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700" title="Журналга ёзилади">{% icon "download" %} Юклаб олиш</a>{% endif %}
+{% endblock %}
+{% block panel %}
+{% if error %}
+<div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-6 text-sm text-amber-900">{{ error }}</div>
+{% else %}
+<div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+  <span>Лист: <b class="text-slate-700">{{ data.sheet }}</b></span>
+  <span class="num">{{ data.rows }} қатор × {{ data.cols }} устун кўрсатилди{% if data.total_rows and data.total_rows > data.rows %} (файлда {{ data.total_rows }} қатор){% endif %}</span>
+  {% if data.partial or data.truncated %}{% if not full %}<a href="?{% if request.GET.s %}s={{ request.GET.s|urlencode }}&amp;{% endif %}all=1" class="font-medium text-sky-700 hover:underline">Ҳаммасини кўрсатиш (катта файлда бир неча сония)</a>{% endif %}{% endif %}
+</div>
+<div class="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
+  <div class="xs-wrap relative max-h-[75vh] overflow-auto">{{ data.html|safe }}</div>
+  {% if data.sheets|length > 1 %}
+  <div class="xs-tabs" aria-label="Листлар">
+    {% for s in data.sheets %}<a href="?s={{ s|urlencode }}{% if full %}&amp;all=1{% endif %}" class="{% if s == data.sheet %}is-on{% endif %}">{{ s }}</a>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
