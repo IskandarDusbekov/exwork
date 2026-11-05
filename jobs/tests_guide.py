@@ -55,6 +55,15 @@ class GuideTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.guides_seen, [])
 
+    def test_used_before_hides_guides_on_every_page(self):
+        """«Мен олдин фойдаланганман» — йўриқнома бирорта саҳифада ўзи очилмайди."""
+        page = self.client.get(reverse("dashboard"))
+        self.assertContains(page, "Мен олдин фойдаланганман")
+        self.assertContains(page, "tour-close")  # аниқ кўринадиган ёпиш тугмаси
+        self.assertEqual(self.client.post(reverse("guide_seen"), {"all": "1"}).json(), {"ok": True})
+        self.user.refresh_from_db()
+        self.assertEqual(sorted(self.user.guides_seen), sorted(GUIDE_PAGES))
+
     def test_reset_shows_guides_again(self):
         self.user.guides_seen = list(GUIDE_PAGES)
         self.user.save()

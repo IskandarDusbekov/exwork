@@ -1719,10 +1719,13 @@ def help_page(request):
 
 @require_POST
 def guide_seen(request):
-    """Саҳифа қўлланмаси кўрилди (ёки ёпилди) — кейин ўзи очилмайди. ``reset`` — ҳаммасини қайта кўрсатиш."""
+    """Саҳифа қўлланмаси кўрилди (ёки ёпилди) — кейин ўзи очилмайди. ``all`` — «Мен олдин фойдаланганман»:
+    бирорта саҳифада ўзи очилмасин. ``reset`` — ҳаммасини қайта кўрсатиш."""
     user = request.user
     if request.POST.get("reset"):
         user.guides_seen = []
+    elif request.POST.get("all"):
+        user.guides_seen = list(GUIDE_PAGES)
     else:
         page = request.POST.get("page", "")
         if page not in GUIDE_PAGES:

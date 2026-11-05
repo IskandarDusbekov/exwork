@@ -9,7 +9,7 @@
 {% elif done %}
 <h1>Email тасдиқланган</h1>
 <div class="msg msg-ok" role="status"><b>{{ email }}</b> тасдиқланди. Паролни унутсангиз, шу почта орқали тиклай оласиз.</div>
-<div class="auth-go"><a href="{% if guest %}{% url 'login' %}{% else %}{% url 'index' %}{% endif %}" class="btn btn-p">{% if guest %}Киришга{% else %}Ишга қайтиш{% endif %}</a></div>
+<div class="auth-go"><a href="{% if guest %}{% url 'login' %}{% else %}{% url 'dashboard' %}{% endif %}" class="btn btn-p">{% if guest %}Киришга{% else %}Ишга қайтиш{% endif %}</a></div>
 {% else %}
 <h1>Email'ни тасдиқланг</h1>
 <p class="auth-sub"><b>{{ email }}</b> га 6 рақамли код ва тасдиқлаш тугмаси юборилди. Почтангизни (ва «Спам» папкасини) текширинг.</p>
@@ -35,7 +35,7 @@
   <button type="submit" class="btn {% if expired %}btn-p{% else %}btn-g{% endif %}"{% if wait %} disabled data-wait="{{ wait }}"{% endif %}>
     {% if has_code %}Кодни қайта юбориш{% else %}Код юбориш{% endif %}{% if wait %} ({{ wait }} с){% endif %}</button>
 </form>
-<p class="auth-alt">Тасдиқламасангиз ҳам ишлайверасиз, лекин <b>паролни унутсангиз, тиклай олмайсиз</b>. <a href="{% url 'index' %}">Кейинроқ</a></p>
+<p class="auth-alt">Тасдиқламасангиз ҳам ишлайверасиз, лекин <b>паролни унутсангиз, тиклай олмайсиз</b>. <a href="{% url 'dashboard' %}">Кейинроқ</a></p>
 <script>
   (function () {
     var b = document.querySelector("[data-wait]");

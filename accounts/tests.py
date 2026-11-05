@@ -81,7 +81,7 @@ class LoginTests(TestCase):
     def test_open_redirect_blocked(self):
         r = self.client.post(reverse("login"), {"email": "ali@mail.uz", "password": PASSWORD,
                                                 "next": "https://evil.example/"})
-        self.assertRedirects(r, reverse("index"))
+        self.assertRedirects(r, reverse("dashboard"))
 
     def test_wrong_password_generic_message(self):
         r1 = self.client.post(reverse("login"), {"email": "ali@mail.uz", "password": "xato"})
@@ -103,7 +103,7 @@ class LoginTests(TestCase):
         self.assertNotIn("_auth_user_id", self.client.session)
         AuthAttempt.objects.all().delete()
         r = self.client.post(reverse("login"), {"email": "ali@mail.uz", "password": PASSWORD})
-        self.assertRedirects(r, reverse("index"))
+        self.assertRedirects(r, reverse("dashboard"))
 
     def test_session_rotated_on_login(self):
         self.client.get(reverse("login"))
@@ -260,7 +260,7 @@ class TwoFactorTests(TestCase):
         from .models import TwoFactor
         # parol bilan kirdi, lekin panel — avval ikki bosqichli kirishni yoqish
         r = self.client.post(reverse("login"), {"email": "boss@mail.uz", "password": PASSWORD})
-        self.assertRedirects(r, reverse("index"), fetch_redirect_response=False)
+        self.assertRedirects(r, reverse("dashboard"), fetch_redirect_response=False)
         r = self.client.get(self.panel)
         self.assertRedirects(r, f"{reverse('twofa_setup')}?next={self.panel}", fetch_redirect_response=False)
         page = self.client.get(r.url)
@@ -312,7 +312,7 @@ class TwoFactorTests(TestCase):
     def test_ordinary_user_unaffected_and_panel_still_hidden(self):
         u = User.objects.create_user("ali@mail.uz", PASSWORD, first_name="Ali", last_name="V")
         r = self.client.post(reverse("login"), {"email": "ali@mail.uz", "password": PASSWORD})
-        self.assertRedirects(r, reverse("index"), fetch_redirect_response=False)
+        self.assertRedirects(r, reverse("dashboard"), fetch_redirect_response=False)
         self.assertEqual(self.client.get(self.panel).status_code, 404)
         self.assertEqual(u.pk, int(self.client.session["_auth_user_id"]))
 

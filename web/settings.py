@@ -135,7 +135,7 @@ USE_TZ = True
 # ===================== auth va xavfsizlik =====================
 AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "login"
-LOGIN_REDIRECT_URL = "index"
+LOGIN_REDIRECT_URL = "dashboard"  # киргандан кейин — «Иш столи»
 # Django admin va boshqaruv paneli manzillari — production'da taxmin qilib bo'lmaydigan uzun yo'l qo'ying
 ADMIN_URL = os.environ.get("NARXLASH_ADMIN_URL", "admin/")
 PANEL_URL = os.environ.get("NARXLASH_PANEL_URL", "panel/")

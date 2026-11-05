@@ -29,6 +29,9 @@ BLOCKED = "Жуда кўп уриниш. 15 дақиқадан кейин қай
 logger = logging.getLogger(__name__)
 
 
+HOME = "dashboard"  # киргандан кейин — «Иш столи» (юклаш саҳифаси эмас)
+
+
 def _next_url(request) -> str:
     """Киргандан кейин қаерга: фақат ўз сайтимиздаги манзил (бошқа сайтга йўналтириш бўлмасин)."""
     nxt = request.POST.get("next") or request.GET.get("next") or ""
@@ -44,7 +47,7 @@ def _next_url(request) -> str:
 @require_http_methods(["GET", "POST"])
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect(_next_url(request) or "index")
+        return redirect(_next_url(request) or HOME)
     form = LoginForm(request.POST or None)
     error = None
     if request.method == "POST":
@@ -65,7 +68,7 @@ def login_view(request):
                     return redirect("login_code")
                 throttle.clear_login_failures(email)
                 login(request, user)  # сессия калити янгиланади (session fixation'га қарши)
-                return redirect(_next_url(request) or "index")
+                return redirect(_next_url(request) or HOME)
     return render(request, "accounts/login.html", {"form": form, "error": error, "next": _next_url(request)})
 
 
@@ -121,7 +124,7 @@ def login_code_view(request):
             else:
                 login(request, user, backend="django.contrib.auth.backends.ModelBackend")
             request.session[VERIFIED] = user.pk
-            return redirect(p["next"] or "index")
+            return redirect(p["next"] or HOME)
         else:
             error = "Бу код ишлатилган — иловадаги кейинги кодни кутинг."
     return render(request, "accounts/login_code.html", {"error": error, "email": user.email})
@@ -164,7 +167,7 @@ def twofa_setup_view(request):
 @require_http_methods(["GET", "POST"])
 def register_view(request):
     if request.user.is_authenticated:
-        return redirect("index")
+        return redirect(HOME)
     from panel import conf
     if conf.get("signup") != "open":
         # ҳисобни фақат админ очади — форма ҳам, POST ҳам йўқ
