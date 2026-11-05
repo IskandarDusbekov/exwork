@@ -73,6 +73,9 @@
           <form method="post" action="{% url 'logout' %}">{% csrf_token %}
             <button type="submit" class="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-white/10 hover:text-rose-300" title="Чиқиш" aria-label="Чиқиш">{% icon "logout" "h-4 w-4" %}</button></form>
         </div>
+        {% if user.is_superuser %}{# манзили махфий (NARXLASH_ADMIN_URL) — фақат суперфойдаланувчига кўринади #}
+        <a href="{% url 'admin:index' %}" class="mt-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white" title="Django admin: барча жадваллар — фойдаланувчилар, ишлар, созламалар (эҳтиёт бўлинг: ўзгариш дарҳол сақланади)">{% icon "database" "h-4 w-4" %}<span class="flex-1">Маълумотлар базаси</span>{% icon "external" "h-3.5 w-3.5 opacity-60" %}</a>
+        {% endif %}
         <a href="{% url 'dashboard' %}" class="mt-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white">{% icon "arrow-left" "h-4 w-4" %} Сайтга қайтиш</a>
       </div>
     </aside>

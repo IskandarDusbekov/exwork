@@ -9,8 +9,10 @@ class PanelConfig(AppConfig):
     def ready(self):
         from django.contrib.auth.signals import user_logged_in, user_logged_out, user_login_failed
 
-        from . import audit, sessions
+        from . import admin_all, audit, sessions
         from .models import Event
+
+        admin_all.register_all()  # Django admin'да барча жадваллар («Маълумотлар базаси»)
 
         def on_login(sender, request, user, **kw):
             audit.log(request, Event.Kind.LOGIN, actor=user)

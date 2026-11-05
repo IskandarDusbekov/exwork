@@ -105,3 +105,43 @@ class MailPanelTests(TestCase):
         self.assertContains(self.client.get(reverse("panel:mail")), "Фойдаланувчига борадиган хат")
         self.assertEqual(self.client.post(reverse("panel:mail_save"), FORM).status_code, 403)
         self.assertEqual(self.client.post(reverse("panel:mail_test"), {"to": "a@b.uz"}).status_code, 403)
+
+
+@override_settings(NARXLASH_STAFF_2FA=False)
+class AdminLinkTests(TestCase):
+    """Панел менюсидаги «Маълумотлар базаси» (Django admin) — фақат суперфойдаланувчига (манзил махфий)."""
+
+    def test_link_only_for_superuser(self):
+        admin = User.objects.create_superuser("admin@test.uz", PASSWORD, first_name="A", last_name="B")
+        staff = User.objects.create_user("staff@test.uz", PASSWORD, first_name="S", last_name="T", is_staff=True)
+        url = reverse("admin:index")
+        self.client.force_login(admin)
+        self.assertContains(self.client.get(reverse("panel:overview")), f'href="{url}"')
+        r = self.client.get(url)
+        self.assertContains(r, "Маълумотлар базаси")
+        self.assertContains(r, f'href="/{reverse("panel:overview").strip("/")}/"')  # «Сайтни кўриш» — панелга
+        self.client.force_login(staff)
+        self.assertNotContains(self.client.get(reverse("panel:overview")), f'href="{url}"')
+
+    def test_every_table_opens_and_logs_protected(self):
+        from django.contrib import admin
+
+        from accounts.models import TwoFactor
+        admin_user = User.objects.create_superuser("admin@test.uz", PASSWORD, first_name="A", last_name="B")
+        TwoFactor.objects.create(user=admin_user, secret="SIRKALIT234567AB")
+        Event.objects.create(kind=Event.Kind.LOGIN, actor=admin_user)
+        self.client.force_login(admin_user)
+        labels = {m._meta.label for m in admin.site._registry}
+        for label in ("texnazor.RawRow", "resbase.Resource", "jobs.Job", "panel.Event"):
+            self.assertIn(label, labels)
+        for model in admin.site._registry:
+            info = (model._meta.app_label, model._meta.model_name)
+            self.assertEqual(self.client.get(reverse("admin:%s_%s_changelist" % info)).status_code, 200, model)
+            obj = model.objects.first()
+            if obj is not None:
+                self.assertEqual(self.client.get(reverse("admin:%s_%s_change" % info, args=[obj.pk])).status_code, 200, model)
+        ev = Event.objects.first()
+        self.assertEqual(self.client.post(reverse("admin:panel_event_delete", args=[ev.pk]), {"post": "yes"}).status_code, 403)
+        self.assertTrue(Event.objects.filter(pk=ev.pk).exists())
+        tf = self.client.get(reverse("admin:accounts_twofactor_change", args=[admin_user.two_factor.pk]))
+        self.assertNotContains(tf, "SIRKALIT")

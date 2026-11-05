@@ -5,6 +5,8 @@ from django.urls import include, path, re_path
 from panel import views_seo
 
 admin.site.site_header = admin.site.site_title = "mhisobot — бошқарув"
+admin.site.index_title = "Маълумотлар базаси"
+admin.site.site_url = "/" + settings.PANEL_URL  # «Сайтни кўриш» — бошқарув панелига қайтади
 
 urlpatterns = [
     path("robots.txt", views_seo.robots_txt, name="robots_txt"),
