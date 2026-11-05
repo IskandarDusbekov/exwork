@@ -107,6 +107,25 @@ def sitemap_xml(request):
 
 @login_not_required
 @require_GET
+def google_file(request, code):
+    """Search Console «HTML-файл» усули: /google<код>.html — панелда шу ном қўйилган бўлса."""
+    if code != seo.values()["google_file"]:
+        raise Http404
+    return HttpResponse(f"google-site-verification: {code}.html", content_type="text/html; charset=utf-8")
+
+
+@login_not_required
+@require_GET
+def yandex_file(request, code):
+    """Яндекс Вебмастер «HTML-файл» усули: /yandex_<код>.html."""
+    if not code or code != seo.values()["yandex"].lower():
+        raise Http404
+    return HttpResponse('<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>'
+                        f"<body>Verification: {code}</body></html>", content_type="text/html; charset=utf-8")
+
+
+@login_not_required
+@require_GET
 @cache_control(max_age=86400, public=True)
 def og_image(request):
     path = seo.image_path()

@@ -41,10 +41,12 @@ FIELDS = (
           "техназор, офёрта, муҳандис ҳисобот, mhisobot",
           "Вергул билан. Google деярли ҳисобга олмайди, Yandex — бироз.", 400, True),
     Field("google", "Google Search Console", "verify", "",
-          "Search Console → «HTML-тег» усули: content=\"…\" ичидаги код ёки бутун <meta …> тегини қўйинг.", 200,
+          "«HTML-тег» усули: content=\"…\" ичидаги код ёки бутун <meta …> тег. «HTML-файл» усули: файл номи "
+          "(google….html) ёки ичидаги матн — сайт шу файлни ўзи беради.", 200,
           placeholder="масалан: aBcD1234…", pattern=r"[A-Za-z0-9_\-.:=]{8,120}"),
     Field("yandex", "Яндекс Вебмастер", "verify", "",
-          "Вебмастер → «Мета-тег» усули: content=\"…\" ичидаги код ёки бутун тег.", 200,
+          "«Мета-тег» усули: content=\"…\" ичидаги код ёки бутун тег. «HTML-файл» усули: файл номи "
+          "(yandex_….html) — иккаласи бир хил код.", 200,
           placeholder="масалан: 1a2b3c4d5e6f7a8b", pattern=r"[A-Za-z0-9_\-]{8,120}"),
     Field("bing", "Bing Webmaster", "verify", "", "Ихтиёрий: msvalidate.01 мета-тегининг коди.", 200,
           pattern=r"[A-Za-z0-9_\-]{8,120}"),
@@ -66,6 +68,7 @@ GROUPS = (
     ("analytics", "Ташриф статистикаси", "Неча киши, қаердан келди — Google ва Яндекс ҳисоботларида."),
     ("org", "Ташкилот маълумоти", "Қидирув тизими сайт кимники эканини тушунсин (структураланган маълумот)."),
 )
+GOOGLE_FILE_RE = re.compile(r"google[0-9a-f]{16}")  # Search Console «HTML-файл»: google<код>.html
 _META_RE = re.compile(r"""content\s*=\s*["']([^"']+)["']""", re.I)
 
 
@@ -85,6 +88,8 @@ def values() -> dict:
     data = _stored()
     out = {f.key: data.get(f.key, f.default) for f in FIELDS}
     out["index"] = data.get("index", True)
+    # Google'да мета-тег коди ва файл номи ҳар хил: файл номи қўйилган бўлса — мета-тег эмас, файл берилади
+    out["google_file"] = out["google"] if GOOGLE_FILE_RE.fullmatch(out["google"]) else ""
     out["image"] = data.get("image", "")
     out["updated"] = data.get("_updated", "")
     return out
@@ -98,6 +103,12 @@ def clean(f: Field, raw: str) -> str:
         if not m:
             raise ValueError(f"{f.label}: тег ичида content=\"…\" топилмади — фақат кодни қўйинг")
         v = m.group(1).strip()
+    if f.key == "google":  # файл номи ёки ичидаги «google-site-verification: google….html»
+        v = re.sub(r"^google-site-verification:\s*", "", v, flags=re.I)
+        name = re.sub(r"\.html?$", "", v, flags=re.I)
+        v = name if GOOGLE_FILE_RE.fullmatch(name) else v
+    if f.key == "yandex":  # yandex_<код>.html → код
+        v = re.sub(r"^yandex_([0-9a-f]+)\.html?$", r"\1", v, flags=re.I)
     if f.key == "metrika":
         v = re.sub(r"\D", "", v) if re.fullmatch(r"[\d\s]+", v) else v
     if f.key == "ga":

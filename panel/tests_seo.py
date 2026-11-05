@@ -68,6 +68,24 @@ class SeoTests(TestCase):
         self.assertContains(login, "google-site-verification")
         self.assertContains(login, "<title>Кириш — mhisobot</title>")
 
+    def test_google_html_file_method(self):
+        for raw in ("googlebfca934827dfe82c.html", "google-site-verification: googlebfca934827dfe82c.html"):
+            self.save(google=raw)
+            self.assertEqual(seo.values()["google"], "googlebfca934827dfe82c")
+            self.client.logout()
+            r = self.client.get("/googlebfca934827dfe82c.html")
+            self.assertEqual(r.content, b"google-site-verification: googlebfca934827dfe82c.html")
+            self.assertNotContains(self.client.get("/"), "google-site-verification")  # мета эмас — файл
+        self.assertEqual(self.client.get("/google0000000000000000.html").status_code, 404)
+
+    def test_yandex_html_file_method(self):
+        self.save(yandex="yandex_1a2b3c4d5e6f7a8b.html")
+        self.assertEqual(seo.values()["yandex"], "1a2b3c4d5e6f7a8b")
+        self.client.logout()
+        self.assertContains(self.client.get("/yandex_1a2b3c4d5e6f7a8b.html"), "Verification: 1a2b3c4d5e6f7a8b")
+        self.assertContains(self.client.get("/"), 'name="yandex-verification" content="1a2b3c4d5e6f7a8b"')
+        self.assertEqual(self.client.get("/yandex_ffffffffffffffff.html").status_code, 404)
+
     def test_bad_values_rejected(self):
         r = self.save(ga="UA-123")
         self.assertContains(r, "Google Analytics (GA4): нотўғри кўриниш")

@@ -15,7 +15,7 @@
   <meta name="twitter:image" content="{{ image }}">{% else %}<meta name="twitter:card" content="summary">{% endif %}
   <meta name="twitter:title" content="{{ title }}">
   <meta name="twitter:description" content="{{ v.description }}">
-  {% if v.google %}<meta name="google-site-verification" content="{{ v.google }}">{% endif %}
+  {% if v.google and not v.google_file %}<meta name="google-site-verification" content="{{ v.google }}">{% endif %}
   {% if v.yandex %}<meta name="yandex-verification" content="{{ v.yandex }}">{% endif %}
   {% if v.bing %}<meta name="msvalidate.01" content="{{ v.bing }}">{% endif %}
   <script type="application/ld+json">{{ ld }}</script>
