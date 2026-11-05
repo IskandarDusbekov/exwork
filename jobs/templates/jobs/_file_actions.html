@@ -1,0 +1,4 @@
+{% load narx %}{# объектдаги i-файл: асл нусхасини юклаб олиш ва тузатилганини шу ўрнига юклаш (фақат эгасига) #}<span class="file-acts">
+  <a href="{% url 'batch_file' batch.id i %}" class="file-act" title="Асл файлни юклаб олиш (тузатиш учун)">{% icon "download" "h-3.5 w-3.5" %}{% if labels %}юклаб олиш{% endif %}</a>
+  {% if batch.owner_id == user.pk %}<button type="button" class="file-act" data-replace="{{ i }}" title="Тузатилган файлни шу ўрнига юклаш — фақат шу файл ўзгаради">{% icon "upload" "h-3.5 w-3.5" %}{% if labels %}қайта юклаш{% endif %}</button>{% endif %}
+</span>

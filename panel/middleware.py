@@ -16,6 +16,7 @@ class BlockedIPMiddleware:
     def __call__(self, request):
         ip = client_ip(request)
         if ip and ip in sessions.blocked_ips():
+            request.access_kind = "blocked"  # «Кириш уринишлари» учун
             if cache.add(f"panel:blocked_seen:{ip}", 1, 600):  # журналга 10 дақиқада бир марта
                 audit.log(request, Event.Kind.BLOCKED_IP, actor=False, detail=request.path[:200])
             return HttpResponseForbidden("<h1>403</h1><p>Сизнинг манзилингиздан кириш блокланган.</p>")

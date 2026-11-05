@@ -1,0 +1,211 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Кириш уринишлари — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<div class="mb-4 flex flex-wrap items-end gap-3">
+  <div class="min-w-0 flex-1">
+    <h1 class="text-xl font-semibold text-slate-900">Кириш уринишлари</h1>
+    <p class="text-sm text-slate-500">Сайтга келган ҳар бир сўров: ким (IP, фойдаланувчи), қайси саҳифага, неча марта ва қандай жавоб олди.
+      Сўровлар хотирада йиғилиб, {{ flush_seconds }} сонияда бир марта базага ёзилади — охирги дақиқадагилар бироз кечикиб кўриниши мумкин. {{ keep_days }} кундан эскилари ўчади.</p>
+  </div>
+  <nav class="flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm" aria-label="Давр">
+    {% for k, label in periods %}<a href="?p={{ k }}" class="rounded-md px-3 py-1 {% if k == period %}bg-slate-900 font-medium text-white{% else %}text-slate-600 hover:bg-slate-50{% endif %}">{{ label }}</a>{% endfor %}
+  </nav>
+</div>
+
+<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+  {% include "panel/_metric.html" with label="Жами сўровлар" value=total note=period_label %}
+  {% include "panel/_metric.html" with label="Турли IP манзиллар" value=unique_ips note="шу даврда келган" %}
+  {% if bad_n %}{% include "panel/_metric.html" with label="Сканер ва бегона Host" value=bad_n note="заифлик қидирган сўровлар" tone="rose" %}
+  {% else %}{% include "panel/_metric.html" with label="Сканер ва бегона Host" value=0 note="заифлик қидирган сўровлар" %}{% endif %}
+  {% with s=suspects|length %}{% if s %}{% include "panel/_metric.html" with label="Шубҳали IP'лар" value=s note="пастдаги жадвалда" tone="rose" %}
+  {% else %}{% include "panel/_metric.html" with label="Шубҳали IP'лар" value=0 note="йўқ" %}{% endif %}{% endwith %}
+</div>
+
+{# ======= турлар ======= #}
+<section class="mb-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <h2 class="border-b border-slate-100 px-4 py-3 font-semibold">Ким келди — турлар бўйича</h2>
+  <div class="grid gap-px bg-slate-100 sm:grid-cols-2 xl:grid-cols-4">
+    {% for c in cards %}
+    <a href="?p={{ period }}&kind={{ c.key }}#rows" class="block bg-white p-4 hover:bg-slate-50" title="{{ c.hint }}">
+      <div class="flex items-center gap-2 text-sm font-medium text-slate-700"><span class="h-2.5 w-2.5 rounded-full bg-{{ c.tone }}-500"></span>{{ c.label }}</div>
+      <div class="mt-1 flex items-baseline gap-2"><span class="num text-xl font-semibold {% if c.n %}text-slate-900{% else %}text-slate-300{% endif %}">{{ c.n }}</span>
+        <span class="num text-xs text-slate-400">{{ c.ips }} IP</span></div>
+      <p class="mt-1 text-xs leading-snug text-slate-500">{{ c.hint }}</p>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+{# ======= вақт бўйича ======= #}
+<section class="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <div class="mb-3 flex flex-wrap items-center gap-3">
+    <h2 class="flex-1 font-semibold">{% if by_hour %}Соатлар бўйича{% else %}Кунлар бўйича{% endif %}</h2>
+    <span class="flex items-center gap-1.5 text-xs text-slate-500"><span class="h-2.5 w-2.5 rounded-sm bg-slate-300"></span>оддий</span>
+    <span class="flex items-center gap-1.5 text-xs text-slate-500"><span class="h-2.5 w-2.5 rounded-sm bg-rose-500"></span>сканер, хато кириш, рад этилган</span>
+  </div>
+  {% if total %}
+  <div class="flex h-32 items-end gap-0.5">
+    {% for s in series %}
+    <div class="flex h-full min-w-0 flex-1 flex-col justify-end" title="{% if by_hour %}{{ s.t|date:'d.m H:00' }}{% else %}{{ s.t|date:'d.m.Y' }}{% endif %}: {{ s.n }} та, шундан шубҳали {{ s.bad }}">
+      <div class="flex w-full flex-col justify-end overflow-hidden rounded-t bg-slate-300" style="height: {{ s.h }}%">
+        {% if s.bh %}<div class="w-full bg-rose-500" style="height: {% widthratio s.bh s.h 100 %}%"></div>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="mt-1 flex justify-between text-[11px] text-slate-400">
+    <span>{% with f=series.0 %}{% if by_hour %}{{ f.t|date:'d.m H:00' }}{% else %}{{ f.t|date:'d.m' }}{% endif %}{% endwith %}</span>
+    <span>{% with l=series|last %}{% if by_hour %}{{ l.t|date:'d.m H:00' }}{% else %}{{ l.t|date:'d.m' }}{% endif %}{% endwith %}</span>
+  </div>
+  {% else %}<p class="py-6 text-center text-sm text-slate-400">Бу даврда сўров ёзилмаган</p>{% endif %}
+</section>
+
+{# ======= шубҳали IP'лар ======= #}
+<section class="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3">
+    <h2 class="font-semibold">Шубҳали IP манзиллар</h2>
+    <p class="text-xs text-slate-500">Сканер ёки бегона Host билан келган, паролни хато терган, CSRF'сиз форма юборган, кўп 404 олган ёки жуда кўп сўров юборган манзиллар.
+      <b class="text-rose-700">Ҳужум</b> — 10 тадан кўп сканер ёки хато кириш, ёки 2000 дан кўп сўров.</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-left text-xs text-slate-500">
+        <tr><th class="px-4 py-2 font-medium">IP</th><th class="px-3 py-2 text-right font-medium">Жами</th><th class="px-3 py-2 text-right font-medium">Сканер</th>
+          <th class="px-3 py-2 text-right font-medium">Хато кириш</th><th class="px-3 py-2 text-right font-medium">CSRF</th><th class="px-3 py-2 text-right font-medium">404</th>
+          <th class="px-3 py-2 text-right font-medium">Турли саҳифа</th><th class="px-3 py-2 font-medium">Дастури (User-Agent)</th><th class="px-3 py-2 font-medium">Охирги</th><th class="px-3 py-2"></th></tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for r in suspects %}
+        <tr class="{% if r.threat == 'attack' %}bg-rose-50/60{% endif %}">
+          <td class="whitespace-nowrap px-4 py-2">
+            <a href="?p={{ period }}&ip={{ r.ip }}#rows" class="num font-medium text-slate-900 hover:underline">{{ r.ip }}</a>
+            {% if r.threat == 'attack' %}<span class="ml-1 rounded bg-rose-100 px-1.5 py-0.5 text-[11px] font-semibold text-rose-700">Ҳужум</span>
+            {% elif r.threat == 'suspect' %}<span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">Шубҳали</span>{% endif %}
+            {% if r.ip in blocked_ips %}<span class="ml-1 rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-semibold text-violet-700">блокда</span>{% endif %}
+            {% if r.users %}<span class="ml-1 text-[11px] text-slate-400" title="Шу IP'дан тизимга кирган фойдаланувчилар бор">{{ r.users }} фойд.</span>{% endif %}
+          </td>
+          <td class="num px-3 py-2 text-right font-medium">{{ r.n }}</td>
+          <td class="num px-3 py-2 text-right {% if r.scan %}font-semibold text-rose-700{% else %}text-slate-300{% endif %}">{{ r.scan }}</td>
+          <td class="num px-3 py-2 text-right {% if r.fail %}font-semibold text-amber-700{% else %}text-slate-300{% endif %}">{{ r.fail }}</td>
+          <td class="num px-3 py-2 text-right {% if r.csrf %}text-amber-700{% else %}text-slate-300{% endif %}">{{ r.csrf }}</td>
+          <td class="num px-3 py-2 text-right {% if r.nf %}text-slate-700{% else %}text-slate-300{% endif %}">{{ r.nf }}</td>
+          <td class="num px-3 py-2 text-right text-slate-600">{{ r.paths }}</td>
+          <td class="max-w-[16rem] truncate px-3 py-2 text-xs text-slate-500" title="{{ r.ua }}">{{ r.ua|default:"— йўқ —" }}</td>
+          <td class="num whitespace-nowrap px-3 py-2 text-xs text-slate-500">{{ r.last|date:"d.m H:i" }}</td>
+          <td class="px-3 py-2 text-right">
+            {% if can_act %}
+              {% if r.ip in blocked_ips %}
+              <form method="post" action="{% url 'panel:ip_block' %}">{% csrf_token %}<input type="hidden" name="ip" value="{{ r.ip }}"><input type="hidden" name="action" value="unblock"><input type="hidden" name="next" value="{{ here }}">
+                <button class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Блокдан чиқариш</button></form>
+              {% elif r.ip != my_ip %}
+              <form method="post" action="{% url 'panel:ip_block' %}" data-confirm="{{ r.ip }} блоклансинми? Шу манзилдан сайт умуман очилмайди." data-confirm-title="IP блоклаш" data-confirm-ok="Блоклаш" data-danger>{% csrf_token %}
+                <input type="hidden" name="ip" value="{{ r.ip }}"><input type="hidden" name="next" value="{{ here }}"><input type="hidden" name="reason" value="Кириш уринишлари: {{ r.n }} сўров, сканер {{ r.scan }}, хато кириш {{ r.fail }}">
+                <button class="rounded-md border border-rose-200 px-2 py-0.5 text-xs font-medium text-rose-700 hover:bg-rose-50">Блоклаш</button></form>
+              {% else %}<span class="text-[11px] text-slate-400">сизнинг IP</span>{% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}<tr><td colspan="10" class="px-4 py-8 text-center text-slate-400">Бу даврда шубҳали манзил йўқ</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="mb-4 grid gap-4 xl:grid-cols-2">
+  {# ======= сканер нимани қидирди ======= #}
+  <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Сканерлар нимани қидирди</h2>
+      <p class="text-xs text-slate-500">Сайтда йўқ, лекин заиф сайтларда бўладиган манзиллар — ботлар шуни текширади.</p></div>
+    <ul class="divide-y divide-slate-100 text-sm">
+      {% for r in scan_paths %}
+      <li class="flex items-center gap-3 px-4 py-2"><a href="?p={{ period }}&kind=scanner&q={{ r.path|urlencode }}#rows" class="min-w-0 flex-1 truncate font-mono text-xs text-rose-700 hover:underline" title="{{ r.path }}">{{ r.path }}</a>
+        <span class="num text-xs text-slate-400">{{ r.ips }} IP</span><span class="num w-14 text-right font-medium">{{ r.n }}</span></li>
+      {% empty %}<li class="px-4 py-6 text-center text-slate-400">Сканер келмаган</li>{% endfor %}
+    </ul>
+    {% if bad_hosts %}
+    <div class="border-t border-slate-100 px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Бегона Host билан келганлар</div>
+    <ul class="divide-y divide-slate-100 text-sm">
+      {% for r in bad_hosts %}
+      <li class="flex items-center gap-3 px-4 py-2"><a href="?p={{ period }}&kind=bad_host&q={{ r.host|urlencode }}#rows" class="min-w-0 flex-1 truncate font-mono text-xs text-rose-700 hover:underline">{{ r.host|default:"(Host йўқ)" }}</a>
+        <span class="num text-xs text-slate-400">{{ r.ips }} IP</span><span class="num w-14 text-right font-medium">{{ r.n }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+
+  <div class="space-y-4">
+    {# ======= энг кўп очилган саҳифалар ======= #}
+    <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Энг кўп сўралган саҳифалар</h2>
+        <p class="text-xs text-slate-500">Сканерларсиз. Объект рақамлари <span class="font-mono">:id</span> бўлиб бирлаштирилган.</p></div>
+      <ul class="divide-y divide-slate-100 text-sm">
+        {% for r in pages %}
+        <li class="flex items-center gap-3 px-4 py-2"><a href="?p={{ period }}&q={{ r.path|urlencode }}#rows" class="min-w-0 flex-1 truncate font-mono text-xs text-slate-700 hover:underline" title="{{ r.path }}">{{ r.path }}</a>
+          {% if r.nf %}<span class="num rounded bg-amber-100 px-1 text-[11px] text-amber-700" title="404 — топилмади">404 × {{ r.nf }}</span>{% endif %}
+          <span class="num text-xs text-slate-400">{{ r.ips }} IP</span><span class="num w-14 text-right font-medium">{{ r.n }}</span></li>
+        {% empty %}<li class="px-4 py-6 text-center text-slate-400">Йўқ</li>{% endfor %}
+      </ul>
+    </section>
+    {# ======= фойдаланувчилар ======= #}
+    <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <h2 class="border-b border-slate-100 px-4 py-3 font-semibold">Энг фаол фойдаланувчилар</h2>
+      <ul class="divide-y divide-slate-100 text-sm">
+        {% for r in top_users %}
+        <li class="flex items-center gap-3 px-4 py-2"><a href="{% url 'panel:user' r.user_id %}" class="min-w-0 flex-1 truncate text-slate-700 hover:underline">{{ r.user__email }}</a>
+          <span class="num text-xs text-slate-400" title="Турли IP'лар">{{ r.ips }} IP</span><span class="num text-xs text-slate-400">{{ r.last|date:"d.m H:i" }}</span><span class="num w-14 text-right font-medium">{{ r.n }}</span></li>
+        {% empty %}<li class="px-4 py-6 text-center text-slate-400">Йўқ</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+</div>
+
+{# ======= батафсил ======= #}
+<section id="rows" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <form method="get" class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
+    <h2 class="mr-auto font-semibold">Батафсил: ҳар бир IP ва саҳифа</h2>
+    <input type="hidden" name="p" value="{{ period }}">
+    <input name="ip" value="{{ ip }}" placeholder="IP" class="num w-36 rounded-lg border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400" aria-label="IP">
+    <select name="kind" class="rounded-lg border border-slate-200 px-2 py-1 text-sm" aria-label="Тури">
+      <option value="">Ҳамма тур</option><option value="bad"{% if kind == 'bad' %} selected{% endif %}>Фақат шубҳалилар</option>
+      {% for k, label in kinds %}<option value="{{ k }}"{% if kind == k %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <input name="q" value="{{ q }}" placeholder="Саҳифа, дастур, email…" class="w-52 rounded-lg border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400" aria-label="Қидириш">
+    <button class="rounded-lg bg-slate-900 px-3 py-1 text-sm font-medium text-white hover:bg-slate-700">Кўрсатиш</button>
+    {% if ip or kind or q %}<a href="?p={{ period }}#rows" class="text-sm text-slate-500 hover:underline">тозалаш</a>{% endif %}
+  </form>
+  {% if ip_info %}
+  <div class="flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-slate-100 bg-slate-50 px-4 py-3 text-sm">
+    <span class="num text-base font-semibold text-slate-900">{{ ip_info.ip }}</span>
+    <span>сўровлар: <b class="num">{{ ip_info.n|default:0 }}</b></span>
+    <span>турли саҳифа: <b class="num">{{ ip_info.paths }}</b></span>
+    <span class="text-slate-500">биринчи: <span class="num">{{ ip_info.first|date:"d.m.Y H:i" }}</span> · охирги: <span class="num">{{ ip_info.last|date:"d.m.Y H:i" }}</span></span>
+    {% if ip_info.users %}<span class="text-slate-500">кирганлар: {{ ip_info.users|join:", " }}</span>{% endif %}
+  </div>
+  {% endif %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-left text-xs text-slate-500">
+        <tr><th class="px-4 py-2 font-medium">Охирги</th><th class="px-3 py-2 font-medium">IP</th><th class="px-3 py-2 font-medium">Тури</th><th class="px-3 py-2 font-medium">Сўров</th>
+          <th class="px-3 py-2 text-right font-medium">Жавоб</th><th class="px-3 py-2 text-right font-medium">Неча марта</th><th class="px-3 py-2 font-medium">Ким / дастури</th></tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for r in page %}
+        <tr>
+          <td class="num whitespace-nowrap px-4 py-2 text-xs text-slate-500" title="биринчи: {{ r.first_seen|date:'d.m.Y H:i:s' }}">{{ r.last_seen|date:"d.m H:i:s" }}</td>
+          <td class="whitespace-nowrap px-3 py-2"><a href="?p={{ period }}&ip={{ r.ip|default:'-' }}#rows" class="num text-slate-800 hover:underline">{{ r.ip|default:"—" }}</a></td>
+          <td class="whitespace-nowrap px-3 py-2">{% with t=tones|get_item:r.kind %}<span class="rounded bg-{{ t }}-100 px-1.5 py-0.5 text-[11px] font-medium text-{{ t }}-700">{{ r.get_kind_display }}</span>{% endwith %}</td>
+          <td class="min-w-[16rem] max-w-[28rem] px-3 py-2"><span class="mr-1 text-[11px] font-semibold text-slate-400">{{ r.method }}</span><span class="break-all font-mono text-xs text-slate-700">{{ r.path }}</span>
+            {% if r.host %}<div class="text-[11px] text-rose-600">Host: {{ r.host }}</div>{% endif %}</td>
+          <td class="num px-3 py-2 text-right {% if r.status >= 500 %}text-rose-700{% elif r.status >= 400 %}text-amber-700{% else %}text-slate-500{% endif %}">{{ r.status|default:"—" }}</td>
+          <td class="num px-3 py-2 text-right font-semibold">{{ r.count }}</td>
+          <td class="max-w-[18rem] truncate px-3 py-2 text-xs text-slate-500" title="{{ r.user_agent }}">{% if r.user %}<a href="{% url 'panel:user' r.user_id %}" class="font-medium text-slate-700 hover:underline">{{ r.user.email }}</a> · {% endif %}{{ r.user_agent|default:"— User-Agent йўқ —" }}</td>
+        </tr>
+        {% empty %}<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">Ёзув йўқ</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% include "panel/_pager.html" %}
+{% endblock %}

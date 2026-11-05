@@ -73,3 +73,18 @@ class ServerLogTests(TestCase):
         self.assertContains(self.client.get(reverse("panel:overview")), "сервер хатоси")  # «Эътибор талаб қилади»
         self.client.post(reverse("panel:errors_clear"))
         self.assertFalse(ServerLog.objects.exists())
+
+    def test_scanner_noise_not_logged(self):
+        from django.contrib.auth.models import AnonymousUser
+        from django.test import RequestFactory
+        logging.getLogger("gunicorn.http.wsgi").warning(
+            "WSGI app sent body bytes on a no-body response (method=HEAD status=400); dropping per RFC 9110.")
+        bot = RequestFactory().post("/")
+        bot.user = AnonymousUser()
+        csrf = logging.getLogger("django.security.csrf")
+        csrf.warning("Forbidden (Referer checking failed - no Referer.): /", extra={"request": bot, "status_code": 403})
+        self.assertFalse(ServerLog.objects.exists())
+        real = RequestFactory().post("/")
+        real.user = self.user  # кирган одамнинг CSRF хатоси — ҳақиқий муаммо, панелга тушади
+        csrf.warning("Forbidden (CSRF token missing.): /", extra={"request": real, "status_code": 403})
+        self.assertEqual(ServerLog.objects.count(), 1)

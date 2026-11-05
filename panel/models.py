@@ -140,3 +140,39 @@ class ServerLog(models.Model):
             if last:
                 return last[-1][:300]
         return self.message.splitlines()[0][:300] if self.message else ""
+
+
+class AccessStat(models.Model):
+    """Сайтга кириш уринишлари — соат бўйича йиғилган (panel.access): битта IP битта саҳифага шу соатда неча марта
+    урилди, қандай жавоб олди. Ҳар бир сўров алоҳида қатор эмас — ``count`` ошиб боради."""
+
+    class Kind(models.TextChoices):
+        USER = "user", "Кирган фойдаланувчи"
+        GUEST = "guest", "Меҳмон"
+        BOT = "bot", "Бот / дастур"
+        SCANNER = "scanner", "Сканер"
+        BAD_HOST = "bad_host", "Бегона Host"
+        LOGIN_FAIL = "login_fail", "Хато кириш"
+        CSRF = "csrf", "CSRF рад этилди"
+        BLOCKED = "blocked", "Блокланган IP"
+
+    hour = models.DateTimeField(db_index=True)  # соат боши
+    ip = models.GenericIPAddressField(null=True, blank=True, db_index=True)
+    kind = models.CharField(max_length=16, choices=Kind.choices, db_index=True)
+    method = models.CharField(max_length=10, blank=True)
+    path = models.CharField(max_length=300, blank=True)
+    status = models.PositiveSmallIntegerField(null=True, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                             related_name="+")
+    host = models.CharField(max_length=200, blank=True)  # бегона Host бўлса — нима ёзиб келгани
+    user_agent = models.CharField(max_length=300, blank=True)  # охиргиси
+    count = models.PositiveIntegerField(default=0)
+    first_seen = models.DateTimeField()
+    last_seen = models.DateTimeField(db_index=True)
+
+    class Meta:
+        ordering = ["-last_seen"]
+        indexes = [models.Index(fields=["hour", "kind"]), models.Index(fields=["ip", "hour"])]
+
+    def __str__(self):
+        return f"{self.ip} {self.path} ×{self.count}"

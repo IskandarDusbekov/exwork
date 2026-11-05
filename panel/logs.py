@@ -79,10 +79,17 @@ def cleanup(days=KEEP_DAYS):
 
 
 class SkipNoise(logging.Filter):
-    """Панелга фақат ҳақиқий муаммолар: 4xx жавоблар (404, 403…) ва бегона Host (сканерлар) — йўқ."""
+    """Панелга фақат ҳақиқий муаммолар: 4xx жавоблар (404, 403…), бегона Host (сканерлар), gunicorn'нинг HEAD/400
+    огоҳлантириши ва кирмаган ботларнинг CSRF рад этилиши — йўқ."""
 
     def filter(self, record):
         if record.name.startswith("django.security.DisallowedHost"):
             return False
+        if record.name == "gunicorn.http.wsgi" and "no-body response" in str(record.msg):
+            return False  # HEAD сўровига 400 (бегона Host — сканер): gunicorn жавоб танасини ташлаб юборади
+        if record.name == "django.security.csrf":
+            user = getattr(getattr(record, "request", None), "user", None)
+            if not getattr(user, "is_authenticated", False):
+                return False  # кирмаган ботнинг POST'и (Referer'сиз) — ҳақиқий фойдаланувчига тегишли эмас
         status = getattr(record, "status_code", None)
         return not (record.name == "django.request" and status is not None and status < 500)

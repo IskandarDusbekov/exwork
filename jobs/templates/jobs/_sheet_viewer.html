@@ -74,7 +74,7 @@
     el.className = "flex min-h-0 min-w-0 flex-col bg-white";
     el.innerHTML =
       '<div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2 text-sm">' +
-        '<span class="xv-tag"></span><b class="xv-sheet min-w-0 truncate"></b><span class="xv-file min-w-0 truncate text-xs text-slate-500"></span>' +
+        '<span class="xv-tag"></span><b class="xv-sheet min-w-0 truncate"></b><span class="xv-file min-w-0 truncate text-xs text-slate-500"></span><span class="xv-fact"></span>' +
         '<span class="ml-auto flex items-center gap-1">' +
           '<input type="search" class="xv-q w-44 rounded-md border border-slate-300 px-2 py-1 text-xs" placeholder="Листда излаш…">' +
           '<span class="xv-count w-14 text-center text-[11px] text-slate-500"></span>' +
@@ -289,6 +289,8 @@
       el.querySelector(".xv-sheet").textContent = s.title || s.sheet || "";
       el.querySelector(".xv-file").textContent = (s.title ? "лист " + s.sheet + " · " : "") + (s.file_name || "");
       el.querySelector(".xv-file").title = s.file_name || "";
+      // объект саҳифасида: шу файлни юклаб олиш ва тузатилганини шу ўрнига юклаш
+      el.querySelector(".xv-fact").innerHTML = window.objFile && s.file != null ? window.objFile.html(s.file, true) : "";
       scroll.innerHTML = '<div class="p-6 text-sm text-slate-500">Очиляпти…</div>';
       var p = cfg.pick && cfg.pick.label(cur.k, s);
       pickBtn.classList.toggle("hidden", !p);

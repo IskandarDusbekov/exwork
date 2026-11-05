@@ -1,6 +1,9 @@
 import json
+import time
 from datetime import timedelta
+from pathlib import Path
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_not_required
 from django.contrib.auth.views import redirect_to_login
 from django.core.cache import cache
@@ -31,7 +34,7 @@ from .models import Batch, Job, Project
 from .services import (
     BASE_RES, UploadError, analyze_batch, base_period_of, check_quota, pair_ready, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job,
     nf_auto_of, parse_percents, remember_base_period, remember_nf_auto, remember_percents, remembered_percents, unpriced_res,
-    price_source_of, remember_price_source, base_only,
+    price_source_of, remember_price_source, base_only, batch_original, replace_batch_file, open_suggestions,
 )
 from .templatetags.narx import file_title, pct as pct_text, pct_input, readable, som
 
@@ -108,27 +111,32 @@ def index(request):
     error = None
     xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"  # юклаш саҳифаси файлларни XHR билан юборади
     if request.method == "POST":
+        t0, kind = time.monotonic(), "object"
         try:
             check_quota(request.user)  # файллар ўқилишидан олдин
             files = request.FILES.getlist("files")
             local = request.FILES.get("local")
             if files and any(is_archive(f.name) for f in files):
                 # ZIP/RAR — ичида папкалар бўлади: папка каби очилади (ҳисоблаш смета­чи босгандагина)
+                kind = "folder"
                 project = create_project(request.user, files, [f.name for f in files])
                 audit(request, Event.Kind.UPLOAD, work=project, work_kind="folder", detail=project.name)
-                return _went(xhr, reverse("project", args=[project.id]))
+                return _went(xhr, reverse("project", args=[project.id]), _upload_timing(request, kind, t0, project))
             if files:
                 # Universal yuklash: bitta obyekt fayli yoki bir nechta fayl — tizim o'zi ajratadi
                 batch = create_batch(request.user, files)
                 audit(request, Event.Kind.UPLOAD, work=batch, work_kind="object", detail=batch.name)
-                return _went(xhr, reverse("batch", args=[batch.id]))
+                return _went(xhr, reverse("batch", args=[batch.id]), _upload_timing(request, kind, t0, batch))
             if local:
                 job = create_job(request.user, local, request.FILES.get("res"))  # eski ikki maydonli usul
                 audit(request, Event.Kind.UPLOAD, work=job, work_kind="smeta", detail=job.local_name)
+                _upload_timing(request, "smeta", t0, job)
                 return redirect("job", job_id=job.id)
             error = "Файлни танланг."
         except UploadError as e:
             error = str(e)
+            if request.FILES:
+                _upload_timing(request, kind, t0, error=error)
         if xhr:
             return JsonResponse({"ok": False, "error": error}, status=400)
     recent = work_items(request.user, limit=6)
@@ -139,9 +147,41 @@ def index(request):
                                                **_base_ctx(base_period_of(request.user))})
 
 
-def _went(xhr, url):
-    """Юклаш тугади: XHR'га — қаерга ўтиш (JSON), оддий формага — redirect."""
-    return JsonResponse({"ok": True, "url": url}) if xhr else redirect(url)
+def _went(xhr, url, timing=None):
+    """Юклаш тугади: XHR'га — қаерга ўтиш (JSON), оддий формага — redirect. ``timing`` — юклаш вақти ёзуви:
+    браузер юбориш вақтини (``upload_timing``) шунга қўшади."""
+    if not xhr:
+        return redirect(url)
+    return JsonResponse({"ok": True, "url": url, **({"timing": timing.pk} if timing else {})})
+
+
+def _upload_timing(request, kind, t0, work=None, error=""):
+    """Юклашнинг сервердаги вақти (сақлаш, архив очиш, файлларни очиш) — панелдаги «Тезлик» учун.
+    Ёзилмаса ҳам юклаш бузилмайди."""
+    from .models import UploadTiming
+    try:
+        files = request.FILES.getlist("files") or [f for f in (request.FILES.get("local"), request.FILES.get("res")) if f]
+        return UploadTiming.objects.create(
+            owner=request.user, kind=kind, files=len(files), size=sum(f.size or 0 for f in files),
+            name=(getattr(work, "name", "") or getattr(work, "local_name", "") or (files[0].name if files else ""))[:255],
+            server_s=round(time.monotonic() - t0, 3), error=error[:300], work_id=str(work.pk) if work else "")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+@require_POST
+def upload_timing(request):
+    """Браузер ўлчаган юбориш вақти (файллар серверга етиб боргунча): ``id``, ``upload_s``."""
+    from .models import UploadTiming
+    try:
+        sec = float(request.POST.get("upload_s", ""))
+        pk = int(request.POST.get("id", ""))
+    except ValueError:
+        return JsonResponse({"ok": False}, status=400)
+    if not 0 <= sec < 86400:
+        return JsonResponse({"ok": False}, status=400)
+    n = UploadTiming.objects.filter(pk=pk, owner=request.user, upload_s__isnull=True).update(upload_s=round(sec, 3))
+    return JsonResponse({"ok": bool(n)})
 
 
 def _base_ctx(period) -> dict:
@@ -501,14 +541,17 @@ PART_STATES = {
 @require_POST
 def project_create(request):
     """Папка юклаш (JS): ``files`` + ``paths`` (ҳар бирининг папка ичидаги йўли) + ``skipped``."""
+    t0 = time.monotonic()
     try:
         check_quota(request.user)  # файллар ўқилишидан олдин
         project = create_project(request.user, request.FILES.getlist("files"), request.POST.getlist("paths"),
                                  request.POST.getlist("skipped"))
     except UploadError as e:
+        if request.FILES:
+            _upload_timing(request, "folder", t0, error=str(e))
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
     audit(request, Event.Kind.UPLOAD, work=project, work_kind="folder", detail=project.name)
-    return JsonResponse({"ok": True, "url": reverse("project", args=[project.id])})
+    return _went(True, reverse("project", args=[project.id]), _upload_timing(request, "folder", t0, project))
 
 
 def _part_nodes(node, out):
@@ -908,6 +951,10 @@ def batch_detail(request, batch_id):
         # танланган RES'да нарх йўқ — нархлашдан олдин огоҳлантириш
         "unpriced": [readable(p.get("label")) or p["local"] for p in batch.pairs
                      if p.get("include") and p.get("res") in unpriced_res(batch)],
+        # нархсиз RES файллари — шу ердан юклаб олиб, тузатилганини қайта юклаш учун
+        "unpriced_files": [{"i": i, "name": batch.files[i]["name"]} for i in sorted(
+            {by_key[p["res"]]["file"] for p in batch.pairs
+             if p.get("include") and p.get("res") in unpriced_res(batch) and p["res"] in by_key})],
     }
     return render(request, "jobs/batch.html", ctx)
 
@@ -933,6 +980,45 @@ def batch_replan(request, batch_id):
         batch.save(update_fields=["stage", "message"])
         settle(batch.project)
     return redirect("batch", batch_id=batch.id)
+
+
+def batch_file(request, batch_id, i):
+    """Объектдаги ``i``-файлнинг асл нусхасини юклаб олиш (тузатиб, қайта юклаш учун)."""
+    batch = _get_work(request, Batch, id=batch_id)
+    if not 0 <= i < len(batch.files):
+        raise Http404("Файл топилмади")
+    path = batch_original(batch, i)
+    if path is None:
+        raise Http404("Файл ҳали очилмаган")
+    name = batch.files[i].get("name") or path.name
+    if Path(name).suffix.lower() != path.suffix.lower():
+        name = Path(name).stem + path.suffix
+    _audit_download(request, batch, "object", name, what="асл файл")
+    return FileResponse(open(path, "rb"), as_attachment=True, filename=name)
+
+
+@require_POST
+def batch_file_replace(request, batch_id, i):
+    """Битта файлни (локал ёки RES) тузатилганига алмаштириш — объектнинг қолгани ўзгармайди."""
+    batch = _get_work(request, Batch, id=batch_id)
+    f = request.FILES.get("file")
+    try:
+        if not f:
+            raise UploadError("Файлни танланг")
+        if batch.project_id and batch.stage in (Batch.Stage.QUEUED, Batch.Stage.CONVERTING, Batch.Stage.PRICING):
+            raise UploadError("Бу қисм ҳозир ишланяпти — тугагач алмаштиринг")
+        old = batch.files[i]["name"] if 0 <= i < len(batch.files) else ""
+        replace_batch_file(batch, i, f)
+        audit(request, Event.Kind.UPLOAD, work=batch, work_kind="object", detail=f"файл алмаштирилди: {old} → {f.name}")
+        if batch.project_id and not batch.jobs.exists():
+            batch.stage, batch.message = ready_stage(batch)
+            batch.save(update_fields=["stage", "message"])
+            settle(batch.project)
+        messages.success(request, f"«{f.name}» юкланди ва листлари қайта ўқилди."
+                         + (" Натижани янгилаш учун «Қайта ҳисоблаш»ни босинг." if batch.jobs.exists() else ""))
+    except UploadError as e:
+        messages.error(request, str(e))
+    return redirect(reverse("batch", args=[batch.id]) + "#structure")
 
 
 @require_POST
@@ -978,6 +1064,12 @@ def job_detail(request, job_id):
             recalc.request(job, cleared=sorted(set(job.cleared or []) | set(a)))
         else:
             job.save(update_fields=["auto_cleared"])
+    elif (job.status == Job.Status.DONE and job.mode == "smart" and job.recalc_seq <= job.recalc_done
+          and job.owner_id == request.user.pk and nf_auto_of(job.owner_id)):
+        # «Автоматик» усул: олдин қолиб кетган нарх таклифлари (масалан, бирлиги бошқа) — бир йўла қабул қилинади
+        extra = open_suggestions(job)
+        if extra:
+            recalc.request(job, prices={**(job.prices or {}), **extra})
     if job.status == Job.Status.DONE:
         res = job.result
         totals = res["totals"]

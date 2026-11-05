@@ -32,8 +32,56 @@
 <script>setInterval(function () { if (!document.hidden) location.reload(); }, 5000);</script>
 {% endif %}
 
-{# ================= 1. файл очиш ================= #}
+{# ================= 0. юклаш ================= #}
 <section>
+  <h2 class="text-lg font-semibold text-slate-900">Юклаш</h2>
+  <p class="mt-1 max-w-4xl text-sm text-slate-500">Смета­чи «Юклаш»ни босганидан то саҳифа очилгунча: аввал файллар <b class="font-medium text-slate-700">интернет орқали серверга юборилади</b>, кейин сервер уларни сақлайди, архивни очади ва файлларни очади (пастдаги 1-бўлим). Катта файлда вақтнинг кўпи шу ерда кетади.
+    Охирги {{ days }} кунда {{ sp.up.n }} та юклаш, жами {{ sp.up.size|hsize }}.</p>
+  {% if sp.up.n %}
+  <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="text-xs font-semibold text-slate-600">Интернет орқали юбориш</div>
+      <div class="num mt-2 text-2xl font-semibold">{{ sp.up.upload_avg|dur }}</div>
+      <div class="text-xs text-slate-500">битта юклашга ўртача{% if sp.up.mbps %} · {{ sp.up.mbps|floatformat:2 }} МБ/сония{% endif %}</div>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="text-xs font-semibold text-slate-600">Серверда</div>
+      <div class="num mt-2 text-2xl font-semibold">{{ sp.up.server_avg|dur }}</div>
+      <div class="text-xs text-slate-500">сақлаш, архив очиш, файлларни очиш</div>
+    </div>
+    <div class="rounded-xl border border-slate-300 bg-slate-50 p-4 shadow-sm">
+      <div class="text-xs font-semibold text-slate-600">Жами</div>
+      <div class="num mt-2 text-2xl font-semibold">{{ sp.up.total_avg|dur }}</div>
+      <div class="text-xs text-slate-500">«Юклаш»дан саҳифа очилгунча</div>
+    </div>
+    <div class="rounded-xl border {% if sp.up.n_errors %}border-rose-200 bg-rose-50{% else %}border-slate-200 bg-white{% endif %} p-4 shadow-sm">
+      <div class="text-xs font-semibold {% if sp.up.n_errors %}text-rose-700{% else %}text-slate-600{% endif %}">Юкланмади</div>
+      <div class="num mt-2 text-2xl font-semibold">{{ sp.up.n_errors }}</div>
+      <div class="text-xs text-slate-500">хато билан тугаган юклашлар</div>
+    </div>
+  </div>
+  <div class="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3"><h3 class="font-semibold">Энг узоқ юкланган 10 та</h3></div>
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-4 py-2 text-left">Нима</th><th class="px-3 py-2 text-left">Ким</th>
+        <th class="px-3 py-2 text-right">Ҳажм</th><th class="px-3 py-2 text-right">Юбориш</th><th class="px-3 py-2 text-right">Серверда</th><th class="px-4 py-2 text-right">Жами</th></tr></thead>
+      {% for u in sp.up.slow %}<tr class="border-t border-slate-100 {% if u.error %}bg-rose-50/60{% endif %}">
+        <td class="max-w-xs px-4 py-2"><span class="block truncate" title="{{ u.name }}">{{ u.name|default:"—" }}</span>
+          <span class="block text-xs text-slate-400">{{ u.kind_label }} · {{ u.files }} та файл · {{ u.created|date:"d.m H:i" }}{% if u.error %} · <span class="text-rose-700">{{ u.error|truncatechars:60 }}</span>{% endif %}</span></td>
+        <td class="px-3 py-2 text-slate-600">{{ u.owner.get_full_name|default:u.owner.email|default:"—" }}</td>
+        <td class="num px-3 py-2 text-right">{{ u.size|hsize }}</td>
+        <td class="num px-3 py-2 text-right">{% if u.upload_s is not None %}{{ u.upload_s|dur }}{% if u.mbps %}<span class="block text-[11px] text-slate-400">{{ u.mbps|floatformat:2 }} МБ/с</span>{% endif %}{% else %}—{% endif %}</td>
+        <td class="num px-3 py-2 text-right">{{ u.server_s|dur }}</td>
+        <td class="num px-4 py-2 text-right font-semibold">{{ u.total_s|dur }}</td></tr>{% endfor %}
+    </table></div>
+  </div>
+  {% else %}
+  <p class="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">Ҳали ёзилган юклаш йўқ — бу ўлчов янги, кейинги юклашлардан бошлаб кўринади.</p>
+  {% endif %}
+</section>
+
+{# ================= 1. файл очиш ================= #}
+<section class="mt-10">
   <h2 class="text-lg font-semibold text-slate-900">1. Файлни очиш</h2>
   <p class="mt-1 max-w-4xl text-sm text-slate-500">Юкланган ҳар бир Excel файл нархлашдан олдин учта қадамдан ўтади. Қуйидаги вақтлар — <b class="font-medium text-slate-700">битта файлга ўртача</b> (охирги {{ days }} кунда {{ sp.files }} та файл очилган, жами {{ sp.size_total|hsize }}).</p>
 

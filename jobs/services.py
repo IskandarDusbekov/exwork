@@ -343,19 +343,14 @@ def recompute(job: Job) -> Job:
 
 def auto_apply(job: Job) -> bool:
     """«Автоматик» усул, биринчи нархлашдан кейин: смета­чи қиладиган ишларнинг бир қисми ўзи бажарилади —
-    1-босқич: бирлиги мос яқин RES ресурси таклифи (нархи) қабул қилинади (бирлиги бошқа таклиф — смета­чига);
+    1-босқич: яқин ресурс таклифлари (нархи бор ҳаммаси) бир йўла қабул қилинади — смета­чига бирортаси қолмайди;
     2-босқич: кабель / ускуна таклифлари L / M га ўтказилади ва жадвал «текширилди» бўлади.
     Сводка фоизлари — юклашда тасдиқланган (эслаб қолинган) фоизлар. True — бирор нарса ўзгарди."""
     from .views import _lm_stage, _not_found_stage, _res_groups, column_labels
     if job.mode != "smart" or job.status != Job.Status.DONE or not nf_auto_of(job.owner_id):
         return False
     rows = job.result.get("rows", [])
-    prices, categories = dict(job.prices or {}), dict(job.categories or {})
-    for r in _not_found_stage(rows)["group_b_near"]:
-        near = r.get("near") or {}
-        price = _as_number(near.get("price"))
-        if near.get("same_unit") and price is not None and str(r["row"]) not in prices:
-            prices[str(r["row"])] = price
+    prices, categories = {**(job.prices or {}), **open_suggestions(job)}, dict(job.categories or {})
     labels = column_labels(job)
     for card in _lm_stage(rows, _res_groups(job.result, labels), labels)["cards"]:
         for r in card["rows"]:
@@ -365,6 +360,17 @@ def auto_apply(job: Job) -> bool:
     job.prices, job.categories, job.table_checked = prices, categories, True
     job.auto_applied_now = True
     return changed
+
+
+def open_suggestions(job: Job) -> dict:
+    """Ҳали қабул қилинмаган нарх таклифлари {қатор: нарх} — «Автоматик» усулда ҳаммаси бир йўла олинади."""
+    from .views import _not_found_stage
+    out = {}
+    for r in _not_found_stage(job.result.get("rows", []))["group_b_near"]:
+        price = _as_number((r.get("near") or {}).get("price"))
+        if price is not None and str(r["row"]) not in (job.prices or {}):
+            out[str(r["row"])] = price
+    return out
 
 
 def _as_number(v) -> Optional[float]:
@@ -512,6 +518,69 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
         batch.pairs = [dict(p.to_dict(), res=None, include=True, base=True) for p in pairs]
     else:
         batch.pairs = [dict(p.to_dict(), include=p.res is not None, base=False) for p in pairs]
+    return batch
+
+
+def batch_original(batch: "Batch", i: int) -> Optional[Path]:
+    """Объектдаги ``i``-файлнинг асл нусхаси (смета­чи юклаганидек): алмаштирилган — ``orig``; оддий объект —
+    ``upload/{i}.*``; папка қисми — папканинг ``src``. Топилмаса — очилган (.xlsx) нусха."""
+    f = batch.files[i]
+    cands = []
+    if f.get("orig"):
+        cands.append(batch.abs(f["orig"]))
+    if batch.project_id and f.get("src"):
+        cands.append(batch.project.abs(f"src/{f['src']}"))
+    cands += sorted(batch.abs("upload").glob(f"{i}.*")) if batch.abs("upload").is_dir() else []
+    if f.get("path"):
+        cands.append(batch.abs(f["path"]))
+    return next((p for p in cands if p.is_file()), None)
+
+
+def replace_batch_file(batch: "Batch", i: int, upload) -> "Batch":
+    """Объектдаги битта файлни (локал ёки RES) янгисига алмаштиради — қолган файллар ва уларнинг
+    қўлда тузатишлари тегилмайди. Листлар қайта таҳлил қилинади; бошқа файллардаги локалларнинг
+    танлови (ресурс, ном, белги) сақланади. Ҳисобланган натижалар ўчмайди — «Қайта ҳисоблаш» билан янгиланади."""
+    if not 0 <= i < len(batch.files):
+        raise UploadError("Файл топилмади")
+    ext = _check_upload(upload, upload.name)
+    name = Path(upload.name).name
+    stamp = dt.datetime.now().strftime("%Y%m%d%H%M%S")
+    orig = batch.abs(f"upload/{i}_{stamp}{ext}")
+    _save(upload, orig)
+    clock = FileClock()
+    try:
+        xlsx = clock.open(orig, batch.abs(f"conv/{i}_{stamp}"), name, i)  # .xlsx бўлса — ўзи қолади
+        sheets = clock.read(xlsx, i)
+    except convert.ConversionError as e:
+        orig.unlink(missing_ok=True)
+        raise UploadError(str(e)) from e
+    except Exception as e:
+        orig.unlink(missing_ok=True)
+        raise UploadError(f"Файлни очиб бўлмади: {e}") from e
+    finally:
+        save_timings(clock, batch.owner_id, project_id=batch.project_id, batch=batch)
+    old = list(batch.files)
+    old[i] = dict(old[i], name=name, path=str(xlsx.relative_to(batch.dir)), sheets=sheets,
+                  orig=str(orig.relative_to(batch.dir)))
+    batch.files = old
+    prefix = f"{i}:"
+    keep = {p["local"]: p for p in batch.pairs if not p["local"].startswith(prefix)}
+    roles = {k: v for k, v in (batch.roles or {}).items() if not k.startswith(prefix)}
+    columns = {k: v for k, v in (batch.columns or {}).items() if not k.startswith(prefix)}
+    try:
+        analyze_batch(batch, roles, columns)
+    except Exception as e:
+        raise UploadError(f"Файлни очиб бўлмади: {e}") from e
+    resources = {s["key"] for s in batch.sheets if s["role"] == "resource" and not s.get("duplicate_of")}
+    for p in batch.pairs:  # бошқа файллардаги локаллар: смета­чи танлови қолади (ресурси ҳали бор бўлса)
+        was = keep.get(p["local"])
+        if not was:
+            continue
+        p["label"] = was.get("label") or p.get("label")
+        if was.get("base") or not was.get("res") or was.get("res") in resources:
+            p["res"], p["base"], p["include"] = was.get("res"), was.get("base", False), was.get("include", p.get("include"))
+    batch.status = Batch.Status.REVIEW
+    batch.save()
     return batch
 
 

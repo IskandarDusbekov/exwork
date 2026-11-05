@@ -1,5 +1,6 @@
 """Нархлаш web: email + parol bilan kirish; har bir smetachi faqat o'z ishlarini ko'radi."""
 import os
+import sys
 import re
 from pathlib import Path
 
@@ -32,6 +33,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "panel.access.AccessLogMiddleware",  # кириш уринишлари (хотирада йиғиб, дақиқада бир ёзади) — энг биринчи
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",  # static файллар (CSS, admin) — nginx'сиз ҳам
     "panel.middleware.BlockedIPMiddleware",  # блокланган IP — ҳеч нарса очилмайди
@@ -160,6 +162,9 @@ AUTH_PASSWORD_VALIDATORS = [
 SESSION_COOKIE_AGE = 7 * 24 * 3600
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
+# «Кириш уринишлари» (panel.access): тестларда ўчиқ — бошқа тестлардаги сўровлар саналмасин
+NARXLASH_ACCESS_LOG = os.environ.get("NARXLASH_ACCESS_LOG", "1") == "1" and sys.argv[1:2] != ["test"]
+CSRF_FAILURE_VIEW = "panel.access.csrf_failure"  # рад этилиш «Кириш уринишлари»да кўринади
 CSRF_COOKIE_HTTPONLY = True  # JS tokenni formadagi yashirin maydondan oladi, cookie'dan emas
 X_FRAME_OPTIONS = "DENY"
 # Content-Security-Policy: skript, uslub, rasm va so'rovlar faqat o'z saytimizdan (shriftlar — Google Fonts).

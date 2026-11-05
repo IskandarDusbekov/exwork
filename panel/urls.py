@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_base, views_base_usage, views_settings, views_tn
+from . import views, views_access, views_base, views_base_usage, views_settings, views_tn
 
 app_name = "panel"
 
@@ -38,6 +38,7 @@ urlpatterns = [
     path("texnazor/my/<uuid:doc_id>/file/", views_tn.texnazor_my_file, name="texnazor_my_file"),
     path("files/", views.files, name="files"),
     path("log/", views.log, name="log"),
+    path("access/", views_access.access_page, name="access"),
     path("errors/", views.errors, name="errors"),
     path("base/", views_base.base_overview, name="base"),
     path("base/toggle/", views_base.base_toggle, name="base_toggle"),

@@ -35,9 +35,9 @@ class AutoModeTests(LoggedInTestCase):
 
     @staticmethod
     def _open_suggestions(job):
-        """Бирлиги мос, ҳали қабул қилинмаган нарх таклифлари."""
+        """Ҳали қабул қилинмаган нарх таклифлари (бирлиги қандай бўлмасин — ҳаммаси бир йўла олинади)."""
         return [r for r in job.result["rows"] if r.get("status") in UNPRICED and not r.get("cleared")
-                and (r.get("near") or {}).get("same_unit") and str(r["row"]) not in (job.prices or {})]
+                and (r.get("near") or {}).get("price") is not None and str(r["row"]) not in (job.prices or {})]
 
     def test_percents_confirmed_on_upload_page(self):
         page = self.client.get(reverse("index"))
@@ -55,7 +55,7 @@ class AutoModeTests(LoggedInTestCase):
         files = [SimpleUploadedFile(Path(p).name, Path(p).read_bytes()) for p in (OBJ_LOCAL, OBJ_RES)]
         r = self.client.post(reverse("index"), {"files": files}, headers={"X-Requested-With": "XMLHttpRequest"})
         batch = Batch.objects.latest("created")
-        self.assertEqual(r.json(), {"ok": True, "url": reverse("batch", args=[batch.id])})
+        self.assertEqual(r.json(), {"ok": True, "url": reverse("batch", args=[batch.id]), "timing": r.json()["timing"]})
         r = self.client.post(reverse("index"), {}, headers={"X-Requested-With": "XMLHttpRequest"})
         self.assertEqual((r.status_code, r.json()["ok"]), (400, False))
 

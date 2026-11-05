@@ -59,6 +59,8 @@ def reset_blocked(request, email) -> bool:
 
 
 def record(request, kind, email=""):
+    if kind == AuthAttempt.Kind.LOGIN:
+        request.access_kind = "login_fail"  # панел «Кириш уринишлари»
     AuthAttempt.objects.filter(created__lt=timezone.now() - timedelta(days=1)).delete()  # эскилари керак эмас
     AuthAttempt.objects.create(kind=kind, email=normalize_email(email), ip=client_ip(request))
 

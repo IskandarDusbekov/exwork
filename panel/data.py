@@ -298,7 +298,20 @@ def speed(days: int) -> dict:
             buckets.append({"label": label, "n": len(js), "avg": _avg([j.duration for j in js]),
                             "per_1000": 1000 * sum(j.duration for j in js) / sum(j.rows for j in js)})
 
+    from jobs.models import UploadTiming
+    ups = list(UploadTiming.objects.filter(created__gte=since).select_related("owner"))
+    sent = [u for u in ups if u.upload_s]
+    up = {
+        "n": len(ups), "n_errors": sum(1 for u in ups if u.error), "size": sum(u.size for u in ups),
+        "upload_avg": _avg([u.upload_s for u in sent]),
+        "server_avg": _avg([u.server_s for u in ups if u.server_s is not None and not u.error]),
+        "total_avg": _avg([u.total_s for u in ups if not u.error]),
+        # интернет тезлиги: жами юборилган ҳажм ÷ жами юбориш вақти
+        "mbps": (sum(u.size for u in sent) / (1024 * 1024) / sum(u.upload_s for u in sent)) if sent else None,
+        "slow": sorted(ups, key=lambda u: u.total_s, reverse=True)[:10],
+    }
     return {
+        "up": up,
         "files": len(files), "converted": len(conv), "errors": [f for f in files if f.error][:10],
         "n_errors": sum(1 for f in files if f.error),
         "size_total": sum(f.size or 0 for f in files),

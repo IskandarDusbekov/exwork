@@ -263,3 +263,35 @@ class FileTiming(models.Model):
     @property
     def total_s(self):
         return sum(v for v in (self.convert_s, self.read_s, self.analyze_s) if v)
+
+
+class UploadTiming(models.Model):
+    """Битта юклаш (файллар, папка ёки архив): браузердан серверга юбориш (``upload_s`` — смета­чининг
+    интернети, браузер ўлчайди) ва сервердаги иш (``server_s`` — сақлаш, архив очиш, .xls ўгириш, таҳлил).
+    Катта файлда вақтнинг кўпи шу ерда кетади — ``FileTiming`` фақат файлни очишни ўлчайди."""
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    kind = models.CharField(max_length=10)  # object | folder | smeta
+    name = models.CharField(max_length=255, blank=True)
+    files = models.PositiveIntegerField(default=0)
+    size = models.BigIntegerField(default=0)  # юборилган байт (архив — сиқилган ҳолида)
+    upload_s = models.FloatField(null=True, blank=True)
+    server_s = models.FloatField(null=True, blank=True)
+    error = models.CharField(max_length=300, blank=True)
+    work_id = models.CharField(max_length=40, blank=True)  # очилган объект / папка / смета (ўчирилса ҳам тарих қолади)
+
+    class Meta:
+        ordering = ["-created"]
+
+    @property
+    def total_s(self):
+        return sum(v for v in (self.upload_s, self.server_s) if v)
+
+    @property
+    def kind_label(self):
+        return {"object": "файллар", "folder": "папка ёки архив", "smeta": "смета"}.get(self.kind, self.kind)
+
+    @property
+    def mbps(self):
+        """Интернет тезлиги, МБ/сония."""
+        return self.size / (1024 * 1024) / self.upload_s if self.upload_s and self.size else None

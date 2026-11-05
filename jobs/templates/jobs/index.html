@@ -375,6 +375,8 @@
       go.disabled = true;
       document.getElementById("go-t").textContent = "Юкланяпти…";
       prog.hidden = false;
+      var sentAt = null, startedAt = Date.now();  // юбориш вақти — панелдаги «Тезлик» учун
+      xhr.upload.onload = function () { sentAt = Date.now(); };
       xhr.upload.onprogress = function (e) {
         if (!e.lengthComputable) return;
         var p = Math.round(100 * e.loaded / e.total);
@@ -394,7 +396,16 @@
       xhr.onload = function () {
         var data = {};
         try { data = JSON.parse(xhr.responseText); } catch (e) { data = {error: "сервер хатоси (" + xhr.status + ")"}; }
-        if (data.ok) { if (np) np.step(3); location.href = data.url; return; }
+        if (data.ok) {
+          if (data.timing && navigator.sendBeacon) {
+            var t = new FormData();
+            t.append("csrfmiddlewaretoken", form.csrfmiddlewaretoken.value);
+            t.append("id", data.timing);
+            t.append("upload_s", ((sentAt || Date.now()) - startedAt) / 1000);
+            navigator.sendBeacon("{% url 'upload_timing' %}", t);
+          }
+          if (np) np.step(3); location.href = data.url; return;
+        }
         failed(data.error || "хато");
       };
       xhr.onerror = function () { failed("Тармоқ хатоси — интернет уланишини текширинг"); };
