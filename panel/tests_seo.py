@@ -49,6 +49,8 @@ class SeoTests(TestCase):
         self.assertContains(page, '"@type": "SoftwareApplication"')
         self.assertNotContains(page, "google-site-verification")
         self.assertNotContains(page, "googletagmanager")
+        self.assertContains(page, 'property="og:image" content="http://testserver/og-image"')  # стандарт расм
+        self.assertContains(page, "logo-512.png")
 
     def test_save_codes_and_show_on_public_pages(self):
         r = self.save(google='<meta name="google-site-verification" content="AbC_123-xyz456" />',
@@ -127,7 +129,10 @@ class SeoTests(TestCase):
         r = self.save(image=SimpleUploadedFile("x.png", b"not an image"))
         self.assertContains(r, "Фақат PNG, JPG ёки WEBP")
         self.save(image_delete="1")
-        self.assertEqual(self.client.get("/og-image").status_code, 404)
+        r = self.client.get("/og-image")  # юкланган ўчди — сайтнинг стандарт бренд расми
+        self.assertEqual((r.status_code, r["Content-Type"]), (200, "image/png"))
+        r.close()
+        self.assertFalse(seo.uploaded_image())
 
     def test_staff_sees_page_but_cannot_save(self):
         self.client.force_login(self.staff)

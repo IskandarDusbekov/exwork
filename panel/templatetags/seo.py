@@ -26,7 +26,7 @@ def seo_head(context, title="", canonical="", analytics=True, title_tag=True):
     url = absolute(canonical or (request.path if request is not None else "/"))
     image = absolute(reverse("og_image")) if seo.image_path() else ""
     org = {"@type": "Organization", "@id": home + "#org", "name": v["site_name"], "url": home,
-           "logo": absolute(static("favicon.svg"))}
+           "logo": absolute(static("logo-512.png"))}
     if v["org_email"]:
         org["email"] = v["org_email"]
     if v["org_phone"]:

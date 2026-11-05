@@ -141,10 +141,19 @@ def image_dir() -> Path:
     return Path(settings.MEDIA_ROOT) / "seo"
 
 
-def image_path():
+DEFAULT_IMAGE = Path(settings.BASE_DIR) / "web" / "static" / "og.png"  # 1200×630, бренд расми
+
+
+def uploaded_image():
     name = values()["image"]
     p = image_dir() / name if name else None
     return p if p is not None and p.is_file() else None
+
+
+def image_path():
+    """Панелда юкланган расм, бўлмаса — сайтнинг стандарт расми."""
+    p = uploaded_image()
+    return p if p is not None else (DEFAULT_IMAGE if DEFAULT_IMAGE.is_file() else None)
 
 
 def save_image(upload) -> str:

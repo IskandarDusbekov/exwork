@@ -10,6 +10,7 @@
   <meta name="robots" content="noindex, nofollow">
   <title>{% block title %}Панел{% endblock %} · mhisobot</title>
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{% static 'apple-touch-icon.png' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <style>
     .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -32,7 +33,7 @@
     <div class="pn-backdrop" data-pn-close></div>
     <aside class="pn-side flex-col bg-slate-900 text-slate-300" aria-label="Панел бўлимлари">
       <div class="flex h-16 shrink-0 items-center gap-3 border-b border-white/10 px-4">
-        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/10 text-emerald-400">{% icon "shield" "h-5 w-5" %}</span>
+        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/10">{% include "jobs/_logo.html" with cls="h-7 w-7" %}</span>
         <div class="min-w-0 flex-1 leading-tight">
           <div class="truncate text-sm font-semibold text-white">Бошқарув панели</div>
           <div class="truncate text-[11px] text-slate-400">mhisobot · {% if can_act %}тўлиқ рухсат{% else %}фақат кўриш{% endif %}</div>

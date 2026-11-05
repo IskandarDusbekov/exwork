@@ -65,7 +65,7 @@
             <div class="min-w-0 flex-1">
               <input type="file" name="image" accept="image/png,image/jpeg,image/webp" {% if not can_act %}disabled{% endif %} class="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-slate-200">
               <p class="mt-1 text-xs text-slate-500">Ҳавола Telegram, WhatsApp, Facebook'да юборилганда чиқадиган расм. 1200×630 пиксел, PNG / JPG / WEBP, 2 МБ гача.</p>
-              {% if image_url and can_act %}<label class="mt-1 inline-flex items-center gap-2 text-xs text-rose-700"><input type="checkbox" name="image_delete" value="1" class="h-3.5 w-3.5 rounded border-slate-300"> расмни ўчириш</label>{% endif %}
+              {% if image_custom and can_act %}<label class="mt-1 inline-flex items-center gap-2 text-xs text-rose-700"><input type="checkbox" name="image_delete" value="1" class="h-3.5 w-3.5 rounded border-slate-300"> юкланганини ўчириш (стандарт расмга қайтиш)</label>{% elif image_url %}<p class="mt-1 text-xs text-emerald-700">Ҳозир — сайтнинг стандарт бренд расми. Ўзингизникини юкласангиз, ўрнига шу чиқади.</p>{% endif %}
             </div>
           </div>
         </div>

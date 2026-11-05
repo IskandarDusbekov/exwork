@@ -5,7 +5,7 @@
 <aside id="app-side" class="app-side flex-col border-r border-slate-200 bg-white" aria-label="Бўлимлар">
   <div class="flex h-[61px] shrink-0 items-center gap-2.5 border-b border-slate-100 px-3.5">
     <a href="{% url 'index' %}" class="flex min-w-0 items-center gap-2.5 text-slate-900" title="mhisobot — муҳандис ҳисобот">
-      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-900 text-emerald-400">{% icon "logo" "h-6 w-6" "2.2" %}</span>
+      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-900">{% include "jobs/_logo.html" with cls="h-7 w-7" %}</span>
       <span class="side-label min-w-0 leading-none">
         <span class="block truncate text-[15px] font-bold tracking-tight">mhisobot</span>
         <span class="mt-1 block text-[11px] font-medium tracking-wide text-slate-400">муҳандис ҳисобот</span></span></a>

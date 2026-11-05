@@ -6,6 +6,7 @@
   {% if user.is_authenticated %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
   <title>{% block title %}mhisobot{% endblock %}</title>
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{% static 'apple-touch-icon.png' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">{# frontend/: npm run build #}
   <style>
     .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -62,7 +63,7 @@
       <button type="button" data-side-open class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 lg:hidden" aria-label="Меню" aria-controls="app-side">{% icon "menu" "h-5 w-5" %}</button>
       {% endif %}
       <a href="{% url 'index' %}" class="flex items-center gap-2.5 text-slate-900 {% if user.is_authenticated %}lg:hidden{% endif %}" title="mhisobot — муҳандис ҳисобот">
-        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-900 text-emerald-400">{% icon "logo" "h-6 w-6" "2.2" %}</span>
+        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-900">{% include "jobs/_logo.html" with cls="h-7 w-7" %}</span>
         <span class="hidden leading-none sm:block">
           <span class="block whitespace-nowrap text-[15px] font-bold tracking-tight">mhisobot</span>
           <span class="mt-1 block text-[11px] font-medium tracking-wide text-slate-400">муҳандис ҳисобот</span></span></a>

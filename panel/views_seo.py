@@ -37,14 +37,14 @@ def seo_page(request):
         ("Қидирувда кўринишга рухсат", v["index"], "" if v["index"] else "Ёпиқ — Google ва Yandex сайтни натижага қўшмайди"),
         ("Google тасдиқлаш коди", bool(v["google"]), "" if v["google"] else "Search Console'дан олинг"),
         ("Яндекс тасдиқлаш коди", bool(v["yandex"]), "" if v["yandex"] else "Вебмастер'дан олинг"),
-        ("Ижтимоий тармоқ расми", bool(seo.image_path()), "" if seo.image_path() else "Telegram ва бошқаларда ҳавола расм билан чиқади"),
+        ("Ижтимоий тармоқ расми", bool(seo.image_path()), "" if seo.uploaded_image() or not seo.image_path() else "сайтнинг стандарт расми"),
         ("Ташриф статистикаси", bool(v["ga"] or v["metrika"]), "" if v["ga"] or v["metrika"] else "Ихтиёрий: Google Analytics ёки Метрика"),
         ("Тавсиф узунлиги", 70 <= n <= 160, f"{n} белги — яхшиси 70–160"),
     ]
     return render(request, "panel/seo.html", _ctx(
         request, "seo", groups=groups, v=v, checks=checks, base=base, host=request.get_host(),
         robots_url=base + reverse("robots_txt"), sitemap_url=base + reverse("sitemap_xml"),
-        image_url=reverse("og_image") if seo.image_path() else "", updated=parse_datetime(v["updated"] or "") if v["updated"] else None,
+        image_url=reverse("og_image") if seo.image_path() else "", image_custom=bool(seo.uploaded_image()), updated=parse_datetime(v["updated"] or "") if v["updated"] else None,
         pages=[base + p for p, _ in public_pages()]))
 
 
@@ -59,7 +59,7 @@ def seo_save(request):
         if request.FILES.get("image"):
             new["image"] = seo.save_image(request.FILES["image"])
         elif request.POST.get("image_delete") == "1":
-            path = seo.image_path()
+            path = seo.uploaded_image()
             if path:
                 path.unlink(missing_ok=True)
             new["image"] = ""
