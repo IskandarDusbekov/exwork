@@ -32,7 +32,7 @@
 {# ---------- рақамлар ---------- #}
 <div class="ui-cards">
   <div class="ui-card"><span class="ic ic-all">{% icon "list" "h-5 w-5" %}</span><span><span class="t block">{{ st.rows|default:0 }}</span><span class="n">ресурс қатори ўқилди</span></span></div>
-  <a href="{% url 'panel:base_data' %}?region={{ s.region }}&year={{ s.year|default:'' }}&quarter={{ s.quarter|default:'' }}&src={{ s.pk }}" class="ui-card"><span class="ic ic-tr">{% icon "check" "h-5 w-5" %}</span><span><span class="t block">{{ n_obs }}</span><span class="n">нарх олинди →</span></span></a>
+  <a href="{% url 'panel:base_data' %}?region={{ s.region }}&year={{ s.year|default:'' }}&src={{ s.pk }}" class="ui-card"><span class="ic ic-tr">{% icon "check" "h-5 w-5" %}</span><span><span class="t block">{{ n_obs }}</span><span class="n">нарх олинди →</span></span></a>
   <a href="{% url 'panel:base_norms' %}?src={{ s.pk }}" class="ui-card"><span class="ic ic-mount">{% icon "tree" "h-5 w-5" %}</span><span><span class="t block">{{ n_works }}</span><span class="n">иш (шифр) →</span></span></a>
   {% if st.jobs %}<div class="ui-card"><span class="ic ic-I">{% icon "sheet" "h-5 w-5" %}</span><span><span class="t block">{{ st.jobs }}</span><span class="n">смета</span></span></div>{% endif %}
 </div>

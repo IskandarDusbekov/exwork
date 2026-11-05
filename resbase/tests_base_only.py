@@ -93,7 +93,7 @@ class BaseOnlyTests(TestCase):
 
     def test_base_only_without_period_falls_back(self):
         self.client.post(reverse("price_source"), {"source": "base"})
-        self.client.post(reverse("base_period"), {"region": "samarqand", "year": "2026", "quarter": ""})
+        self.client.post(reverse("base_period"), {"region": "samarqand", "year": ""})  # йил танланмаган
         batch = self._upload()
         self.assertTrue(any(p["res"] for p in batch.pairs))  # давр тўлиқ эмас — олдинги усул
 

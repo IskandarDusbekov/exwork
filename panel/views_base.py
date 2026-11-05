@@ -42,7 +42,7 @@ def _howto_ctx() -> dict:
         "n_lrv_files": sum(1 for st in files if (st or {}).get("lrv_sheets")),
         "n_smeta": Source.objects.exclude(kind=Source.Kind.FILE).count(),
         "n_resources": Resource.objects.count(), "n_obs": Observation.objects.count(),
-        "n_periods": Observation.objects.values("source__region", "source__year", "source__quarter").distinct().count(),
+        "n_periods": Observation.objects.values("source__region", "source__year").distinct().count(),
         "n_norms": WorkItem.objects.values("shifr").distinct().count(), "n_works": WorkItem.objects.count(),
         "n_books": WorkItem.objects.values("book").distinct().count(),
     }
@@ -73,14 +73,14 @@ def _form_ctx():
 def base_overview(request):
     cfg = BaseConfig.get()
     periods, cells = services.matrix()
-    regions_used = sorted({r for r, _, _ in cells}, key=lambda r: [k for k, _ in REGIONS].index(r) if r in REGION_LABELS else 99)
+    regions_used = sorted({r for r, _ in cells}, key=lambda r: [k for k, _ in REGIONS].index(r) if r in REGION_LABELS else 99)
     table = [{"region": r, "label": REGION_LABELS.get(r, "Номаълум вилоят"),
-              "cells": [cells.get((r, y, q)) for y, q in periods]} for r in regions_used]
+              "cells": [cells.get((r, y)) for y in periods]} for r in regions_used]
     return render(request, "panel/base_overview.html", _bctx(
         request, cfg=cfg, periods=periods, table=table,
         n_resources=Resource.objects.count(), n_obs=Observation.objects.count(), n_sources=Source.objects.count(),
         n_norms=WorkItem.objects.values("shifr").distinct().count(),
-        n_unknown=Source.objects.filter(Q(year__isnull=True) | Q(quarter__isnull=True) | Q(region="")).count(),
+        n_unknown=Source.objects.filter(Q(year__isnull=True) | Q(region="")).count(),
         n_pending=Observation.objects.filter(review=Observation.Review.PENDING).count(), **_form_ctx()))
 
 
@@ -254,7 +254,7 @@ def base_review(request):
     page = Paginator(qs, 50).get_page(request.GET.get("page"))
     tables = {}
     for o in page:  # шу вилоят ва даврнинг медианаси (текширувдагилар кирмайди) — солиштириш учун
-        cell = (o.source.region, o.source.year, o.source.quarter)
+        cell = (o.source.region, o.source.year)  # давр — вилоят ва йил
         if cell not in tables:
             tables[cell] = services.price_table(*cell)
         o.cell_median = (tables[cell].get(o.resource.code) or (None, 0))
@@ -305,7 +305,7 @@ def base_sources(request):
                         .annotate(c=Count("id")).values("c"), output_field=IntegerField())
     qs = Source.objects.select_related("owner").annotate(n=_cnt(Observation), w=_cnt(_W)).order_by("-created")
     if flt == "unknown":
-        qs = qs.filter(Q(year__isnull=True) | Q(quarter__isnull=True) | Q(region=""))
+        qs = qs.filter(Q(year__isnull=True) | Q(region=""))
     elif flt in ("file", "smeta"):
         qs = qs.filter(kind=Source.Kind.FILE) if flt == "file" else qs.exclude(kind=Source.Kind.FILE)
     added = {(k, str(w)) for k, w in Source.objects.values_list("kind", "work_id")}
@@ -315,7 +315,7 @@ def base_sources(request):
         request, page=Paginator(qs, 40).get_page(request.GET.get("page")), f=flt, pending=pending, n_offers=len(pending),
         n_all=Source.objects.count(), n_file=Source.objects.filter(kind=Source.Kind.FILE).count(),
         n_smeta=Source.objects.exclude(kind=Source.Kind.FILE).count(),
-        n_unknown=Source.objects.filter(Q(year__isnull=True) | Q(quarter__isnull=True) | Q(region="")).count(),
+        n_unknown=Source.objects.filter(Q(year__isnull=True) | Q(region="")).count(),
         r=cfg.region, y=cfg.year, q=cfg.quarter, region_labels=REGION_LABELS,
         skip_labels=services.FILE_SKIP_LABELS | services.SKIP_LABELS, **_form_ctx()))
 
@@ -390,8 +390,8 @@ def base_add_selected(request):
     if not items:
         messages.success(request, "Ҳеч нарса танланмади.")
         return redirect("panel:base_sources")
-    if not (region and year and quarter):
-        messages.success(request, "Вилоят, йил ва чоракни танланг — нархлар шу даврга ёзилади.")
+    if not (region and year):
+        messages.success(request, "Вилоят ва йилни танланг — нархлар шу даврга ёзилади.")
         return redirect("panel:base_sources")
     n = taken = 0
     for kind, _, wid in items:
@@ -493,7 +493,7 @@ def _ingest(request, f, region, year, quarter) -> dict:
 
 @staff_required
 def base_upload(request):
-    """Вилоят, йил ва чоракни танлаб, RES Excel файлларни тўғридан-тўғри базага юклаш. Натижа ва такрорлар —
+    """Вилоят ва йилни танлаб, RES Excel файлларни тўғридан-тўғри базага юклаш. Натижа ва такрорлар —
     «Маълумотлар» саҳифасида."""
     if request.method != "POST":
         return redirect("panel:base_data")
@@ -501,8 +501,8 @@ def base_upload(request):
         raise PermissionDenied("Фақат суперфойдаланувчи")
     region, year, quarter = _period(request.POST)
     files = request.FILES.getlist("files")
-    if not (region and year and quarter):
-        messages.success(request, "Аввал вилоят, йил ва чоракни танланг.")
+    if not (region and year):
+        messages.success(request, "Аввал вилоят ва йилни танланг.")
     elif not files:
         messages.success(request, "Файл танланмади.")
     else:
@@ -510,7 +510,7 @@ def base_upload(request):
         request.session[_RESULTS] = {"period": services.period_label(
             {"region": region, "year": year, "quarter": quarter}), "items": results}
         request.session["resbase_upload_period"] = [region, year, quarter]
-        return redirect(reverse("panel:base_data") + "?" + urlencode({"region": region, "year": year, "quarter": quarter}))
+        return redirect(reverse("panel:base_data") + "?" + urlencode({"region": region, "year": year}))
     return redirect("panel:base_data")
 
 
@@ -558,7 +558,7 @@ def base_data(request):
         node["label"] = REGION_LABELS.get(node["region"], "Вилоят номаълум")
         node["url"] = _link({}, region=node["region"])
         for p in node["periods"]:
-            p["label"] = f"{p['year']}-йил · {p['quarter']}-чорак" if p["year"] and p["quarter"] else "давр номаълум"
+            p["label"] = f"{p['year']}-йил" if p["year"] else "йил номаълум"
             p["url"] = _link({}, region=node["region"], year=p["year"], quarter=p["quarter"])
             for s in p.get("sources", []):
                 s.url = _link({}, region=node["region"], year=p["year"], quarter=p["quarter"], src=s.pk)
@@ -566,8 +566,8 @@ def base_data(request):
     crumbs = [("Ресурс базаси", "?")]
     if f["region"]:
         crumbs.append((REGION_LABELS[f["region"]], _link({}, region=f["region"])))
-    if f["year"] and f["quarter"]:
-        crumbs.append((f"{f['year']}-{f['quarter']}", _link({}, region=f["region"], year=f["year"], quarter=f["quarter"])))
+    if f["year"]:
+        crumbs.append((f"{f['year']}-йил", _link({}, region=f["region"], year=f["year"])))
     if src:
         crumbs.append((src.title, ""))
     cfg = BaseConfig.get()
@@ -577,14 +577,14 @@ def base_data(request):
                for t, p in request.session.get(_PENDING, {}).items()]
     last = request.session.pop(_RESULTS, None)
     # davr yoki fayl tanlangan bo'lsa — o'sha ustun hamma qatorda bir xil, ko'rsatilmaydi
-    show_period = not (f["region"] and f["year"] and f["quarter"])
+    show_period = not (f["region"] and f["year"])
     show_src = not f["src"]
     pages = [{"n": n, "url": _link(f, page=n) if isinstance(n, int) else ""}
              for n in page.paginator.get_elided_page_range(page.number, on_each_side=2, on_ends=1)]
     return render(request, "panel/base_data.html", _bctx(
         request, f=f, page=page, pages=pages, cat_tabs=cat_tabs, tree=tree, crumbs=crumbs, src=src,
         sorts=_SORTS, per_page=_PER_PAGE, r=r, y=y, q=q, pending=pending, last=last,
-        show_period=show_period, show_src=show_src, mixed=not (f["region"] and f["year"] and f["quarter"]) and not f["src"],
+        show_period=show_period, show_src=show_src, mixed=not (f["region"] and f["year"]) and not f["src"],
         cat_short=_CAT_SHORT, cat_counts=counts["cat"], sort_label=dict(_SORTS).get(f["sort"], ""),
         hidden=[(k, f[k]) for k in ("region", "year", "quarter", "src", "cat") if f[k]],
         n_files=Source.objects.filter(kind=Source.Kind.FILE).count(), n_all=Resource.objects.count(),

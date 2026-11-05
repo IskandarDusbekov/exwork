@@ -58,12 +58,12 @@
     <table class="w-full text-sm">
       <thead style="background:var(--ui-soft)" class="text-left text-xs text-slate-500">
         <tr><th class="px-5 py-2 font-medium">Вилоят</th>
-          {% for p in periods %}<th class="whitespace-nowrap px-3 py-2 text-right font-medium {% if not p.0 or not p.1 %}text-amber-700{% endif %}">{% if p.0 and p.1 %}{{ p.0 }}-{{ p.1 }}{% else %}давр ?{% endif %}</th>{% endfor %}</tr>
+          {% for p in periods %}<th class="whitespace-nowrap px-3 py-2 text-right font-medium {% if not p %}text-amber-700{% endif %}">{% if p %}{{ p }}{% else %}йил ?{% endif %}</th>{% endfor %}</tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
         {% for row in table %}
         <tr><td class="whitespace-nowrap px-5 py-2.5 font-medium {% if not row.region %}text-amber-700{% endif %}">{{ row.label }}</td>
-          {% for c in row.cells %}<td class="num px-3 py-2.5 text-right">{% if c %}<b class="{% if row.region and c.source__year and c.source__quarter %}text-slate-900{% else %}text-amber-700{% endif %}">{{ c.codes }}</b>{% else %}<span class="text-slate-200">—</span>{% endif %}</td>{% endfor %}</tr>
+          {% for c in row.cells %}<td class="num px-3 py-2.5 text-right">{% if c %}<b class="{% if row.region and c.source__year %}text-slate-900{% else %}text-amber-700{% endif %}">{{ c.codes }}</b>{% else %}<span class="text-slate-200">—</span>{% endif %}</td>{% endfor %}</tr>
         {% endfor %}
       </tbody>
     </table>

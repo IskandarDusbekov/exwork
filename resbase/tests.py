@@ -86,7 +86,9 @@ class HarvestTests(TestCase):
         res = Resource.objects.get(code="258")
         self.assertEqual((res.unit_key, res.category), ("машч", "J"))
         self.assertEqual(services.price_table("samarqand", 2025, 2)["258"], (Decimal("200.00"), 3))
-        self.assertEqual(services.price_table("samarqand", 2025, 3), {})  # бошқа давр — олинмайди
+        self.assertEqual(services.price_table("samarqand", 2025, 3)["258"], (Decimal("200.00"), 3))  # чорак ишлатилмайди
+        self.assertEqual(services.price_table("samarqand", 2024), {})  # бошқа йил — олинмайди
+        self.assertEqual(services.price_table("toshkent_sh", 2025), {})  # бошқа вилоят — олинмайди
         self.assertEqual(services.price_table("", None, None), {})
         # истисно — медианага кирмайди; кеш янгиланади
         o = Observation.objects.get(source=sources[2])
@@ -94,11 +96,11 @@ class HarvestTests(TestCase):
         o.save()
         services.bump()
         self.assertEqual(services.price_table("samarqand", 2025, 2)["258"], (Decimal("150.00"), 2))
-        # манба даври ўзгарса — нарх ўша даврга ўтади
-        sources[0].quarter = 3
+        # манба йили ўзгарса — нарх ўша йилга ўтади
+        sources[0].year = 2026
         sources[0].save()
         services.bump()
-        self.assertEqual(services.price_table("samarqand", 2025, 3)["258"], (Decimal("100.00"), 1))
+        self.assertEqual(services.price_table("samarqand", 2026)["258"], (Decimal("100.00"), 1))
 
     def test_unknown_period_not_used_and_delete_cleans(self):
         job = make_job(self.user, [row(11, "45002", "КРУГ ОТРЕЗНОЙ", "ШТ", 12000)])
@@ -263,7 +265,7 @@ class PanelBaseTests(TestCase):
         self.client.post(reverse("panel:base_add", args=["smeta", self.job.id]),
                          {"region": "samarqand", "year": "2025", "quarter": "2"})
         s = Source.objects.get()
-        self.assertEqual((s.region, s.year, s.quarter, s.stats["taken"]), ("samarqand", 2025, 2, 1))
+        self.assertEqual((s.region, s.year, s.quarter, s.stats["taken"]), ("samarqand", 2025, None, 1))  # чорак ёзилмайди
         self.assertContains(self.client.get(reverse("panel:base_search"), {"q": "000258"}), "БУЛЬДОЗЕРЫ 79 КВТ")
         self.assertContains(self.client.get(reverse("panel:base_search"), {"q": "бульдоз"}), reverse("panel:base_resource", args=[258]))
         detail = self.client.get(reverse("panel:base_resource", args=["258"]))

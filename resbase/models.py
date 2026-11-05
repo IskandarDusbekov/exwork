@@ -109,11 +109,11 @@ class Source(models.Model):
 
     @property
     def period_known(self) -> bool:
-        return bool(self.region and self.year and self.quarter)
+        return bool(self.region and self.year)  # давр — вилоят ва йил (чорак ишлатилмайди)
 
     @property
     def period_label(self) -> str:
-        return f"{self.year} · {self.quarter}-чорак" if self.year and self.quarter else "номаълум давр"
+        return f"{self.year}-йил" if self.year else "номаълум давр"
 
 
 FLAG_LABELS = {"name": "бошқа ном", "unit": "бирлик бошқа", "price": "нарх кескин фарқ"}

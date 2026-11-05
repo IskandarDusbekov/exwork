@@ -29,7 +29,6 @@
       {% for k, v in hidden %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
       {% if f.region %}<input type="hidden" name="region" value="{{ f.region }}">{% endif %}
       {% if f.year %}<input type="hidden" name="year" value="{{ f.year }}">{% endif %}
-      {% if f.quarter %}<input type="hidden" name="quarter" value="{{ f.quarter }}">{% endif %}
       <label class="ui-search">{% icon "search" "h-4 w-4 text-slate-400" %}
         <input type="search" name="q" value="{{ f.q }}" placeholder="Шифр ёки иш номи бўйича қидириш…"></label>
       <select name="per" class="ui-select" aria-label="Саҳифада" onchange="this.form.submit()">

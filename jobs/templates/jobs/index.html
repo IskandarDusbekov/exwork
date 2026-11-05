@@ -128,8 +128,8 @@
       {% include "panel/_base_period.html" with r=base_period.region y=base_period.year q=base_period.quarter %}
       <span id="base-saved" class="up-ok hidden">✓ сақланди</span>
     </form>
-    <p id="base-warn" class="up-warn"{% if price_source != "base" or base_period.region and base_period.year and base_period.quarter %} hidden{% endif %}>
-      Вилоят, йил ва чоракни танланг — акс ҳолда нарх RES файлдан олинади.</p>
+    <p id="base-warn" class="up-warn"{% if price_source != "base" or base_period.region and base_period.year %} hidden{% endif %}>
+      Вилоят ва йилни танланг — акс ҳолда нарх RES файлдан олинади.</p>
     {% endif %}
     <form id="nf-mode" class="up-opt">{% csrf_token %}
       <div class="up-opt-h">Нархлаш усули <span id="nf-saved" class="up-ok hidden">✓ сақланди</span></div>

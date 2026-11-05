@@ -64,8 +64,8 @@ class UploadTests(TestCase):
         self.assertFalse(Source.objects.exists())
 
     def test_period_required(self):
-        page = self.post(upload("a.xlsx"), quarter="")
-        self.assertContains(page, "Аввал вилоят, йил ва чоракни танланг")
+        page = self.post(upload("a.xlsx"), year="")
+        self.assertContains(page, "Аввал вилоят ва йилни танланг")
         self.assertFalse(Source.objects.exists())
         self.assertEqual(self.files(), [])
 
@@ -73,7 +73,7 @@ class UploadTests(TestCase):
         page = self.post(upload("bp1010.xlsx"))
         self.assertContains(page, "қўшилди")
         s = Source.objects.get()
-        self.assertEqual((s.kind, s.title, s.region, s.year, s.quarter), ("file", "bp1010.xlsx", "toshkent_sh", 2025, 2))
+        self.assertEqual((s.kind, s.title, s.region, s.year, s.quarter), ("file", "bp1010.xlsx", "toshkent_sh", 2025, None))  # чорак ёзилмайди
         self.assertEqual(sorted(Observation.objects.values_list("resource__code", flat=True)), ["1", "258", "9219"])
         self.assertEqual(s.stats["skipped"]["no_code"], 2)  # светильник, насос — ҳозирча олинмайди
         self.assertTrue(services._media(s.file_path).exists())
@@ -122,9 +122,9 @@ class UploadTests(TestCase):
 
     def test_same_file_other_period_warns(self):
         self.post(upload("a.xlsx"))
-        page = self.post(upload("a.xlsx"), quarter="3")
+        page = self.post(upload("a.xlsx"), year="2026")  # давр — вилоят ва йил
         self.assertContains(page, "бу файл бошқа даврга ҳам юкланган")
-        self.assertEqual(sorted(Source.objects.values_list("quarter", flat=True)), [2, 3])
+        self.assertEqual(sorted(Source.objects.values_list("year", flat=True)), [2025, 2026])
 
     def test_not_res_file(self):
         """Na narx jadvali, na norma shifrli ish (masalan, svodka) — saqlanmaydi."""
@@ -203,7 +203,7 @@ class DataPageTests(TestCase):
 
     def test_upload_redirects_to_period(self):
         r = self.client.post(reverse("panel:base_upload"), {**PERIOD, "files": [upload("c.xlsx")]})
-        self.assertEqual(r.url, reverse("panel:base_data") + "?region=toshkent_sh&year=2025&quarter=2")
+        self.assertEqual(r.url, reverse("panel:base_data") + "?region=toshkent_sh&year=2025")
 
 
 def lrv(works=None) -> bytes:
@@ -263,7 +263,7 @@ class WorksTests(TestCase):
 
     def test_pair_only_same_period(self):
         self.post(upload("bp1010.xlsx"))
-        self.post(upload("bv1010.xlsx", lrv()), quarter="3")
+        self.post(upload("bv1010.xlsx", lrv()), year="2026")
         self.assertEqual(set(self.books().values()), {""})
         bv = Source.objects.get(title="bv1010.xlsx")
         self.client.post(reverse("panel:base_source", args=[bv.pk, "edit"]), {**PERIOD})  # даври тўғриланди
@@ -354,7 +354,7 @@ class OffersTests(TestCase):
         self.assertFalse(Source.objects.exists())
         self.client.post(url, {**PERIOD, "items": [f"smeta:{self.a.pk}", "file:00000000-0000-0000-0000-000000000000"]})
         s = Source.objects.get()
-        self.assertEqual((s.work_id, s.region, s.year, s.quarter), (self.a.pk, "toshkent_sh", 2025, 2))
+        self.assertEqual((s.work_id, s.region, s.year, s.quarter), (self.a.pk, "toshkent_sh", 2025, None))
         self.assertContains(self.client.get(reverse("panel:base_sources")), "Янги нархланган сметалар (1)")
 
 

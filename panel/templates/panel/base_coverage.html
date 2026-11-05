@@ -24,7 +24,7 @@
 <section class="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
   <div class="mb-3 flex flex-wrap items-baseline gap-x-3">
     <h2 class="font-semibold">{{ job.local_name }}</h2>
-    <span class="text-sm text-slate-500">{{ region_labels|get_item:r|default:"вилоят номаълум" }} · {% if y and q %}{{ y }} · {{ q }}-чорак{% else %}давр номаълум{% endif %} · ресурс қаторлари: <b class="num text-slate-900">{{ report.total }}</b></span>
+    <span class="text-sm text-slate-500">{{ region_labels|get_item:r|default:"вилоят номаълум" }} · {% if y %}{{ y }}-йил{% else %}йил номаълум{% endif %} · ресурс қаторлари: <b class="num text-slate-900">{{ report.total }}</b></span>
   </div>
   {% if not r or not y or not q %}<p class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Вилоят ва давр тўлиқ танланмаган — «шу давр нархи» ҳисобланмайди.</p>{% endif %}
   <div class="grid gap-2 md:grid-cols-4">

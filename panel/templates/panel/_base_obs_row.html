@@ -6,7 +6,7 @@
     <div class="title">{{ o.name }}</div>
     <div class="ui-tags">
       <span class="ui-tag">{{ o.unit }}</span>
-      {% if show_period %}<span class="ui-tag">{{ region_labels|get_item:o.source.region|default:"вилоят ?" }} · {% if o.source.year %}{{ o.source.year }}-{{ o.source.quarter }}{% else %}давр ?{% endif %}</span>{% endif %}
+      {% if show_period %}<span class="ui-tag">{{ region_labels|get_item:o.source.region|default:"вилоят ?" }} · {% if o.source.year %}{{ o.source.year }}{% else %}йил ?{% endif %}</span>{% endif %}
       {% with sh=o.shifrs %}{% for s in sh|slice:":3" %}<a href="{% url 'panel:base_norm' s %}" class="ui-tag book" title="Шу иш шифрида ишлатилган — таркибини кўриш">{{ s }}</a>{% endfor %}{% if sh|length > 3 %}<span class="ui-tag" title="{{ sh|join:', ' }}">яна {{ sh|length|add:"-3" }} та ишда</span>{% endif %}{% endwith %}
       {% if show_src %}<a href="{% url 'panel:base_source_detail' o.source_id %}" class="ui-tag truncate hover:underline" style="max-width:16rem" title="Манба: {{ o.source.title }}">{{ o.source.title }}</a>{% endif %}
       {% if o.review == 'pending' %}<span class="ui-tag warn">текширувда</span>{% endif %}

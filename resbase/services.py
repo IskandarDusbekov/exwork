@@ -256,8 +256,8 @@ def file_duplicates(file_hash, fingerprint, region, year, quarter, exclude=None)
         Q(file_hash=file_hash) | (Q(fingerprint=fingerprint) & ~Q(fingerprint="")))
     if exclude:
         qs = qs.exclude(pk=exclude)
-    same = [s for s in qs if (s.region, s.year, s.quarter) == (region, year, quarter)]
-    other = [s for s in qs if (s.region, s.year, s.quarter) != (region, year, quarter)]
+    same = [s for s in qs if (s.region, s.year) == (region, year)]  # давр — вилоят ва йил (чорак ишлатилмайди)
+    other = [s for s in qs if (s.region, s.year) != (region, year)]
     return same, other
 
 
@@ -269,10 +269,10 @@ def _media(rel) -> Path:
 _PAIR = re.compile(r"^b[pv](\d+)$", re.I)
 
 
-def pair_key(title, region, year, quarter) -> str:
-    """«bp1010.xlsx» (narxlar) va «bv1010.xlsx» (ishlar) — bitta smeta: shu davrda raqami bir xil fayllar juft."""
+def pair_key(title, region, year, quarter=None) -> str:
+    """«bp1010.xlsx» (narxlar) va «bv1010.xlsx» (ishlar) — bitta smeta: shu davrda (viloyat va yil) raqami bir xil fayllar juft."""
     m = _PAIR.match(Path(str(title)).stem.strip())
-    return f"{region}:{year}:{quarter}:{m.group(1)}" if m and region and year and quarter else ""
+    return f"{region}:{year}:{m.group(1)}" if m and region and year else ""
 
 
 def _group(source):
@@ -374,8 +374,6 @@ def explore(f: dict):
         base = base.filter(source__region=f["region"])
     if f.get("year"):
         base = base.filter(source__year=f["year"])
-    if f.get("quarter"):
-        base = base.filter(source__quarter=f["quarter"])
     if f.get("src"):
         base = base.filter(source_id=f["src"])
     q = (f.get("q") or "").strip()
@@ -463,8 +461,6 @@ def _works(f: dict):
         qs = qs.filter(source__region=f["region"])
     if f.get("year"):
         qs = qs.filter(source__year=f["year"])
-    if f.get("quarter"):
-        qs = qs.filter(source__quarter=f["quarter"])
     if f.get("src"):
         qs = qs.filter(source_id=f["src"])
     return qs
@@ -596,25 +592,25 @@ def explore_tree(sel: dict) -> list:
     """Чап дарахт: вилоят → давр → манбалар (кузатувлар сони билан). Манбалар фақат очилган давр учун."""
     from django.db.models import Count
     # сонлар — ресурс (код) бўйича: бир код бир неча сметада учраса ҳам бир марта
-    n_obs = dict(((r, y, q), n) for r, y, q, n in Observation.objects.values_list(
-        "source__region", "source__year", "source__quarter").annotate(n=Count("resource", distinct=True)).order_by())
+    n_obs = dict(((r, y), n) for r, y, n in Observation.objects.values_list(
+        "source__region", "source__year").annotate(n=Count("resource", distinct=True)).order_by())
     n_reg = dict(Observation.objects.values_list("source__region").annotate(n=Count("resource", distinct=True)).order_by())
     regions = defaultdict(lambda: {"n": 0, "periods": []})
-    for r, y, q in Source.objects.values_list("region", "year", "quarter").distinct().order_by():
-        n = n_obs.get((r, y, q), 0)
+    for r, y in Source.objects.values_list("region", "year").distinct().order_by():  # давр — йил
+        n = n_obs.get((r, y), 0)
         regions[r]["n"] = n_reg.get(r, 0)
-        regions[r]["periods"].append({"year": y, "quarter": q, "n": n})
+        regions[r]["periods"].append({"year": y, "quarter": None, "n": n})
     out = []
     from .regions import REGIONS
     order = [k for k, _ in REGIONS]
     for r in sorted(regions, key=lambda k: order.index(k) if k in order else 99):
         node = regions[r]
-        node["periods"].sort(key=lambda p: (-(p["year"] or 0), -(p["quarter"] or 0)))
+        node["periods"].sort(key=lambda p: -(p["year"] or 0))
         open_ = sel.get("region") == r
         for p in node["periods"]:
-            p["open"] = open_ and (sel.get("year"), sel.get("quarter")) == (p["year"], p["quarter"])
+            p["open"] = open_ and sel.get("year") == p["year"]
             if p["open"]:
-                p["sources"] = list(Source.objects.filter(region=r, year=p["year"], quarter=p["quarter"])
+                p["sources"] = list(Source.objects.filter(region=r, year=p["year"])
                                     .annotate(n=Count("observations", distinct=True), w=Count("works", distinct=True))
                                     .order_by("title"))
         out.append({"region": r, "n": node["n"], "open": open_, "periods": node["periods"]})
@@ -660,16 +656,17 @@ def wipe_all():
 
 
 # ===================== narxlar =====================
-def price_table(region, year, quarter) -> dict:
-    """{kod: (mediana Decimal, kuzatuvlar soni)} — faqat shu viloyat va davr; qo'lda va istisno qilinganlar kirmaydi."""
-    if not (region and year and quarter):
+def price_table(region, year, quarter=None) -> dict:
+    """{kod: (mediana Decimal, kuzatuvlar soni)} — faqat shu viloyat va yil (chorak ishlatilmaydi); qo'lda va istisno
+    qilinganlar kirmaydi."""
+    if not (region and year):
         return {}
-    key = f"resbase:prices:{_ver()}:{region}:{year}:{quarter}"
+    key = f"resbase:prices:{_ver()}:{region}:{year}"
     table = cache.get(key)
     if table is None:
         prices = defaultdict(list)
-        qs = Observation.objects.filter(counted_q(), source__region=region, source__year=year,
-                                        source__quarter=quarter).values_list("resource__code", "price")
+        qs = Observation.objects.filter(counted_q(), source__region=region,
+                                        source__year=year).values_list("resource__code", "price")
         for code, price in qs:
             prices[code].append(price)
         table = {c: (Decimal(median(ps)).quantize(Decimal("0.01")), len(ps)) for c, ps in prices.items()}
@@ -682,14 +679,14 @@ def resource_medians(resource) -> list:
     groups = defaultdict(list)
     for o in resource.observations.select_related("source").filter(excluded=False).exclude(review=Observation.Review.PENDING):
         s = o.source
-        groups[(s.region, s.year, s.quarter)].append(o)
+        groups[(s.region, s.year)].append(o)
     out = []
-    for (region, year, quarter), obs in groups.items():
+    for (region, year), obs in groups.items():
         auto = [o.price for o in obs if not o.manual]
-        out.append({"region": region, "year": year, "quarter": quarter, "n": len(auto), "manual": len(obs) - len(auto),
+        out.append({"region": region, "year": year, "quarter": None, "n": len(auto), "manual": len(obs) - len(auto),
                     "median": Decimal(median(auto)).quantize(Decimal("0.01")) if auto else None,
                     "min": min(auto) if auto else None, "max": max(auto) if auto else None})
-    out.sort(key=lambda g: (-(g["year"] or 0), -(g["quarter"] or 0), g["region"]))
+    out.sort(key=lambda g: (-(g["year"] or 0), g["region"]))
     return out
 
 
@@ -697,11 +694,10 @@ def matrix():
     """Viloyat × davr: nechta kodning narxi bor (medianaga kiradigan kuzatuvlar bo'yicha)."""
     from django.db.models import Count
     rows = (Observation.objects.filter(counted_q())
-            .values("source__region", "source__year", "source__quarter")
+            .values("source__region", "source__year")
             .annotate(codes=Count("resource", distinct=True), obs=Count("id")))
-    periods = sorted({(r["source__year"], r["source__quarter"]) for r in rows},
-                     key=lambda p: (p[0] is None, -(p[0] or 0), -(p[1] or 0)))
-    cells = {(r["source__region"], r["source__year"], r["source__quarter"]): r for r in rows}
+    periods = sorted({r["source__year"] for r in rows}, key=lambda y: (y is None, -(y or 0)))  # давр — йил
+    cells = {(r["source__region"], r["source__year"]): r for r in rows}
     return periods, cells
 
 
@@ -715,14 +711,13 @@ def coverage(job, region, year, quarter, *, own=False) -> dict:
     o'zidan yig'ilgan narxlar hisobga olinmaydi (aks holda o'z narxi bilan «qoplanib» qoladi)."""
     rows = [r for r in (job.result or {}).get("rows") or [] if r.get("status") != "WORK_HEADER" and r.get("unit")]
     codes = {norm_code(r.get("code")) for r in rows} - {""}
-    cells = defaultdict(lambda: defaultdict(list))  # kod → (viloyat, yil, chorak) → narxlar
+    cells = defaultdict(lambda: defaultdict(list))  # kod → (viloyat, yil) → narxlar
     qs = Observation.objects.filter(counted_q(), resource__code__in=codes)
     if not own:
         qs = qs.exclude(job_id=job.id)
-    for code, r, y, q, price in qs.values_list("resource__code", "source__region", "source__year", "source__quarter",
-                                                "price"):
-        cells[code][(r, y, q)].append(price)
-    want = (region, year, quarter) if region and year and quarter else None
+    for code, r, y, price in qs.values_list("resource__code", "source__region", "source__year", "price"):
+        cells[code][(r, y)].append(price)
+    want = (region, year) if region and year else None
     counts, missing, other, items = Counter(), {}, {}, []
     for r in rows:
         code = norm_code(r.get("code"))
@@ -735,7 +730,7 @@ def coverage(job, region, year, quarter, *, own=False) -> dict:
         elif cells.get(code):
             kind = "other"
             other.setdefault(code, {"code": code, "name": r.get("name") or "", "unit": r.get("unit"), "rows": 0,
-                                    "where": sorted(cells[code], key=lambda c: (c[1] is None, -(c[1] or 0), -(c[2] or 0)))})
+                                    "where": sorted(cells[code], key=lambda c: (c[1] is None, -(c[1] or 0)))})
             other[code]["rows"] += 1
         else:
             kind = "none"
@@ -752,14 +747,14 @@ def coverage(job, region, year, quarter, *, own=False) -> dict:
 
 # ===================== нархлаш учун =====================
 def period_complete(period) -> bool:
-    return bool(period and period.get("region") and period.get("year") and period.get("quarter"))
+    return bool(period and period.get("region") and period.get("year"))  # чорак ишлатилмайди
 
 
 def period_label(period) -> str:
     from .regions import REGION_LABELS
     if not period_complete(period):
         return ""
-    return f"{REGION_LABELS.get(period['region'], period['region'])} · {period['year']}-{period['quarter']}"
+    return f"{REGION_LABELS.get(period['region'], period['region'])} · {period['year']}"
 
 
 def price_map(period) -> dict:
@@ -768,7 +763,7 @@ def price_map(period) -> dict:
     from .models import BaseConfig
     if not period_complete(period) or not BaseConfig.get().enabled:
         return {}
-    table = price_table(period["region"], int(period["year"]), int(period["quarter"]))
+    table = price_table(period["region"], int(period["year"]))
     meta = {c: (k, u, cat) for c, k, u, cat in
             Resource.objects.filter(code__in=table).values_list("code", "unit_key", "unit", "category")}
     return {code: {"price": float(price), "n": n, "unit_key": meta[code][0], "unit": meta[code][1],
@@ -787,7 +782,7 @@ def parse_period(data) -> dict:
     if year and not 2000 <= year <= 2100:
         year = None
     return {"region": region if region in REGION_LABELS else "", "year": year,
-            "quarter": quarter if quarter in (1, 2, 3, 4) else None}
+            "quarter": None}  # чорак ишлатилмайди — давр вилоят ва йил
 
 
 # ===================== текширув навбати =====================
@@ -828,12 +823,12 @@ def recheck(resource_ids=None):
                 and (not flags[o.pk] or o.review == R.ACCEPTED)]
         cells = defaultdict(list)
         for o in base:
-            cells[(o.source.region, o.source.year, o.source.quarter)].append(o)
+            cells[(o.source.region, o.source.year)].append(o)
         for o in obs:
             if o.manual or o.excluded or o.price <= 0:
                 continue
             # o'zi bilan birga medianasi (kamida 3 ta narx): 2 tadan qaysi biri xato ekanini bilib bo'lmaydi
-            group = [x.price for x in cells[(o.source.region, o.source.year, o.source.quarter)] if x.pk != o.pk] + [o.price]
+            group = [x.price for x in cells[(o.source.region, o.source.year)] if x.pk != o.pk] + [o.price]
             if len(group) < 3:
                 group = [x.price for x in base if x.pk != o.pk] + [o.price]
                 if len(group) < 3:

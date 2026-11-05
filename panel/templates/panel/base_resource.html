@@ -49,8 +49,8 @@
 
 {# ---------- қисқача ---------- #}
 <div class="ui-cards">
-  <div class="ui-card" {% if latest %}title="Охирги давр ўрта нархи: {{ region_labels|get_item:latest.region|default:'вилоят ?' }}, {{ latest.year }}-йил {{ latest.quarter }}-чорак"{% endif %}><span class="ic ic-all">{% icon "check-circle" "h-5 w-5" %}</span>
-    <span><span class="t block">{% if latest %}{{ latest.median|som }}{% else %}—{% endif %}</span><span class="n">{% if latest %}ўрта нарх · {{ latest.year }}-{{ latest.quarter }}{% else %}нарх йўқ{% endif %}</span></span></div>
+  <div class="ui-card" {% if latest %}title="Охирги давр ўрта нархи: {{ region_labels|get_item:latest.region|default:'вилоят ?' }}, {{ latest.year }}-йил"{% endif %}><span class="ic ic-all">{% icon "check-circle" "h-5 w-5" %}</span>
+    <span><span class="t block">{% if latest %}{{ latest.median|som }}{% else %}—{% endif %}</span><span class="n">{% if latest %}ўрта нарх · {{ latest.year }}{% else %}нарх йўқ{% endif %}</span></span></div>
   <div class="ui-card"><span class="ic ic-I">{% icon "list" "h-5 w-5" %}</span>
     <span><span class="t block">{{ obs|length }}</span><span class="n">нарх</span></span></div>
   <div class="ui-card"><span class="ic ic-tr">{% icon "layers" "h-5 w-5" %}</span>
@@ -72,7 +72,7 @@
     <div class="main">
       <div class="title font-medium">{{ region_labels|get_item:g.region|default:"Вилоят номаълум" }}</div>
       <div class="ui-tags">
-        {% if g.year and g.quarter %}<span class="ui-tag">{{ g.year }}-йил · {{ g.quarter }}-чорак</span>{% else %}<span class="ui-tag warn">давр номаълум — нархлашга кирмайди</span>{% endif %}
+        {% if g.year %}<span class="ui-tag">{{ g.year }}-йил</span>{% else %}<span class="ui-tag warn">йил номаълум — нархлашга кирмайди</span>{% endif %}
         <span class="ui-tag" title="Нархлар тартибланади ва ўртадагиси олинади — ҳамма нарх ҳисобга киради, четдаги жуда арзон ёки жуда қиммат битта нарх ўрта нархни бузмайди">{{ g.n }} та нархнинг ўртадагиси{% if g.manual %} · +{{ g.manual }} қўлда (кирмайди){% endif %}</span>
         {% if g.min %}<span class="ui-tag">{{ g.min|som }} — {{ g.max|som }}</span>{% endif %}
       </div>
@@ -91,7 +91,7 @@
   <div class="ui-row" {% if o.excluded %}style="opacity:.55"{% elif o.review == 'pending' %}style="background:#fffbeb"{% endif %}>
     <span class="doc">{% icon "sheet" "h-5 w-5" %}</span>
     <div class="main">
-      <div class="title">{% if o.source.is_file %}<a href="{% url 'panel:base_data' %}?region={{ o.source.region }}&year={{ o.source.year|default:'' }}&quarter={{ o.source.quarter|default:'' }}&src={{ o.source_id }}" class="font-medium hover:underline">{{ o.source.title }}</a>
+      <div class="title">{% if o.source.is_file %}<a href="{% url 'panel:base_data' %}?region={{ o.source.region }}&year={{ o.source.year|default:'' }}&src={{ o.source_id }}" class="font-medium hover:underline">{{ o.source.title }}</a>
         {% else %}<a href="{% url 'job' o.job_id %}" class="font-medium hover:underline">{{ o.source.title }}</a>{% endif %}
         <span class="text-xs text-slate-400">{{ o.row }}-қатор{% if o.source.owner %} · {{ o.source.owner.email }}{% endif %}</span></div>
       <div class="ui-tags">
