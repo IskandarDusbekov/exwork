@@ -260,7 +260,7 @@ def base_review(request):
         o.cell_median = (tables[cell].get(o.resource.code) or (None, 0))
     return render(request, "panel/base_review.html", _bctx(
         request, page=page, f=flt, counts=counts, total=pending.count(), flag_labels=FLAG_LABELS,
-        ratio=services.PRICE_RATIO, region_labels=REGION_LABELS))
+        ratio=services.price_ratio(), region_labels=REGION_LABELS))
 
 
 @require_POST

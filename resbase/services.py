@@ -786,18 +786,25 @@ def parse_period(data) -> dict:
 
 
 # ===================== текширув навбати =====================
-PRICE_RATIO = 3  # medianadan shuncha baravardan ko'p farq — shubhali
 NAME_MIN = resfile.NAME_MIN  # nom o'xshashligi shundan past — shubhali
 name_similarity = resfile.name_similarity
+
+
+def price_ratio() -> int:
+    """Medianadan shuncha baravar farq — shubhali narx (panelda o'zgaradi)."""
+    from panel import conf
+    return conf.get("base_price_ratio")
 
 
 def recheck(resource_ids=None):
     """Shubhali kuzatuvlarni qayta belgilaydi (``resource_ids`` — faqat shu resurslar, None — hammasi):
     * name — smetadagi nom resurs nomiga (va qabul qilingan nomlarga) o'xshamaydi;
     * unit — birlik boshqa (qabul qilingan birliklardan ham);
-    * price — shu viloyat va davr narxlari medianasidan (3 tadan kam bo'lsa — hamma narxlar) 3 baravardan ko'p farq.
+    * price — shu viloyat va davr narxlari medianasidan (3 tadan kam bo'lsa — hamma narxlar) ``price_ratio()``
+      baravardan ko'p farq (panel «Созламалар» → «Ресурс базаси», standart 3).
     Belgisi bor kuzatuv admin qaror qilguncha ``pending`` (medianaga kirmaydi); qabul/rad qarori saqlanadi."""
     R = Observation.Review
+    ratio = price_ratio()
     qs = Observation.objects.select_related("source", "resource")
     if resource_ids is not None:
         qs = qs.filter(resource_id__in=list(resource_ids))
@@ -834,7 +841,7 @@ def recheck(resource_ids=None):
                 if len(group) < 3:
                     continue
             m = median(group)
-            if m > 0 and max(o.price / m, m / o.price) > PRICE_RATIO:
+            if m > 0 and max(o.price / m, m / o.price) > ratio:
                 flags[o.pk].append("price")
         for o in obs:
             new = ",".join(flags[o.pk])

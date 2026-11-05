@@ -934,6 +934,22 @@ class NfModeTests(LoggedInTestCase):
         self.client.post(reverse("nf_mode"), {"nf_mode": "auto"})
         self.assertTrue(nf_auto_of(self.user))
 
+    def test_auto_takes_only_close_suggestions_with_same_first_word(self):
+        """«МУСОР СТРОИТЕЛЬНЫЙ» га «ГВОЗДИ СТРОИТЕЛЬНЫЕ» нархи (70%) ўзи қўйилмайди — смета­чига қолади."""
+        from .services import open_suggestions
+
+        def row(n, name, near, score, same_unit=True):
+            return {"row": n, "num": f"1.{n}", "name": name, "unit": "Т", "status": "NOT_FOUND",
+                    "near": {"name": near, "unit": "Т", "price": 1000.0 + n, "score": score, "same_unit": same_unit}}
+        job = Job(owner=self.user, result={"rows": [
+            row(1, "МУСОР СТРОИТЕЛЬНЫЙ", "ГВОЗДИ СТРОИТЕЛЬНЫЕ", 0.7),
+            row(2, "МУСОР СТРОИТЕЛЬНЫЙ", "ГВОЗДИ СТРОИТЕЛЬНЫЕ", 0.95),  # ўхшаш, лекин бошқа нарса
+            row(3, "ЦЕМЕНТ М400", "ЦЕМЕНТ М500", 0.85),  # сўзи бир, лекин 90% дан кам
+            row(4, "KОМПРЕССОРЫ ПЕРЕДВИЖНЫЕ", "КОМПРЕССОРЫ ПЕРЕДВИЖНЫЕ.", 0.97),  # лотин «K» — бир хил сўз
+            row(5, "АРМАТУРА А500С Д12", "АРМАТУРА А500С Д12 ММ", 0.93, same_unit=False),  # бирлиги бошқа
+        ]})
+        self.assertEqual(open_suggestions(job), {"4": 1004.0})
+
 
 class JobSummaryTests(LoggedInTestCase):
     """Рўйхат ва дашборд ``result``ни ўқимайди: жамлама (``sum_*``) ҳар сақлашда ``result``дан олинади."""

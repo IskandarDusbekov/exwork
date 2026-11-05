@@ -26,6 +26,7 @@ class SettingsTests(TestCase):
 
     def setUp(self):
         cache.clear()
+        self.addCleanup(cache.clear)  # базадаги созлама тест охирида ўчади — кешда ҳам қолмасин (бошқа тестларга)
         self.boss = User.objects.create_superuser("boss@test.uz", PASSWORD, first_name="B", last_name="A")
         self.viewer = User.objects.create_user("v@test.uz", PASSWORD, first_name="V", last_name="V", is_staff=True)
         self.ali = User.objects.create_user("ali@test.uz", PASSWORD, first_name="Ali", last_name="V")
@@ -50,6 +51,27 @@ class SettingsTests(TestCase):
         self.client.force_login(self.boss)
         self.client.post(reverse("panel:settings_save"), self._form(uploads_per_hour=str(conf.default("uploads_per_hour")), signup="open"))
         self.assertFalse(SiteSetting.objects.filter(key="uploads_per_hour").exists())
+
+    def test_pricing_rules_from_panel(self):
+        """«Нархлаш»: автоматик таклиф чегараси, биринчи сўз ва бирлик шарти, янги смета «ўхшаш» чегараси."""
+        from jobs.services import _fuzzy_default, auto_safe
+        near = {"name": "ГВОЗДИ СТРОИТЕЛЬНЫЕ", "score": 0.7, "same_unit": False}
+        self.assertFalse(auto_safe("МУСОР СТРОИТЕЛЬНЫЙ", near))  # стандарт: 90%, сўз ва бирлик бир хил
+        self.assertEqual(_fuzzy_default(), 95)
+        self.client.force_login(self.boss)
+        page = self.client.get(reverse("panel:settings"))
+        self.assertContains(page, "Таклифни ўзи олиш: энг кам ўхшашлик")
+        self.assertContains(page, "Нархлаш қоидалари — ҳамма фойдаланувчига")
+        form = self._form(auto_min_score="70", fuzzy_default="90")
+        form.pop("auto_same_word"), form.pop("auto_same_unit")  # белги олинди — ўчирилди
+        self.client.post(reverse("panel:settings_save"), form)
+        self.assertEqual((conf.get("auto_min_score"), conf.get("auto_same_word"), conf.get("auto_same_unit")), (70, False, False))
+        self.assertTrue(auto_safe("МУСОР СТРОИТЕЛЬНЫЙ", near))
+        self.assertFalse(auto_safe("МУСОР СТРОИТЕЛЬНЫЙ", dict(near, score=0.69)))
+        self.assertEqual(_fuzzy_default(), 90)
+        self.assertTrue(Event.objects.filter(kind=Event.Kind.ADMIN_SETTINGS, detail__contains="биринчи сўз").exists())
+        self.client.post(reverse("panel:settings_save"), self._form(auto_min_score="49"))  # 50 дан кам — олинмайди
+        self.assertEqual(conf.get("auto_min_score"), 70)
 
     def test_bad_value_rejected_and_viewer_cannot_change(self):
         self.client.force_login(self.boss)

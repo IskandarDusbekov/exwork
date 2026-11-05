@@ -1,5 +1,6 @@
 """Yuklash -> konvertatsiya -> narxlash. Django view'lari faqat shu funksiyalarni chaqiradi."""
 import datetime as dt
+import re
 import shutil
 import time
 from pathlib import Path
@@ -12,6 +13,7 @@ from core import convert
 from core.columns import LayoutError
 from core.batch import apply_roles, inspect_workbook, mark_duplicates, plan_pairs
 from core.detect import pair_sheets
+from core.normalize import norm_name
 from core.pipeline import MODES, Options, run
 from core.svodka import DEFAULT_PERCENTS, parse_text_number
 
@@ -155,13 +157,19 @@ def base_options(job: Job) -> dict:
     return {"base_prices": prices or None, "base_label": period_label(job.base_period) if prices else ""}
 
 
+def _fuzzy_default() -> int:
+    """Янги смета учун «ўхшаш» чегараси — панел «Созламалар» → «Нархлаш»."""
+    from panel import conf
+    return conf.get("fuzzy_default")
+
+
 def create_job(owner, local_file, res_file=None) -> Job:
     """Fayllarni saqlaydi, .xlsx ga o'giradi, listlarni o'qib standart juftlikni tanlaydi."""
     local_ext = _check_upload(local_file, "Локал файл")
     res_ext = _check_upload(res_file, "Ресурс файл") if res_file else local_ext
 
     job = Job(owner=owner, local_name=Path(local_file.name).name, res_name=Path((res_file or local_file).name).name,
-              percents=remembered_percents(owner), base_period=base_period_of(owner),
+              percents=remembered_percents(owner), base_period=base_period_of(owner), fuzzy=_fuzzy_default(),
               auto_cleared=not nf_auto_of(owner))  # «Қўлда» усули: бўлим номлари ўзи тозаланмайди
     clock = FileClock()
     try:
@@ -343,7 +351,8 @@ def recompute(job: Job) -> Job:
 
 def auto_apply(job: Job) -> bool:
     """«Автоматик» усул, биринчи нархлашдан кейин: смета­чи қиладиган ишларнинг бир қисми ўзи бажарилади —
-    1-босқич: яқин ресурс таклифлари (нархи бор ҳаммаси) бир йўла қабул қилинади — смета­чига бирортаси қолмайди;
+    1-босқич: яқин ресурс таклифларидан ишончлилари (``auto_safe``: панелдаги қоидалар, стандарт 90%+) бир
+    йўла қабул қилинади, қолганлари смета­чига;
     2-босқич: кабель / ускуна таклифлари L / M га ўтказилади ва жадвал «текширилди» бўлади.
     Сводка фоизлари — юклашда тасдиқланган (эслаб қолинган) фоизлар. True — бирор нарса ўзгарди."""
     from .views import _lm_stage, _not_found_stage, _res_groups, column_labels
@@ -367,10 +376,33 @@ def open_suggestions(job: Job) -> dict:
     from .views import _not_found_stage
     out = {}
     for r in _not_found_stage(job.result.get("rows", []))["group_b_near"]:
-        price = _as_number((r.get("near") or {}).get("price"))
-        if price is not None and str(r["row"]) not in (job.prices or {}):
+        near = r.get("near") or {}
+        price = _as_number(near.get("price"))
+        if price is not None and str(r["row"]) not in (job.prices or {}) and auto_safe(r.get("name"), near):
             out[str(r["row"])] = price
     return out
+
+
+_LATIN_LOOKALIKE = str.maketrans("aceopxykmthb", "асеорхукмтнв")
+
+
+def _first_word(name) -> str:
+    words = re.findall(r"[^\W\d_]+", norm_name(name))
+    return words[0].translate(_LATIN_LOOKALIKE) if words else ""
+
+
+def auto_safe(local_name, near: dict) -> bool:
+    """«Автоматик» усулда таклифни сўрамасдан олиш мумкинми — панел «Созламалар» → «Нархлаш» қоидалари бўйича
+    (стандарт: 90%+ ўхшаш, бирлиги ва номининг биринчи сўзи бир хил). «МУСОР СТРОИТЕЛЬНЫЙ» ↔ «ГВОЗДИ
+    СТРОИТЕЛЬНЫЕ» (70%) олинмайди — смета­чига қолади."""
+    from panel import conf
+    score = near.get("score")
+    if not isinstance(score, (int, float)) or score * 100 < conf.get("auto_min_score") - 1e-9:
+        return False
+    if conf.get("auto_same_unit") and not near.get("same_unit", True):
+        return False
+    word = _first_word(local_name)
+    return not conf.get("auto_same_word") or (bool(word) and word == _first_word(near.get("name")))
 
 
 def _as_number(v) -> Optional[float]:
@@ -653,7 +685,7 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
                   local_name=p["label"], res_name=f'{rf["name"]} · {res["sheet"]}' if res else "ресурс базаси",
                   local_sheets=lf["sheets"], res_sheets=rf["sheets"] if rf else [],
                   local_sheet=loc["sheet"], res_sheet=res["sheet"] if res else "", mode="smart",
-                  percents=remembered_percents(batch.owner_id), base_period=base_period,
+                  percents=remembered_percents(batch.owner_id), base_period=base_period, fuzzy=_fuzzy_default(),
                   auto_cleared=not nf_auto,  # «Қўлда» усули: бўлим номлари ўзи тозаланмайди
                   local_columns=(batch.columns or {}).get(p["local"], {}),
                   res_columns=(batch.columns or {}).get(p["res"], {}) if res else {})

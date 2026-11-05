@@ -276,6 +276,12 @@ NARXLASH_MAX_ARCHIVE = 700 * 1024 * 1024  # ZIP/RAR arxiv (ichida PDF, chizmalar
 # Bitta foydalanuvchi serverni (disk, CPU) to'ldira olmasin. Xodimlar (is_staff) — cheklovsiz. 0 — cheklov yo'q.
 NARXLASH_UPLOADS_PER_HOUR = int(os.environ.get("NARXLASH_UPLOADS_PER_HOUR", "30"))
 NARXLASH_USER_QUOTA_MB = int(os.environ.get("NARXLASH_USER_QUOTA_MB", "5000"))
+# Нархлаш қоидалари (панел «Созламалар» → «Нархлаш» да ўзгаради; бу ер — стандарт)
+NARXLASH_AUTO_MIN_SCORE = 90  # «Автоматик»: яқин ресурс таклифи шу фоиздан ўхшаш бўлсагина ўзи олинади
+NARXLASH_AUTO_SAME_WORD = True  # … ва номининг биринчи сўзи бир хил («МУСОР …» ≠ «ГВОЗДИ …»)
+NARXLASH_AUTO_SAME_UNIT = True  # … ва бирлиги бир хил
+NARXLASH_FUZZY_DEFAULT = 95  # янги сметада «ўхшаш» деб нархлаш чегараси (смета­чи ўзи 80–100 оралиғида ўзгартиради)
+NARXLASH_BASE_PRICE_RATIO = 3  # ресурс базаси: медианадан шунча баравар фарқ қилган нарх — шубҳали
 # Ro'yxatdan o'tish: open — hamma o'zi ochadi; closed — hisobni faqat admin yaratadi (Django admin)
 NARXLASH_SIGNUP = os.environ.get("NARXLASH_SIGNUP", "open")
 if NARXLASH_SIGNUP not in ("open", "closed"):

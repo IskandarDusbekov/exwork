@@ -46,7 +46,8 @@ def settings_page(request):
          not mail.configured() and not settings.DEBUG, "панел «Почта» / EMAIL_HOST"),
         ("Сессия муддати", f"{settings.SESSION_COOKIE_AGE // 86400} кун", False, "—"),
     ]
-    return render(request, "panel/settings.html", _ctx(request, "settings", groups=groups, fixed=fixed))
+    return render(request, "panel/settings.html", _ctx(request, "settings", groups=groups, fixed=fixed,
+                                                          group_help=conf.GROUP_HELP))
 
 
 @require_POST
