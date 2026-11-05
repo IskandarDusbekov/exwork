@@ -13,6 +13,8 @@ LOGIN_PER_IP = 20       # битта IP'дан турли ҳисобларга
 REGISTER_PER_IP = 5     # битта IP'дан 15 дақиқада нечта рўйхат
 RESET_PER_IP = 5        # паролни тиклаш хати: битта IP'дан
 RESET_PER_EMAIL = 3     # битта email'га (бировнинг почтасини хат билан тўлдириб бўлмасин)
+VERIFY_PER_EMAIL = 3    # email тасдиқлаш хати: 15 дақиқада 3 та
+VERIFY_GAP = 60         # хатлар орасида камида 60 сония
 
 
 def _valid_ip(value):
@@ -56,6 +58,18 @@ def reset_blocked(request, email) -> bool:
     ip = client_ip(request)
     return (recent.filter(email=normalize_email(email)).count() >= RESET_PER_EMAIL
             or (ip is not None and recent.filter(ip=ip).count() >= RESET_PER_IP))
+
+
+def verify_wait(email) -> int:
+    """Тасдиқлаш хатини яна юборишгача неча сония кутиш керак (0 — юбориш мумкин)."""
+    recent = _recent(AuthAttempt.Kind.VERIFY).filter(email=normalize_email(email))
+    if recent.count() >= VERIFY_PER_EMAIL:
+        first = recent.order_by("created").first().created
+        return max(1, int((first + WINDOW - timezone.now()).total_seconds()))
+    last = recent.order_by("-created").first()
+    if last is not None:
+        return max(0, int(VERIFY_GAP - (timezone.now() - last.created).total_seconds()))
+    return 0
 
 
 def record(request, kind, email=""):

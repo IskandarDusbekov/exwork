@@ -250,6 +250,7 @@ MAILERS = {"default": {"BACKEND": "panel.mail.PanelMailBackend", "OPTIONS": {}}}
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "mhisobot <noreply@localhost>")
 PASSWORD_RESET_TIMEOUT = 2 * 3600  # ҳавола 2 соат амал қилади
 PASSWORD_RESET_CODE_MINUTES = 15  # хатдаги 6 рақамли код (шу браузерда киритилади)
+EMAIL_VERIFY_LINK_HOURS = 48  # рўйхатдан ўтгандаги хат: тасдиқлаш ҳаволаси (код — PASSWORD_RESET_CODE_MINUTES)
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "web" / "static"]  # css/app.css — frontend/ да йиғилади (npm run build)

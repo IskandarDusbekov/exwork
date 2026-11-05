@@ -1,0 +1,18 @@
+{% autoescape off %}Ассалому алайкум, {{ name }}!
+
+{{ intro }}
+
+Тасдиқлаш коди:
+
+    {{ code_pretty }}
+
+Кодни очиқ турган «{{ page }}» саҳифасига киритинг ({{ minutes }} дақиқа амал қилади).
+
+{{ button_intro }} ({{ link_note }}):
+{{ link }}
+
+{{ ignore }}
+Кодни ҳеч кимга айтманг: mhisobot ходимлари ҳам уни сўрамайди.
+
+— mhisobot · {{ site }}
+{% endautoescape %}

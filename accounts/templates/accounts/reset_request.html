@@ -23,7 +23,7 @@
   <p class="auth-alt">Хат келмадими? <a href="{% url 'reset_request' %}">Қайта юбориш</a> · <a href="{% url 'login' %}">Киришга қайтиш</a></p>
   {% endif %}
 {% else %}
-<p class="auth-sub">Ҳисобингиз email'ини киритинг — 6 рақамли код ва ҳавола юборамиз.</p>
+<p class="auth-sub">Ҳисобингиз email'ини киритинг — 6 рақамли код ва ҳавола юборамиз. Хат фақат тасдиқланган email'га боради.</p>
 {% if error %}<div class="msg msg-err" role="alert">{{ error }}</div>{% endif %}
 <form method="post" novalidate>
   {% csrf_token %}

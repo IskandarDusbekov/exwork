@@ -1,0 +1,52 @@
+{% extends "accounts/_auth.html" %}
+{% block title %}Email тасдиқлаш — mhisobot{% endblock %}
+{% block content %}
+<p class="auth-k">Email</p>
+{% if invalid %}
+<h1>Ҳавола эскирган</h1>
+<div class="msg msg-err" role="alert">Тасдиқлаш ҳаволаси нотўғри ёки муддати ўтган. Тизимга кириб, янги код сўранг.</div>
+<div class="auth-go"><a href="{% url 'verify_email' %}" class="btn btn-p">Янги код сўраш</a></div>
+{% elif done %}
+<h1>Email тасдиқланган</h1>
+<div class="msg msg-ok" role="status"><b>{{ email }}</b> тасдиқланди. Паролни унутсангиз, шу почта орқали тиклай оласиз.</div>
+<div class="auth-go"><a href="{% if guest %}{% url 'login' %}{% else %}{% url 'index' %}{% endif %}" class="btn btn-p">{% if guest %}Киришга{% else %}Ишга қайтиш{% endif %}</a></div>
+{% else %}
+<h1>Email'ни тасдиқланг</h1>
+<p class="auth-sub"><b>{{ email }}</b> га 6 рақамли код ва тасдиқлаш тугмаси юборилди. Почтангизни (ва «Спам» папкасини) текширинг.</p>
+{% for m in messages %}<div class="msg {% if m.level_tag == 'error' %}msg-err{% else %}msg-ok{% endif %}" role="status">{{ m }}</div>{% endfor %}
+{% if error %}<div class="msg msg-err" role="alert">{{ error }}</div>{% endif %}
+{% if not expired %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="f">
+    <label class="f-l" for="id_code"><span>Хатдаги код</span></label>
+    <input id="id_code" name="code" class="fld code-fld" inputmode="numeric" autocomplete="one-time-code" maxlength="7"
+           pattern="[0-9 ]*" placeholder="000 000" required autofocus>
+    <p class="f-h">Код {{ minutes }} дақиқа амал қилади, 5 марта хато киритилса — бекор бўлади.</p>
+  </div>
+  <button type="submit" class="btn btn-p">Тасдиқлаш</button>
+</form>
+{% elif has_code %}
+<div class="msg msg-err" role="alert">Код эскирди ёки кўп марта хато киритилди. Янги код сўранг.</div>
+{% endif %}
+<form method="post" class="verify-send">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="send">
+  <button type="submit" class="btn {% if expired %}btn-p{% else %}btn-g{% endif %}"{% if wait %} disabled data-wait="{{ wait }}"{% endif %}>
+    {% if has_code %}Кодни қайта юбориш{% else %}Код юбориш{% endif %}{% if wait %} ({{ wait }} с){% endif %}</button>
+</form>
+<p class="auth-alt">Тасдиқламасангиз ҳам ишлайверасиз, лекин <b>паролни унутсангиз, тиклай олмайсиз</b>. <a href="{% url 'index' %}">Кейинроқ</a></p>
+<script>
+  (function () {
+    var b = document.querySelector("[data-wait]");
+    if (!b) return;
+    var n = parseInt(b.dataset.wait, 10), label = b.textContent.replace(/\s*\(\d+ с\)\s*$/, "").trim();
+    var t = setInterval(function () {
+      n -= 1;
+      if (n <= 0) { clearInterval(t); b.disabled = false; b.textContent = label; return; }
+      b.textContent = label + " (" + n + " с)";
+    }, 1000);
+  })();
+</script>
+{% endif %}
+{% endblock %}

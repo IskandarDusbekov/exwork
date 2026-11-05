@@ -34,7 +34,8 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    """Смета­чи: email билан киради (username йўқ). ``email_verified`` — кейин OTP билан тасдиқланади."""
+    """Смета­чи: email билан киради (username йўқ). ``email_verified`` — хатдаги код ёки ҳавола билан тасдиқланади
+    (тасдиқланмаган ҳисобга паролни тиклаш хати юборилмайди)."""
     email = models.EmailField("Email", unique=True)
     first_name = models.CharField("Исм", max_length=150)
     last_name = models.CharField("Фамилия", max_length=150)
@@ -77,6 +78,7 @@ class AuthAttempt(models.Model):
         LOGIN = "login", "Кириш (хато)"
         REGISTER = "register", "Рўйхатдан ўтиш"
         RESET = "reset", "Паролни тиклаш сўрови"
+        VERIFY = "verify", "Email тасдиқлаш хати"
 
     kind = models.CharField(max_length=16, choices=Kind.choices)
     email = models.CharField(max_length=254, blank=True, db_index=True)

@@ -26,7 +26,7 @@ class RegisterTests(TestCase):
 
     def test_register_creates_user_and_logs_in(self):
         r = self._post()
-        self.assertRedirects(r, reverse("index"))
+        self.assertRedirects(r, reverse("verify_email"))  # тасдиқлаш коди юборилди
         u = User.objects.get()
         self.assertEqual(u.email, "ali@mail.uz")  # кичик ҳарфда
         self.assertTrue(u.password.startswith("argon2"))
@@ -53,7 +53,8 @@ class RegisterTests(TestCase):
 
 class LoginTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ali@mail.uz", PASSWORD, first_name="Ali", last_name="Valiyev")
+        self.user = User.objects.create_user("ali@mail.uz", PASSWORD, first_name="Ali", last_name="Valiyev",
+                                             email_verified=True)
 
     def test_pages_require_login(self):
         url = reverse("dashboard")
@@ -182,7 +183,8 @@ class ClientIPTests(SimpleTestCase):
 
 class PasswordResetTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("ali@mail.uz", PASSWORD, first_name="Ali", last_name="Valiyev")
+        self.user = User.objects.create_user("ali@mail.uz", PASSWORD, first_name="Ali", last_name="Valiyev",
+                                             email_verified=True)
 
     def _link(self):
         self.assertEqual(len(mail.outbox), 1)
@@ -336,7 +338,8 @@ class ResetCodeTests(TestCase):
     """Хатдаги 6 рақамли код: шу браузерда киритилади — ҳаволасиз ҳам янги пароль қўйиш мумкин."""
 
     def setUp(self):
-        self.user = User.objects.create_user("ali@mail.uz", PASSWORD, first_name="Ali", last_name="Valiyev")
+        self.user = User.objects.create_user("ali@mail.uz", PASSWORD, first_name="Ali", last_name="Valiyev",
+                                             email_verified=True)
 
     def _code(self):
         import re
@@ -391,3 +394,103 @@ class ResetCodeTests(TestCase):
         self.assertContains(page, 'data-meter="10"')
         self.assertContains(page, 'data-match="id_password1"')
         self.assertContains(page, "js/password.js")
+
+
+class VerifyEmailTests(TestCase):
+    """Рўйхатдан ўтгач email тасдиқлаш: код (шу браузерда) ёки ҳавола (исталган қурилмада)."""
+
+    def _register(self):
+        return self.client.post(reverse("register"), {"first_name": "Ali", "last_name": "Valiyev", "email": "ali@mail.uz",
+                                                      "password1": PASSWORD, "password2": PASSWORD})
+
+    def _code_link(self, i=-1):
+        import re
+        m = mail.outbox[i]
+        code = re.search(r"(\d{3}) (\d{3})", m.subject)
+        link = next(w for w in m.body.split() if "/account/verify/" in w)
+        return code.group(1) + code.group(2), link, m
+
+    def test_register_sends_code_and_banner_until_verified(self):
+        self._register()
+        self.assertEqual(len(mail.outbox), 1)
+        code, _, m = self._code_link()
+        self.assertEqual(m.subject, "mhisobot: email тасдиқлаш коди " + code[:3] + " " + code[3:])
+        html = m.alternatives[0][0] if hasattr(m.alternatives[0], "__getitem__") else m.alternatives[0].content
+        self.assertIn("font-size:42px", html)
+        self.assertIn("Email&#x27;ни тасдиқлаш", html)
+        self.assertContains(self.client.get(reverse("dashboard")), "Email тасдиқланмаган")
+        r = self.client.post(reverse("verify_email"), {"code": code[:3] + " " + code[3:]})
+        self.assertRedirects(r, reverse("verify_email"), fetch_redirect_response=False)
+        self.assertContains(self.client.get(reverse("verify_email")), "Email тасдиқланган")
+        self.assertTrue(User.objects.get().email_verified)
+        self.assertNotContains(self.client.get(reverse("dashboard")), "Email тасдиқланмаган")
+        from panel.models import Event
+        self.assertTrue(Event.objects.filter(kind=Event.Kind.EMAIL_VERIFIED).exists())
+
+    def test_wrong_code_limited(self):
+        self._register()
+        code, _, _ = self._code_link()
+        wrong = "000000" if code != "000000" else "111111"
+        r = self.client.post(reverse("verify_email"), {"code": wrong})
+        self.assertContains(r, "Яна 4 марта")
+        for _ in range(4):
+            r = self.client.post(reverse("verify_email"), {"code": wrong})
+        self.assertContains(r, "кўп марта хато")
+        self.client.post(reverse("verify_email"), {"code": code})  # тўғриси ҳам энди ўтмайди
+        self.assertFalse(User.objects.get().email_verified)
+
+    def test_resend_limited(self):
+        from datetime import timedelta
+
+        from .throttle import VERIFY_PER_EMAIL
+        self._register()
+        r = self.client.post(reverse("verify_email"), {"action": "send"}, follow=True)
+        self.assertContains(r, "сониядан кейин юбориш мумкин")  # 60 сония ўтмади
+        self.assertEqual(len(mail.outbox), 1)
+        for _ in range(VERIFY_PER_EMAIL - 1):
+            AuthAttempt.objects.filter(kind=AuthAttempt.Kind.VERIFY).update(created=models_now() - timedelta(minutes=2))
+            self.client.post(reverse("verify_email"), {"action": "send"})
+        self.assertEqual(len(mail.outbox), VERIFY_PER_EMAIL)
+        AuthAttempt.objects.filter(kind=AuthAttempt.Kind.VERIFY).update(created=models_now() - timedelta(minutes=2))
+        r = self.client.post(reverse("verify_email"), {"action": "send"}, follow=True)
+        self.assertContains(r, "дақиқадан кейин юбориш мумкин")  # 15 дақиқада 3 тадан ортиқ эмас
+        self.assertEqual(len(mail.outbox), VERIFY_PER_EMAIL)
+        code, _, _ = self._code_link()  # охирги хатдаги код ишлайди
+        self.client.post(reverse("verify_email"), {"code": code})
+        self.assertTrue(User.objects.get().email_verified)
+
+    def test_link_works_on_other_device(self):
+        self._register()
+        _, link, _ = self._code_link()
+        other = self.client_class()
+        r = other.get(link)
+        self.assertContains(r, "Email тасдиқланган")
+        self.assertTrue(User.objects.get().email_verified)
+
+    def test_bad_or_stale_link(self):
+        self._register()
+        _, link, _ = self._code_link()
+        self.assertEqual(self.client.get(link[:-6] + "abcdef/").status_code, 400)
+        User.objects.update(email="boshqa@mail.uz")  # email ўзгарди — эски ҳавола ишламайди
+        r = self.client.get(link)
+        self.assertContains(r, "Ҳавола эскирган", status_code=400)
+        self.assertFalse(User.objects.get().email_verified)
+
+    def test_unverified_gets_no_reset_mail(self):
+        User.objects.create_user("ali@mail.uz", PASSWORD, first_name="Ali", last_name="V")
+        r = self.client.post(reverse("reset_request"), {"email": "ali@mail.uz"}, follow=True)
+        self.assertContains(r, "код ва ҳавола юборилди")  # жавоб бир хил (ҳисоб бор-йўқлиги билинмайди)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_mail_failure_keeps_account(self):
+        from unittest import mock
+        with mock.patch("accounts.views.send_verify", side_effect=OSError("smtp down")):
+            r = self._register()
+        self.assertRedirects(r, reverse("verify_email"), fetch_redirect_response=False)
+        self.assertTrue(User.objects.exists())
+        self.assertContains(self.client.get(reverse("verify_email")), "хати юборилмади")
+
+
+def models_now():
+    from django.utils import timezone
+    return timezone.now()

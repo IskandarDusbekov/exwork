@@ -1,3 +1,4 @@
+import logging
 import secrets
 import time
 from hmac import compare_digest as hmac_equal
@@ -7,6 +8,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_not_required
 from django.contrib.auth.tokens import default_token_generator
+from django.core import signing
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
@@ -19,11 +21,12 @@ from panel.audit import log as audit
 from panel.models import Event
 
 from . import throttle, totp
-from .emails import send_reset
+from .emails import send_reset, send_verify
 from .forms import LoginForm, RegisterForm, ResetRequestForm, SetPasswordForm
 from .models import AuthAttempt, TwoFactor, User, normalize_email
 
 BLOCKED = "Жуда кўп уриниш. 15 дақиқадан кейин қайта уриниб кўринг."
+logger = logging.getLogger(__name__)
 
 
 def _next_url(request) -> str:
@@ -176,7 +179,9 @@ def register_view(request):
             user = form.save()
             audit(request, Event.Kind.REGISTER, actor=user, detail=user.get_full_name())
             login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-            return redirect("index")
+            if not send_verify_code(request, user):
+                messages.error(request, MAIL_FAILED)
+            return redirect("verify_email")
     return render(request, "accounts/register.html", {"form": form, "error": error})
 
 
@@ -219,7 +224,8 @@ def reset_request_view(request):
             user = User.objects.filter(email=email, is_active=True).first()
             entry = {"uid": "", "token": "", "hash": _code_hash(secrets.token_hex(8)), "tries": 0,
                      "exp": int(time.time()) + settings.PASSWORD_RESET_CODE_MINUTES * 60, "email": email}
-            if user is not None and user.has_usable_password():
+            # тасдиқланмаган email — бошқа одам бировнинг почтаси билан ҳисоб очган бўлиши мумкин: хат юборилмайди
+            if user is not None and user.has_usable_password() and user.email_verified:
                 entry.update(_send_reset(request, user))
             request.session[RESET_CODE] = entry
             return redirect("reset_code")
@@ -293,3 +299,103 @@ def reset_confirm_view(request, uidb64, token):
         messages.success(request, "Пароль ўзгартирилди — янги парол билан киринг.")
         return redirect("login")
     return render(request, "accounts/reset_confirm.html", {"form": form, "email": user.email})
+
+
+# ===================== email тасдиқлаш =====================
+# Рўйхатдан ўтгач хатда 6 рақамли код ва ҳавола. Ҳисоб тасдиқланмаса ҳам ишлайди, лекин тепада огоҳлантириш
+# туради ва паролни тиклаш хати юборилмайди. Код фақат HMAC'и билан сессияда (сервер базасида) сақланади:
+# PASSWORD_RESET_CODE_MINUTES дақиқа, 5 хато — бекор. Хат: 60 сонияда 1 та, 15 дақиқада 3 та.
+VERIFY_CODE = "_verify_code"  # {"hash", "exp", "tries", "email"}
+VERIFY_TRIES = 5
+VERIFY_SALT = "accounts.verify-email"
+MAIL_FAILED = "Тасдиқлаш хати юборилмади — почта сервери ишламаяпти. Бироздан кейин «Кодни қайта юбориш»ни босинг."
+
+
+def _verify_hash(code):
+    import hashlib
+    import hmac
+    return hmac.new(settings.SECRET_KEY.encode(), ("verify-code:" + code).encode(), hashlib.sha256).hexdigest()
+
+
+def send_verify_code(request, user) -> bool:
+    """Код ва ҳаволали хат. False — хат кетмади (SMTP хатоси; ҳисоб барибир очилган)."""
+    code = f"{secrets.randbelow(10 ** 6):06d}"
+    token = signing.dumps({"u": user.pk, "e": user.email}, salt=VERIFY_SALT)
+    link = request.build_absolute_uri(reverse("verify_link", args=[token]))
+    throttle.record(request, AuthAttempt.Kind.VERIFY, user.email)
+    request.session[VERIFY_CODE] = {"hash": _verify_hash(code), "tries": 0, "email": user.email,
+                                    "exp": int(time.time()) + settings.PASSWORD_RESET_CODE_MINUTES * 60}
+    try:
+        send_verify(request.build_absolute_uri("/"), user, code, link)
+    except Exception:  # noqa: BLE001 — почта ишламаса ҳам рўйхат тўхтамасин
+        logger.exception("email тасдиқлаш хати кетмади: %s", user.email)
+        return False
+    return True
+
+
+def _mark_verified(request, user, how):
+    if not user.email_verified:
+        user.email_verified = True
+        user.save(update_fields=["email_verified"])
+        audit(request, Event.Kind.EMAIL_VERIFIED, actor=user, detail=f"{user.email} ({how})")
+    request.session.pop(VERIFY_CODE, None)
+
+
+def _wait_text(sec):
+    return f"{sec} сония" if sec < 60 else f"{(sec + 59) // 60} дақиқа"
+
+
+@never_cache
+@require_http_methods(["GET", "POST"])
+def verify_email_view(request):
+    user = request.user
+    if user.email_verified:
+        return render(request, "accounts/verify_email.html", {"done": True, "email": user.email})
+    entry = request.session.get(VERIFY_CODE)
+    if entry and entry.get("email") != user.email:
+        entry = None
+    expired = entry is None or entry["exp"] < time.time() or entry["tries"] >= VERIFY_TRIES
+    error = None
+    if request.method == "POST" and request.POST.get("action") == "send":
+        wait = throttle.verify_wait(user.email)
+        if wait:
+            messages.error(request, f"Янги хатни {_wait_text(wait)}дан кейин юбориш мумкин.")
+        elif send_verify_code(request, user):
+            messages.success(request, f"Янги код {user.email} га юборилди.")
+        else:
+            messages.error(request, MAIL_FAILED)
+        return redirect("verify_email")
+    if request.method == "POST":
+        code = "".join(ch for ch in request.POST.get("code", "") if ch.isdigit())
+        if expired:
+            error = "Код эскирди ёки кўп марта хато киритилди — янги код сўранг."
+        elif len(code) == 6 and hmac_equal(_verify_hash(code), entry["hash"]):
+            _mark_verified(request, user, "код")
+            return redirect("verify_email")  # «Email тасдиқланган» саҳифаси
+        else:
+            entry["tries"] += 1
+            request.session[VERIFY_CODE] = entry
+            left = VERIFY_TRIES - entry["tries"]
+            expired = left <= 0
+            error = (f"Код нотўғри. Яна {left} марта уриниш мумкин." if left > 0
+                     else "Код кўп марта хато киритилди — янги код сўранг.")
+    return render(request, "accounts/verify_email.html", {
+        "email": user.email, "error": error, "expired": expired, "has_code": entry is not None,
+        "minutes": settings.PASSWORD_RESET_CODE_MINUTES, "wait": throttle.verify_wait(user.email)})
+
+
+@login_not_required
+@never_cache
+def verify_link_view(request, token):
+    """Хатдаги тугма: бошқа қурилмадан ҳам ишлайди (тизимга кирмасдан). Email ўзгарса — ҳавола эскиради."""
+    try:
+        data = signing.loads(token, salt=VERIFY_SALT, max_age=settings.EMAIL_VERIFY_LINK_HOURS * 3600)
+    except signing.BadSignature:
+        data = None
+    user = User.objects.filter(pk=data.get("u"), is_active=True).first() if isinstance(data, dict) else None
+    if user is None or user.email != data.get("e"):
+        return render(request, "accounts/verify_email.html", {"invalid": True}, status=400)
+    _mark_verified(request, user, "ҳавола")
+    if request.user.is_authenticated and request.user.pk == user.pk:
+        return redirect("verify_email")
+    return render(request, "accounts/verify_email.html", {"done": True, "email": user.email, "guest": True})

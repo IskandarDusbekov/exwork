@@ -90,6 +90,15 @@
     </div>
   </div>
   {% endwith %}{% endif %}
+  {% if user.is_authenticated and not user.email_verified and not request.viewing_owner %}
+  <div class="border-b border-amber-200 bg-amber-50 text-sm text-amber-900" role="status">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2">
+      <span class="inline-flex items-center gap-1.5 font-semibold">{% icon "mail" "h-4 w-4" %} Email тасдиқланмаган</span>
+      <span>{{ user.email }} манзилини тасдиқланг — акс ҳолда паролни унутсангиз, тиклай олмайсиз.</span>
+      <a href="{% url 'verify_email' %}" class="ml-auto inline-flex items-center gap-1 rounded-md bg-amber-600 px-3 py-1 font-medium text-white hover:bg-amber-700">Тасдиқлаш</a>
+    </div>
+  </div>
+  {% endif %}
   <main class="{% block main_class %}max-w-6xl mx-auto px-4 py-6{% endblock %}">
     {% block content %}{% endblock %}
   </main>

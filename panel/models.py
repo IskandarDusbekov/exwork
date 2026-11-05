@@ -15,6 +15,7 @@ class Event(models.Model):
         STOP = "stop", "Тўхтатди"
         RENAME = "rename", "Номини ўзгартирди"
         PASSWORD_RESET = "password_reset", "Паролни тиклади"
+        EMAIL_VERIFIED = "email_verified", "Email тасдиқланди"
         ADMIN_USER = "admin_user", "Админ: фойдаланувчи ўзгартирилди"
         ADMIN_STOP = "admin_stop", "Админ: жараён тўхтатилди"
         ADMIN_DOWNLOAD = "admin_download", "Админ: файл юклаб олинди"
