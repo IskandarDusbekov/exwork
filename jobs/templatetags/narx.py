@@ -222,6 +222,8 @@ _ICONS = {
     # mhisobot: «М», остида ҳисобот устунчалари
     "menu": '<path d="M4 6h16M4 12h16M4 18h16"/>',
     "sidebar": '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>',
+    "eye": '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    "mail": '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
     "logo": '<path d="M5.5 15V9.25a2.5 2.5 0 0 1 5 0V15M10.5 9.25a2.5 2.5 0 0 1 5 0V15"/><path d="M4 20h16M4 18.5v3M20 18.5v3"/><circle cx="19" cy="5.5" r=".6"/>',
 }
 _SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" '

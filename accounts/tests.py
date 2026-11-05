@@ -192,10 +192,10 @@ class PasswordResetTests(TestCase):
         self.assertContains(self.client.get(reverse("login")), reverse("reset_request"))
 
     def test_unknown_email_same_answer_no_mail(self):
-        known = self.client.post(reverse("reset_request"), {"email": "ALI@mail.uz"})
-        unknown = self.client.post(reverse("reset_request"), {"email": "yoq@mail.uz"})
-        self.assertContains(known, "ҳаволаси юборилди")
-        self.assertContains(unknown, "ҳаволаси юборилди")  # ҳисоб бор-йўқлиги ошкор бўлмайди
+        known = self.client.post(reverse("reset_request"), {"email": "ALI@mail.uz"}, follow=True)
+        unknown = self.client.post(reverse("reset_request"), {"email": "yoq@mail.uz"}, follow=True)
+        self.assertContains(known, "код ва ҳавола юборилди")
+        self.assertContains(unknown, "код ва ҳавола юборилди")  # ҳисоб бор-йўқлиги ошкор бўлмайди
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["ali@mail.uz"])
 
@@ -330,3 +330,64 @@ def test_totp_rfc6238_vector():
     assert totp.code_at(secret, 59 // 30) == "287082"  # RFC 6238 (SHA1, T=59) oxirgi 6 raqami
     assert totp.verify(secret, "287 082", now=59) == 1
     assert totp.verify(secret, "287082", last_step=1, now=59) is None
+
+
+class ResetCodeTests(TestCase):
+    """Хатдаги 6 рақамли код: шу браузерда киритилади — ҳаволасиз ҳам янги пароль қўйиш мумкин."""
+
+    def setUp(self):
+        self.user = User.objects.create_user("ali@mail.uz", PASSWORD, first_name="Ali", last_name="Valiyev")
+
+    def _code(self):
+        import re
+        self.assertEqual(len(mail.outbox), 1)
+        m = mail.outbox[0]
+        code = re.search(r"(\d{3}) (\d{3})", m.subject)
+        return code.group(1) + code.group(2), m
+
+    def test_email_has_big_code_and_link(self):
+        self.client.post(reverse("reset_request"), {"email": "ali@mail.uz"})
+        code, m = self._code()
+        html = m.alternatives[0][0] if hasattr(m.alternatives[0], "__getitem__") else m.alternatives[0].content
+        pretty = code[:3] + " " + code[3:]
+        self.assertIn(pretty, m.body)
+        self.assertIn(pretty, html)
+        self.assertIn("font-size:42px", html)
+        self.assertIn("/password/reset/", html)
+        self.assertIn("Ali Valiyev", html)
+
+    def test_right_code_opens_new_password(self):
+        r = self.client.post(reverse("reset_request"), {"email": "ali@mail.uz"})
+        self.assertRedirects(r, reverse("reset_code"), fetch_redirect_response=False)
+        code, _ = self._code()
+        r = self.client.post(reverse("reset_code"), {"code": code[:3] + " " + code[3:]})
+        self.assertIn("/set-password/", r["Location"])
+        r = self.client.post(r["Location"], {"password1": "Yangi-kuchli-parol-7", "password2": "Yangi-kuchli-parol-7"})
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("Yangi-kuchli-parol-7"))
+        self.assertRedirects(self.client.post(reverse("reset_code"), {"code": code}), reverse("reset_request"),
+                             fetch_redirect_response=False)  # код бир марта ишлайди
+
+    def test_wrong_code_limited(self):
+        self.client.post(reverse("reset_request"), {"email": "ali@mail.uz"})
+        code, _ = self._code()
+        wrong = "000000" if code != "000000" else "111111"
+        r = self.client.post(reverse("reset_code"), {"code": wrong})
+        self.assertContains(r, "Код нотўғри. Яна 4 марта")
+        for _ in range(4):
+            r = self.client.post(reverse("reset_code"), {"code": wrong})
+        self.assertContains(r, "Код эскирди ёки кўп марта хато")
+        r = self.client.post(reverse("reset_code"), {"code": code})  # тўғриси ҳам энди ишламайди
+        self.assertContains(r, "Код эскирди")
+
+    def test_unknown_email_code_never_works(self):
+        self.client.post(reverse("reset_request"), {"email": "yoq@mail.uz"})
+        self.assertEqual(len(mail.outbox), 0)
+        r = self.client.post(reverse("reset_code"), {"code": "123456"})
+        self.assertContains(r, "Код нотўғри")
+
+    def test_password_fields_have_meter_and_match(self):
+        page = self.client.get(reverse("register"))
+        self.assertContains(page, 'data-meter="10"')
+        self.assertContains(page, 'data-match="id_password1"')
+        self.assertContains(page, "js/password.js")

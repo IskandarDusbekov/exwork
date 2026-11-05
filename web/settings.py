@@ -241,22 +241,15 @@ LOGGING = {
 }
 
 # ===================== email (паролни тиклаш) =====================
-# EMAIL_HOST берилса — SMTP; бўлмаса хатлар консолга чиқади (фақат ишлаб чиқиш учун). Django 6.1+: MAILERS
+# SMTP созламалари — панел «Почта» бўлимида (базада, пароль шифрланган) ёки шу ердаги .env да:
+# EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, EMAIL_USE_TLS / EMAIL_USE_SSL. Иккаласида ҳам
+# сервер бўлмаса — хатлар консолга чиқади (ишлаб чиқиш). panel.mail.PanelMailBackend ҳар сафар қайта ўқийди.
 _email_host = os.environ.get("EMAIL_HOST", "")
-NARXLASH_EMAIL_ON = bool(_email_host)  # панел «Созламалар» да кўринади
-MAILERS = {"default": {
-    "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
-    "OPTIONS": {
-        "host": _email_host,
-        "port": int(os.environ.get("EMAIL_PORT", "587")),
-        "username": os.environ.get("EMAIL_HOST_USER", ""),
-        "password": os.environ.get("EMAIL_HOST_PASSWORD", ""),
-        "use_tls": os.environ.get("EMAIL_USE_TLS", "1") == "1",
-        "timeout": 15,
-    },
-} if _email_host else {"BACKEND": "django.core.mail.backends.console.EmailBackend"}}
+NARXLASH_EMAIL_ON = bool(_email_host)  # фақат .env ҳақида; ҳақиқий ҳолат — panel.mail.configured()
+MAILERS = {"default": {"BACKEND": "panel.mail.PanelMailBackend", "OPTIONS": {}}}
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "mhisobot <noreply@localhost>")
 PASSWORD_RESET_TIMEOUT = 2 * 3600  # ҳавола 2 соат амал қилади
+PASSWORD_RESET_CODE_MINUTES = 15  # хатдаги 6 рақамли код (шу браузерда киритилади)
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "web" / "static"]  # css/app.css — frontend/ да йиғилади (npm run build)

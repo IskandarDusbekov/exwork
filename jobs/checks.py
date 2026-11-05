@@ -3,6 +3,14 @@ from django.conf import settings
 from django.core.checks import Warning, register
 
 
+def _mail_configured():
+    try:
+        from panel.mail import configured
+        return configured()
+    except Exception:  # noqa: BLE001 — база ҳали йўқ (migrate'дан олдин)
+        return bool(getattr(settings, "NARXLASH_EMAIL_ON", False))
+
+
 @register("narxlash", deploy=True)
 def production_infra(app_configs, **kwargs):
     out = []
@@ -14,9 +22,9 @@ def production_infra(app_configs, **kwargs):
     if getattr(settings, "NARXLASH_TASKS", "thread") != "worker":
         out.append(Warning("Fondagi ishlar sayt jarayonida (thread)", hint="NARXLASH_TASKS=worker va "
                            "alohida ``manage.py run_worker`` ishga tushiring", id="narxlash.W003"))
-    if getattr(settings, "MAILERS", {}).get("default", {}).get("BACKEND", "").endswith("console.EmailBackend"):
+    if not _mail_configured():
         out.append(Warning("Email (SMTP) sozlanmagan: parolni tiklash xatlari yuborilmaydi (faqat konsolga chiqadi)",
-                           hint="EMAIL_HOST, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, DEFAULT_FROM_EMAIL o'rnating",
+                           hint="Panel «Почта» bo'limida yoki .env da EMAIL_HOST, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD",
                            id="narxlash.W005"))
     if not getattr(settings, "NARXLASH_TRUST_PROXY", 0):
         out.append(Warning("NARXLASH_TRUST_PROXY=0: sayt proksi (nginx, Cloudflare) ortida bo'lsa, hamma foydalanuvchi "

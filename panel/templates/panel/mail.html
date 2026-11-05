@@ -1,0 +1,135 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Почта — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<div class="mb-5">
+  <h1 class="text-2xl font-semibold">Почта (SMTP)</h1>
+  <p class="text-sm text-slate-500">Паролни тиклаш хатлари шу почта орқали кетади. Шу ерда ёзилгани дарҳол ишлайди — сервер қайта ишга туширилмайди.
+    Пароль базада шифрланган ҳолда сақланади ва бу ерда кўрсатилмайди.</p>
+</div>
+{% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-700{% endif %}" role="status">{{ m }}</div>{% endfor %}
+
+{# ======= ҳолат ======= #}
+<section class="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border px-4 py-3 shadow-sm
+  {% if cfg.source == 'none' %}border-amber-200 bg-amber-50{% elif cfg.password_broken %}border-rose-200 bg-rose-50{% else %}border-emerald-200 bg-emerald-50{% endif %}">
+  <span class="flex items-center gap-2 font-semibold {% if cfg.source == 'none' %}text-amber-800{% elif cfg.password_broken %}text-rose-700{% else %}text-emerald-800{% endif %}">
+    {% if cfg.source == 'none' %}{% icon "alert-circle" "h-5 w-5" %} Созланмаган — хатлар кетмайди
+    {% elif cfg.password_broken %}{% icon "alert-circle" "h-5 w-5" %} Сақланган пароль ўқилмади — қайта киритинг
+    {% else %}{% icon "check-circle" "h-5 w-5" %} Созланган{% endif %}</span>
+  {% if cfg.source != 'none' %}
+  <span class="text-sm text-slate-700">Манба: <b>{% if cfg.source == 'panel' %}панел{% else %}сервердаги .env{% endif %}</b></span>
+  <span class="text-sm text-slate-700">Сервер: <b class="font-mono">{{ cfg.host }}:{{ cfg.port }}</b></span>
+  <span class="text-sm text-slate-700">Кимдан: <b class="font-mono">{{ sender }}</b></span>
+  {% endif %}
+  {% if updated %}<span class="text-xs text-slate-500">ўзгартирилди {{ updated|date:"d.m.Y H:i" }}{% if cfg.by %} · {{ cfg.by }}{% endif %}</span>{% endif %}
+</section>
+
+<div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+  <div class="min-w-0 space-y-4">
+    {# ======= созламалар ======= #}
+    <form method="post" action="{% url 'panel:mail_save' %}" class="rounded-xl border border-slate-200 bg-white shadow-sm" autocomplete="off" id="smtp-form">
+      {% csrf_token %}
+      <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
+        <h2 class="mr-auto font-semibold">SMTP созламалари</h2>
+        {% if can_act %}<span class="text-xs text-slate-500">Тайёр:</span>
+        {% for name, host, port, sec in presets %}<button type="button" class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-slate-50" data-preset="{{ host }}|{{ port }}|{{ sec }}">{{ name }}</button>{% endfor %}{% endif %}
+      </div>
+      <div class="grid gap-4 px-4 py-4 sm:grid-cols-[1fr_7rem]">
+        <label class="block"><span class="text-sm font-medium text-slate-800">SMTP сервер</span>
+          <input name="host" value="{% if cfg.source == 'panel' %}{{ cfg.host }}{% endif %}" placeholder="{% if cfg.source == 'env' %}{{ cfg.host }} (.env){% else %}smtp.gmail.com{% endif %}" {% if not can_act %}disabled{% endif %}
+                 class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-sm outline-none focus:border-slate-400" spellcheck="false"></label>
+        <label class="block"><span class="text-sm font-medium text-slate-800">Порт</span>
+          <input name="port" value="{% if cfg.source == 'panel' %}{{ cfg.port }}{% else %}587{% endif %}" inputmode="numeric" {% if not can_act %}disabled{% endif %}
+                 class="num mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:border-slate-400"></label>
+        <label class="block sm:col-span-2"><span class="text-sm font-medium text-slate-800">Шифрлаш</span>
+          <select name="security" {% if not can_act %}disabled{% endif %} class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm">
+            {% for k, label in security %}<option value="{{ k }}" {% if cfg.security == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select></label>
+        <label class="block sm:col-span-2"><span class="text-sm font-medium text-slate-800">Логин (почта манзили)</span>
+          <input name="username" value="{% if cfg.source == 'panel' %}{{ cfg.username }}{% endif %}" placeholder="{% if cfg.source == 'env' and cfg.username %}{{ cfg.username }} (.env){% else %}noreply@mhisobot.uz{% endif %}" {% if not can_act %}disabled{% endif %}
+                 autocomplete="off" spellcheck="false" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-sm outline-none focus:border-slate-400"></label>
+        <div class="sm:col-span-2">
+          <label class="block"><span class="text-sm font-medium text-slate-800">Пароль (илова пароли)</span>
+            <span class="relative mt-1 block">
+              <input type="password" name="password" id="smtp-pass" value="" autocomplete="new-password" spellcheck="false" {% if not can_act %}disabled{% endif %}
+                     placeholder="{% if has_password %}•••••••• сақланган — ўзгартириш учун янгисини ёзинг{% else %}пароль киритилмаган{% endif %}"
+                     class="w-full rounded-lg border border-slate-200 py-1.5 pl-3 pr-10 font-mono text-sm outline-none focus:border-slate-400">
+              <button type="button" class="absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700" data-eye="smtp-pass" aria-label="Киритилаётган паролни кўрсатиш">{% icon "eye" "h-4 w-4" %}</button>
+            </span></label>
+          <p class="mt-1 text-xs text-slate-500">Бўш қолдирсангиз — эскиси сақланади. Gmail'да: Google ҳисоби → Хавфсизлик → икки босқичли текширув ёқилган бўлсин → «Илова пароллари» (App passwords) → 16 ҳарфли паролни шу ерга қўйинг.
+            Yandex / Mail.ru'да ҳам «пароль приложения».</p>
+          {% if can_act %}<div class="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-600">
+            <label class="inline-flex items-center gap-1.5"><input type="checkbox" name="strip_spaces" value="1" checked class="h-3.5 w-3.5 rounded border-slate-300"> бўш жойларни олиб ташлаш («abcd efgh …»)</label>
+            {% if has_password and cfg.source == 'panel' %}<label class="inline-flex items-center gap-1.5 text-rose-700"><input type="checkbox" name="clear_password" value="1" class="h-3.5 w-3.5 rounded border-slate-300"> сақланган паролни ўчириш</label>{% endif %}
+          </div>{% endif %}
+        </div>
+        <label class="block"><span class="text-sm font-medium text-slate-800">Кимдан (манзил)</span>
+          <input name="from_email" value="{% if cfg.source == 'panel' %}{{ cfg.from_email }}{% endif %}" placeholder="бўш — логин билан бир хил" {% if not can_act %}disabled{% endif %}
+                 spellcheck="false" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-sm outline-none focus:border-slate-400"></label>
+        <label class="block"><span class="text-sm font-medium text-slate-800">Кимдан (ном)</span>
+          <input name="from_name" value="{% if cfg.source == 'panel' %}{{ cfg.from_name }}{% endif %}" placeholder="mhisobot" {% if not can_act %}disabled{% endif %}
+                 class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:border-slate-400"></label>
+      </div>
+      {% if can_act %}<div class="flex flex-wrap items-center gap-3 border-t border-slate-100 px-4 py-3">
+        <button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Сақлаш</button>
+        {% if cfg.source == 'panel' %}<button form="smtp-env" class="text-sm text-slate-500 hover:text-rose-700 hover:underline">Панел созламаларини ўчириш</button>{% endif %}
+      </div>{% else %}<p class="border-t border-slate-100 px-4 py-3 text-sm text-slate-500">Ўзгартириш — фақат суперфойдаланувчи.</p>{% endif %}
+    </form>
+
+    {% if can_act and cfg.source == 'panel' %}<form id="smtp-env" method="post" action="{% url 'panel:mail_save' %}" hidden
+      data-confirm="Панелдаги почта созламалари ўчирилади ва сервердаги .env ишлатилади (у ҳам бўш бўлса — хатлар кетмайди)."
+      data-confirm-title="Почта созламалари" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}<input type="hidden" name="action" value="env"></form>{% endif %}
+
+    {# ======= синов ======= #}
+    {% if can_act %}
+    <form method="post" action="{% url 'panel:mail_test' %}" class="rounded-xl border border-slate-200 bg-white shadow-sm" data-busy>
+      {% csrf_token %}
+      <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Синов хати</h2>
+        <p class="text-xs text-slate-500">Ўнгдаги хатнинг ўзи («[синов]» белгиси билан) юборилади. Хато бўлса — сабаби шу ерда кўринади.</p></div>
+      <div class="flex flex-wrap items-center gap-2 px-4 py-3">
+        <input name="to" type="email" value="{{ me }}" class="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-sm outline-none focus:border-slate-400" aria-label="Кимга">
+        <button class="rounded-lg border border-slate-300 bg-white px-4 py-1.5 text-sm font-medium hover:bg-slate-50" {% if cfg.source == 'none' %}disabled title="Аввал SMTP'ни сақланг"{% endif %}>Юбориш</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+
+  {# ======= хат кўриниши ======= #}
+  <section class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3">
+      <h2 class="font-semibold">Фойдаланувчига борадиган хат</h2>
+      <p class="text-xs text-slate-500">«Паролни тиклаш»да шу хат кетади. Мавзу: <b class="text-slate-700">{{ subject }}</b></p>
+    </div>
+    <iframe src="{% url 'panel:mail_preview' %}" title="Хат кўриниши" class="block h-[44rem] w-full border-0 bg-slate-100"></iframe>
+    <details class="border-t border-slate-100">
+      <summary class="cursor-pointer px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Оддий матн кўриниши (HTML кўрсатмайдиган почталар учун)</summary>
+      <pre class="overflow-x-auto whitespace-pre-wrap px-4 pb-4 font-mono text-xs leading-relaxed text-slate-700">{{ text }}</pre>
+    </details>
+  </section>
+</div>
+
+<script>
+(function () {
+  const f = document.getElementById("smtp-form");
+  document.querySelectorAll("[data-preset]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      const p = b.dataset.preset.split("|");
+      f.elements.host.value = p[0]; f.elements.port.value = p[1]; f.elements.security.value = p[2];
+      f.elements.username.focus();
+    });
+  });
+  f.elements.security.addEventListener("change", function () {
+    const port = f.elements.port;
+    if (this.value === "ssl" && port.value === "587") port.value = "465";
+    if (this.value === "tls" && port.value === "465") port.value = "587";
+  });
+  document.querySelectorAll("[data-eye]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      const i = document.getElementById(b.dataset.eye);
+      i.type = i.type === "password" ? "text" : "password";
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -37,6 +37,28 @@
     .f.has-err .fld { border-color: var(--bad); }
     .f-e { margin-top: 7px; font-size: 13px; color: var(--bad); }
     .f-h { margin-top: 7px; font-size: 13px; color: var(--mute); }
+    /* парол: кўз тугмаси, узунлик кўрсаткичи, мослиги (static/js/password.js) */
+    .pw-wrap { position: relative; }
+    .pw-wrap .fld { padding-right: 52px; }
+    .pw-eye { position: absolute; right: 4px; top: 4px; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 2px;
+              background: transparent; color: var(--mute); cursor: var(--cur-hand, pointer); }
+    .pw-eye:hover { color: var(--ink); background: #f1f3f5; }
+    .pw-eye[aria-pressed="true"] { color: var(--acc); }
+    .pw-eye svg { width: 20px; height: 20px; }
+    .pw-meter { margin-top: 9px; }
+    .pw-bar { height: 5px; background: #e6e9ed; border-radius: 3px; overflow: hidden; }
+    .pw-bar span { display: block; height: 100%; width: 0; background: #d97706; border-radius: 3px; transition: width .15s, background .15s; }
+    .pw-meter[data-level="1"] .pw-bar span { background: #d97706; }
+    .pw-meter[data-level="2"] .pw-bar span { background: #16a34a; }
+    .pw-meter[data-level="3"] .pw-bar span { background: var(--acc); }
+    .pw-txt { display: flex; justify-content: space-between; gap: 12px; margin-top: 6px; font: 500 12.5px var(--fm); color: var(--mute); }
+    .pw-txt b { font-weight: 600; color: var(--ink-2); }
+    .pw-meter[data-level="0"] .pw-txt b { color: #b45309; }
+    .pw-meter[data-level="2"] .pw-txt b, .pw-meter[data-level="3"] .pw-txt b { color: var(--acc); }
+    .pw-meter.is-empty .pw-txt span { visibility: hidden; }
+    .pw-match { margin-top: 7px; font: 500 12.5px var(--fm); }
+    .pw-match[data-ok="1"] { color: var(--acc); } .pw-match[data-ok="0"] { color: #b45309; }
+    .code-fld { height: 60px; text-align: center; font: 600 30px/1 var(--fm); letter-spacing: .3em; }
     .auth .btn-p { width: 100%; margin-top: 4px; }
     .auth-go { margin-top: 28px; }
     .msg { margin-top: 24px; padding: 12px 14px; border-left: 3px solid; font-size: 14.5px; line-height: 1.55; }
@@ -95,6 +117,7 @@
   </aside>
 </div>
 <script src="{% static 'js/build.js' %}"></script>
+<script src="{% static 'js/password.js' %}"></script>
 <script>
   (function () {
     var svg = document.querySelector(".auth-art .bscene"), btn = document.querySelector(".auth-replay");

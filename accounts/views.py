@@ -1,13 +1,13 @@
+import secrets
 import time
+from hmac import compare_digest as hmac_equal
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_not_required
 from django.contrib.auth.tokens import default_token_generator
-from django.core.mail import send_mail
 from django.shortcuts import redirect, render
-from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import url_has_allowed_host_and_scheme, urlsafe_base64_decode, urlsafe_base64_encode
@@ -19,6 +19,7 @@ from panel.audit import log as audit
 from panel.models import Event
 
 from . import throttle, totp
+from .emails import send_reset
 from .forms import LoginForm, RegisterForm, ResetRequestForm, SetPasswordForm
 from .models import AuthAttempt, TwoFactor, User, normalize_email
 
@@ -190,6 +191,17 @@ def logout_view(request):
 # Ҳавола PASSWORD_RESET_TIMEOUT ичида ва фақат бир марта ишлайди (пароль ўзгаргач токен эскиради).
 RESET_SESSION_TOKEN = "_reset_token"
 RESET_URL_TOKEN = "set-password"
+# Хатда ҳавола билан бирга 6 рақамли код: шу браузерда «Паролни тиклаш» саҳифасига киритилади. Код сессияда
+# (фақат HMAC'и) сақланади; 5 марта хато — бекор. Ҳисоб йўқ бўлса ҳам сессияга сохта ёзув қўйилади —
+# код саҳифаси бир хил ишлайди ва ҳисоб бор-йўқлиги билинмайди.
+RESET_CODE = "_reset_code"
+RESET_CODE_TRIES = 5
+
+
+def _code_hash(code):
+    import hashlib
+    import hmac
+    return hmac.new(settings.SECRET_KEY.encode(), ("reset-code:" + code).encode(), hashlib.sha256).hexdigest()
 
 
 @login_not_required
@@ -205,18 +217,49 @@ def reset_request_view(request):
         else:
             throttle.record(request, AuthAttempt.Kind.RESET, email)
             user = User.objects.filter(email=email, is_active=True).first()
+            entry = {"uid": "", "token": "", "hash": _code_hash(secrets.token_hex(8)), "tries": 0,
+                     "exp": int(time.time()) + settings.PASSWORD_RESET_CODE_MINUTES * 60, "email": email}
             if user is not None and user.has_usable_password():
-                _send_reset(request, user)
-            return render(request, "accounts/reset_request.html", {"sent": True, "email": email})
+                entry.update(_send_reset(request, user))
+            request.session[RESET_CODE] = entry
+            return redirect("reset_code")
     return render(request, "accounts/reset_request.html", {"form": form, "error": error})
 
 
-def _send_reset(request, user):
+def _send_reset(request, user) -> dict:
+    """Хат юборади; қайтади: сессияга ёзиладиган {uid, token, hash}."""
     uid = urlsafe_base64_encode(force_bytes(user.pk))
-    link = request.build_absolute_uri(reverse("reset_confirm", args=[uid, default_token_generator.make_token(user)]))
-    ctx = {"user": user, "link": link, "hours": settings.PASSWORD_RESET_TIMEOUT // 3600}
-    send_mail("mhisobot: паролни тиклаш", render_to_string("accounts/reset_email.txt", ctx),
-              settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
+    token = default_token_generator.make_token(user)
+    link = request.build_absolute_uri(reverse("reset_confirm", args=[uid, token]))
+    code = f"{secrets.randbelow(10 ** 6):06d}"
+    send_reset(request.build_absolute_uri("/"), user, code, link)
+    return {"uid": uid, "token": token, "hash": _code_hash(code)}
+
+
+@login_not_required
+@never_cache
+@require_http_methods(["GET", "POST"])
+def reset_code_view(request):
+    """Хатдаги кодни киритиш. Тўғри бўлса — янги пароль саҳифаси (ҳаволадаги каби)."""
+    entry = request.session.get(RESET_CODE)
+    if not entry:
+        return redirect("reset_request")
+    expired = entry["exp"] < time.time() or entry["tries"] >= RESET_CODE_TRIES
+    error = None
+    if request.method == "POST" and not expired:
+        code = "".join(ch for ch in request.POST.get("code", "") if ch.isdigit())
+        if entry["uid"] and len(code) == 6 and hmac_equal(_code_hash(code), entry["hash"]):
+            request.session.pop(RESET_CODE, None)
+            request.session[RESET_SESSION_TOKEN] = entry["token"]
+            return redirect("reset_confirm", uidb64=entry["uid"], token=RESET_URL_TOKEN)
+        entry["tries"] += 1
+        request.session[RESET_CODE] = entry
+        left = RESET_CODE_TRIES - entry["tries"]
+        expired = left <= 0
+        error = f"Код нотўғри. Яна {left} марта уриниш мумкин." if left > 0 else None
+    return render(request, "accounts/reset_request.html", {
+        "sent": True, "email": entry["email"], "error": error, "expired": expired,
+        "minutes": settings.PASSWORD_RESET_CODE_MINUTES})
 
 
 def _reset_user(uidb64):

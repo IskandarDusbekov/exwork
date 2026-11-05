@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_access, views_base, views_base_usage, views_seo, views_settings, views_tn
+from . import views, views_access, views_base, views_base_usage, views_mail, views_seo, views_settings, views_tn
 
 app_name = "panel"
 
@@ -28,6 +28,10 @@ urlpatterns = [
     path("settings/", views_settings.settings_page, name="settings"),
     path("settings/save/", views_settings.settings_save, name="settings_save"),
     path("seo/", views_seo.seo_page, name="seo"),
+    path("mail/", views_mail.mail_page, name="mail"),
+    path("mail/preview/", views_mail.mail_preview, name="mail_preview"),
+    path("mail/save/", views_mail.mail_save, name="mail_save"),
+    path("mail/test/", views_mail.mail_test, name="mail_test"),
     path("seo/save/", views_seo.seo_save, name="seo_save"),
     path("users/<int:pk>/quota/", views_settings.user_quota, name="user_quota"),
     path("backups/", views_settings.backups, name="backups"),

@@ -4,18 +4,31 @@
 <p class="auth-k">Парол</p>
 <h1>Паролни тиклаш</h1>
 {% if sent %}
-<div class="msg msg-ok" role="status">
-  Агар <b>{{ email }}</b> билан ҳисоб бўлса, унга паролни тиклаш ҳаволаси юборилди. Почтангизни (ва «Спам» папкасини) текширинг.
-  Ҳавола 2 соат амал қилади.
-</div>
-<div class="auth-go"><a href="{% url 'login' %}" class="btn btn-p">Киришга қайтиш</a></div>
+  {% if expired %}
+  <div class="msg msg-err" role="alert">Код эскирди ёки кўп марта хато киритилди. Янги код сўранг.</div>
+  <div class="auth-go"><a href="{% url 'reset_request' %}" class="btn btn-p">Янги код сўраш</a></div>
+  {% else %}
+  <p class="auth-sub">Агар <b>{{ email }}</b> билан ҳисоб бўлса, унга 6 рақамли код ва ҳавола юборилди. Почтангизни (ва «Спам» папкасини) текширинг.</p>
+  {% if error %}<div class="msg msg-err" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="{% url 'reset_code' %}" novalidate>
+    {% csrf_token %}
+    <div class="f">
+      <label class="f-l" for="id_code"><span>Хатдаги код</span></label>
+      <input id="id_code" name="code" class="fld code-fld" inputmode="numeric" autocomplete="one-time-code" maxlength="7"
+             pattern="[0-9 ]*" placeholder="000 000" required autofocus>
+      <p class="f-h">Код {{ minutes }} дақиқа амал қилади. Хатдаги «Янги пароль қўйиш» тугмаси ҳам ишлайди — бошқа қурилмадан бўлса, шуни босинг.</p>
+    </div>
+    <button type="submit" class="btn btn-p">Давом этиш</button>
+  </form>
+  <p class="auth-alt">Хат келмадими? <a href="{% url 'reset_request' %}">Қайта юбориш</a> · <a href="{% url 'login' %}">Киришга қайтиш</a></p>
+  {% endif %}
 {% else %}
-<p class="auth-sub">Ҳисобингиз email'ини киритинг — паролни тиклаш ҳаволасини юборамиз.</p>
+<p class="auth-sub">Ҳисобингиз email'ини киритинг — 6 рақамли код ва ҳавола юборамиз.</p>
 {% if error %}<div class="msg msg-err" role="alert">{{ error }}</div>{% endif %}
 <form method="post" novalidate>
   {% csrf_token %}
   {% include "accounts/_field.html" with field=form.email %}
-  <button type="submit" class="btn btn-p">Ҳавола юбориш</button>
+  <button type="submit" class="btn btn-p">Код юбориш</button>
 </form>
 <p class="auth-alt"><a href="{% url 'login' %}">Киришга қайтиш</a></p>
 {% endif %}

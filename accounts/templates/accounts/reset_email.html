@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Паролни тиклаш коди</title>
+</head>
+<body style="margin:0; padding:0; background:#eef1f4; -webkit-text-size-adjust:100%;">
+<div style="display:none; max-height:0; overflow:hidden; opacity:0;">Тасдиқлаш коди: {{ code_pretty }} — {{ minutes }} дақиқа амал қилади.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef1f4;">
+  <tr><td align="center" style="padding:32px 12px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px; background:#ffffff; border:1px solid #d6dbe1; border-radius:6px;">
+      <!-- бош қисм -->
+      <tr><td style="padding:24px 32px; border-bottom:1px solid #e6e9ed;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="padding-right:12px;"><img src="{{ logo }}" width="40" height="40" alt="mhisobot" style="display:block; border:0; border-radius:6px;"></td>
+          <td style="font-family:'Segoe UI',Arial,sans-serif; line-height:1.2;">
+            <div style="font-size:19px; font-weight:700; color:#0d1522;">mhisobot</div>
+            <div style="font-family:Consolas,'Courier New',monospace; font-size:11px; letter-spacing:1px; color:#6b7686; text-transform:uppercase;">муҳандис ҳисобот</div>
+          </td>
+        </tr></table>
+      </td></tr>
+      <!-- матн -->
+      <tr><td style="padding:32px 32px 8px; font-family:'Segoe UI',Arial,sans-serif; color:#0d1522;">
+        <h1 style="margin:0 0 12px; font-size:24px; line-height:1.25; font-weight:700;">Паролни тиклаш</h1>
+        <p style="margin:0; font-size:17px; line-height:1.6; color:#3a4555;">Ассалому алайкум, {{ name }}! mhisobot тизимида паролингизни тиклаш сўралди. Тасдиқлаш коди:</p>
+      </td></tr>
+      <!-- код -->
+      <tr><td align="center" style="padding:20px 32px 8px;">
+        <div style="display:inline-block; padding:18px 30px; background:#e4f3eb; border:2px solid #0c7a4c; border-radius:6px; font-family:Consolas,'Courier New',monospace; font-size:42px; line-height:1; font-weight:700; letter-spacing:8px; color:#0a5b39;">{{ code_pretty }}</div>
+        <p style="margin:12px 0 0; font-family:'Segoe UI',Arial,sans-serif; font-size:15px; color:#6b7686;">Кодни «Паролни тиклаш» саҳифасига киритинг · {{ minutes }} дақиқа амал қилади</p>
+      </td></tr>
+      <!-- тугма -->
+      <tr><td style="padding:28px 32px 8px; font-family:'Segoe UI',Arial,sans-serif;">
+        <p style="margin:0 0 14px; font-size:16px; line-height:1.6; color:#3a4555;">Ёки бошқа қурилмадан бўлса — тугмани босиб, дарров янги пароль қўйинг:</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="background:#0d1522; border-radius:4px;">
+          <a href="{{ link }}" style="display:inline-block; padding:14px 26px; font-family:'Segoe UI',Arial,sans-serif; font-size:16px; font-weight:600; color:#ffffff; text-decoration:none;">Янги пароль қўйиш</a>
+        </td></tr></table>
+        <p style="margin:14px 0 0; font-size:13px; line-height:1.55; color:#6b7686;">Тугма ишламаса, ҳаволани нусхалаб браузерга қўйинг ({{ hours }} соат амал қилади, бир марта ишлайди):<br>
+          <a href="{{ link }}" style="color:#0c7a4c; word-break:break-all;">{{ link }}</a></p>
+      </td></tr>
+      <!-- огоҳлантириш -->
+      <tr><td style="padding:24px 32px 32px; font-family:'Segoe UI',Arial,sans-serif;">
+        <div style="padding:14px 16px; background:#f6f7f9; border-left:3px solid #c8cfd8; font-size:14px; line-height:1.6; color:#3a4555;">
+          Буни сиз сўрамаган бўлсангиз — хатни эътиборсиз қолдиринг, паролингиз ўзгармайди.<br>
+          <b>Кодни ҳеч кимга айтманг</b> — mhisobot ходимлари ҳам уни сўрамайди.
+        </div>
+      </td></tr>
+    </table>
+    <p style="margin:16px 0 0; font-family:Consolas,'Courier New',monospace; font-size:12px; color:#8a929d;">mhisobot · <a href="{{ base }}" style="color:#8a929d;">{{ site }}</a></p>
+  </td></tr>
+</table>
+</body>
+</html>

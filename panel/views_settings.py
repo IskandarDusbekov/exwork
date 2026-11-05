@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 from accounts import totp
 from accounts.models import TwoFactor
 
-from . import backup, conf
+from . import backup, conf, mail
 from .audit import log as audit
 from .data import dir_size
 from .models import Event
@@ -42,8 +42,8 @@ def settings_page(request):
         ("Ишлаб чиқиш режими (DEBUG)", "ёқилган" if settings.DEBUG else "ўчирилган", settings.DEBUG, "DJANGO_DEBUG"),
         ("База", connection.vendor, connection.vendor != "postgresql" and not settings.DEBUG, "DATABASE_URL"),
         ("Фондаги ишлар", "алоҳида worker" if settings.NARXLASH_TASKS == "worker" else "сайт ичида", False, "NARXLASH_TASKS"),
-        ("Хат юбориш (email, паролни тиклаш)", "созланган" if settings.NARXLASH_EMAIL_ON else "созланмаган — хатлар кетмайди",
-         not settings.NARXLASH_EMAIL_ON and not settings.DEBUG, "EMAIL_HOST"),
+        ("Хат юбориш (email, паролни тиклаш)", "созланган" if mail.configured() else "созланмаган — «Почта» бўлимида созланг",
+         not mail.configured() and not settings.DEBUG, "панел «Почта» / EMAIL_HOST"),
         ("Сессия муддати", f"{settings.SESSION_COOKIE_AGE // 86400} кун", False, "—"),
     ]
     return render(request, "panel/settings.html", _ctx(request, "settings", groups=groups, fixed=fixed))

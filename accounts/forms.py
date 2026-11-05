@@ -31,6 +31,23 @@ def _attrs(**extra):
     return {"class": INPUT, **extra}
 
 
+def min_length() -> int:
+    """Пароль камида неча белги (Django валидатори) — саҳифадаги кўрсаткич учун."""
+    from django.conf import settings
+    for v in settings.AUTH_PASSWORD_VALIDATORS:
+        if v["NAME"].endswith("MinimumLengthValidator"):
+            return int(v.get("OPTIONS", {}).get("min_length", 8))
+    return 8
+
+
+def _new_pw(**extra):
+    return _attrs(autocomplete="new-password", **{"data-meter": min_length()}, **extra)
+
+
+def _repeat_pw():
+    return _attrs(autocomplete="new-password", **{"data-match": "id_password1"})
+
+
 class LoginForm(forms.Form):
     email = forms.EmailField(label="Email", max_length=254,
                              widget=forms.EmailInput(attrs=_attrs(autocomplete="email", autofocus=True,
@@ -51,9 +68,9 @@ class ResetRequestForm(forms.Form):
 
 class SetPasswordForm(forms.Form):
     password1 = forms.CharField(label="Янги пароль", max_length=128, strip=False,
-                                widget=forms.PasswordInput(attrs=_attrs(autocomplete="new-password", autofocus=True)))
+                                widget=forms.PasswordInput(attrs=_new_pw(autofocus=True)))
     password2 = forms.CharField(label="Паролни такрорланг", max_length=128, strip=False,
-                                widget=forms.PasswordInput(attrs=_attrs(autocomplete="new-password")))
+                                widget=forms.PasswordInput(attrs=_repeat_pw()))
 
     def __init__(self, user, *args, **kwargs):
         self.user = user
@@ -80,9 +97,9 @@ class RegisterForm(forms.Form):
     email = forms.EmailField(label="Email", max_length=254,
                              widget=forms.EmailInput(attrs=_attrs(autocomplete="email", placeholder="name@mail.uz")))
     password1 = forms.CharField(label="Пароль", max_length=128, strip=False,
-                                widget=forms.PasswordInput(attrs=_attrs(autocomplete="new-password")))
+                                widget=forms.PasswordInput(attrs=_new_pw()))
     password2 = forms.CharField(label="Паролни такрорланг", max_length=128, strip=False,
-                                widget=forms.PasswordInput(attrs=_attrs(autocomplete="new-password")))
+                                widget=forms.PasswordInput(attrs=_repeat_pw()))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
