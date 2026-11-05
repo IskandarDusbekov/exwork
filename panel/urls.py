@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_access, views_base, views_base_usage, views_settings, views_tn
+from . import views, views_access, views_base, views_base_usage, views_seo, views_settings, views_tn
 
 app_name = "panel"
 
@@ -27,6 +27,8 @@ urlpatterns = [
     path("processes/", views.processes, name="processes"),
     path("settings/", views_settings.settings_page, name="settings"),
     path("settings/save/", views_settings.settings_save, name="settings_save"),
+    path("seo/", views_seo.seo_page, name="seo"),
+    path("seo/save/", views_seo.seo_save, name="seo_save"),
     path("users/<int:pk>/quota/", views_settings.user_quota, name="user_quota"),
     path("backups/", views_settings.backups, name="backups"),
     path("backups/make/", views_settings.backup_make, name="backup_make"),

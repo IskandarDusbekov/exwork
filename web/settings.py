@@ -174,11 +174,14 @@ from django.utils.csp import CSP  # noqa: E402
 
 SECURE_CSP = {
     "default-src": [CSP.SELF],
-    "script-src": [CSP.SELF, CSP.UNSAFE_INLINE],
+    # googletagmanager / mc.yandex.ru — панел «SEO» да аналитика ёқилса (фақат очиқ саҳифаларда уланади)
+    "script-src": [CSP.SELF, CSP.UNSAFE_INLINE, "https://www.googletagmanager.com", "https://mc.yandex.ru"],
     "style-src": [CSP.SELF, CSP.UNSAFE_INLINE, "https://fonts.googleapis.com"],
     "font-src": [CSP.SELF, "https://fonts.gstatic.com", "data:"],
-    "img-src": [CSP.SELF, "data:", "blob:"],
-    "connect-src": [CSP.SELF],
+    "img-src": [CSP.SELF, "data:", "blob:", "https://*.google-analytics.com", "https://www.googletagmanager.com",
+                "https://mc.yandex.ru"],
+    "connect-src": [CSP.SELF, "https://*.google-analytics.com", "https://*.analytics.google.com",
+                    "https://www.googletagmanager.com", "https://mc.yandex.ru", "https://mc.yandex.com"],
     "object-src": [CSP.NONE],
     "base-uri": [CSP.SELF],
     "form-action": [CSP.SELF],

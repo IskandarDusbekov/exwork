@@ -1,0 +1,29 @@
+{# panel.templatetags.seo.seo_head — очиқ саҳифалар учун; қийматлар панел «SEO» бўлимидан #}
+{% if title_tag %}<title>{{ title }}</title>{% endif %}
+  <meta name="description" content="{{ v.description }}">
+  {% if v.keywords %}<meta name="keywords" content="{{ v.keywords }}">{% endif %}
+  <meta name="robots" content="{% if v.index %}index, follow, max-image-preview:large{% else %}noindex, nofollow{% endif %}">
+  <link rel="canonical" href="{{ url }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ v.site_name }}">
+  <meta property="og:title" content="{{ title }}">
+  <meta property="og:description" content="{{ v.description }}">
+  <meta property="og:url" content="{{ url }}">
+  <meta property="og:locale" content="uz_UZ">
+  {% if image %}<meta property="og:image" content="{{ image }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="{{ image }}">{% else %}<meta name="twitter:card" content="summary">{% endif %}
+  <meta name="twitter:title" content="{{ title }}">
+  <meta name="twitter:description" content="{{ v.description }}">
+  {% if v.google %}<meta name="google-site-verification" content="{{ v.google }}">{% endif %}
+  {% if v.yandex %}<meta name="yandex-verification" content="{{ v.yandex }}">{% endif %}
+  {% if v.bing %}<meta name="msvalidate.01" content="{{ v.bing }}">{% endif %}
+  <script type="application/ld+json">{{ ld }}</script>
+  {% if analytics and v.ga %}<script async src="https://www.googletagmanager.com/gtag/js?id={{ v.ga }}"></script>
+  <script>window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag("js", new Date()); gtag("config", "{{ v.ga }}");</script>{% endif %}
+  {% if analytics and v.metrika %}<script>
+    (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();
+    k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+    (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+    ym({{ v.metrika }}, "init", {clickmap: true, trackLinks: true, accurateTrackBounce: true});
+  </script><noscript><div><img src="https://mc.yandex.ru/watch/{{ v.metrika }}" style="position:absolute; left:-9999px;" alt=""></div></noscript>{% endif %}
