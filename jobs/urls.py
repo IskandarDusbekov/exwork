@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import views, views_ofyorta
 
 urlpatterns = [
     path("", views.index, name="index"),
@@ -19,6 +19,10 @@ urlpatterns = [
     path("folder/<uuid:project_id>/resume/", views.project_resume, name="project_resume"),
     path("folder/<uuid:project_id>/download/", views.project_download, name="project_download"),
     path("folder/<uuid:project_id>/viewer/<uuid:batch_id>/", views.project_viewer, name="project_viewer"),
+    path("folder/<uuid:project_id>/ofyorta/", views_ofyorta.ofyorta_page, name="project_ofyorta"),
+    path("folder/<uuid:project_id>/ofyorta/save/", views_ofyorta.ofyorta_save, name="project_ofyorta_save"),
+    path("folder/<uuid:project_id>/ofyorta/state/", views_ofyorta.ofyorta_state, name="project_ofyorta_state"),
+    path("folder/<uuid:project_id>/ofyorta/file/", views_ofyorta.ofyorta_file, name="project_ofyorta_file"),
     path("object/<uuid:batch_id>/", views.batch_detail, name="batch"),
     path("object/<uuid:batch_id>/sheet/", views.batch_sheet, name="batch_sheet"),
     path("object/<uuid:batch_id>/pair-preview/", views.batch_pair_preview, name="batch_pair_preview"),
@@ -28,6 +32,7 @@ urlpatterns = [
     path("object/<uuid:batch_id>/confirm/", views.batch_confirm, name="batch_confirm"),
     path("object/<uuid:batch_id>/download/", views.batch_download, name="batch_download"),
     path("job/<uuid:job_id>/run/", views.job_run, name="job_run"),
+    path("job/<uuid:job_id>/reprice/", views.job_reprice, name="job_reprice"),
     path("job/<uuid:job_id>/base/", views.job_base, name="job_base"),
     path("base-period/", views.base_period, name="base_period"),
     path("nf-mode/", views.nf_mode, name="nf_mode"),

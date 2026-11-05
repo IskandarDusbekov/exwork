@@ -41,7 +41,7 @@ def test_run_sample(sample_files, tmp_path):
     s, sm = result.svodka_start, result.sum_row
     assert ws[f"H{sm}"].value == f"=SUM(H{result.start_row}:H{result.end_row})"
     assert ws[f"Q{sm}"].value == f"=SUM(Q{result.start_row}:Q{result.end_row})"
-    assert ws[f"C{s}"].value == "Зарплата" and ws[f"C{s}"].font.b
+    assert ws[f"C{s}"].value == "Затраты труда рабочих-строителей" and ws[f"C{s}"].font.b
     assert ws[f"C{s + 12}"].value == "Всего с НДС      12 %"
     assert ws[f"D{s + 9}"].value == 0.19 and ws[f"D{s + 9}"].number_format == "0.00%"
     assert ws[f"H{s + 12}"].value == f"=H{s + 11}*1.12"

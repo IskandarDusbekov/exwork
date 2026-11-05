@@ -13,7 +13,7 @@ from .writer import PERCENT_FMT, SheetWriter
 
 # (kalit, C ustundagi matn, D foiz yoki None)
 SVODKA_ROWS: List[Tuple[str, str, Optional[float]]] = [
-    ("zarplata", "Зарплата", None),
+    ("zarplata", "Затраты труда рабочих-строителей", None),
     ("mashina", "Эксплуата-ция машин и механизм", None),
     ("materialy", "Строитель-ные материалы и конструкции", None),
     ("transport_mat", "Трансп. услуги из мат.", 0.03),
@@ -29,6 +29,8 @@ SVODKA_ROWS: List[Tuple[str, str, Optional[float]]] = [
 ]
 
 # Standart foizlar (eski dasturdagi). Smart rejimda o'zgartirish mumkin; kalit = svodka qatori.
+# аввал нархланган файлларда сводка биринчи қатори шундай эди (офёрта ва қайта ўқишда ҳам танилади)
+OLD_SVODKA_TEXTS = {"zarplata": ("Зарплата",)}
 DEFAULT_PERCENTS: Dict[str, float] = {key: pct for key, _text, pct in SVODKA_ROWS if pct is not None}
 PERCENT_LABELS: Dict[str, str] = {
     "transport_mat": "Трансп. услуги из мат.",

@@ -223,6 +223,8 @@ _BAD = ("ф-2", "ф2", "ф-3", "ф3", "остат", "хисобот", "ҳисо�
 
 
 _SVOD_NAME = re.compile(r"^(JAMI\b|ИТОГО\b|ВСЕГО\b|ЗАРПЛАТА|ЗАРАБОТНАЯ|QURUVCHI-ISHCHILAR|ISH\s*HAQQI|ИШ\s*ҲАҚИ)", re.I)
+# narxlash svodkasi endi «ЗАТРАТЫ ТРУДА РАБОЧИХ-СТРОИТЕЛЕЙ» deb yozadi; resurs qatoridan (ЧЕЛ.-Ч) farqi — birligi yo'q
+_SVOD_LABOUR = re.compile(r"^ЗАТРАТЫ\s+ТРУДА\s+РАБОЧИХ", re.I)
 _MANUAL = re.compile(r"\)\s*[-+]\s*\d|[A-Z]\$?\d+\s*[-+]\s*\d+(?:[.,]\d+)?\s*$", re.I)  # «SUM(…)+124,25», «…+H4573-1»
 _NUM = r"\d+(?:[.,]\d+)?(?:[eE][-+]?\d+)?"
 _CONST_PAREN = re.compile(rf"\)\s*[-+]\s*{_NUM}(?=\s*(?:[-+]|$))")  # «SUM(…)+124,25» (keyin * / , kelsa — tegilmaydi)
@@ -259,7 +261,7 @@ def svod_start(rows: List[tuple], lay: Layout, formulas: Optional[List[dict]] = 
         r = rows[i - 1]
         name = _text(r[lay.name]) if lay.name < len(r) else ""
         unit = _text(r[lay.unit]) if lay.unit < len(r) else ""
-        if name and _SVOD_NAME.match(name) and unit.upper() not in ("ЧЕЛ.-Ч", "ЧЕЛ-Ч.", "ЧЕЛ.-Ч.", "ЧЕЛ-Ч"):
+        if name and (_SVOD_NAME.match(name) or (_SVOD_LABOUR.match(name) and not unit)) and unit.upper() not in ("ЧЕЛ.-Ч", "ЧЕЛ-Ч.", "ЧЕЛ.-Ч.", "ЧЕЛ-Ч"):
             return i
     return None
 

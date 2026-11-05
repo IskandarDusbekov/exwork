@@ -972,6 +972,12 @@ def batch_replan(request, batch_id):
         cols = _parse_columns(request.POST, i)
         if cols:
             columns[s["key"]] = cols
+    if batch.project_id and any(not f.get("path") for f in batch.files):
+        from .folders import convert_files
+        try:
+            convert_files(batch, only_missing=True)  # аввал очилмай қолган файллар (таҳлил узилган бўлса)
+        except Exception as e:  # noqa: BLE001 — файл барибир очилмаса: қолганлари билан давом, сабаби саҳифада
+            messages.error(request, f"Баъзи файллар очилмади: {e}")
     analyze_batch(batch, roles, columns)
     batch.status = Batch.Status.REVIEW
     batch.save()
@@ -1313,6 +1319,16 @@ def _has_unit(row) -> bool:
     return unit not in ("", "None") and unit != str(row.get("name") or "").strip()
 
 
+def _movable(row) -> bool:
+    """L/M га ўтказса бўладиган ресурс: бирлиги бор — ёки бирлиги ёзилмаган, лекин тартиб рақами ва рақамли
+    нархи бор (масалан «309 | ЦЕНА | ВРУ1-21-10УХЛ4 | — | 1», RES'дан аниқ нархланган). Бўлим номи — йўқ."""
+    if _has_unit(row):
+        return True
+    g = row.get("g")
+    return (bool(str(row.get("num") or "").strip()) and isinstance(g, (int, float)) and not isinstance(g, bool)
+            and g > 0)
+
+
 def _not_found_stage(rows):
     """1-босқич: «ТОПИЛМАДИ» ёзилган қаторлар — бирлиги бор (ресурс, нархи йўқ) ва бирлиги йўқ
     (бўлим номи ва ш.к.) га ажратилган; аввал тозаланганлари алоҳида (қайтариш учун).
@@ -1421,7 +1437,7 @@ def _lm_stage(rows, res_groups, labels):
     for c in LM_COLUMNS:
         # бўлим номлари (бирлиги йўқ), иш сарлавҳалари ва машинистлар ўтказилмайди
         pending = [by_row[n] for n in sorted(targets) if targets[n] == c and by_row[n].get("category") != c
-                   and _has_unit(by_row[n]) and by_row[n].get("status") not in ZERO_STATUSES + ("CLEARED",)]
+                   and _movable(by_row[n]) and by_row[n].get("status") not in ZERO_STATUSES + ("CLEARED",)]
         for r in pending:
             r["lm_target"] = c
         cards.append({"col": c, "label": labels.get(c, c), "rows": pending,
@@ -1541,6 +1557,22 @@ def job_run(request, job_id):
                    request.POST.get("fuzzy") or job.fuzzy, request.POST.get("mode"), percents)
     if percents is not None:
         remember_percents(job.owner_id, job.percents)
+    return redirect("job", job_id=job.id)
+
+
+@require_POST
+def job_reprice(request, job_id):
+    """«Қайта нархлаш» — бошидан: смета­чи қилган ишлар (қўлда нарх, қабул қилинган таклифлар, L/M ўтказишлар,
+    тозалаш/белгилашлар, босқич белгилари) бекор, смета биринчи марта юкланганидек нархланади — «Автоматик»
+    усулда таклифлар ва L/M яна ўзи қўйилади. Фоизлар, листлар ва устунлар сақланади. Саҳифада икки марта сўралади."""
+    job = _get_work(request, Job, id=job_id)
+    if request.POST.get("confirm") != "1":
+        messages.error(request, "Қайта нархлаш тасдиқланмади")
+        return redirect("job", job_id=job.id)
+    job.auto_cleared, job.table_checked = False, False
+    job.save(update_fields=["auto_cleared", "table_checked"])
+    recalc.request(job, categories={}, prices={}, cleared=[], marked=[])
+    messages.success(request, "Смета бошидан нархланяпти — тугагач, саҳифа янгиланади")
     return redirect("job", job_id=job.id)
 
 

@@ -1,0 +1,242 @@
+{% extends "jobs/base.html" %}
+{% load narx %}
+{% block title %}Офёрта — {{ project.name }} — mhisobot{% endblock %}
+{% block content %}
+<style>
+  .of-list { list-style: none; margin: 0; padding: 0; }
+  .of-list .of-list { margin-left: 22px; padding-left: 10px; border-left: 1px dashed #cbd5e1; }
+  .of-node { margin: 4px 0; }
+  .of-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+  .of-folder > .of-row { background: #f8fafc; }
+  .of-node.is-drag > .of-row { opacity: .45; border-style: dashed; }
+  .of-node.is-off > .of-row { background: #f8fafc; }
+  .of-node.is-off .of-title { background: #f1f5f9; border-color: #e2e8f0; color: #94a3b8; text-decoration: line-through; }
+  .of-grip { cursor: grab; color: #94a3b8; padding: 2px; touch-action: none; }
+  .of-grip:active { cursor: grabbing; }
+  .of-toggle { color: #64748b; border-radius: 4px; }
+  .of-toggle[aria-expanded="false"] svg { transform: rotate(-90deg); }
+  .of-folder.is-closed > .of-list { display: none; }
+  .of-check { width: 16px; height: 16px; flex-shrink: 0; accent-color: #059669; }
+  .of-fname { font-weight: 600; color: #0f172a; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .of-count { font-size: 12px; color: #64748b; white-space: nowrap; }
+  .of-num { min-width: 28px; text-align: center; font: 600 12px/22px ui-monospace, monospace; color: #92400e; background: #fef3c7; border-radius: 4px; flex-shrink: 0; }
+  .of-node.is-off .of-num { color: #94a3b8; background: #f1f5f9; }
+  .of-title { width: 100%; height: 32px; padding: 0 10px; border: 1px solid #facc15; border-radius: 4px; background: #fef9c3; font-weight: 600; font-size: 14px; color: #0f172a; }
+  .of-title:focus { outline: 2px solid #eab308; outline-offset: 0; background: #fef08a; }
+  .of-name { font-weight: 600; font-size: .875rem; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .of-sub { display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 12px; color: #64748b; min-width: 0; }
+  .of-sum { margin-left: auto; font-variant-numeric: tabular-nums; color: #334155; white-space: nowrap; }
+  .of-warn { color: #be123c; white-space: nowrap; }
+  .of-open { color: #94a3b8; } .of-open:hover { color: #0f172a; }
+  .of-move { display: flex; flex-shrink: 0; }
+  .of-move button { padding: 3px; color: #64748b; border-radius: 4px; }
+  .of-move button:hover { background: #f1f5f9; color: #0f172a; }
+  .of-move button:disabled { opacity: .3; pointer-events: none; }
+  @media (max-width: 640px) { .of-list .of-list { margin-left: 8px; padding-left: 6px; } .of-grip { display: none; } }
+</style>
+
+<div class="space-y-5">
+  <div class="flex flex-wrap items-start gap-4">
+    <div class="min-w-0 flex-1 basis-72">
+      <div class="flex items-center gap-2 text-xs text-slate-500">{% icon "sheet" "h-3.5 w-3.5" %} Офёрта тузиш</div>
+      <h1 class="mt-0.5 break-words text-xl font-semibold text-slate-900">{{ project.name }}</h1>
+      <p class="mt-1 text-sm text-slate-600">Нархланган сметалар шу тартибда битта варақда йиғилади: сметалар орасида <b class="rounded bg-yellow-200 px-1">бўш сариқ қатор</b>, остида сметанинг ўз сарлавҳаси, охирида ўз сводкаси, энг охирида — умумий сводка.</p>
+    </div>
+    <div data-state-box class="w-full max-w-sm sm:w-auto">
+      {% if state.status == "building" %}
+      <div class="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+        <div class="flex items-center gap-2 font-semibold">{% icon "loader" "h-4 w-4 animate-spin" %} Офёрта тузиляпти</div>
+        <div class="mt-1 text-xs" data-step>{{ state.step }}</div>
+        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100"><div class="h-full bg-sky-500 transition-all" data-bar style="width: {% if state.total %}{% widthratio state.done state.total 100 %}{% else %}0{% endif %}%"></div></div>
+      </div>
+      {% elif has_file %}
+      <a href="{% url 'project_ofyorta_file' project.id %}" class="flex items-center gap-3 rounded-lg bg-emerald-600 px-4 py-2.5 text-white shadow-sm hover:bg-emerald-700">
+        <span class="grid h-9 w-9 place-items-center rounded-md bg-white/15">{% icon "download" "h-5 w-5" %}</span>
+        <span><span class="block text-sm font-semibold">Офёртани юклаб олиш</span>
+          <span class="block text-xs text-emerald-100">{{ doc.built|date:"d.m.Y H:i" }} · {{ doc.total|som }}</span></span></a>
+      {% elif state.status == "failed" %}
+      <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">
+        <div class="font-semibold">Офёрта тузилмади</div><div class="mt-1 text-xs">{{ doc.error }}</div></div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% for m in messages %}
+  <div class="rounded-lg border px-4 py-2.5 text-sm {% if m.level_tag == 'error' %}border-rose-200 bg-rose-50 text-rose-800{% else %}border-emerald-200 bg-emerald-50 text-emerald-800{% endif %}" role="status">{{ m }}</div>
+  {% endfor %}
+  {% if has_file and doc.error %}<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">{{ doc.error|linebreaksbr }}</div>{% endif %}
+
+  {% if not count %}
+  <div class="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-600">Бу папкада ҳали нархланган смета йўқ. Аввал нархланг — кейин офёрта тузилади.
+    <div class="mt-3"><a href="{% url 'project' project.id %}" class="text-sm font-medium text-slate-900 underline">Папкага қайтиш</a></div></div>
+  {% else %}
+  <form method="post" action="{% url 'project_ofyorta_save' project.id %}" data-of-form>
+    {% csrf_token %}
+    <input type="hidden" name="parts" data-parts>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <label class="block text-sm font-medium text-slate-700" for="of-name">Офёрта номи</label>
+      <input id="of-name" name="name" value="{{ doc.name }}" maxlength="300" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"{% if not own %} readonly{% endif %}>
+      <div class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500">
+        <span class="inline-flex items-center gap-1.5">{% icon "menu" "h-3.5 w-3.5" %} ушлаб судранг ёки ↑ ↓ — тартибни ўзгартириш</span>
+        <span class="inline-flex items-center gap-1.5">{% icon "folder" "h-3.5 w-3.5 text-amber-500" %} папка ичидагилари билан бирга сурилади</span>
+        <span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm border border-yellow-400 bg-yellow-300"></span> сметалар орасида — бўш сариқ қатор</span>
+      </div>
+    </div>
+
+    <div class="mt-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+      <div class="mb-2 flex flex-wrap items-center gap-2 text-sm">
+        <span class="font-semibold text-slate-900">Сметалар</span>
+        <span class="text-slate-500"><span data-in>{{ count_in }}</span> / {{ count }} та танланган</span>
+        <span class="ml-auto flex gap-1">
+          <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50" data-all="open">Ҳаммасини очиш</button>
+          <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50" data-all="close">Йиғиш</button></span>
+      </div>
+      <div data-tree>{% include "jobs/_ofyorta_nodes.html" with nodes=nodes %}</div>
+    </div>
+
+    {% if own %}
+    <div class="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
+      <span class="text-xs text-slate-500" data-dirty hidden>Ўзгаришлар сақланмаган</span>
+      <span class="ml-auto flex flex-wrap gap-2">
+        <button type="submit" name="action" value="save" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Тартибни сақлаш</button>
+        <button type="submit" name="action" value="build" class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+                {% if state.status == "building" %}disabled{% endif %}>{% icon "sheet" "h-4 w-4" %} Офёрта тузиш</button></span>
+    </div>
+    {% endif %}
+  </form>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  var tree = document.querySelector("[data-tree]");
+  var form = document.querySelector("[data-of-form]");
+  if (!tree || !form) return;
+  var dirty = false, dirtyNote = document.querySelector("[data-dirty]");
+  function changed() { dirty = true; if (dirtyNote) dirtyNote.hidden = false; refresh(); }
+
+  // ---- рақамлар, сонлар, тугмалар ----
+  function refresh() {
+    var n = 0;
+    tree.querySelectorAll(".of-file").forEach(function (li) {
+      var on = li.querySelector("[data-include]").checked;
+      li.classList.toggle("is-off", !on);
+      li.querySelector("[data-num]").textContent = on ? String(++n) : "—";
+    });
+    document.querySelector("[data-in]").textContent = n;
+    tree.querySelectorAll(".of-folder").forEach(function (f) {
+      var boxes = f.querySelectorAll("[data-include]"), on = 0;
+      boxes.forEach(function (b) { if (b.checked) on++; });
+      var fc = f.querySelector(":scope > .of-row [data-folder-check]");
+      fc.checked = on === boxes.length && on > 0;
+      fc.indeterminate = on > 0 && on < boxes.length;
+      f.querySelector(":scope > .of-row [data-count]").textContent = on + " / " + boxes.length;
+      f.classList.toggle("is-off", on === 0);
+    });
+    tree.querySelectorAll("[data-node]").forEach(function (li) {
+      var up = li.querySelector(":scope > .of-row [data-up]"), down = li.querySelector(":scope > .of-row [data-down]");
+      if (up) up.disabled = !li.previousElementSibling;
+      if (down) down.disabled = !li.nextElementSibling;
+    });
+  }
+
+  tree.addEventListener("change", function (e) {
+    if (e.target.matches("[data-folder-check]")) {
+      var li = e.target.closest(".of-folder");
+      li.querySelectorAll("[data-include]").forEach(function (b) { b.checked = e.target.checked; });
+    }
+    changed();
+  });
+  tree.addEventListener("input", function (e) { if (e.target.matches("[data-title]")) { dirty = true; if (dirtyNote) dirtyNote.hidden = false; } });
+
+  // ---- йиғиш / очиш ----
+  function setOpen(f, open) {
+    f.classList.toggle("is-closed", !open);
+    f.querySelector(":scope > .of-row [data-toggle]").setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  tree.addEventListener("click", function (e) {
+    var t = e.target.closest("[data-toggle]");
+    if (t) { var f = t.closest(".of-folder"); setOpen(f, f.classList.contains("is-closed")); return; }
+    var up = e.target.closest("[data-up]"), down = e.target.closest("[data-down]");
+    if (up || down) {
+      var li = (up || down).closest("[data-node]");
+      if (up && li.previousElementSibling) li.parentNode.insertBefore(li, li.previousElementSibling);
+      if (down && li.nextElementSibling) li.parentNode.insertBefore(li.nextElementSibling, li);
+      (up || down).focus();
+      changed();
+    }
+  });
+  document.querySelectorAll("[data-all]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      tree.querySelectorAll(".of-folder").forEach(function (f) { setOpen(f, b.dataset.all === "open"); });
+    });
+  });
+
+  // ---- судраш: фақат ўз папкаси ичида (ёнма-ён тугунлар орасида) ----
+  var drag = null;
+  tree.addEventListener("mousedown", function (e) {
+    var g = e.target.closest("[data-grip]");
+    if (g) g.closest("[data-node]").draggable = true;
+  });
+  tree.addEventListener("dragstart", function (e) {
+    var li = e.target.closest && e.target.closest("[data-node]");
+    if (!li || !li.draggable) return;
+    drag = li;
+    li.classList.add("is-drag");
+    e.dataTransfer.effectAllowed = "move";
+    try { e.dataTransfer.setData("text/plain", ""); } catch (err) { /* IE */ }
+    e.stopPropagation();
+  });
+  tree.addEventListener("dragover", function (e) {
+    if (!drag) return;
+    var over = e.target.closest("[data-node]");
+    while (over && over.parentNode !== drag.parentNode) over = over.parentNode.closest("[data-node]");
+    if (!over) return;
+    e.preventDefault();
+    if (over === drag) return;
+    var box = over.querySelector(":scope > .of-row").getBoundingClientRect();
+    var after = e.clientY > box.top + box.height / 2;
+    var ref = after ? over.nextElementSibling : over;
+    if (ref !== drag && ref !== drag.nextElementSibling) drag.parentNode.insertBefore(drag, ref);
+  });
+  function endDrag() {
+    if (!drag) return;
+    drag.classList.remove("is-drag");
+    drag.draggable = false;
+    drag = null;
+    changed();
+  }
+  tree.addEventListener("drop", function (e) { if (drag) { e.preventDefault(); endDrag(); } });
+  tree.addEventListener("dragend", endDrag);
+  document.addEventListener("mouseup", function () {
+    if (!drag) tree.querySelectorAll("[data-node][draggable=true]").forEach(function (li) { li.draggable = false; });
+  });
+
+  // ---- юбориш: тартиб дарахтнинг юқоридан пастга ўқилиши ----
+  form.addEventListener("submit", function () {
+    var parts = [];
+    tree.querySelectorAll(".of-file").forEach(function (li) {
+      parts.push({ job: li.dataset.job, title: li.querySelector("[data-title]").value,
+                   include: li.querySelector("[data-include]").checked });
+    });
+    form.querySelector("[data-parts]").value = JSON.stringify(parts);
+    dirty = false;
+  });
+  window.addEventListener("beforeunload", function (e) { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+  refresh();
+
+  // ---- тузилаётган бўлса — ҳолатни кузатиш ----
+  {% if state.status == "building" %}
+  var stateUrl = "{% url 'project_ofyorta_state' project.id %}";
+  var timer = setInterval(function () {
+    fetch(stateUrl, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (s) {
+      var step = document.querySelector("[data-step]"), bar = document.querySelector("[data-bar]");
+      if (step) step.textContent = s.step || "";
+      if (bar && s.total) bar.style.width = Math.round(100 * s.done / s.total) + "%";
+      if (s.status !== "building") { clearInterval(timer); if (!dirty) location.reload(); }
+    }).catch(function () {});
+  }, 2000);
+  {% endif %}
+})();
+</script>
+{% endblock %}

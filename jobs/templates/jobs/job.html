@@ -213,6 +213,36 @@
     <button type="button" role="tab" data-tab-btn="more"
             class="tab-btn adv flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-600">
       {% icon "chart" "h-4 w-4 text-slate-400" %}<span class="hidden sm:inline" title="статистика · муаммолар · созламалар">Қўшимча</span></button>
+    {% if job.owner_id == request.user.id %}
+    <form method="post" action="{% url 'job_reprice' job.id %}" id="reprice-form" class="shrink-0">
+      {% csrf_token %}<input type="hidden" name="confirm" value="">
+      <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
+              title="Смета бошидан нархланади: қўлда киритилган нархлар, қабул қилинган таклифлар, L/M ўтказишлар бекор бўлади">
+        {% icon "undo" "h-3.5 w-3.5" %}<span class="hidden sm:inline">Қайта нархлаш</span></button>
+    </form>
+    <script>
+      (function () {
+        var form = document.getElementById("reprice-form");
+        form.addEventListener("submit", function (e) {
+          if (form.confirm.value === "1") return;
+          e.preventDefault();
+          // 1-сўров: нима бўлиши; 2-сўров: аниқ розилик — тасодифан босилмасин
+          narxDialog.confirm("Қўлда киритилган нархлар, қабул қилинган таклифлар, кабель/ускуна (L/M) ўтказишлари, " +
+              "тозалаш ва белгилашлар бекор бўлади. Смета биринчи марта юкланганидек нархланади" +
+              " («Автоматик» усулда таклифлар ва L/M яна ўзи қўйилади). Фоизлар сақланади.",
+              {title: "Смета бошидан нархлансинми?", ok: "Давом этиш"}).then(function (yes) {
+            if (!yes) return false;
+            return narxDialog.confirm("Қилинган ишлар бошидан бошланади ва уларни қайтариб бўлмайди.",
+                {title: "Ростан тасдиқлайсизми?", ok: "Ҳа, бошидан нархлаш", danger: true});
+          }).then(function (yes) {
+            if (!yes) return;
+            form.confirm.value = "1";
+            form.submit();
+          });
+        });
+      })();
+    </script>
+    {% endif %}
   </div>
 </nav>
 

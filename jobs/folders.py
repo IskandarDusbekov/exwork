@@ -13,6 +13,7 @@ import threading
 import time
 from datetime import timedelta
 import zipfile
+from typing import Optional
 from pathlib import Path, PurePosixPath
 
 from django.conf import settings
@@ -499,23 +500,34 @@ def ready_stage(part: Batch):
     return Batch.Stage.EMPTY, f"смета эмас ({', '.join(kinds) or 'умумий ҳисоб ёки бошқа файл'}) — нархланмайди"
 
 
+def convert_files(part: Batch, clock: Optional[FileClock] = None, only_missing: bool = False) -> int:
+    """Қисм файлларини очади (.xls -> .xlsx). ``only_missing`` — фақат аввал очилмай қолганлари (масалан
+    таҳлил ярмида узилган бўлса). Нечта файл очилганини қайтаради."""
+    project, clock, done = part.project, clock or FileClock(), 0
+    for i, f in enumerate(part.files):
+        if only_missing and f.get("path") and part.abs(f["path"]).is_file():
+            continue
+        _check_stop(part.project_id)
+        src = project.abs(f"src/{f['src']}")
+        size = f" ({hsize(src.stat().st_size)})" if src.exists() else ""
+        _step(part, f"{i + 1}/{len(part.files)} файл очиляпти: {f['name']}{size}")
+        xlsx = clock.open(src, part.abs(f"conv/{i}"), f["name"], i)
+        if xlsx == src:  # .xlsx o'zgarishsiz qaytadi — qismning o'z nusxasi bo'lsin
+            xlsx = part.abs(f"conv/{i}{src.suffix.lower()}")
+            xlsx.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, xlsx)
+        f["path"], f["sheets"] = str(xlsx.relative_to(part.dir)), clock.read(xlsx, i)
+        done += 1
+    return done
+
+
 def analyze_part(part: Batch):
     """Bitta ichki papka: .xls -> .xlsx, listlar tahlili va juftlash. Narxlash — smetachi bosganda."""
     project = part.project
     clock, seconds = FileClock(), {}
     try:
         _set(part, Batch.Stage.CONVERTING)
-        for i, f in enumerate(part.files):
-            _check_stop(part.project_id)
-            src = project.abs(f"src/{f['src']}")
-            size = f" ({hsize(src.stat().st_size)})" if src.exists() else ""
-            _step(part, f"{i + 1}/{len(part.files)} файл очиляпти: {f['name']}{size}")
-            xlsx = clock.open(src, part.abs(f"conv/{i}"), f["name"], i)
-            if xlsx == src:  # .xlsx o'zgarishsiz qaytadi — qismning o'z nusxasi bo'lsin
-                xlsx = part.abs(f"conv/{i}{src.suffix.lower()}")
-                xlsx.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src, xlsx)
-            f["path"], f["sheets"] = str(xlsx.relative_to(part.dir)), clock.read(xlsx, i)
+        convert_files(part, clock)
         _step(part, f"листлар таҳлил қилиняпти ({len(part.files)} та файл)")
         analyze_batch(part, timings=seconds)
         clock.analyzed(seconds)

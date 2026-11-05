@@ -646,6 +646,21 @@ class ResGroupsTests(TestCase):
         self.assertEqual(res["rows"][0]["lm_target"], "M")
         self.assertNotIn("lm_target", res["rows"][1])  # бўлим номи (бирлиги йўқ) таклифга кирмайди
 
+    def test_lm_stage_takes_priced_resource_without_unit(self):
+        """Бирлиги ёзилмаган, лекин рақамли ва нархли ускуна («309 | ЦЕНА | ВРУ1… | — | 1», RES «ОБОРУДОВАНИЕ»да)
+        M га ўтади — «Автоматик» усулда ҳам; рақамсиз бўлим номи эса йўқ."""
+        from .views import _lm_stage, _res_groups
+        rows = [
+            {"row": 817, "num": "309", "name": "ВВОДНО-РАСПРЕДЕЛИТЕЛЬНОЕ УСТРОЙСТВО ВРУ1-21-10УХЛ4", "unit": None,
+             "category": "K", "suggested_category": "M", "g": 9811607.14, "h": 9811607.14, "status": "EXACT"},
+            {"row": 818, "num": None, "name": "ОБОРУДОВАНИЕ", "unit": None, "category": "K",
+             "suggested_category": "M", "g": None, "h": 0, "status": "CLEARED"},
+            {"row": 819, "num": "310", "name": "ЩИТ", "unit": None, "category": "K", "suggested_category": "M",
+             "g": "ТОПИЛМАДИ", "h": 0, "status": "NOT_FOUND"},  # нархи йўқ — ўтказилмайди
+        ]
+        cards = {c["col"]: c for c in _lm_stage(rows, _res_groups({"rows": rows}), {"L": "Кабель", "M": "Ускуна"})["cards"]}
+        self.assertEqual([r["row"] for r in cards["M"]["rows"]], [817])
+
 
 @override_settings(MEDIA_ROOT=TMP_MEDIA)
 class FolderTests(LoggedInTestCase):
@@ -677,6 +692,20 @@ class FolderTests(LoggedInTestCase):
             r = self.client.post(reverse("project_create"), data)
         self.assertEqual(r.status_code, 200, r.content)
         return Project.objects.get(), r.json()
+
+    def test_replan_opens_files_left_unconverted(self):
+        """Таҳлил ярмида узилса (масалан «database is locked») файл йўлсиз қолади — қайта режа уни очади, йиқилмайди."""
+        project, _data = self._upload()
+        part = project.parts.get(folder="2. ОВ")
+        part.files[1]["path"], part.files[1]["sheets"] = "", []
+        part.stage, part.message = Batch.Stage.FAILED, "OperationalError: database is locked"
+        part.save()
+        r = self.client.post(reverse("batch_replan", args=[part.id]), {})
+        self.assertRedirects(r, reverse("batch", args=[part.id]), fetch_redirect_response=False)
+        part.refresh_from_db()
+        self.assertTrue(part.files[1]["path"] and part.abs(part.files[1]["path"]).is_file())
+        self.assertEqual(part.stage, Batch.Stage.READY, part.message)
+        self.assertTrue(any(p.get("res") for p in part.pairs))
 
     def test_folder_upload_prices_each_subfolder(self):
         from unittest import mock
@@ -921,3 +950,62 @@ class JobSummaryTests(LoggedInTestCase):
         self.assertEqual((job.sum_total, job.sum_not_priced, job.sum_checks), (99.0, 0, False))
         [item] = work_items(self.user)
         self.assertEqual((item["total"], item["state"]), (99.0, "done"))
+
+
+@override_settings(MEDIA_ROOT=TMP_MEDIA)
+class RepriceTests(LoggedInTestCase):
+    """«Қайта нархлаш» — бошидан: қўлда қилинганлар бекор, «Автоматик» усулдаги ишлар яна ўзи бажарилади."""
+
+    def setUp(self):
+        super().setUp()
+        self.src = Path(tempfile.mkdtemp(prefix="narxlash_rp_"))
+        self.job = Job.objects.create(owner=self.user, local_name="l.xlsx", res_name="r.xlsx",
+                                      local_path="in/local.xlsx", res_path="in/res.xlsx",
+                                      local_sheet="202611450_БВ", res_sheet="202611450_БР")
+        self.job.abs("in").mkdir(parents=True, exist_ok=True)
+        build_local(self.job.abs(self.job.local_path))
+        build_res(self.job.abs(self.job.res_path))
+        from .services import recompute
+        recompute(self.job)
+        self.job.save()
+        self.assertEqual(self.job.status, Job.Status.DONE, self.job.error)
+
+    def tearDown(self):
+        shutil.rmtree(self.src, ignore_errors=True)
+
+    def _post(self, data):
+        from unittest import mock
+
+        from . import recalc
+
+        def now(pk):  # фондаги ҳисоб тестда шу заҳоти
+            recalc._claim(pk, "t") and recalc.run(pk, "t")
+        with mock.patch.object(recalc, "start", now):
+            return self.client.post(reverse("job_reprice", args=[self.job.id]), data)
+
+    def test_reprice_needs_confirmation_and_starts_over(self):
+        row = self.job.result["start_row"] + 1
+        self.job.prices, self.job.categories = {str(row): 123.0}, {str(row): "M"}
+        self.job.cleared, self.job.marked, self.job.table_checked = [row + 1], [row + 2], True
+        self.job.save()
+        page = self.client.get(reverse("job", args=[self.job.id]))
+        self.assertContains(page, reverse("job_reprice", args=[self.job.id]))
+        self.assertContains(page, "Ростан тасдиқлайсизми?")
+
+        r = self._post({})  # тасдиқсиз — ҳеч нарса ўзгармайди
+        self.assertRedirects(r, reverse("job", args=[self.job.id]), fetch_redirect_response=False)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.prices, {str(row): 123.0})
+
+        self._post({"confirm": "1"})
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, Job.Status.DONE, self.job.error)
+        self.assertNotIn(str(row), self.job.prices or {})        # қўлда киритилган нарх бекор
+        self.assertNotIn(str(row), self.job.categories or {})    # қўлда L/M бекор
+        self.assertNotIn(row + 2, self.job.marked or [])
+        self.assertTrue(self.job.auto_cleared)  # «Автоматик»: биринчи нархлашдагидек яна ўзи бажарилди
+
+    def test_only_owner(self):
+        other = User.objects.create_user("x@test.uz", "Kuchli-parol-2026")
+        self.client.force_login(other)
+        self.assertEqual(self.client.post(reverse("job_reprice", args=[self.job.id]), {"confirm": "1"}).status_code, 404)

@@ -29,6 +29,28 @@ def test_index_skips_empty_and_keeps_first_duplicate():
     assert idx.by_unit == {"м3": {"вода": 1000}}
 
 
+def test_unitless_priced_resource_matches_only_exactly_and_only_without_unit():
+    """RES'да бирлиги ёзилмаган, лекин рақамли ва нархли ресурс («444 | ЦЕНА | ВРУ1-21-10УХЛ4 | — | 1 | 9 811 607»)
+    локалдаги худди шундай бирликсиз қаторга аниқ ном билан нархланади; бўлим сарлавҳаси ва ўхшашликка кирмайди."""
+    wb = Workbook()
+    ws = wb.active
+    for i, (num, name, unit, price) in enumerate([
+        (None, "ОБОРУДОВАНИЕ", None, None),
+        ("444", "ВВОДНО-РАСПРЕДЕЛИТЕЛЬНОЕ УСТРОЙСТВО ВРУ1-21-10УХЛ4", None, 9811607.14),
+        (None, "ИТОГО ОБОРУДОВАНИЕ:", None, 9811607.14),  # рақамсиз — ресурс эмас
+        ("445", "ЩИТ РАСПРЕДЕЛИТЕЛЬНЫЙ", "ШТ", 500),
+    ], start=1):
+        ws.cell(i, 1, num), ws.cell(i, 4, name), ws.cell(i, 5, unit), ws.cell(i, 7, price)
+    idx = ResourceIndex.from_sheet(ws, "D", "G")
+    m = _match(idx, "Вводно-распределительное устройство ВРУ1-21-10УХЛ4", None)
+    assert (m.status, m.price, m.unit) == (EXACT, 9811607.14, "")
+    assert idx.section_of("", m.name)[1] == "ОБОРУДОВАНИЕ"
+    assert _match(idx, "ИТОГО ОБОРУДОВАНИЕ:", None).status == NOT_FOUND
+    assert _match(idx, "ВВОДНО-РАСПРЕДЕЛИТЕЛЬНОЕ УСТРОЙСТВО ВРУ1-21-10УХЛ4", "ШТ").status != EXACT  # бирлиги бор — йўқ
+    assert _match(idx, "ВВОДНО-РАСПРЕДЕЛИТЕЛЬНОЕ УСТРОЙСТВО ВРУ1-21-10", None).status == NOT_FOUND  # ўхшаш — олинмайди
+    assert "" not in idx.by_unit
+
+
 def test_exact():
     idx = _index([("ВОДА", "М3", 1000)])
     m = _match(idx, " Вода ", "м3")

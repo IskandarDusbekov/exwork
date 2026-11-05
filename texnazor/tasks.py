@@ -1,5 +1,6 @@
 """Ofyortani fonda o'qish (18 000+ qator — sayt so'rovi kutib qolmasin) va narxlangan lokallardan ofyorta yasash
-(«Менинг офёрталарим» — o'nlab Excel fayl ochiladi). ``jobs.recalc`` bilan bir xil tartib:
+(«Менинг офёрталарим» — o'nlab Excel fayl ochiladi) va papka офёртаси (``jobs.ofyorta`` — narxlangan
+fayllar tartib bilan). ``jobs.recalc`` bilan bir xil tartib:
 worker rejimida ``run_worker`` navbatdan oladi (lease), thread rejimida — sayt jarayonidagi oqim."""
 import datetime as dt
 import logging
@@ -22,19 +23,24 @@ def _free():
     return Q(worker="") | Q(heartbeat__isnull=True) | Q(heartbeat__lt=timezone.now() - STALE_AFTER)
 
 
+def _models():
+    from jobs.models import ProjectOfyorta
+    return (SiteObject, MyOfyorta, ProjectOfyorta)
+
+
 def _queue(model):
-    """Navbatdagilar: obyekt — ofyorta o'qilyapti, «Менинг офёртам» — yasalyapti."""
-    status = SiteObject.Status.PARSING if model is SiteObject else MyOfyorta.Status.BUILDING
+    """Navbatdagilar: obyekt — ofyorta o'qilyapti, «Менинг офёртам» va papka офёртаси — yasalyapti."""
+    status = SiteObject.Status.PARSING if model is SiteObject else model.Status.BUILDING
     return model.objects.filter(status=status)
 
 
 def _claim(obj_id, worker: str) -> bool:
     return any(bool(_queue(m).filter(pk=obj_id).filter(_free()).update(worker=worker, heartbeat=timezone.now()))
-               for m in (SiteObject, MyOfyorta))
+               for m in _models())
 
 
 def claim_next(worker: str):
-    for m in (SiteObject, MyOfyorta):
+    for m in _models():
         for obj_id in _queue(m).filter(_free()).order_by("created").values_list("id", flat=True)[:10]:
             if _claim(obj_id, worker):
                 return obj_id
@@ -45,6 +51,9 @@ def run(obj_id, worker: str):
     close_old_connections()
     if MyOfyorta.objects.filter(pk=obj_id).exists():
         return _run_build(obj_id, worker)
+    from jobs.models import ProjectOfyorta
+    if ProjectOfyorta.objects.filter(pk=obj_id).exists():
+        return _run_project_ofyorta(obj_id, worker)
     try:
         obj = SiteObject.objects.get(pk=obj_id)
     except SiteObject.DoesNotExist:
@@ -73,6 +82,19 @@ def _run_build(doc_id, worker: str):
         MyOfyorta.objects.filter(pk=doc_id).update(status=MyOfyorta.Status.FAILED, error="кутилмаган хато")
     finally:
         MyOfyorta.objects.filter(pk=doc_id, worker=worker).update(worker="", heartbeat=None)
+
+
+def _run_project_ofyorta(doc_id, worker: str):
+    from jobs import ofyorta
+    from jobs.models import ProjectOfyorta
+    beat = lambda: ProjectOfyorta.objects.filter(pk=doc_id, worker=worker).update(heartbeat=timezone.now())  # noqa: E731
+    try:
+        ofyorta.make(ProjectOfyorta.objects.select_related("project").get(pk=doc_id), progress=beat)
+    except Exception:  # noqa: BLE001
+        log.exception("папка офёртаси: %s", doc_id)
+        ProjectOfyorta.objects.filter(pk=doc_id).update(status=ProjectOfyorta.Status.FAILED, error="кутилмаган хато")
+    finally:
+        ProjectOfyorta.objects.filter(pk=doc_id, worker=worker).update(worker="", heartbeat=None)
 
 
 def worker_mode() -> bool:

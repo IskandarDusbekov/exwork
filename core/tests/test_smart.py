@@ -64,7 +64,7 @@ def test_range_stops_before_itogo(tmp_path):
     assert ws["G46"].value is None
     # «ИТОГО ПО ЛОКАЛЬНОЙ…» qismi (46..77, «СОСТАВИЛ» bilan) olib tashlandi — svodka sum qatoridan keyin
     assert r.sum_row == 45 and r.tail_removed == 32
-    assert ws[f"C{r.svodka_start}"].value == "Зарплата" and r.svodka_start == 46
+    assert ws[f"C{r.svodka_start}"].value == "Затраты труда рабочих-строителей" and r.svodka_start == 46
     assert all(ws.cell(row, 2).value != "СОСТАВИЛ" for row in range(1, ws.max_row + 1))
     assert ws.max_row == 46 + 12
 
@@ -351,7 +351,7 @@ def _equipment_case(tmp_path):
     for i, col in enumerate("ABCDEF", start=1):
         ws[f"{col}2"] = i
     local = [
-        ("1", "ЗАТРАТЫ ТРУДА РАБОЧИХ-СТРОИТЕЛЕЙ", "ЧЕЛ-Ч", 10),  # 3 -> I
+        ("1", "Затраты труда рабочих-строителей", "ЧЕЛ-Ч", 10),  # 3 -> I
         ("2", "БЕТОН В20", "М3", 2),                           # 4 -> K
         ("3", "НАСОС ЦЕНТРОБЕЖНЫЙ К-50", "ШТ", 1),             # 5 -> K, RES: ОБОРУДОВАНИЕ -> taklif M
         ("4", "КАБЕЛЬ ВВГ 3Х2,5", "М", 100),                   # 6 -> K, RES: КАБЕЛЬ -> taklif L
@@ -367,7 +367,7 @@ def _equipment_case(tmp_path):
     ws["D1"], ws["E1"], ws["G1"] = "НАИМЕНОВАНИЕ РЕСУРСА", "ЕД.ИЗМ", "ЦЕНА"
     res = [
         ("ТРУДОВЫЕ РЕСУРСЫ", None, None),
-        ("ЗАТРАТЫ ТРУДА РАБОЧИХ-СТРОИТЕЛЕЙ", "ЧЕЛ-Ч", 15000),
+        ("Затраты труда рабочих-строителей", "ЧЕЛ-Ч", 15000),
         ("СТРОИТЕЛЬНЫЕ МАТЕРИАЛЫ И КОНСТРУКЦИИ", None, None),
         ("БЕТОН В20", "М3", 400000),
         ("ПРОВОЛОКА ВЯЗАЛЬНАЯ", "Т", 6000000),
@@ -532,7 +532,7 @@ def test_run_many_prices_every_local_sheet_in_one_file(tmp_path):
         "LOG 202611400_БВ", "LOG 202611410_БВ", "LOG 202611420_БВ", "LOG 202611450_БВ"]
     for r in results:
         ws = wb[r.local_sheet]
-        assert ws[f"C{r.svodka_start}"].value == "Зарплата"
+        assert ws[f"C{r.svodka_start}"].value == "Затраты труда рабочих-строителей"
         assert ws[f"H{r.start_row + 1}"].value.startswith("=IF(ISNUMBER(")
     # МОСТ smetasi alohida narxlangandagi bilan bir xil
     alone = _run(TESTS / "golden/202611450/input_local.xlsx", TESTS / "golden/202611450/input_res.xlsx", tmp_path)

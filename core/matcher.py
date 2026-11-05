@@ -3,6 +3,7 @@
 Moslik rejimida faqat ``difflib.SequenceMatcher`` ishlatiladi.
 """
 import hashlib
+import re
 from dataclasses import asdict, dataclass, replace
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -21,6 +22,15 @@ NOT_FOUND = "NOT_FOUND"
 NEAR_MIN_SCORE = 0.5  # bundan past o'xshashlik — taklif ham qilinmaydi (tasodifiy nom)
 # saqlangan moslashtirish natijalari shu kod bilan olingan: fayl o'zgarsa (yangi versiya) — eskilari ishlatilmaydi
 _CODE_VERSION = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+
+
+def _is_item_number(v) -> bool:
+    """RES qatori tartib raqami («444», 444, «12.3») — bo'lim sarlavhasida bo'lmaydi."""
+    if isinstance(v, bool):
+        return False
+    if isinstance(v, (int, float)):
+        return v > 0
+    return bool(re.fullmatch(r"\d+(\.\d+)*", str(v or "").strip()))
 
 
 @dataclass
@@ -115,6 +125,9 @@ class ResourceIndex:
         self.section_list = section_list or []  # RES dagi tartibda: [(kategoriya, sarlavha), ...]
         self.positions = positions or {}  # (birlik, nom) -> (bo'lim tartib raqami yoki -1, RES qatori)
         self.raw = {}  # (birlik, nom) -> (RES dagi asl nom, asl birlik) — smetachiga ko'rsatish uchun
+        # birligi yozilmagan, lekin raqamli va narxli resurs (masalan «ВРУ1-21-10УХЛ4 | — | 1 | 9 811 607»):
+        # faqat AYNAN nom bilan va lokalda ham birlik bo'lmasa olinadi — o'xshashlik/taklifga kirmaydi
+        self.unitless: Dict[str, Any] = {}
         self._matchers = {}  # birlik -> [(nom, SequenceMatcher(seq2=nom))] — birinchi kerak bo'lganda
         self._cache = {}  # (nom, birlik, chegara, delta) -> Match: smetada bir xil nom ko'p takrorlanadi
 
@@ -147,11 +160,22 @@ class ResourceIndex:
         section_list: List[tuple] = []
         positions: Dict[tuple, tuple] = {}
         raw: Dict[tuple, tuple] = {}
+        unitless: Dict[str, Any] = {}
         current = None  # oxirgi ko'rilgan bo'lim: (kategoriya, sarlavha)
         for r in range(start_row, min(stop_row or ws.max_row + 1, ws.max_row + 1)):
             unit = norm_unit(ws.cell(row=r, column=ru).value)
             name = norm_name(ws.cell(row=r, column=rn).value)
             if not unit:
+                price = ws.cell(row=r, column=rp).value
+                if (name and rn > 1 and _is_item_number(ws.cell(row=r, column=1).value)
+                        and isinstance(price, (int, float)) and not isinstance(price, bool) and price > 0):
+                    if name not in unitless:
+                        unitless[name] = price
+                        positions[("", name)] = (len(section_list) - 1, r)
+                        raw[("", name)] = (str(ws.cell(row=r, column=rn).value).strip(), "")
+                        if current:
+                            sections[("", name)] = current
+                    continue
                 # birliksiz qator — bo'lim sarlavhasi bo'lishi mumkin («ОБОРУДОВАНИЕ», «ТРУДОВЫЕ РЕСУРСЫ»)
                 for c in range(1, rn + 1):
                     text = ws.cell(row=r, column=c).value
@@ -172,6 +196,7 @@ class ResourceIndex:
                     sections[(unit, name)] = current
         index = cls(by_unit, sections, section_list, positions)
         index.raw = raw
+        index.unitless = unitless
         return index
 
     # ---------- moslashtirish natijalarini saqlash (smeta qayta hisoblanganda solishtirish takrorlanmaydi) ----------
@@ -180,6 +205,7 @@ class ResourceIndex:
         kodi. Ulardan biri o'zgarsa — boshqa barmoq izi, saqlangan natija ishlatilmaydi."""
         h = hashlib.sha256(_CODE_VERSION.encode())
         h.update(repr([(u, list(d.items())) for u, d in self.by_unit.items()]).encode("utf-8", "surrogatepass"))
+        h.update(repr(list(self.unitless.items())).encode("utf-8", "surrogatepass"))
         return h.hexdigest()
 
     def export_cache(self) -> dict:
@@ -237,6 +263,8 @@ class ResourceIndex:
         return replace(hit)  # nusxa: chaqiruvchi o'zgartirsa ham kesh buzilmaydi
 
     def _match(self, local_name: str, local_unit: str, threshold: float, ambiguity_delta: float) -> Match:
+        if not local_unit and local_name in self.unitless:
+            return Match(EXACT, "", local_name, self.unitless[local_name], 1.0)
         best_fuzzy = None
         best_ambig = None
         near_same = near_any = None  # (o'xshashlik, birlik, nom): birligi bir xili ustun

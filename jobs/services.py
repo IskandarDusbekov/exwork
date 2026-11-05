@@ -497,6 +497,8 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
         batch.columns = columns
     infos, prices = [], {}
     for i, f in enumerate(batch.files):
+        if not f.get("path"):  # очилмай қолган файл (таҳлил узилган) — листлари йўқ
+            continue
         t = time.monotonic()
         wb = load_workbook(batch.abs(f["path"]), keep_links=False)
         try:

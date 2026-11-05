@@ -224,6 +224,37 @@ class Job(models.Model):
         return f"{stem}_narxlandi{ext}"
 
 
+class ProjectOfyorta(models.Model):
+    """Папкадаги нархланган сметалардан офёрта: смета­чи белгилаган тартибда битта ЛРВ варағида, ҳар бири
+    сариқ сарлавҳа ва ўз сводкаси билан, охирида умумий жами (``jobs.ofyorta``). Ҳар папкага битта."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Тузилмаган"
+        BUILDING = "building", "Тузиляпти"
+        READY = "ready", "Тайёр"
+        FAILED = "failed", "Хато"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    project = models.OneToOneField(Project, on_delete=models.CASCADE, related_name="ofyorta")
+    name = models.CharField(max_length=300)
+    # [{"job": id, "title": сариқ сарлавҳа, "include": bool}] — тартиби офёртадаги тартиб
+    parts = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    error = models.TextField(blank=True)
+    file = models.CharField(max_length=500, blank=True)  # project.dir га нисбатан
+    built = models.DateTimeField(null=True, blank=True)
+    total = models.FloatField(null=True, blank=True)  # кирган сметалар «Всего с НДС» йиғиндиси (нархлаш натижасидан)
+    progress = models.JSONField(default=dict, blank=True)  # {"step", "done", "total"}
+    worker = models.CharField(max_length=100, blank=True)  # тузишни эгаллаган worker (lease)
+    heartbeat = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+
+
 class Worker(models.Model):
     """Fondagi ishchi jarayon (``manage.py run_worker``): panel uni ko'radi — tirikmi, nechta ish olgan."""
     name = models.CharField(max_length=120, unique=True)  # «host:pid»
