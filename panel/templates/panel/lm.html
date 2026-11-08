@@ -1,0 +1,137 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Ускуна ва кабель базаси — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<div class="mb-4 flex flex-wrap items-end gap-3">
+  <div class="min-w-0 flex-1">
+    <h1 class="text-xl font-semibold text-slate-900">Ускуна ва кабель базаси</h1>
+    <p class="mt-0.5 max-w-3xl text-sm text-slate-600">Нархлашда қайси ресурс <b>ускуна</b> (M устун), қайси <b>кабель</b> (L устун) эканини шу базадан таниймиз.
+      База ўзи ўсиб боради: ҳар нархланган сметадан RES'нинг «ОБОРУДОВАНИЕ» ва «КАБЕЛЬ» бўлимларини ва смета­чининг тузатишларини ўрганади.
+      Сиз ҳам ўргата оласиз — бирма-бир ёки Excel файл билан. Сиз ўргатганингиз ҳар доим устун.</p>
+  </div>
+  {% if can_act %}
+  <form method="post" action="{% url 'panel:lm_harvest' %}">{% csrf_token %}
+    <button class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50"
+            title="Ҳамма нархланган сметаларни қайтадан кўриб чиқади (ўзи ўрганганлари янгиланади, сиз ўргатганлар ўзгармайди)">
+      {% icon "undo" "h-4 w-4" %} Ҳамма сметалардан қайта йиғиш</button></form>
+  {% endif %}
+</div>
+{% for m in messages %}<div class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">{{ m }}</div>{% endfor %}
+{% if harvest.running %}<div class="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">Йиғиляпти: {{ harvest.n }} / {{ harvest.total|default:"…" }} смета. Саҳифани бир оздан кейин янгиланг.</div>
+{% elif harvest.error %}<div class="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">Йиғишда хато: {{ harvest.error }}</div>{% endif %}
+
+{# ---- рақамлар (филтр ҳам) ---- #}
+<div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+  <a href="{{ link }}" class="rounded-xl border px-3 py-2.5 {% if not f.cat and not f.src %}border-slate-900 ring-1 ring-slate-900{% else %}border-slate-200 hover:border-slate-400{% endif %} bg-white">
+    <div class="text-xs text-slate-500">Ҳаммаси</div><div class="num text-xl font-semibold">{{ stats.total }}</div></a>
+  <a href="?cat=M" class="rounded-xl border px-3 py-2.5 {% if f.cat == 'M' %}border-violet-600 ring-1 ring-violet-600{% else %}border-violet-200 hover:border-violet-400{% endif %} bg-violet-50">
+    <div class="text-xs text-violet-800">Ускуна (M)</div><div class="num text-xl font-semibold text-violet-800">{{ stats.M }}</div></a>
+  <a href="?cat=L" class="rounded-xl border px-3 py-2.5 {% if f.cat == 'L' %}border-sky-600 ring-1 ring-sky-600{% else %}border-sky-200 hover:border-sky-400{% endif %} bg-sky-50">
+    <div class="text-xs text-sky-800">Кабель (L)</div><div class="num text-xl font-semibold text-sky-800">{{ stats.L }}</div></a>
+  <a href="?cat=K" class="rounded-xl border px-3 py-2.5 {% if f.cat == 'K' %}border-slate-600 ring-1 ring-slate-600{% else %}border-slate-200 hover:border-slate-400{% endif %} bg-slate-50" title="Номи «кабель…», «насос…» каби, лекин ускуна ҳам, кабель ҳам эмас — таклиф қилинмайди">
+    <div class="text-xs text-slate-700">Ускуна эмас</div><div class="num text-xl font-semibold text-slate-700">{{ stats.K }}</div></a>
+  <a href="?src=conflict" class="rounded-xl border px-3 py-2.5 {% if f.src == 'conflict' %}border-amber-600 ring-1 ring-amber-600{% else %}border-amber-200 hover:border-amber-400{% endif %} bg-amber-50" title="Ҳар хил сметаларда ҳар хил турда учраган — кўриб чиқиб, тўғрисини ўргатинг">
+    <div class="text-xs text-amber-800">Кўриб чиқиш керак</div><div class="num text-xl font-semibold text-amber-800">{{ mixed }}{% if stats.unclear %}<span class="text-sm font-normal"> · {{ stats.unclear }} аниқ эмас</span>{% endif %}</div></a>
+</div>
+
+{% if can_act %}
+<div class="mb-4 grid gap-3 lg:grid-cols-2">
+  {# ---- бирма-бир ўргатиш ---- #}
+  <form method="post" action="{% url 'panel:lm_teach' %}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">{% csrf_token %}
+    <h2 class="font-semibold">Бирма-бир ўргатиш</h2>
+    <p class="mb-3 text-xs text-slate-500">Ресурс номини смета ёки RES'да қандай ёзилган бўлса шундай ёзинг. Ўхшаш номлар ҳам танилади.</p>
+    <label class="block text-sm"><span class="text-slate-600">Ресурс номи</span>
+      <input name="name" required maxlength="500" placeholder="масалан: ЩИТ СИЛОВОЙ РАСПРЕДЕЛИТЕЛЬНЫЙ ЩРВ-48" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></label>
+    <div class="mt-2 grid grid-cols-2 gap-2">
+      <label class="block text-sm"><span class="text-slate-600">Бирлиги <span class="text-slate-400">(ихтиёрий)</span></span>
+        <input name="unit" maxlength="40" placeholder="шт" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></label>
+      <label class="block text-sm"><span class="text-slate-600">Миллий коди <span class="text-slate-400">(ихтиёрий)</span></span>
+        <input name="code" maxlength="20" placeholder="258" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></label>
+    </div>
+    <div class="mt-3 flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Тури">
+      {% for k, label in cats %}
+      <label class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm has-[:checked]:border-slate-900 has-[:checked]:bg-slate-900 has-[:checked]:text-white">
+        <input type="radio" name="category" value="{{ k }}" required class="sr-only" {% if forloop.first %}checked{% endif %}>{{ label }}</label>
+      {% endfor %}
+      <button class="ml-auto rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Ўргатиш</button>
+    </div>
+  </form>
+
+  {# ---- Excel ---- #}
+  <form method="post" action="{% url 'panel:lm_upload' %}" enctype="multipart/form-data" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-progress>{% csrf_token %}
+    <h2 class="font-semibold">Excel файл билан ўргатиш</h2>
+    <p class="mb-3 text-xs text-slate-500">Масалан, сметанинг ускуналар қисмини алоҳида файлга кўчириб юкланг. Аввал рўйхат кўрсатилади — тасдиқламагунингизча ҳеч нарса ўзгармайди.</p>
+    <label class="block text-sm"><span class="text-slate-600">Файл (.xls, .xlsx)</span>
+      <input type="file" name="file" required accept=".xls,.xlsx,.xlsm" class="mt-1 block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm hover:file:bg-slate-200"></label>
+    <fieldset class="mt-3 space-y-1.5 text-sm">
+      <legend class="mb-1 text-slate-600">Файлдаги ресурслар:</legend>
+      {% for k, label in upload_kinds %}
+      <label class="flex cursor-pointer items-start gap-2"><input type="radio" name="kind" value="{{ k }}" required class="mt-1" {% if forloop.first %}checked{% endif %}> <span>{{ label }}</span></label>
+      {% endfor %}
+    </fieldset>
+    <div class="mt-3 text-right"><button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Юклаш ва кўриш</button></div>
+  </form>
+</div>
+{% endif %}
+
+{# ---- рўйхат ---- #}
+<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <form method="get" class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
+    {% if f.cat %}<input type="hidden" name="cat" value="{{ f.cat }}">{% endif %}
+    <input type="search" name="q" value="{{ f.q }}" placeholder="Номи ёки коди бўйича қидириш" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm sm:max-w-sm">
+    <select name="src" class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm" onchange="this.form.submit()">
+      <option value="">Ҳамма манба</option>
+      <option value="auto" {% if f.src == 'auto' %}selected{% endif %}>Ўзи ўрганганлари</option>
+      <option value="locked" {% if f.src == 'locked' %}selected{% endif %}>Сиз ўргатганлар</option>
+      <option value="conflict" {% if f.src == 'conflict' %}selected{% endif %}>Овозлари ҳар хил</option>
+    </select>
+    <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">Қидириш</button>
+    {% if f.q or f.cat or f.src %}<a href="{% url 'panel:lm' %}" class="text-sm text-slate-500 hover:underline">тозалаш</a>{% endif %}
+  </form>
+  {% if rows %}
+  <div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-xs text-slate-500">
+      <tr><th class="px-4 py-2 font-medium">Ресурс номи</th><th class="px-3 py-2 font-medium">Тури</th><th class="px-3 py-2 font-medium">Қаердан билдик</th>{% if can_act %}<th class="px-3 py-2 text-right font-medium">Тузатиш</th>{% endif %}</tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for e in rows %}
+      <tr class="align-top {% if not e.category %}bg-amber-50/50{% endif %}">
+        <td class="max-w-md px-4 py-2.5">
+          <div class="break-words font-medium text-slate-900">{{ e.name }}</div>
+          <div class="mt-0.5 text-xs text-slate-500">{% if e.unit %}{{ e.unit }}{% endif %}{% if e.code %} · код <span class="num">{{ e.code }}</span>{% endif %}</div>
+        </td>
+        <td class="whitespace-nowrap px-3 py-2.5">
+          {% if e.category == "M" %}<span class="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">Ускуна</span>
+          {% elif e.category == "L" %}<span class="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">Кабель</span>
+          {% elif e.category == "K" %}<span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">Ускуна эмас</span>
+          {% else %}<span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Аниқ эмас</span>{% endif %}
+          {% if e.locked %}<div class="mt-1 text-[11px] text-emerald-700" title="{{ e.note }}">✓ {{ e.get_origin_display|lower }}</div>{% endif %}
+        </td>
+        <td class="max-w-xs px-3 py-2.5 text-xs text-slate-600">{{ e.reason }}
+          {% if e.mixed %}<div class="mt-0.5 text-amber-700">овозлар: {% for k, n in e.votes.items %}{% if not forloop.first %}, {% endif %}{% if "user_" in k %}смета­чи{% else %}RES{% endif %} {{ k|slice:"-1:" }} — {{ n }}{% endfor %}</div>{% endif %}
+        </td>
+        {% if can_act %}
+        <td class="whitespace-nowrap px-3 py-2.5 text-right">
+          <form method="post" action="{% url 'panel:lm_set' e.pk %}" class="inline-flex overflow-hidden rounded-lg border border-slate-300 text-xs">{% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button name="category" value="M" class="px-2 py-1 {% if e.locked and e.category == 'M' %}bg-violet-600 text-white{% else %}hover:bg-violet-50{% endif %}" title="Ускуна деб ўргатиш">Ускуна</button>
+            <button name="category" value="L" class="border-l border-slate-300 px-2 py-1 {% if e.locked and e.category == 'L' %}bg-sky-600 text-white{% else %}hover:bg-sky-50{% endif %}" title="Кабель деб ўргатиш">Кабель</button>
+            <button name="category" value="K" class="border-l border-slate-300 px-2 py-1 {% if e.locked and e.category == 'K' %}bg-slate-700 text-white{% else %}hover:bg-slate-50{% endif %}" title="Ускуна ҳам, кабель ҳам эмас">Эмас</button>
+            {% if e.locked %}<button name="category" value="auto" class="border-l border-slate-300 px-2 py-1 text-slate-500 hover:bg-slate-50" title="Сиз ўргатганни бекор қилиш — тури яна сметалардан">↺</button>{% endif %}
+          </form>
+          <form method="post" action="{% url 'panel:lm_delete' e.pk %}" class="ml-1 inline" data-confirm="«{{ e.name|truncatechars:60 }}» базадан ўчирилсинми?" data-danger>{% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Ўчириш">{% icon "trash" "h-4 w-4" %}</button></form>
+        </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {% if page %}{% include "panel/_pager.html" with page=page %}{% endif %}
+  {% else %}
+  <div class="px-4 py-10 text-center text-sm text-slate-500">{% if f.q or f.cat or f.src %}Бундай ресурс йўқ.{% else %}База ҳали бўш. «Ҳамма сметалардан қайта йиғиш» тугмасини босинг ёки ўзингиз ўргатинг.{% endif %}</div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -74,6 +74,41 @@ class AutoModeTests(LoggedInTestCase):
                 r = next(x for x in job.result["rows"] if str(x["row"]) == row)
                 self.assertNotIn(r.get("status"), UNPRICED, r)
 
+    def test_lm_base_learns_only_real_choices(self):
+        """Ҳақиқий оқим: «Автоматик» қўйган ва смета­чи қабул қилган таклиф — овоз эмас; ўзи кўчиргани — овоз;
+        бир хил RES файли бир неча сметада — битта RES овози."""
+        import json
+        from resbase.models import LMEntry, LMVote
+        jobs = self._price_object()
+        auto_set = [(j, int(r)) for j in jobs for r, c in (j.categories or {}).items() if c in ("L", "M")]
+        self.assertTrue(all(r in (j.lm_accepted or []) for j, r in auto_set))
+        self.assertFalse(LMVote.objects.filter(kind="user").exists())  # «Автоматик» ўз таклифига овоз бермайди
+        # RES овозлари файл бўйича: битта RES файлдан келган ҳар ёзувда RES овози ≤ 1
+        srcs = {j.id: j.res_path for j in jobs}
+        for e in LMEntry.objects.all():
+            for k, n in (e.votes or {}).items():
+                if not k.startswith("user_"):
+                    files = set(LMVote.objects.filter(entry=e, kind="res", category=k).values_list("src", flat=True))
+                    self.assertEqual(n, len(files), e.name)
+        self.assertTrue(srcs)
+
+        job = jobs[0]
+        rows = [r for r in job.result["rows"] if r.get("unit") and r.get("category") == "K" and r.get("status") not in
+                ("WORK_HEADER", "MACHINIST", "CLEARED") and not r.get("suggested_category")
+                and r.get("default_category") == "K"]
+        self.assertTrue(rows)
+        mine = rows[0]
+        url = reverse("job_categories", args=[job.id])
+        r = self.client.post(url, json.dumps({"rows": [mine["row"]], "category": "M"}), content_type="application/json")
+        self.assertTrue(r.json()["ok"])
+        job.refresh_from_db()
+        self.assertNotIn(mine["row"], job.lm_accepted)
+        vote = LMVote.objects.get(kind="user", job_id=job.id)  # смета­чи ўзи кўчирди — овоз
+        self.assertEqual((vote.category, vote.entry.category), ("M", ""))  # битта смета­чи — тасдиқлашни кутади
+        # қайта ҳисоблаш (бошқа ўзгариш билан) — овоз иккиланмайди ва йўқолмайди
+        self.client.post(url, json.dumps({"rows": [mine["row"]], "category": "M"}), content_type="application/json")
+        self.assertEqual(LMVote.objects.filter(kind="user", job_id=job.id).count(), 1)
+
     def test_manual_does_nothing_by_itself(self):
         self.client.post(reverse("nf_mode"), {"nf_mode": "manual"})
         self.assertContains(self.client.get(reverse("index")), 'value="manual" checked')

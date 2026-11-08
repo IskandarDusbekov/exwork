@@ -68,7 +68,8 @@ class BaseOnlyTests(TestCase):
                                             "res": SimpleUploadedFile("Ресурс.xlsx", self.res)})
         job = Job.objects.filter(batch=None).latest("created")
         self.assertNotEqual(job.res_path, "")
-        self.assertEqual(base_options(job), {"base_prices": None, "base_label": ""})  # давр бор, лекин RES'лида база йўқ
+        opts = base_options(job)
+        self.assertEqual((opts["base_prices"], opts["base_label"]), (None, ""))  # давр бор, лекин RES'лида база йўқ
         self.assertNotContains(self.client.get(reverse("job", args=[job.id])), "База:")
 
     def test_local_alone_not_from_base_unless_chosen(self):

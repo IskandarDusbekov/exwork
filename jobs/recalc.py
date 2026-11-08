@@ -92,7 +92,7 @@ def run(job_id, worker: str):
     if not mine.exists():
         return  # lease boshqasiga o'tgan (uzoq javob bermadik) — natijani o'sha yozadi
     job.save(update_fields=RESULT_FIELDS + (["cleared", "auto_cleared"] if getattr(job, "auto_cleared_now", False) else [])
-             + (["prices", "categories", "table_checked"] if getattr(job, "auto_applied_now", False) else []))
+             + (["prices", "categories", "lm_accepted", "table_checked"] if getattr(job, "auto_applied_now", False) else []))
     mine.update(recalc_done=seq, recalc_worker="", recalc_heartbeat=None)
     if not Job.objects.filter(pk=job_id).filter(_pending()).exists():
         # smetachi sahifada kutyapti: sahifa yangilanishi bilan jadval ochiladi — ko'rinish hozir tayyorlanadi

@@ -17,6 +17,7 @@ urlpatterns = [
     path("folder/<uuid:project_id>/price/", views.project_price, name="project_price"),
     path("folder/<uuid:project_id>/stop/", views.project_stop, name="project_stop"),
     path("folder/<uuid:project_id>/resume/", views.project_resume, name="project_resume"),
+    path("folder/<uuid:project_id>/unpriced/", views.project_unpriced, name="project_unpriced"),
     path("folder/<uuid:project_id>/download/", views.project_download, name="project_download"),
     path("folder/<uuid:project_id>/viewer/<uuid:batch_id>/", views.project_viewer, name="project_viewer"),
     path("folder/<uuid:project_id>/ofyorta/", views_ofyorta.ofyorta_page, name="project_ofyorta"),

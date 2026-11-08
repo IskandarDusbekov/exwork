@@ -1,5 +1,6 @@
 import json
 import time
+import uuid
 from datetime import timedelta
 from pathlib import Path
 
@@ -23,7 +24,7 @@ from core.svodka import DEFAULT_PERCENTS, PERCENT_LABELS, parse_text_number, per
 from panel.audit import log as audit
 from panel.models import Event
 
-from . import preview, recalc, xlview
+from . import bulk_price, preview, recalc, xlview
 from .archives import is_archive
 from .guide import FLOW, GUIDE_PAGES, help_groups
 from .folders import (
@@ -631,6 +632,33 @@ def project_price(request, project_id):
         remember_percents(project.owner_id, {**saved, **parse_percents(data, saved)})
     start_pricing(project)
     return redirect("project", project_id=project.id)
+
+
+@require_http_methods(["GET", "POST"])
+def project_unpriced(request, project_id):
+    """Папка бўйича бир хил нархланмаганлар. GET — гуруҳлар (ёки ``?pending=1`` — нечта смета ҳисобланяпти);
+    POST JSON ``{"items": [{"price": "4 600 000", "rows": {job_id: [қатор, …]}}], "undo": false}``."""
+    project = _get_work(request, Project, id=project_id)
+    if request.method == "GET":
+        if request.GET.get("pending"):
+            return JsonResponse({"pending": bulk_price.pending(project)})
+        return JsonResponse({"groups": bulk_price.groups(project), "pending": bulk_price.pending(project)})
+    if project.status == Project.Status.PROCESSING:
+        return JsonResponse({"ok": False, "error": "Папка ҳали ишланяпти — тугагач нарх қўйинг"}, status=400)
+    try:
+        data = json.loads(request.body or b"{}")
+        items = []
+        for it in data["items"]:
+            price = _as_price(it["price"])
+            if price is None or price < 0:
+                return JsonResponse({"ok": False, "error": f"нарх рақам бўлиши керак: «{it['price']}»"}, status=400)
+            rows = {str(uuid.UUID(str(j))): [int(r) for r in rs] for j, rs in dict(it["rows"]).items()}
+            items.append({"price": price, "rows": rows})
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
+    if not items:
+        return JsonResponse({"ok": False, "error": "нарх ёзилмаган"}, status=400)
+    return JsonResponse({"ok": True, **bulk_price.apply(project, items, undo=bool(data.get("undo")))})
 
 
 def project_download(request, project_id):
@@ -1253,12 +1281,17 @@ def job_categories(request, job_id):
     if not rows or unknown:
         return JsonResponse({"ok": False, "error": f"бундай қатор йўқ: {unknown[:5]}"}, status=400)
 
-    categories = dict(job.categories or {})
+    from resbase.lm import accepted_rows
+    categories, accepted = dict(job.categories or {}), accepted_rows(job)
     for r in rows:
+        accepted.discard(r)
         if not category or category == known[r]["default_category"]:
             categories.pop(str(r), None)  # дастур аниқлагани билан бир хил — қўлда белги шарт эмас
         else:
             categories[str(r)] = category
+            if category in ("L", "M") and known[r].get("suggested_category") == category:
+                accepted.add(r)  # таклифни қабул қилди — ускуна базасига овоз эмас
+    job.lm_accepted = sorted(accepted)
     recalc.request(job, categories=categories)
     return JsonResponse({"ok": True, "queued": True, "changed": len(rows), "overrides": len(job.categories)})
 
@@ -1569,8 +1602,8 @@ def job_reprice(request, job_id):
     if request.POST.get("confirm") != "1":
         messages.error(request, "Қайта нархлаш тасдиқланмади")
         return redirect("job", job_id=job.id)
-    job.auto_cleared, job.table_checked = False, False
-    job.save(update_fields=["auto_cleared", "table_checked"])
+    job.auto_cleared, job.table_checked, job.lm_accepted = False, False, []
+    job.save(update_fields=["auto_cleared", "table_checked", "lm_accepted"])
     recalc.request(job, categories={}, prices={}, cleared=[], marked=[])
     messages.success(request, "Смета бошидан нархланяпти — тугагач, саҳифа янгиланади")
     return redirect("job", job_id=job.id)

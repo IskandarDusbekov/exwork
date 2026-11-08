@@ -61,6 +61,7 @@ BASE = "BASE"                  # RES narxlay olmadi — ресурс базас�
 
 # smart: G da yozuv qoladigan (narxlanmagan) holatlar — 1-bosqichda smetachi ko'rib chiqadi
 UNPRICED_STATUSES = (NOT_FOUND, FUZZY, AMBIGUOUS, UNIT_MISMATCH, NO_PRICE)
+NEAR_SECTION_SCORE = 0.85  # topilmaganning yaqin resursi shunchalik o'xshash bo'lsa — uning RES bo'limi L/M taklifi
 
 MODES = ("smart", "compat")
 EMPTY_ROWS_AFTER = 5  # smart: svodkadan keyin shuncha bo'sh qator ko'rinadi, pasti yashiriladi
@@ -92,6 +93,8 @@ class Options:
     # smart: ресурс базаси {kod: {"price", "n", "unit_key", "category"}} — RES narxlay olmagan qatorlar kod bo'yicha
     base_prices: Optional[Dict[str, dict]] = None
     base_label: str = ""  # «Тошкент ш. · 2026-4» — LOG izohi uchun
+    # smart: ускуна ва кабель базаси (core.lmbase.LMBase) — L/M таклифи учун (RES бўлими бўлмаганда)
+    lm_base: Optional[object] = None
     # moslashtirish natijalari fayli (JSON): qayta hisoblashda RES bilan solishtirish takrorlanmaydi. Natija
     # o'zgarmaydi — RES mazmuni yoki moslashtirish kodi o'zgarsa, saqlangani ishlatilmaydi (matcher.fingerprint)
     match_cache: Optional[Path] = None
@@ -143,6 +146,9 @@ class _Priced:
     numbering_row: Optional[int] = None  # smart: «1 2 3 …» qatori (filtr shu yerdan)
     cleared: set = field(default_factory=set)  # smart: «ТОПИЛМАДИ» olib tashlangan qatorlar
     near: Dict[int, dict] = field(default_factory=dict)  # smart: topilmaganga eng yaqin RES resursi
+    # smart: aniq topilmagan qatorning o'xshash (taklif qilingan yoki narxi olingan) RES resursi qaysi bo'limda —
+    # {qator: (tur, bo'lim sarlavhasi, resurs nomi)}; L/M taklifi uchun (uskuna RES'da «ОБОРУДОВАНИЕ»da tursa)
+    near_sections: Dict[int, tuple] = field(default_factory=dict)
 
 
 def default_output_path(local_path: Path) -> Path:
@@ -332,7 +338,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
             if start_r <= r <= end_r:
                 kinds[r] = COLUMN_KIND.get(col, col)
                 applied_categories[r] = col
-        category_hints = _category_hints(ws, priced, default_kinds, ln)
+        category_hints = _category_hints(ws, priced, default_kinds, ln, opts.lm_base)
 
     # --- yozish ---
     w = SheetWriter(ws)
@@ -450,6 +456,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         hint = category_hints.get(r)
         if hint and KIND_COLUMN[hint[0]] != rows[-1]["category"]:
             rows[-1]["suggested_category"], rows[-1]["suggest_reason"] = KIND_COLUMN[hint[0]], hint[1]
+            rows[-1]["suggest_sure"] = hint[2]  # «Автоматик» фақат ишончлисини ўзи қўяди
     checks = _check_priced(w.written, rows, start_r, end_r, ln, lu)
     wb_vals.close()
 
@@ -530,20 +537,44 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     )
 
 
-def _category_hints(ws, priced: "_Priced", default_kinds: Dict[int, str], ln: int) -> Dict[int, tuple]:
-    """Kategoriya TAKLIFLARI (o'zi o'zgartirmaydi): avval aniq topilgan resursning RES dagi bo'limi,
-    bo'lmasa K dagi qatorlar uchun nomdagi so'z («кабель», «насос» …). ``{qator: (tur, sabab)}``."""
+BASE_SECTION = "ресурс базаси"  # нарх ресурс базасидан — бўлими (I/J/K) ускуна/кабель ҳақида гапирмайди
+
+
+def _category_hints(ws, priced: "_Priced", default_kinds: Dict[int, str], ln: int, lm_base=None) -> Dict[int, tuple]:
+    """Kategoriya TAKLIFLARI (o'zi o'zgartirmaydi) ``{qator: (tur, sabab, ishonchli)}``. Tartib:
+    1) aniq topilgan resursning RES dagi bo'limi (admin o'rgatgan baza yozuvi RES «material»idan ustun);
+    2) o'xshash / narxi olingan RES resursining bo'limi (uskuna RES'da «ОБОРУДОВАНИЕ»da);
+    3) ускуна ва кабель базаси (kod → nom → o'xshash nom): «ускуна эмас» deyilsa — taklif yo'q;
+    4) nomdagi so'z («кабель …», «насос» …)."""
     hints = {}
     for r, kind in default_kinds.items():
         if priced.status.get(r) in (WORK_HEADER, MACHINIST, CLEARED) or r not in priced.status:
             continue
         section = priced.sections.get(r)
+        if section and section[1] == BASE_SECTION:
+            section = None  # базадан нархланган: ускуна/кабель ҳақида маълумот йўқ
         if section and section[0] != kind:
-            hints[r] = (section[0], f"RES'да «{section[1]}» бўлимида")
-        elif not section and kind == OTHER:
-            hint = name_hint(_peek(ws, r, ln))
-            if hint:
-                hints[r] = (hint[0], f"номида «{hint[1]}…»")
+            hints[r] = (section[0], f"RES'да «{section[1]}» бўлимида", True)
+            continue
+        if kind != OTHER:
+            continue
+        name = _peek(ws, r, ln)
+        hit = lm_base.lookup(name, _peek(ws, r, 2) if ln > 2 else None) if lm_base is not None else None
+        if section:  # RES'да материал бўлимида — фақат админ ўргатгани бошқа деса
+            if hit and hit.strong and hit.how != "fuzzy" and hit.kind != OTHER:
+                hints[r] = (hit.kind, hit.reason, True)
+            continue
+        near = priced.near_sections.get(r)
+        if near and near[0] in (CABLE, EQUIPMENT):
+            hints[r] = (near[0], f"RES'даги ўхшаш «{near[2]}» — «{near[1]}» бўлимида", True)
+            continue
+        if hit:
+            if hit.kind != OTHER:
+                hints[r] = (hit.kind, hit.reason, hit.strong)  # ўхшаш ном ёки кам овоз — фақат таклиф
+            continue  # базада «ускуна эмас» — сўзга қараб таклиф қилинмайди
+        hint = name_hint(name)
+        if hint:
+            hints[r] = (hint[0], f"номида «{hint[1]}…»", True)
     return hints
 
 
@@ -800,6 +831,7 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
     unit_mismatch = 0
     suggestions: Dict[int, object] = {}
     sections: Dict[int, tuple] = {}
+    near_sections: Dict[int, tuple] = {}
     orig_status: Dict[int, str] = {}
     positions: Dict[int, tuple] = {}
     to_clear = {int(r) for r in (cleared or [])}
@@ -891,7 +923,7 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
             key = (m.near_unit, m.near_name) if st == NOT_FOUND else (m.unit, m.name)
             near[r]["res_row"] = (index.position_of(*key) or (None, None))[1]
             # «Батафсил»: энг ўхшаш 3 та (нархи борлари) — смета­чи бошқасини танлаши мумкин
-            alts = []
+            alts, alt_keys = [], []
             for score, u, name in index.top(local_name, 3):
                 price = index.by_unit[u][name]
                 if _as_price(price) is None:
@@ -899,7 +931,21 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
                 raw_name, raw_unit = index.raw_of(u, name)
                 alts.append({"name": raw_name, "unit": raw_unit, "price": price, "score": round(score, 3),
                              "same_unit": u == local_unit, "res_row": (index.position_of(u, name) or (None, None))[1]})
+                alt_keys.append((_as_price(price), u, name, raw_name))
             near[r]["alts"] = alts
+            # o'xshash resursning RES bo'limi: smetachi uning (yoki «Батафсил»dagi boshqasining) narxini olgan
+            # bo'lsa — o'sha resurs; olmagan bo'lsa — taklif ishonchli bo'lgandagina (FUZZY/AMBIGUOUS yoki 85%+)
+            sec, sec_name = index.section_of(*key), near[r]["name"]
+            if r in manual_prices:
+                picked = [(u, n, rn) for p_, u, n, rn in alt_keys if p_ == manual_prices[r]]
+                if _as_price(near[r]["price"]) != manual_prices[r] and picked:
+                    sec, sec_name = index.section_of(picked[0][0], picked[0][1]), picked[0][2]
+                elif _as_price(near[r]["price"]) != manual_prices[r]:
+                    sec = None  # o'zi yozgan narx — RES resursidan emas
+            elif st == NOT_FOUND and (near[r].get("score") or 0) < NEAR_SECTION_SCORE:
+                sec = None
+            if sec:
+                near_sections[r] = (sec[0], sec[1], sec_name)
 
         # birligi ham, taklifi ham yo'q (bo'lim nomi, izoh) — narxi bo'lmaydi: «ТОПИЛМАДИ» o'zi olinadi
         if auto_clear and not real_unit and st in UNPRICED_STATUSES and r not in near:
@@ -942,6 +988,7 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
     p.numbering_row = layout.numbering_row if layout else None
     p.cleared = applied_clear
     p.near = near
+    p.near_sections = near_sections
     p.repeats = repeats
     return p, ln, lu
 

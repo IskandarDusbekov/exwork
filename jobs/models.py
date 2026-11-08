@@ -144,6 +144,9 @@ class Job(models.Model):
     mode = models.CharField(max_length=10, default="smart")  # smart | compat
     percents = models.JSONField(default=dict, blank=True)    # svodka foizlari (ulush); bo'sh = standart
     categories = models.JSONField(default=dict, blank=True)  # qo'lda kategoriya {"qator": "I".."M"}
+    # L/M га тизим таклифини қабул қилиб ўтказилган қаторлар [183, …] — ускуна базасига смета­чи овози эмас
+    # (база ўз таклифини ўзи тасдиқлаб кетмасин). None — эски смета, маълумот йўқ.
+    lm_accepted = models.JSONField(null=True, blank=True, default=None)
     prices = models.JSONField(default=dict, blank=True)      # qo'lda narx / tasdiqlangan taklif {"qator": narx}
     column_names = models.JSONField(default=dict, blank=True)  # ustun nomlari {"K": "…", "N": "Монтаж"}; N.. — qo'shilgan
     local_columns = models.JSONField(default=dict, blank=True)  # smetachi ko'rsatgan ustunlar (Batch.columns dan)

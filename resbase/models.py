@@ -208,3 +208,59 @@ def counted_q(prefix: str = "") -> models.Q:
     """Medianaga kiradigan kuzatuvlar: qo'lda emas, istisno emas, tekshiruvda emas. ``prefix`` — «observations__»."""
     return (models.Q(**{f"{prefix}manual": False, f"{prefix}excluded": False})
             & ~models.Q(**{f"{prefix}review": Observation.Review.PENDING}))
+
+
+# ===================== ускуна ва кабель базаси =====================
+LM_CATEGORIES = [("M", "Ускуна"), ("L", "Кабель"), ("K", "Ускуна эмас (материал)")]
+
+
+class LMEntry(models.Model):
+    """Ускуна ва кабель базасидаги битта ресурс (номи бўйича; коди бўлса — код ҳам). Тури икки йўлдан:
+
+    * ўзи ўрганади — ``LMVote``: ҳар нархланган сметадан (RES'да «ОБОРУДОВАНИЕ»/«КАБЕЛЬ» бўлимида турган
+      ресурслар, смета­чининг L/M га кўчиргани ёки қайтаргани). ``category`` — овозлар кўпи;
+    * админ ўргатади (бирма-бир ёки Excel) — ``locked``: овозлардан қатъи назар шу тур.
+
+    Нархлашда фақат таклиф (core.lmbase); «ускуна эмас» (K) — сўзга қараб нотўғри таклиф қилинмасин."""
+
+    class Origin(models.TextChoices):
+        AUTO = "auto", "Ўзи ўрганди"
+        ADMIN = "admin", "Қўлда ўргатилди"
+        EXCEL = "excel", "Excel'дан ўргатилди"
+
+    key = models.CharField(max_length=400, unique=True)  # core.lmbase.lm_key(name)
+    name = models.CharField(max_length=500)
+    unit = models.CharField(max_length=40, blank=True)
+    code = models.CharField(max_length=12, blank=True, db_index=True)  # миллий код (олдидаги нолларсиз)
+    category = models.CharField(max_length=1, choices=LM_CATEGORIES, blank=True)  # бўш — овоз етарли эмас
+    locked = models.BooleanField(default=False)  # админ ўргатган — овозлар ўзгартирмайди
+    origin = models.CharField(max_length=8, choices=Origin.choices, default=Origin.AUTO)
+    votes = models.JSONField(default=dict, blank=True)  # {"M": 12, "K": 1, "user_M": 2} — LMVote'дан ҳисобланади
+    note = models.CharField(max_length=200, blank=True)  # админ изоҳи ёки Excel файл номи
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} → {self.category or '?'}"
+
+
+class LMVote(models.Model):
+    """Битта сметадан битта далил: шу ресурс шу сметада қайси турда. Смета қайта ҳисобланса — алмаштирилади."""
+
+    class Kind(models.TextChoices):
+        RES = "res", "RES бўлими"
+        USER = "user", "Смета­чи танлови"
+
+    entry = models.ForeignKey(LMEntry, on_delete=models.CASCADE, related_name="lm_votes")
+    job_id = models.UUIDField(db_index=True)
+    owner_id = models.IntegerField(null=True, blank=True)  # смета эгаси — смета­чи овози фойдаланувчилар бўйича санади
+    src = models.CharField(max_length=40, blank=True)  # RES файлнинг изи — битта файл 20 сметада бўлса ҳам битта овоз
+    category = models.CharField(max_length=1)  # L | M | K
+    kind = models.CharField(max_length=4, choices=Kind.choices)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["entry", "job_id", "kind"], name="lmvote_uniq")]

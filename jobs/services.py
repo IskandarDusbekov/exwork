@@ -150,11 +150,13 @@ def base_options(job: Job) -> dict:
     """``Options`` uchun: ресурс базаси narxlari (baza o'chiq yoki davr tanlanmagan — bo'sh).
     RES bilan narxlanadigan smetada baza umuman ishlatilmaydi — narxlar aralashmaydi; baza faqat RES'siz
     («Фақат ресурс базаси» yoki juftlikda «Ресурс базаси» tanlangan) smetada."""
+    from resbase.lm import load_base
     from resbase.services import period_label, price_map
+    lm = {"lm_base": load_base()} if job.mode == "smart" else {}  # ускуна ва кабель базаси — L/M таклифи
     if job.res_path:
-        return {"base_prices": None, "base_label": ""}
+        return {"base_prices": None, "base_label": "", **lm}
     prices = price_map(job.base_period)
-    return {"base_prices": prices or None, "base_label": period_label(job.base_period) if prices else ""}
+    return {"base_prices": prices or None, "base_label": period_label(job.base_period) if prices else "", **lm}
 
 
 def _fuzzy_default() -> int:
@@ -245,7 +247,7 @@ def run_job(job: Job, local_sheet: Optional[str], res_sheet: Optional[str], fuzz
 
 
 # sozlamalar (smetachi o'zgartiradi) — qayta hisoblash ularga tegmaydi, aks holda hisob davomidagi o'zgarish yo'qoladi
-SETTING_FIELDS = ["local_sheet", "res_sheet", "fuzzy", "mode", "percents", "categories", "prices", "cleared", "marked",
+SETTING_FIELDS = ["local_sheet", "res_sheet", "fuzzy", "mode", "percents", "categories", "lm_accepted", "prices", "cleared", "marked",
                   "auto_cleared", "local_columns", "res_columns", "column_names", "base_period"]
 # natija — faqat qayta hisoblash yozadi
 RESULT_FIELDS = ["status", "error", "duration", "rows", "output_path", "result", "preview_ready"]
@@ -345,7 +347,9 @@ def recompute(job: Job) -> Job:
         "marked": result.marked,
     }
     if auto_clear and auto_apply(job):
-        recompute(job)  # takliflar va L/M qo'yildi — shu sozlama bilan qayta (auto_cleared endi True: takrorlanmaydi)
+        return recompute(job)  # takliflar va L/M qo'yildi — shu sozlama bilan qayta (auto_cleared endi True: takrorlanmaydi)
+    from resbase.lm import harvest_safe
+    harvest_safe(job)  # ускуна ва кабель базаси шу сметадан ўрганади (RES бўлимлари, смета­чи танлови)
     return job
 
 
@@ -361,12 +365,20 @@ def auto_apply(job: Job) -> bool:
     rows = job.result.get("rows", [])
     prices, categories = {**(job.prices or {}), **open_suggestions(job)}, dict(job.categories or {})
     labels = column_labels(job)
-    for card in _lm_stage(rows, _res_groups(job.result, labels), labels)["cards"]:
+    groups = _res_groups(job.result, labels)
+    in_res = {n for g in groups if g["column"] in ("L", "M") for n in g["to_move"]}  # RES'нинг ўзида шу бўлимда
+    from resbase.lm import accepted_rows
+    accepted = accepted_rows(job)
+    for card in _lm_stage(rows, groups, labels)["cards"]:
         for r in card["rows"]:
+            if r["row"] not in in_res and r.get("suggest_sure") is False:
+                continue  # ишончсиз таклиф (базадаги ўхшаш ном, кам овоз) — смета­чи ўзи кўрсин
             if str(r["row"]) not in categories:
                 categories[str(r["row"])] = card["col"]
+                accepted.add(r["row"])
     changed = prices != (job.prices or {}) or categories != (job.categories or {})
     job.prices, job.categories, job.table_checked = prices, categories, True
+    job.lm_accepted = sorted(accepted)
     job.auto_applied_now = True
     return changed
 

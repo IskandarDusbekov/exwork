@@ -107,7 +107,11 @@
         <div class="min-w-0 text-sm">
           <div class="font-semibold text-slate-900">Нархланмаганларни тўғриланг</div>
           {% if count_warn %}<div class="text-slate-600"><b class="text-rose-700">{{ count_warn }} та қисм</b>да {{ not_priced_total }} та қатор нархсиз — сметани очиб, нархини қўйинг.</div>
-          <button type="button" data-part-filter="warn" class="mt-1.5 rounded-md bg-rose-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-rose-700">Шу қисмларни кўрсатиш</button>
+          <div class="mt-1.5 flex flex-wrap gap-1.5">
+            <button type="button" data-part-filter="warn" class="rounded-md bg-rose-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-rose-700">Шу қисмларни кўрсатиш</button>
+            <button type="button" data-bulk-open class="inline-flex items-center gap-1 rounded-md border border-rose-300 bg-white px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                    title="Бир хил ресурс бир неча сметада учраса — нархини бир марта ёзасиз, ҳаммасига қўйилади">{% icon "layers" "h-3.5 w-3.5" %} Бир хил ресурсларга бир йўла нарх қўйиш</button>
+          </div>
           {% else %}<div class="text-emerald-800">Ҳамма қатор нархланган.</div>{% endif %}
         </div>
       </li>

@@ -1,0 +1,66 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Excel'дан ўргатиш — Ускуна ва кабель базаси{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<a href="{% url 'panel:lm' %}" class="mb-2 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">{% icon "arrow-left" "h-4 w-4" %} Ускуна ва кабель базаси</a>
+<h1 class="text-xl font-semibold text-slate-900">Excel'дан ўргатиш: «{{ data.file }}»</h1>
+<p class="mt-0.5 max-w-3xl text-sm text-slate-600">{{ kind_label }}. Файлда <b>{{ data.items|length }} та</b> ресурс номи топилди
+  (ускуна {{ counts.M }}, кабель {{ counts.L }}, ускуна эмас {{ counts.K }}). Керак бўлмаганининг белгисини олинг ёки турини ўзгартиринг,
+  кейин «Базага ўргатиш»ни босинг. <b>Тасдиқламагунингизча ҳеч нарса ўзгармайди.</b></p>
+
+<form method="post" class="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">{% csrf_token %}
+  <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2.5 text-sm">
+    <label class="inline-flex items-center gap-1.5 text-slate-600"><input type="checkbox" id="lm-all" checked> ҳаммасини белгилаш</label>
+    <span class="text-slate-300">|</span>
+    <span class="text-slate-600">Белгиланганларнинг ҳаммасини:</span>
+    {% for k, label in cats %}<button type="button" data-set="{{ k }}" class="rounded-lg border border-slate-300 px-2.5 py-1 hover:bg-slate-50">{{ label }}</button>{% endfor %}
+  </div>
+  <div class="max-h-[65vh] overflow-auto"><table class="w-full text-sm">
+    <thead class="sticky top-0 bg-slate-50 text-left text-xs text-slate-500">
+      <tr><th class="w-10 px-4 py-2"></th><th class="px-3 py-2 font-medium">Ресурс номи</th><th class="px-3 py-2 font-medium">Бирлиги · коди</th>
+        <th class="px-3 py-2 font-medium">Ҳозир базада</th><th class="px-3 py-2 font-medium">Нима деб ўргатамиз</th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for it in data.items %}
+      <tr class="lm-row align-top">
+        <td class="px-4 py-2"><input type="checkbox" name="t{{ forloop.counter0 }}" value="1" checked class="lm-take" aria-label="Олиш"></td>
+        <td class="max-w-lg break-words px-3 py-2 text-slate-900">{{ it.name }}</td>
+        <td class="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{{ it.unit|default:"—" }}{% if it.code %} · <span class="num">{{ it.code }}</span>{% endif %}</td>
+        <td class="whitespace-nowrap px-3 py-2 text-xs">{% if it.now %}<span class="{% if it.now != it.category %}font-semibold text-amber-700{% else %}text-slate-500{% endif %}">{% if it.now == "M" %}ускуна{% elif it.now == "L" %}кабель{% else %}ускуна эмас{% endif %}{% if it.now_locked %} ✓{% endif %}</span>{% else %}<span class="text-slate-400">йўқ (янги)</span>{% endif %}</td>
+        <td class="px-3 py-2">
+          <select name="c{{ forloop.counter0 }}" class="lm-cat rounded-lg border border-slate-300 px-2 py-1 text-sm">
+            {% for k, label in cats %}<option value="{{ k }}" {% if it.category == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  <div class="flex flex-wrap items-center gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
+    <span id="lm-sum" class="flex-1 text-sm text-slate-600"></span>
+    <button name="action" value="cancel" formnovalidate class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50">Бекор қилиш</button>
+    <button name="action" value="save" class="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Базага ўргатиш</button>
+  </div>
+</form>
+<script>
+(function () {
+  var all = document.getElementById("lm-all"), sum = document.getElementById("lm-sum");
+  function takes() { return Array.prototype.slice.call(document.querySelectorAll(".lm-take")); }
+  function upd() {
+    var on = takes().filter(function (c) { return c.checked; });
+    sum.textContent = on.length + " / " + takes().length + " та белгиланган";
+    all.checked = on.length === takes().length;
+  }
+  all.addEventListener("change", function () { takes().forEach(function (c) { c.checked = all.checked; }); upd(); });
+  document.addEventListener("change", function (e) { if (e.target.classList.contains("lm-take")) upd(); });
+  document.querySelectorAll("[data-set]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll(".lm-row").forEach(function (tr) {
+        if (tr.querySelector(".lm-take").checked) tr.querySelector(".lm-cat").value = b.dataset.set;
+      });
+    });
+  });
+  upd();
+})();
+</script>
+{% endblock %}
