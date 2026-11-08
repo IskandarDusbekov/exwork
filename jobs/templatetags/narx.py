@@ -224,6 +224,9 @@ _ICONS = {
     "sidebar": '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>',
     "eye": '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
     "mail": '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+    "message": '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
+    "paperclip": '<path d="m21 11-8.6 8.6a5 5 0 0 1-7-7l8.5-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.3-2.4l7.9-7.9"/>',
+    "send": '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/>',
     "logo": '<path d="M5.5 15V9.25a2.5 2.5 0 0 1 5 0V15M10.5 9.25a2.5 2.5 0 0 1 5 0V15"/><path d="M4 20h16M4 18.5v3M20 18.5v3"/><circle cx="19" cy="5.5" r=".6"/>',
 }
 _SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" '

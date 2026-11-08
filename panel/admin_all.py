@@ -7,7 +7,7 @@ from django.apps import apps
 from django.contrib import admin
 from django.db import models
 
-APPS = ("accounts", "jobs", "panel", "resbase", "texnazor")
+APPS = ("accounts", "jobs", "panel", "resbase", "texnazor", "support")
 # журнал ва ўлчовлар — фақат кўриш (ўзгартириб ёки қўшиб бўлмайди)
 VIEW_ONLY = {"panel.Event", "panel.AccessStat", "panel.ServerLog", "panel.LoginSession",
              "jobs.FileTiming", "jobs.UploadTiming", "accounts.TwoFactor"}

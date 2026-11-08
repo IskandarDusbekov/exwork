@@ -20,6 +20,9 @@
     {% include "jobs/_side_link.html" with key="calc" url="calc" ic="calculator" label="Калькулятор" %}
     <div class="side-cap">Ёрдам</div>
     {% include "jobs/_side_link.html" with key="help" url="help" ic="help" label="Йўриқнома" %}
+    {% if not request.viewing_owner %}{# саҳифа эмас — бурчакдаги суҳбат ойнасини очади (support/_widget.html) #}
+    <button type="button" data-support-open class="side-link w-full" title="Ёрдам хизмати">{% icon "message" "h-5 w-5 shrink-0" %}<span class="side-label">Ёрдам хизмати</span><span id="sup-side-badge" class="side-badge{% if not support_unread %} hidden{% endif %}" title="Янги жавоблар">{{ support_unread|default:"" }}</span></button>
+    {% endif %}
     {% include "jobs/_side_link.html" with key="landing" url="landing" ic="monitor" label="Тизим ҳақида" %}
     {% if user.is_staff %}{% include "jobs/_side_link.html" with key="panel" url="panel:overview" ic="shield" label="Панел" %}{% endif %}
   </nav>

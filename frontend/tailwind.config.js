@@ -8,6 +8,7 @@ module.exports = {
     "../panel/templates/**/*.html",
     "../accounts/templates/**/*.html",
     "../texnazor/templates/**/*.html",
+    "../support/templates/**/*.html",
     "../jobs/**/*.py",
     "../panel/**/*.py",
     "../accounts/**/*.py",

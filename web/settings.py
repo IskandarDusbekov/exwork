@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "panel",
     "resbase",
     "texnazor",
+    "support",
 ]
 
 MIDDLEWARE = [
@@ -62,6 +63,7 @@ TEMPLATES = [
             "django.contrib.auth.context_processors.auth",
             "django.contrib.messages.context_processors.messages",
             "accounts.context.signup",
+            "support.context.support",
         ]},
     },
 ]

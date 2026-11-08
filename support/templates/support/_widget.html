@@ -1,0 +1,170 @@
+{% load narx %}
+{% comment %}«Ёрдам» тугмаси (ўнг пастда, доим кўринади) ва суҳбат ойнаси. Хабарлар JSON билан келади ва фақат
+   textContent билан чизилади — HTML сифатида ҳеч қачон қўйилмайди (XSS йўқ). CSRF — <meta name="csrf-token"> дан.{% endcomment %}
+<button type="button" id="sup-btn" class="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-3 text-base font-semibold text-white shadow-lg shadow-emerald-900/20 hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-300"
+        aria-haspopup="dialog" aria-controls="sup-box" title="Саволингиз бўлса — администраторга ёзинг">
+  {% icon "message" "h-6 w-6" %}<span>Ёрдам</span>
+  <span id="sup-badge" class="{% if not support_unread %}hidden {% endif %}absolute -right-1 -top-1 grid h-6 min-w-6 place-items-center rounded-full bg-rose-600 px-1.5 text-xs font-bold text-white ring-2 ring-white" aria-label="Янги жавоблар">{{ support_unread|default:"" }}</span>
+</button>
+
+<div id="sup-box" role="dialog" aria-modal="false" aria-labelledby="sup-title"
+     class="fixed bottom-0 right-0 z-[65] hidden h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:bottom-5 sm:right-5 sm:h-[min(640px,calc(100dvh-2.5rem))] sm:w-[400px] sm:rounded-2xl sm:border sm:border-slate-200"
+     data-messages="{% url 'support:messages' %}" data-send="{% url 'support:send' %}" data-unread="{% url 'support:unread' %}">
+  <div class="flex shrink-0 items-center gap-3 bg-emerald-600 px-4 py-3 text-white">
+    <span class="grid h-10 w-10 place-items-center rounded-full bg-white/20">{% icon "message" "h-5 w-5" %}</span>
+    <div class="min-w-0 flex-1 leading-tight">
+      <div id="sup-title" class="text-lg font-semibold">Ёрдам хизмати</div>
+      <div class="text-sm text-emerald-50">Администраторга ёзинг — шу ерда жавоб берамиз</div>
+    </div>
+    <button type="button" id="sup-close" class="grid h-10 w-10 place-items-center rounded-full hover:bg-white/20" aria-label="Ёпиш" title="Ёпиш">{% icon "x" "h-6 w-6" %}</button>
+  </div>
+  <div id="sup-log" class="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4" aria-live="polite">
+    <p id="sup-loading" class="py-6 text-center text-slate-500">Юкланмоқда…</p>
+  </div>
+  <form id="sup-form" class="shrink-0 border-t border-slate-200 bg-white p-3" enctype="multipart/form-data" novalidate>
+    <p id="sup-err" class="mb-2 hidden rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert"></p>
+    <label for="sup-text" class="sr-only">Хабарингиз</label>
+    <textarea id="sup-text" name="text" rows="3" maxlength="4000" placeholder="Саволингизни шу ерга ёзинг…"
+              class="w-full resize-none rounded-xl border border-slate-300 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"></textarea>
+    <div id="sup-file-row" class="mt-1 hidden items-center gap-2 text-sm text-slate-700">
+      {% icon "paperclip" "h-4 w-4 shrink-0 text-slate-400" %}<span id="sup-fname" class="min-w-0 flex-1 truncate"></span>
+      <button type="button" id="sup-file-x" class="rounded px-2 py-0.5 text-rose-700 hover:bg-rose-50">Олиб ташлаш</button>
+    </div>
+    <div class="mt-2 flex items-center gap-2">
+      <label class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50" title="Скриншот, расм ёки файл (энг кўпи 10 МБ)">
+        {% icon "paperclip" "h-5 w-5" %}<span>Файл</span>
+        <input type="file" id="sup-file" name="file" class="sr-only" accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.xls,.xlsx,.xlsm,.doc,.docx,.txt,.zip,.rar"></label>
+      <button type="submit" id="sup-send" class="ml-auto inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-base font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+        {% icon "send" "h-5 w-5" %}<span>Юбориш</span></button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById("sup-btn"), box = document.getElementById("sup-box"),
+      log = document.getElementById("sup-log"), form = document.getElementById("sup-form"),
+      text = document.getElementById("sup-text"), file = document.getElementById("sup-file"),
+      err = document.getElementById("sup-err"), badge = document.getElementById("sup-badge"),
+      sendBtn = document.getElementById("sup-send");
+  var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
+  var last = 0, loaded = false, timer = null, isOpen = false, status = "open";
+
+  function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+  function size(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + " МБ" : Math.max(1, Math.round(n / 1024)) + " КБ"; }
+  var sideBadge = document.getElementById("sup-side-badge");
+  function setBadge(n) {
+    [badge, sideBadge].forEach(function (b) { if (b) { b.textContent = n || ""; b.classList.toggle("hidden", !n); } });
+  }
+  function showErr(msg) { err.textContent = msg || ""; err.classList.toggle("hidden", !msg); }
+
+  function intro() {
+    var d = el("div", "rounded-xl border border-emerald-100 bg-white p-4 text-[15px] leading-relaxed text-slate-700", null);
+    d.id = "sup-intro";
+    d.appendChild(el("p", "font-semibold text-slate-900", "Ассалому алайкум!"));
+    d.appendChild(el("p", "mt-1", "Саволингиз ёки муаммонгизни ёзинг. Керак бўлса, экран расмини (скриншот) ёки файлни бириктиринг."));
+    d.appendChild(el("p", "mt-1", "Администратор жавоб берганда «Ёрдам» тугмасида қизил белги чиқади{% if user.email_verified %} ва почтангизга хат келади{% endif %}."));
+    return d;
+  }
+  function closedNote() {
+    var d = el("p", "rounded-lg bg-slate-100 px-3 py-2 text-center text-sm text-slate-600", "Аввалги саволингиз ҳал қилинди. Янги савол ёзсангиз, администратор яна кўради.");
+    d.id = "sup-closed";
+    return d;
+  }
+
+  function bubble(m) {
+    var row = el("div", "flex " + (m.staff ? "" : "justify-end"));
+    var b = el("div", "max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed " +
+      (m.staff ? "rounded-bl-sm border border-slate-200 bg-white text-slate-800" : "rounded-br-sm bg-emerald-600 text-white"));
+    if (m.staff) b.appendChild(el("div", "mb-0.5 text-xs font-semibold text-emerald-700", "Администратор"));
+    if (m.text) b.appendChild(el("div", "whitespace-pre-wrap break-words", m.text));
+    if (m.file) {
+      if (m.file.image) {
+        var a = el("a"); a.href = m.file.url; a.target = "_blank"; a.rel = "noopener";
+        var img = el("img", "mt-2 max-h-56 rounded-lg border border-slate-200 bg-white"); img.src = m.file.url; img.alt = m.file.name; img.loading = "lazy";
+        a.appendChild(img); b.appendChild(a);
+      }
+      var f = el("a", "mt-1 block text-sm underline break-all", "📎 " + m.file.name + " (" + size(m.file.size) + ")");
+      f.href = m.file.url + "?dl=1";
+      b.appendChild(f);
+    }
+    b.appendChild(el("div", "mt-1 text-xs " + (m.staff ? "text-slate-400" : "text-emerald-100"),
+      m.time + (m.staff ? "" : (m.read ? " · ўқилди" : " · юборилди"))));
+    row.appendChild(b);
+    return row;
+  }
+
+  function render(list, replace) {
+    var loading = document.getElementById("sup-loading"); if (loading) loading.remove();
+    if (replace) { log.textContent = ""; log.appendChild(intro()); }
+    list.forEach(function (m) { if (m.id > last) { log.appendChild(bubble(m)); last = m.id; } });
+    var cn = document.getElementById("sup-closed"); if (cn) cn.remove();
+    if (status === "closed") log.appendChild(closedNote());
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function load(full) {
+    var url = box.dataset.messages + "?seen=1" + (full ? "" : "&after=" + last);
+    return fetch(url, {credentials: "same-origin", headers: {"Accept": "application/json"}})
+      .then(function (r) { if (!r.ok) throw r; return r.json(); })
+      .then(function (d) { status = d.status; render(d.messages, full); setBadge(d.unread); loaded = true; })
+      .catch(function () { if (full) { log.textContent = ""; log.appendChild(el("p", "py-6 text-center text-rose-700", "Юклаб бўлмади. Интернетни текширинг ва яна очинг.")); } });
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    timer = setTimeout(function tick() {
+      if (document.hidden) { timer = setTimeout(tick, isOpen ? 10000 : 60000); return; }
+      var p = isOpen ? load(false)
+        : fetch(box.dataset.unread, {credentials: "same-origin"}).then(function (r) { return r.json(); }).then(function (d) { setBadge(d.unread); });
+      Promise.resolve(p).catch(function () {}).then(function () { timer = setTimeout(tick, isOpen ? 10000 : 60000); });
+    }, isOpen ? 10000 : 60000);
+  }
+
+  function open() {
+    isOpen = true; box.classList.remove("hidden"); box.classList.add("flex"); btn.classList.add("hidden");
+    load(!loaded).then(function () { text.focus(); });
+    schedule();
+  }
+  function close() {
+    isOpen = false; box.classList.add("hidden"); box.classList.remove("flex"); btn.classList.remove("hidden");
+    schedule(); btn.focus();
+  }
+  btn.addEventListener("click", open);
+  document.getElementById("sup-close").addEventListener("click", close);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isOpen) close(); });
+  document.querySelectorAll("[data-support-open]").forEach(function (a) {
+    a.addEventListener("click", function (e) { e.preventDefault(); document.documentElement.classList.remove("side-open"); open(); });
+  });
+
+  file.addEventListener("change", function () {
+    var f = file.files[0], row = document.getElementById("sup-file-row");
+    showErr("");
+    if (f && f.size > 10 * 1048576) { showErr("Файл жуда катта (" + size(f.size) + "). Энг кўпи — 10 МБ."); file.value = ""; f = null; }
+    document.getElementById("sup-fname").textContent = f ? f.name + " (" + size(f.size) + ")" : "";
+    row.classList.toggle("hidden", !f); row.classList.toggle("flex", !!f);
+  });
+  document.getElementById("sup-file-x").addEventListener("click", function () { file.value = ""; file.dispatchEvent(new Event("change")); });
+  text.addEventListener("keydown", function (e) { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) form.requestSubmit(); });
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (!text.value.trim() && !file.files[0]) { showErr("Аввал хабар ёзинг ёки файл бириктиринг."); text.focus(); return; }
+    showErr(""); sendBtn.disabled = true;
+    var fd = new FormData(form);
+    fetch(box.dataset.send, {method: "POST", body: fd, credentials: "same-origin", headers: {"X-CSRFToken": csrf, "Accept": "application/json"}})
+      .then(function (r) { return r.json().catch(function () { return {error: "Юбориб бўлмади (" + r.status + "). Яна уриниб кўринг."}; }); })
+      .then(function (d) {
+        if (d.error) { showErr(d.error); return; }
+        status = "open"; render([d.message], false);
+        text.value = ""; file.value = ""; file.dispatchEvent(new Event("change"));
+      })
+      .catch(function () { showErr("Юбориб бўлмади. Интернетни текширинг ва яна уриниб кўринг."); })
+      .then(function () { sendBtn.disabled = false; });
+  });
+
+  // хатдаги ҳавола (/support/ → #support) — ойна ўзи очилади
+  if (location.hash === "#support") { history.replaceState(null, "", location.pathname + location.search); open(); }
+  else schedule();
+})();
+</script>

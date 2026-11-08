@@ -56,7 +56,14 @@ def _ctx(request, tab, **kw):
     day = timezone.now() - timedelta(days=1)
     return {"nav": "panel", "tab": tab, "can_act": request.user.is_superuser,
             "running_count": Project.objects.filter(status=Project.Status.PROCESSING).count(),
-            "error_count": ServerLog.objects.filter(level__gte=logging.ERROR, created__gte=day).count(), **kw}
+            "error_count": ServerLog.objects.filter(level__gte=logging.ERROR, created__gte=day).count(),
+            "support_new": _support_new(), **kw}
+
+
+def _support_new() -> int:
+    """«Ёрдам хизмати»: администратор ҳали ўқимаган фойдаланувчи хабарлари (менюдаги белги)."""
+    from support.services import staff_unread
+    return staff_unread()
 
 
 def _panel_items(user):

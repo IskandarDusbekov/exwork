@@ -20,6 +20,8 @@
     .side-nav .side-link.is-on { background: #ecfdf5; color: #065f46; font-weight: 600; }
     .side-nav .side-link.is-on svg { color: #059669; }
     .side-nav .side-link.is-on::before { content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: #10b981; }
+    .side-badge { margin-left: auto; min-width: 1.25rem; border-radius: 999px; background: #e11d48; padding: 0 .4rem; text-align: center; font-size: 12px; font-weight: 700; line-height: 1.25rem; color: #fff; }
+    html[data-side=rail] .app-side .side-badge { position: absolute; top: 2px; right: 6px; min-width: 1rem; font-size: 10px; line-height: 1rem; }
     .side-cap { padding: .9rem .7rem .35rem; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; }
     .side-user { display: flex; align-items: center; gap: .6rem; padding: .4rem .45rem; border-radius: .625rem; }
     .side-ava { flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 999px; background: #0f172a; color: #fff; font-size: 12px; font-weight: 700; }
@@ -152,6 +154,7 @@
   <script>window.narxGuide = {% block guide %}null{% endblock %};</script>
   {% include "jobs/_guide.html" %}
   {% include "jobs/_dialog.html" %}
+  {% if not request.viewing_owner %}{% include "support/_widget.html" %}{% endif %}
   {% endif %}
 </body>
 </html>

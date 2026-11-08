@@ -1,0 +1,80 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}{{ conv.user.email }} — Ёрдам хизмати{% endblock %}
+{% block page_back %}<a href="{% url 'panel:support' %}" class="mb-2 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-4 w-4" %} Барча суҳбатлар</a>{% endblock %}
+{% block page_title %}{{ conv.user.get_full_name|default:conv.user.email }}{% endblock %}
+{% block page_desc %}{{ conv.user.email }} · <a class="underline" href="{% url 'panel:user' conv.user.pk %}">профили ва ишлари</a> ·
+  {% if conv.status == "closed" %}<b>ҳал қилинган</b>{% if conv.closed_at %} ({{ conv.closed_at|date:"d.m.Y H:i" }}{% if conv.closed_by %}, {{ conv.closed_by.get_full_name|default:conv.closed_by.email }}{% endif %}){% endif %}{% else %}<b class="text-emerald-700">очиқ</b>{% endif %}{% endblock %}
+{% block page_actions %}
+{% if can_act %}
+<form method="post" action="{% url 'panel:support_status' conv.pk %}">{% csrf_token %}
+  {% if conv.status == "closed" %}
+  <input type="hidden" name="action" value="open">
+  <button class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">{% icon "undo" "h-4 w-4" %} Қайта очиш</button>
+  {% else %}
+  <input type="hidden" name="action" value="close">
+  <button class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">{% icon "check-circle" "h-4 w-4" %} Ҳал қилинди</button>
+  {% endif %}
+</form>
+{% endif %}
+{% endblock %}
+{% block panel %}
+{% for m in messages %}<div class="mx-auto mb-3 max-w-3xl rounded-lg border px-3 py-2 text-sm {% if m.level_tag == 'error' %}border-rose-200 bg-rose-50 text-rose-800{% else %}border-emerald-200 bg-emerald-50 text-emerald-800{% endif %}" role="status">{{ m }}</div>{% endfor %}
+
+<section class="mx-auto max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div id="sp-log" class="max-h-[60vh] space-y-3 overflow-y-auto bg-slate-50 p-4" data-poll="{% url 'panel:support_poll' conv.pk %}" data-last="{{ last_id }}">
+    {% for m in msgs %}
+    <div class="flex {% if m.from_staff %}justify-end{% endif %}">
+      <div class="max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed {% if m.from_staff %}rounded-br-sm bg-slate-900 text-white{% else %}rounded-bl-sm border border-slate-200 bg-white text-slate-800{% endif %}">
+        {% if m.text %}<div class="whitespace-pre-wrap break-words">{{ m.text }}</div>{% endif %}
+        {% if m.url %}
+          {% if m.is_image %}<a href="{{ m.url }}" target="_blank" rel="noopener"><img src="{{ m.url }}" alt="{{ m.attachment_name }}" class="mt-2 max-h-64 rounded-lg border border-slate-200 bg-white"></a>{% endif %}
+          <a href="{{ m.url }}?dl=1" class="mt-1 inline-flex items-center gap-1 text-sm underline">{% icon "paperclip" "h-4 w-4" %}{{ m.attachment_name }} ({{ m.attachment_size|filesizeformat }})</a>
+        {% endif %}
+        <div class="mt-1 text-xs {% if m.from_staff %}text-slate-400{% else %}text-slate-500{% endif %}">
+          {% if m.from_staff %}{{ m.author.get_full_name|default:m.author.email|default:"Администратор" }} · {% endif %}{{ m.created|date:"d.m.Y H:i" }}{% if m.from_staff %} · {% if m.read_at %}ўқилди{% else %}ҳали ўқилмаган{% endif %}{% endif %}</div>
+      </div>
+    </div>
+    {% empty %}
+    <p class="py-8 text-center text-slate-500">Хабар йўқ.</p>
+    {% endfor %}
+    <div id="sp-new" class="hidden rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-sm text-emerald-800">Янги хабар келди — <a href="" class="font-semibold underline">саҳифани янгиланг</a></div>
+  </div>
+  {% if can_act %}
+  <form method="post" action="{% url 'panel:support_reply' conv.pk %}" enctype="multipart/form-data" class="border-t border-slate-200 p-4" data-busy>{% csrf_token %}
+    <label class="block text-sm font-medium text-slate-700" for="sp-text">Жавобингиз</label>
+    <textarea id="sp-text" name="text" rows="4" maxlength="{{ max_text }}" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-[15px]" placeholder="Жавоб ёзинг…"></textarea>
+    <div class="mt-2 flex flex-wrap items-center gap-3">
+      <label class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">{% icon "paperclip" "h-4 w-4" %} Файл бириктириш
+        <input type="file" name="file" id="sp-file" class="sr-only" accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.xls,.xlsx,.xlsm,.doc,.docx,.txt,.zip,.rar"></label>
+      <span id="sp-fname" class="text-sm text-slate-600"></span>
+      <span class="text-xs text-slate-400">энг кўпи {{ max_mb }} МБ</span>
+      {% if conv.status != "closed" %}<label class="ml-auto inline-flex items-center gap-1.5 text-sm text-slate-600"><input type="checkbox" name="close" value="1"> Жавобдан кейин «ҳал қилинди»</label>{% endif %}
+      <button class="{% if conv.status == 'closed' %}ml-auto {% endif %}inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-700">{% icon "send" "h-4 w-4" %} Юбориш</button>
+    </div>
+  </form>
+  {% else %}
+  <p class="border-t border-slate-200 p-4 text-sm text-slate-500">Сизда фақат кўриш рухсати бор — жавобни суперфойдаланувчи ёзади.</p>
+  {% endif %}
+</section>
+<script>
+(function () {
+  var log = document.getElementById("sp-log");
+  log.scrollTop = log.scrollHeight;
+  var file = document.getElementById("sp-file");
+  if (file) file.addEventListener("change", function () {
+    document.getElementById("sp-fname").textContent = file.files[0] ? file.files[0].name : "";
+  });
+  var last = +log.dataset.last || 0;
+  setInterval(function () {
+    if (document.hidden) return;
+    fetch(log.dataset.poll + "?after=" + last, {credentials: "same-origin"}).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.messages && d.messages.length) {
+        last = d.messages[d.messages.length - 1].id;
+        document.getElementById("sp-new").classList.remove("hidden");
+      }
+    }).catch(function () {});
+  }, 15000);
+})();
+</script>
+{% endblock %}

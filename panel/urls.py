@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_access, views_base, views_base_usage, views_mail, views_seo, views_settings, views_tn
+from . import views, views_access, views_base, views_base_usage, views_mail, views_seo, views_settings, views_support, views_tn
 
 app_name = "panel"
 
@@ -73,6 +73,11 @@ urlpatterns = [
     path("base/sources/<int:pk>/", views_base.base_source_detail, name="base_source_detail"),
     path("base/sources/<int:pk>/<str:action>/", views_base.base_source, name="base_source"),
     path("base/add/<str:kind>/<uuid:work_id>/", views_base.base_add, name="base_add"),
+    path("support/", views_support.support_list, name="support"),
+    path("support/<int:pk>/", views_support.support_chat, name="support_chat"),
+    path("support/<int:pk>/poll/", views_support.support_poll, name="support_poll"),
+    path("support/<int:pk>/reply/", views_support.support_reply, name="support_reply"),
+    path("support/<int:pk>/status/", views_support.support_status, name="support_status"),
     path("errors/test/", views.errors_test, name="errors_test"),
     path("errors/clear/", views.errors_clear, name="errors_clear"),
 ]
