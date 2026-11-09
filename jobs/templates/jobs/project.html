@@ -284,7 +284,9 @@
       setTimeout(function () {
         fetch(location.pathname + "?partial=1", {cache: "no-store"}).then(function (r) { return r.text(); }).then(function (html) {
           var tree = body.querySelector(".tree"), top = tree ? tree.scrollTop : 0;
+          if (window.narxBulk) window.narxBulk.park();  // жадвал (ёзилган нархлар) йўқолмасин
           body.innerHTML = html;
+          if (window.narxBulk) window.narxBulk.mount();
           wire();
           applyPartFilter(false);
           trackState();

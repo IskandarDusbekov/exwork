@@ -573,11 +573,13 @@ def price_part(part: Batch, decisions=None):
 
 
 # ===================== daraxt (VS Code «Explorer» kabi) =====================
-_STAGE_RANK = {"failed": 6, "converting": 5, "pricing": 5, "queued": 4, "stopped": 3.5, "review": 3, "ready": 2.5,
+_STAGE_RANK = {"failed": 6, "converting": 5, "pricing": 5, "recalc": 4.5, "queued": 4, "stopped": 3.5, "review": 3, "ready": 2.5,
                "warn": 2, "done": 1, "empty": 0}
 
 
 def part_state(part: Batch, jobs) -> str:
+    if part.stage == Batch.Stage.DONE and any(j.recalc_pending for j in jobs):
+        return "recalc"  # нарх қўйилди, смета қайта ҳисобланяпти — эски «N та нархланмади» кўрсатилмайди
     if part.stage == Batch.Stage.DONE and any(j.result.get("checks") for j in jobs):
         return "review"  # tekshiruvdan o'tmagan — «тайёр» deb ko'rsatilmaydi
     if part.stage == Batch.Stage.DONE and any(j.result.get("stats", {}).get("NOT_PRICED") for j in jobs):

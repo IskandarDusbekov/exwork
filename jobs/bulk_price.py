@@ -6,6 +6,8 @@
 бирлаштирилмайди — хато нарх бир неча файлга тарқалмасин. Нарх фақат ҳали нархланмаган қаторга ёзилади,
 смета­чи қўлда қўйганининг устидан ёзилмайди.
 """
+from collections import Counter
+
 from core.normalize import norm_name, norm_unit
 
 from . import recalc
@@ -38,23 +40,71 @@ def open_rows(job: Job) -> dict:
             if str(r["row"]) not in priced and _key(r)[0]}
 
 
+def _price(v):
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return float(str(v).replace(" ", "").replace(" ", "").replace(",", "."))
+    except ValueError:
+        return None
+
+
+def _text(v) -> str:
+    if v is None:
+        return ""
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    return str(v).strip()
+
+
 def groups(project: Project) -> list:
-    """[{name, unit, code, rows, files: [{job, title, rows: [...], qty}]}] — кўп файлда учрагани олдин."""
+    """[{name, unit, code, rows, status, files: [{job, title, rows: [...], near: {қатор: нарх}}], suggest: [...]}] —
+    кўп файлда учрагани олдин. ``suggest`` — қаторларнинг яқин ресурс (RES) таклифлари бирлаштирилган: бир хил
+    ном, бирлик ва нарх — битта, нечта қаторда таклиф қилингани билан (кўпи олдин)."""
     by_key = {}
     for job in _jobs(project).filter(sum_not_priced__gt=0):
         for r in open_rows(job).values():
             g = by_key.setdefault(_key(r), {"name": str(r["name"]).strip(), "unit": str(r.get("unit") or "").strip(),
-                                            "codes": set(), "files": {}})
+                                            "codes": set(), "files": {}, "status": Counter(), "suggest": {},
+                                            "cats": Counter()})
             if r.get("code"):
                 g["codes"].add(str(r["code"]).strip())
-            f = g["files"].setdefault(str(job.id), {"job": str(job.id), "title": _title(job), "rows": []})
+            g["status"][r.get("status") or "NOT_FOUND"] += 1
+            f = g["files"].setdefault(str(job.id), {"job": str(job.id), "title": _title(job), "rows": [], "near": {},
+                                                    "details": []})
             f["rows"].append(r["row"])
+            g["cats"][r.get("category") or "K"] += 1
+            # жадвал учун: қатор сметада қаерда ва қанча
+            qty_col = "E" if r.get("qty_total") in (None, "") else "F"
+            f["details"].append({"row": r["row"], "num": _text(r.get("num")), "code": _text(r.get("code")),
+                                 "qty": _price(r.get("qty")), "qty_col": qty_col,
+                                 "work": r.get("ctx_work") or "", "section": r.get("ctx_section") or ""})
+            near = r.get("near") or {}
+            price = _price(near.get("price"))
+            if price is not None:
+                f["near"][r["row"]] = price
+                k = (norm_name(near.get("name")), norm_unit(near.get("unit")), price)
+                s = g["suggest"].setdefault(k, {"name": str(near.get("name") or "").strip(),
+                                                "unit": str(near.get("unit") or "").strip(), "price": price,
+                                                "score": 0, "same_unit": bool(near.get("same_unit", True)),
+                                                "rows": 0, "files": set()})
+                s["score"] = max(s["score"], near.get("score") or 0)
+                s["rows"] += 1
+                s["files"].add(str(job.id))
     out = []
     for g in by_key.values():
         files = list(g["files"].values())
+        suggest = sorted(g["suggest"].values(), key=lambda s: (-s["rows"], -s["score"], s["price"]))
+        for s in suggest:
+            s["files"] = len(s["files"])
         out.append({"name": g["name"], "unit": g["unit"],
                     "code": next(iter(g["codes"])) if len(g["codes"]) == 1 else "",
-                    "rows": sum(len(f["rows"]) for f in files), "files": files})
+                    "rows": sum(len(f["rows"]) for f in files), "files": files,
+                    "status": g["status"].most_common(1)[0][0], "suggest": suggest[:5],
+                    "category": g["cats"].most_common(1)[0][0],
+                    "near_rows": sum(len(f["near"]) for f in files)})
     out.sort(key=lambda g: (-len(g["files"]), -g["rows"], g["name"].lower()))
     return out
 

@@ -20,7 +20,7 @@
       {% endif %}
       <span class="text-slate-300 group-hover:text-slate-500">{% icon "chevron-right" "h-4 w-4" %}</span>
     </a>
-    {% if it.working %}<button type="button" class="work-stop grid w-10 shrink-0 place-items-center border-l border-slate-100 text-sky-500 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-40"
+    {% if it.working and it.stop_url %}<button type="button" class="work-stop grid w-10 shrink-0 place-items-center border-l border-slate-100 text-sky-500 hover:bg-amber-50 hover:text-amber-700 disabled:opacity-40"
             data-url="{{ it.stop_url }}" data-name="{{ it.name }}" title="Тўхтатиш — очилганлари сақланади, кейин давом эттириш мумкин" aria-label="Тўхтатиш: {{ it.name }}">{% icon "stop" "h-4 w-4" %}</button>{% endif %}
     <button type="button" class="work-delete grid w-10 shrink-0 place-items-center border-l border-slate-100 text-slate-300 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
             data-url="{{ it.delete_url }}" data-name="{{ it.name }}" data-kind="{% if it.kind == 'folder' %}папка{% elif it.kind == 'object' %}объект{% else %}смета{% endif %}"

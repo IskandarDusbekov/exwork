@@ -236,7 +236,7 @@ def upload_percents(request):
 # жамлама ``Job.sum_*`` майдонларида (SQLite JSON'дан қиймат олиш учун ҳар бир ``result``ни бутун ўқирди)
 def light_jobs(qs):
     return qs.only("id", "created", "status", "owner_id", "batch_id", "batch_order", "local_name", "local_sheet",
-                   *Job.SUMMARY_FIELDS)
+                   "recalc_seq", "recalc_done", *Job.SUMMARY_FIELDS)
 
 
 def _summary(j) -> dict:
@@ -289,6 +289,8 @@ _STAGE_PIPE = {"queued": "opening", "converting": "opening", "pricing": "pricing
 
 
 def _pipe_of_jobs(jobs, fallback):
+    if any(j.recalc_pending for j in jobs):
+        return "pricing"
     if any(_summary(j).get("checks") for j in jobs if j.status == Job.Status.DONE):
         return "review"
     if any(j.status == Job.Status.DONE for j in jobs):
@@ -309,8 +311,8 @@ def work_items(user, limit=None):
         stopped, awaiting = stages.count(Batch.Stage.STOPPED), stages.count(Batch.Stage.READY)
         review = sum(1 for s in stages if s in ("review", "failed"))
         reason = ""
-        if pr.status == Project.Status.PROCESSING:
-            state = "working"
+        if pr.status == Project.Status.PROCESSING or any(j.recalc_pending for j in jobs):
+            state = "working"  # нарх қўйилгандан кейин қайта ҳисоб ҳам — эски сон кўрсатилмайди
         elif not parts:
             state, reason = "empty", _skip_reason([s for p in pr.parts.all() for s in p.sheets])
         else:
@@ -318,7 +320,7 @@ def work_items(user, limit=None):
                      else "warn" if not_priced else "done")
         items.append({"kind": "folder", "name": pr.name, "url": reverse("project", args=[pr.id]), "created": pr.created,
                       "delete_url": reverse("work_delete", args=["folder", pr.id]),
-                      "stop_url": reverse("project_stop", args=[pr.id]),
+                      "stop_url": reverse("project_stop", args=[pr.id]) if pr.status == Project.Status.PROCESSING else "",
                       "meta": f"{len(parts)} та смета", "reason": reason, "working": state == "working",
                       "progress": f"{finished}/{len(parts)}", "percent": round(100 * finished / len(parts)) if parts else 100,
                       "total": total, "not_priced": not_priced, "review": review, "stopped": stopped, "awaiting": awaiting,
@@ -527,6 +529,7 @@ PART_STATES = {
     "ready": ("Ҳисоблашга тайёр", "violet"),
     "stopped": ("Тўхтатилди", "slate"),
     "pricing": ("Нархланяпти", "sky"),
+    "recalc": ("Қайта ҳисобланяпти", "sky"),
     "done": ("Тайёр", "emerald"),
     "warn": ("Нархланмаган қатор бор", "rose"),
     "review": ("Текширинг", "amber"),
@@ -588,10 +591,11 @@ def project_detail(request, project_id):
         "progress": round(100 * finished / len(nodes)) if nodes else 100,
         "count_done": states.count("done"),
         "count_warn": states.count("warn"),
+        "count_recalc": states.count("recalc"),
         "count_review": states.count("review") + states.count("failed"),
         "count_skipped": sum(1 for f in project.files if f["skip"] and is_shown(f["path"])),
         "grand_total": sum(n["part"]["total"] for n in nodes),
-        "not_priced_total": sum(n["part"]["not_priced"] for n in nodes),
+        "not_priced_total": sum(n["part"]["not_priced"] for n in nodes if n["part"]["state"] == "warn"),
         "can_download": any(s in ("done", "warn", "review") and n["part"]["jobs"] for s, n in zip(states, nodes)),
         "pct_form": _pct_form(project.owner_id),
     }

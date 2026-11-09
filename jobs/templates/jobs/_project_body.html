@@ -1,5 +1,5 @@
 {% load narx %}
-<div id="project-state" data-working="{{ working|yesno:'1,0' }}" data-finished="{{ finished }}" data-total="{{ nodes|length }}"
+<div id="project-state" data-working="{% if working or count_recalc %}1{% else %}0{% endif %}" data-finished="{{ finished }}" data-total="{{ nodes|length }}"
      data-opening="{{ count_opening }}" data-pricing="{{ count_pricing }}" data-ready="{{ count_ready }}"
      data-result="{% if count_review or count_warn %}{{ count_review|add:count_warn }} та қисмни тўғирлаш керак{% else %}ҳаммаси тайёр{% endif %}" class="proj-grid lg:grid lg:min-h-[calc(100vh-7.5rem)]">
 
@@ -56,6 +56,9 @@
     {% if awaiting or working and not can_download %}{% flow 2 %}{% elif count_review or count_warn or working %}{% flow 3 %}{% else %}{% flow 4 True %}{% endif %}
   </div>
 
+  {# ---- нархсиз ресурслар жадвали (jobs/_bulk_price.html) шу ерга жойлашади — бошидан очиқ, йиғиш мумкин ---- #}
+  {% if not working and not awaiting and nodes %}<div id="bulk-slot"></div>{% endif %}
+
   {# ---- текшириш: ҳисоблаш смета­чи босгандагина бошланади ---- #}
   {% if awaiting and count_ready %}
   <div data-guide="awaiting" class="rounded-xl border border-violet-300 bg-violet-50 p-4 shadow-sm">
@@ -107,17 +110,7 @@
         <div class="min-w-0 text-sm">
           <div class="font-semibold text-slate-900">Нархланмаганларни тўғриланг</div>
           {% if count_warn %}<div class="text-slate-600"><b class="text-rose-700">{{ count_warn }} та қисм</b>да {{ not_priced_total }} та қатор нархсиз — сметани очиб, нархини қўйинг.</div>
-          <button type="button" data-bulk-open
-                  class="mt-2 flex w-full items-center gap-2.5 rounded-lg bg-rose-600 px-3 py-2 text-left text-white shadow-sm ring-2 ring-rose-200 transition hover:bg-rose-700"
-                  title="Ҳамма нархсиз ресурслар битта жадвалда: нархини бир марта ёзасиз — у учраган ҳамма сметага қўйилади">
-            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white/20">{% icon "table" "h-4 w-4" %}</span>
-            <span class="min-w-0 flex-1">
-              <span class="block text-sm font-semibold leading-tight">Нархсиз ресурслар жадвали</span>
-              <span class="block text-xs leading-tight text-rose-100">нархни бир марта ёзинг — ҳамма сметага қўйилади</span>
-            </span>
-            {% icon "chevron-right" "h-4 w-4 shrink-0" %}
-          </button>
-          <button type="button" data-part-filter="warn" class="mt-1.5 text-xs font-medium text-rose-700 underline underline-offset-2 hover:text-rose-900">ёки шу қисмларни рўйхатда кўрсатиш</button>
+          <button type="button" data-part-filter="warn" class="mt-1.5 text-xs font-medium text-rose-700 underline underline-offset-2 hover:text-rose-900">шу қисмларни рўйхатда кўрсатиш</button>
           {% else %}<div class="text-emerald-800">Ҳамма қатор нархланган.</div>{% endif %}
         </div>
       </li>
@@ -141,6 +134,7 @@
         {% elif working %}<span class="text-sky-600">{% icon "loader" "h-4 w-4 animate-spin" "2.5" %}</span> Ишланяпти
         <button type="button" id="notify-ask" class="hidden rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-normal text-sky-800 hover:bg-sky-100"
                 title="Бошқа ойнада бўлсангиз ҳам, тугаганда браузер хабар беради">{% icon "clock" "inline h-3.5 w-3.5 -mt-0.5" %} Тугаганда хабар бериш</button>
+        {% elif count_recalc %}<span class="text-sky-600">{% icon "loader" "h-4 w-4 animate-spin" "2.5" %}</span> Нарх қўйилди — <b>{{ count_recalc }} та қисм</b> қайта ҳисобланяпти
         {% elif awaiting and count_ready %}<span class="text-violet-600">{% icon "clock" "h-4 w-4" %}</span> Текширинг — ҳисоблаш бошланмаган
         {% else %}<span class="text-emerald-600">{% icon "check-circle" "h-4 w-4" %}</span> Тугади{% endif %}
         <span class="font-normal text-slate-500">· {{ finished }} / {{ nodes|length }} қисм</span>

@@ -1,4 +1,4 @@
-{% load narx %}{% if state == "converting" or state == "pricing" %}<span class="tree-deco text-sky-600" title="{% if state == 'pricing' %}Нархланяпти{% else %}Файллар очиляпти{% endif %}">{% icon "loader" "h-3.5 w-3.5 animate-spin" "2.5" %}</span>
+{% load narx %}{% if state == "converting" or state == "pricing" or state == "recalc" %}<span class="tree-deco text-sky-600" title="{% if state == 'pricing' %}Нархланяпти{% elif state == 'recalc' %}Нарх қўйилди — қайта ҳисобланяпти{% else %}Файллар очиляпти{% endif %}">{% icon "loader" "h-3.5 w-3.5 animate-spin" "2.5" %}</span>
 {% elif state == "ready" %}<span class="tree-deco text-violet-600" title="Ҳисоблашга тайёр — «Ҳисоблашни бошлаш»ни босинг">{% icon "clock" "h-3.5 w-3.5" %}</span>
 {% elif state == "stopped" %}<span class="tree-deco text-slate-400" title="Тўхтатилди — «Давом эттириш»">{% icon "stop" "h-3.5 w-3.5" %}</span>
 {% elif state == "queued" %}<span class="tree-deco text-slate-400" title="Навбатда">{% icon "clock" "h-3.5 w-3.5" %}</span>

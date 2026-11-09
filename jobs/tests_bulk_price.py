@@ -136,3 +136,32 @@ class BulkPriceTests(TestCase):
         b = {"name": "бетон м-300", "unit": "М3"}
         self.assertEqual(bulk_price._key(a), bulk_price._key(b))
         self.assertNotEqual(bulk_price._key(a), bulk_price._key({"name": "бетон м-300", "unit": "т"}))
+
+    def test_suggestions_are_merged_across_files(self):
+        """Таклиф (RES'даги яқин ресурс) бир неча сметада бир хил бўлса — битта, нечта қаторда учрагани билан;
+        ҳар бир қаторнинг ўз таклиф нархи ``files[].near`` да (таклифни қабул қилиш учун)."""
+        with_near = [g for g in self._groups() if g["suggest"]]
+        if not with_near:
+            self.skipTest("намунада таклифли нархланмаган қатор йўқ")
+        g = with_near[0]
+        s = g["suggest"][0]
+        self.assertEqual(s["rows"], g["near_rows"] if len(g["suggest"]) == 1 else s["rows"])
+        self.assertEqual(s["files"], len([f for f in g["files"] if f["near"]]) if len(g["suggest"]) == 1 else s["files"])
+        self.assertEqual(len({(x["name"], x["unit"], x["price"]) for x in g["suggest"]}), len(g["suggest"]))
+        self.assertTrue(all(isinstance(p, float) for f in g["files"] for p in f["near"].values()))
+
+    def test_recalc_pending_part_is_not_shown_as_unpriced(self):
+        """Нарх қўйилиб, смета қайта ҳисобланаётганда папка саҳифаси эски «N та нархланмади»ни эмас,
+        «Қайта ҳисобланяпти»ни кўрсатади ва ўзи янгиланади."""
+        from django.db.models import F
+        Batch.objects.filter(project=self.project).update(stage=Batch.Stage.DONE)
+        job = self.jobs[0]
+        Job.objects.filter(pk=job.pk).update(recalc_seq=F("recalc_seq") + 1)
+        r = self.client.get(reverse("project", args=[self.project.pk]))
+        self.assertContains(r, "Қайта ҳисобланяпти")
+        self.assertContains(r, 'data-working="1"')
+        self.assertEqual(r.context["count_recalc"], 1)
+        d = self.client.get(reverse("dashboard"))
+        item = next(it for it in d.context["items"] if it["name"] == "Объект")
+        self.assertEqual(item["state"], "working")
+        self.assertEqual(item["stop_url"], "")  # қайта ҳисобни тўхтатиш тугмаси йўқ
