@@ -13,7 +13,7 @@ from openpyxl.utils import column_index_from_string
 from rapidfuzz.distance.LCSseq import similarity as _lcs
 
 from .classify import section_kind
-from .normalize import norm_name, norm_unit
+from .normalize import fold_name, norm_name, norm_unit
 
 EXACT = "EXACT"
 FUZZY = "FUZZY"
@@ -130,6 +130,19 @@ class ResourceIndex:
         self.unitless: Dict[str, Any] = {}
         self._matchers = {}  # birlik -> [(nom, SequenceMatcher(seq2=nom))] — birinchi kerak bo'lganda
         self._cache = {}  # (nom, birlik, chegara, delta) -> Match: smetada bir xil nom ko'p takrorlanadi
+        # smart: ko'rinishi bir xil harflar farqi (lotin/kirill «ВОLIХ» = «BOLIX», «±» = «=») ham aniq moslik
+        self.fold = False
+        self._cache_fold = False
+        self._folded = {}  # birlik -> {fold_name(nom): nom}, birinchi kerak bo'lganda
+
+    def _folded_of(self, unit: str) -> Dict[str, str]:
+        f = self._folded.get(unit)
+        if f is None:
+            names = self.unitless if unit == "" else self.by_unit.get(unit, {})
+            f = self._folded[unit] = {}
+            for n in names:
+                f.setdefault(fold_name(n), n)
+        return f
 
     def _prepared(self, unit: str):
         m = self._matchers.get(unit)
@@ -206,6 +219,7 @@ class ResourceIndex:
         h = hashlib.sha256(_CODE_VERSION.encode())
         h.update(repr([(u, list(d.items())) for u, d in self.by_unit.items()]).encode("utf-8", "surrogatepass"))
         h.update(repr(list(self.unitless.items())).encode("utf-8", "surrogatepass"))
+        h.update(b"fold" if self.fold else b"")
         return h.hexdigest()
 
     def export_cache(self) -> dict:
@@ -225,6 +239,7 @@ class ResourceIndex:
         for item in data.get("items") or []:
             try:
                 name, unit, threshold, delta, d = item
+                self._cache_fold = self.fold
                 self._cache[(name, unit, threshold, delta)] = Match(**d)
                 n += 1
             except (TypeError, ValueError):
@@ -257,6 +272,8 @@ class ResourceIndex:
     def match(self, local_name: str, local_unit: str, threshold: float, ambiguity_delta: float = 0.01) -> Match:
         """``local_name``/``local_unit`` allaqachon normallashtirilgan bo'lishi kerak."""
         key = (local_name, local_unit, threshold, ambiguity_delta)
+        if self._cache_fold != self.fold:  # fold yoqilsa/o'chirilsa — oldingi natijalar eskirgan
+            self._cache, self._cache_fold = {}, self.fold
         hit = self._cache.get(key)
         if hit is None:
             hit = self._cache[key] = self._match(local_name, local_unit, threshold, ambiguity_delta)
@@ -265,6 +282,9 @@ class ResourceIndex:
     def _match(self, local_name: str, local_unit: str, threshold: float, ambiguity_delta: float) -> Match:
         if not local_unit and local_name in self.unitless:
             return Match(EXACT, "", local_name, self.unitless[local_name], 1.0)
+        if not local_unit and self.fold and fold_name(local_name) in self._folded_of(""):
+            name = self._folded_of("")[fold_name(local_name)]
+            return Match(EXACT, "", name, self.unitless[name], 1.0)
         best_fuzzy = None
         best_ambig = None
         near_same = near_any = None  # (o'xshashlik, birlik, nom): birligi bir xili ustun
@@ -280,6 +300,10 @@ class ResourceIndex:
                 continue
             if local_name in udict:
                 return Match(EXACT, u, local_name, udict[local_name], 1.0)
+            if self.fold:
+                name = self._folded_of(u).get(fold_name(local_name))
+                if name is not None:
+                    return Match(EXACT, u, name, udict[name], 1.0)
 
             # NEAR_MIN_SCORE dan past o'xshashlik natijaga ta'sir qilmaydi (taklif ham qilinmaydi) — hisoblanmaydi;
             # faqat chegaradan o'tgan (FUZZY/ШАБҲАЛИ) bo'lsa, 2-nomzod har qanday ball bilan aniq kerak

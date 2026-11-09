@@ -276,6 +276,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     else:
         index = ResourceIndex.from_sheet(ws_res, RES_NAME_COL, RES_PRICE_COL)
         columns.update(res_name=RES_NAME_COL, res_unit="E", res_price=RES_PRICE_COL)
+    index.fold = smart  # «ВОLIХ» (kirill) = «BOLIX», «Д±5» = «Д=5» — aniq moslik (compat: eski dasturdek)
     if not smart and wb_res:
         wb_res.close()  # smart: RES listi natija fayliga ham qo'shiladi (LOG dan keyin)
 
@@ -879,6 +880,8 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
             st, value, note = NO_PRICE, NO_PRICE_TEXT, f"ресурсда нарх рақам эмас: «{m.price}»"
         elif m.status == EXACT:
             st, value = EXACT, price
+            if m.name != local_name:
+                note = f"ҳарфлари бошқача ёзилган (лотин/кирилл): ресурсда «{index.raw_of(m.unit, m.name)[0]}»"
             section = index.section_of(m.unit, m.name)
             if section:
                 sections[r] = section

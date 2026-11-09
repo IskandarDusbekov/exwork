@@ -29,6 +29,17 @@ def norm_name(s) -> str:
     return s
 
 
+# ko'rinishi bir xil lotin/kirill harflari va belgilar: RES'da «ВОLIХ» (kirill В, О, Х), lokalda «BOLIX»;
+# RES'da «Д±5», lokalda «Д=5» (dastur «=» ni «±» qilib yozadi). Faqat smart rejimda, aniq moslik uchun.
+_FOLD = str.maketrans({"а": "a", "в": "b", "е": "e", "к": "k", "м": "m", "н": "h", "о": "o", "р": "p", "с": "c",
+                       "т": "t", "у": "y", "х": "x", "і": "i", "ј": "j", "ѕ": "s", "±": "=", "×": "x"})
+
+
+def fold_name(name: str) -> str:
+    """``norm_name`` natijasidan solishtirish kaliti: «шт. тип "вolix"» = «шт. тип "bolix"»."""
+    return name.translate(_FOLD)
+
+
 def norm_unit(u) -> str:
     if u is None:
         return ""

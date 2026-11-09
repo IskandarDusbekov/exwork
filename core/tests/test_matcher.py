@@ -57,6 +57,20 @@ def test_exact():
     assert (m.status, m.price, m.unit, m.score) == (EXACT, 1000, "м3", 1.0)
 
 
+def test_lookalike_letters_match_exactly_only_in_smart():
+    """RES'да «ВОLIХ» (кирилл В, О, Х) ва «Д±5», локалда «BOLIX» ва «Д=5» — кўриниши бир хил, смарт режимда аниқ мос;
+    compat (эски дастур) ўзгармайди."""
+    idx = _index([('ГРУНТОВКА ТИПА "ВОLIХ SG"', "КГ", 18482), ("АРМАТУРА СЕТКА ВР1 Д±5 ММ 100Х100 ММ", "М2", 23036),
+                  ("ВИНТЫ 4,8Х35", "ШТ", 250)])
+    assert _match(idx, 'ГРУНТОВКА ТИПА "BOLIX SG"', "КГ").status != EXACT
+    idx.fold = True  # аввалги натижа (кешда) ишлатилмайди
+    m = _match(idx, 'ГРУНТОВКА ТИПА "BOLIX SG"', "КГ")
+    assert (m.status, m.price, m.name) == (EXACT, 18482, norm_name('ГРУНТОВКА ТИПА "ВОLIХ SG"'))
+    assert _match(idx, "АРМАТУРА СЕТКА ВР1 Д=5 ММ 100X100 ММ", "М2").price == 23036
+    assert _match(idx, "ВИНТЫ 4,8X35", "ШТ").status == EXACT
+    assert _match(idx, "ВИНТЫ 4,8X36", "ШТ").status != EXACT  # рақами бошқа — аниқ эмас
+
+
 def test_exact_in_other_unit_wins():
     idx = _index([("ВОДА", "Т", 7)])
     m = _match(idx, "ВОДА", "М3")
