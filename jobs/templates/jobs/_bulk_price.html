@@ -3,22 +3,26 @@
    Ёши катта смета­чи ҳам тушунсин: оддий сўзлар, катта ёзув, устун номлари, кам тугма, қўйишдан олдин сўралади. {% endcomment %}
 <div id="bulk" class="fixed inset-0 z-[70] hidden items-start justify-center overflow-y-auto bg-slate-900/50 p-2 sm:p-6"
      data-url="{% url 'project_unpriced' project.id %}" data-job-url="{% url 'job' '00000000-0000-0000-0000-000000000000' %}" aria-hidden="true">
-  <div class="flex max-h-[calc(100vh-1rem)] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100vh-3rem)]"
+  <div class="flex max-h-[calc(100vh-1rem)] w-full max-w-6xl flex-col rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100vh-3rem)]"
        role="dialog" aria-modal="true" aria-labelledby="bulk-title">
 
     <div class="flex items-start gap-3 border-b border-slate-200 px-5 py-4 sm:px-6">
-      <h2 id="bulk-title" class="min-w-0 flex-1 text-xl font-semibold text-slate-900">Бир хил ресурсларга бир йўла нарх қўйиш</h2>
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-rose-100 text-rose-700">{% icon "table" "h-5 w-5" %}</span>
+      <div class="min-w-0 flex-1">
+        <h2 id="bulk-title" class="text-xl font-semibold text-slate-900">Нархсиз ресурслар жадвали</h2>
+        <p id="bulk-sub" class="text-sm text-slate-500">Папкадаги ҳамма сметада нархи топилмаган ресурслар. Бир хил ресурс бир марта ёзилган.</p>
+      </div>
       <button type="button" data-bulk-close class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-base text-slate-700 hover:bg-slate-100">
         {% icon "x" "h-4 w-4" %} Ёпиш</button>
     </div>
 
-    <div id="bulk-help" class="hidden border-b border-slate-200 bg-sky-50 px-5 py-3 text-base leading-relaxed text-slate-800 sm:px-6">
-      <ol class="space-y-1">
-        <li><b class="mr-1 inline-grid h-6 w-6 place-items-center rounded-full bg-sky-600 text-sm text-white">1</b> Ресурс рўпарасидаги катакка <b>нархини</b> ёзинг (сўмда).</li>
-        <li><b class="mr-1 inline-grid h-6 w-6 place-items-center rounded-full bg-sky-600 text-sm text-white">2</b> Пастдаги яшил <b>«Нархни қўйиш»</b> тугмасини босинг.</li>
-        <li><b class="mr-1 inline-grid h-6 w-6 place-items-center rounded-full bg-sky-600 text-sm text-white">3</b> Нарх шу ресурс учраган <b>ҳамма сметаларга</b> ёзилади.</li>
-      </ol>
-      <p class="mt-2 text-sm text-slate-600">Нархини билмаган ресурсни бўш қолдиринг — унга тегилмайди. Қўлда нарх қўйилган қаторлар ўзгармайди.</p>
+    <div id="bulk-help" class="hidden border-b border-slate-200 bg-sky-50 px-5 py-2.5 text-sm text-slate-800 sm:px-6">
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-1">
+        <span><b class="mr-1 inline-grid h-5 w-5 place-items-center rounded-full bg-sky-600 text-xs text-white">1</b> Охирги устунга <b>нархини</b> ёзинг (сўмда)</span>
+        <span><b class="mr-1 inline-grid h-5 w-5 place-items-center rounded-full bg-sky-600 text-xs text-white">2</b> Пастда <b>«Нархни қўйиш»</b>ни босинг</span>
+        <span><b class="mr-1 inline-grid h-5 w-5 place-items-center rounded-full bg-sky-600 text-xs text-white">3</b> Нарх ресурс учраган <b>ҳамма сметага</b> ёзилади</span>
+      </div>
+      <p class="mt-1 text-xs text-slate-600">Нархини билмаганини бўш қолдиринг — унга тегилмайди. Қўлда нарх қўйилган қаторлар ўзгармайди.</p>
     </div>
 
     <div id="bulk-search" class="hidden items-center gap-3 border-b border-slate-200 px-5 py-3 sm:px-6">
@@ -39,13 +43,35 @@
 </div>
 
 <style>
+  /* жадвал кўриниши: катаклар чизиқ билан ажратилган, сарлавҳа ёпишиб туради */
   #bulk .bulk-g { border-bottom: 1px solid #e2e8f0; }
-  #bulk .bulk-g:nth-child(even) { background: #f8fafc; }
-  #bulk .bulk-g.has-price { background: #ecfdf5; }
+  #bulk .bulk-g.alt { background: #f8fafc; }
+  #bulk .bulk-g:hover { background: #f1f5f9; }
+  #bulk .bulk-g.has-price, #bulk .bulk-g.has-price:hover { background: #ecfdf5; }
+  #bulk .bulk-cols > div { padding: .625rem .75rem; border-right: 1px solid #e2e8f0; min-width: 0; }
+  #bulk .bulk-cols > div:last-child { border-right: 0; }
+  #bulk .bulk-head > div { padding-top: .5rem; padding-bottom: .5rem; border-right-color: #cbd5e1; }
+  #bulk .bulk-g .c-price { background: rgba(14, 165, 233, .05); }
+  #bulk .bulk-g.has-price .c-price { background: transparent; }
+  #bulk .bulk-code { display: inline-block; margin-top: .25rem; padding: 0 .375rem; border-radius: .25rem; background: #e2e8f0;
+                     color: #334155; font: 500 .75rem/1.25rem ui-monospace, SFMono-Regular, Menlo, monospace; }
   #bulk .bulk-files { display: none; }
+  #bulk .bulk-fcols { display: grid; grid-template-columns: 4.5rem 2.25rem minmax(0, .9fr) minmax(0, 1.3fr) minmax(0, 1.4fr); }
+  #bulk .bulk-fcols > div { display: flex; flex-direction: column; justify-content: center; padding: .375rem .625rem; border-right: 1px solid #e2e8f0; min-width: 0; }
+  #bulk .bulk-fcols > div:last-child { border-right: 0; flex-direction: row; }
+  #bulk .bulk-frow:nth-of-type(even) { background: #f8fafc; }
+  #bulk .bulk-frow:hover { background: #f0f9ff; }
+  #bulk .bulk-frow.is-off { background: #f8fafc; }
+  #bulk .bulk-frow.is-off > div:not(:first-child) { color: #94a3b8; text-decoration: line-through; }
+  @media (max-width: 760px) {
+    #bulk .bulk-fcols { grid-template-columns: 3rem minmax(0, 1fr); }
+    #bulk .bulk-fcols > div:nth-child(2), #bulk .bulk-fhead { display: none; }
+    #bulk .bulk-fcols > div:nth-child(n+4) { grid-column: 2; }
+    #bulk .bulk-fcols > div { border-right: 0; }
+  }
   #bulk .bulk-g.is-open .bulk-files { display: block; }
-  #bulk .bulk-toggle { display: inline-flex; align-items: center; gap: .375rem; margin-top: .25rem; padding: .375rem .75rem; border-radius: .5rem;
-                       border: 1px solid #7dd3fc; background: #f0f9ff; color: #075985; font-size: .9375rem; font-weight: 600; }
+  #bulk .bulk-toggle { display: inline-flex; align-items: center; gap: .25rem; margin-top: .25rem; padding: .125rem .5rem; border-radius: .375rem;
+                       border: 1px solid #7dd3fc; background: #f0f9ff; color: #075985; font-size: .8125rem; font-weight: 600; }
   #bulk .bulk-toggle:hover { background: #e0f2fe; border-color: #38bdf8; }
   #bulk .bulk-g.is-open .bulk-toggle { background: #0284c7; border-color: #0284c7; color: #fff; }
   #bulk .bulk-g.is-open .bulk-toggle svg { transform: rotate(180deg); }
@@ -54,10 +80,12 @@
                      border: 1px solid #cbd5e1; background: #fff; color: #0f172a; font-size: .875rem; font-weight: 500; white-space: nowrap; }
   #bulk .bulk-look:hover { border-color: #0284c7; color: #0369a1; background: #f0f9ff; }
   #bulk .bulk-g.is-off .bulk-name { color: #94a3b8; }
-  #bulk .bulk-cols { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr) 5rem 12.5rem 11rem; gap: .75rem; align-items: center; }
+  #bulk .bulk-cols { display: grid; grid-template-columns: 3rem minmax(0, 1fr) 5.5rem 15rem 11.5rem; align-items: stretch; }
+  #bulk .bulk-cols > div { display: flex; flex-direction: column; justify-content: center; }
   @media (max-width: 760px) {
-    #bulk .bulk-cols { grid-template-columns: 2rem minmax(0, 1fr); }
-    #bulk .bulk-cols > .c-unit, #bulk .bulk-cols > .c-where, #bulk .bulk-cols > .c-price { grid-column: 2; }
+    #bulk .bulk-cols { grid-template-columns: 2.5rem minmax(0, 1fr); }
+    #bulk .bulk-cols > .c-unit, #bulk .bulk-cols > .c-where, #bulk .bulk-cols > .c-price { grid-column: 2; border-right: 0; padding-top: .25rem; }
+    #bulk .bulk-cols > .c-name { border-right: 0; }
     #bulk .bulk-head { display: none; }
   }
 </style>
@@ -109,49 +137,77 @@
     if (!groups.length) { message("Нархсиз ресурс қолмади — ҳаммасига нарх қўйилган."); return; }
     [help, search, foot].forEach(function (n) { show(n, true); });
     list.innerHTML = "";
-    var head = el("div", "bulk-head bulk-cols sticky top-0 z-10 border-b border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-600 sm:px-6");
-    ["№", "Ресурс номи", "Бирлиги", "Қаерда учради", "Нархи, сўм"].forEach(function (t, i) { head.appendChild(el("div", i === 4 ? "text-right" : "", t)); });
+    var head = el("div", "bulk-head bulk-cols sticky top-0 z-10 border-b-2 border-slate-300 bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-600");
+    ["№", "Ресурс номи (шифри)", "Бирлиги", "Қайси сметада учради", "Нархи, сўм ✎"].forEach(function (t, i) {
+      head.appendChild(el("div", i === 0 ? "text-center" : i === 4 ? "text-right text-sky-700" : "", t));
+    });
     list.appendChild(head);
     var multi = groups.filter(function (g) { return g.files.length > 1; }).length;
     groups.forEach(function (g, i) {
-      if (i === 0 && multi) list.appendChild(section("Бир неча сметада учраганлар — " + multi + " та ресурс"));
-      if (i === multi) list.appendChild(section("Фақат битта сметада учраганлар — " + (groups.length - multi) + " та ресурс"));
+      if (i === 0 && multi) list.appendChild(section("Бир неча сметада учраганлар", multi, "нархи ёзилса, ҳамма сметага бирданига қўйилади"));
+      if (i === multi) list.appendChild(section("Фақат битта сметада учраганлар", groups.length - multi, ""));
       if (!g.node) g.node = groupNode(g, i + 1);
+      g.node.classList.toggle("alt", i % 2 === 1);
       list.appendChild(g.node);
     });
+    var rowsAll = groups.reduce(function (s, g) { return s + g.rows; }, 0);
+    document.getElementById("bulk-sub").textContent = groups.length + " та ресурс · " + rowsAll + " та нархсиз қатор. Бир хил ресурс бир марта ёзилган — нархини бир марта киритасиз.";
     list.appendChild(el("div", "bulk-empty hidden px-6 py-10 text-center text-lg text-slate-500", "Бундай номли ресурс топилмади."));
     filter();
     summary();
   }
 
-  function section(text) { return el("div", "bulk-sec border-b border-slate-300 bg-slate-100 px-5 py-2 text-base font-semibold text-slate-700 sm:px-6", text); }
+  function section(text, n, note) {
+    var s = el("div", "bulk-sec flex flex-wrap items-baseline gap-x-2 border-b border-slate-300 bg-slate-200/70 px-4 py-1.5 text-sm font-semibold text-slate-800");
+    s.append(text, el("span", "rounded-full bg-white px-2 text-xs text-slate-600", n + " та"));
+    if (note) s.appendChild(el("span", "text-xs font-normal text-slate-600", "— " + note));
+    return s;
+  }
+
+  var GRID = '<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 shrink-0 text-sky-600" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>';
+  function lookUrl(f, r) { return box.dataset.jobUrl.replace("00000000-0000-0000-0000-000000000000", f.job) + "?view=xl_out&row=" + r + "#t-2"; }
 
   function groupNode(g, n) {
-    var row = el("div", "bulk-g px-5 py-3 sm:px-6");
+    var row = el("div", "bulk-g");
     var line = el("div", "bulk-cols");
-    line.appendChild(el("div", "num text-base text-slate-400", n));
-    var name = el("div", "bulk-name break-words text-base font-medium leading-snug text-slate-900", g.name);
+    line.appendChild(el("div", "num text-center text-sm text-slate-400", n));
+    var nameCell = el("div", "c-name");
+    var name = el("div", "bulk-name break-words text-[0.9375rem] font-medium leading-snug text-slate-900", g.name);
     if (g.name.length > 110) {  // узун номи (ускуна тавсифи) — 3 қатор, босилса тўлиқ
       name.classList.add("line-clamp-3", "cursor-pointer");
       name.title = "Тўлиқ кўриш учун босинг";
       name.addEventListener("click", function () { name.classList.toggle("line-clamp-3"); });
     }
-    line.appendChild(name);
-    line.appendChild(el("div", "c-unit text-base text-slate-700", g.unit));
+    nameCell.appendChild(name);
+    if (g.code) { var code = el("span", "bulk-code self-start", g.code); code.title = "Ресурс шифри"; nameCell.appendChild(code); }
+    line.appendChild(nameCell);
+    line.appendChild(el("div", "c-unit text-sm font-medium text-slate-700", g.unit || "—"));
 
-    var where = el("div", "c-where text-base");
-    g.whereText = el("div", "text-slate-800");
-    var toggle = el("button", "bulk-toggle");
-    toggle.type = "button";
-    var CHEV = '<svg viewBox="0 0 24 24" class="h-4 w-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
-    function label(on) { toggle.innerHTML = (on ? "Рўйхатни ёпиш " : "Сметаларни кўриш ") + CHEV; toggle.setAttribute("aria-expanded", on ? "true" : "false"); }
-    label(false);
-    toggle.addEventListener("click", function () { label(row.classList.toggle("is-open")); });
-    where.append(g.whereText, toggle);
+    var where = el("div", "c-where text-sm");
+    g.whereText = el("div", "text-slate-700");
+    where.appendChild(g.whereText);
+    if (g.files.length === 1) {  // битта смета — номи шу ерда, рўйхат очиш шарт эмас
+      var f0 = g.files[0];
+      var t = el("div", "mt-0.5 truncate text-xs text-slate-500", f0.title); t.title = f0.title;
+      where.appendChild(t);
+      var a0 = el("a", "mt-1 inline-flex items-center gap-1 self-start text-xs font-semibold text-sky-700 hover:underline");
+      a0.href = lookUrl(f0, f0.rows[0]); a0.target = "_blank"; a0.rel = "noopener";
+      a0.title = "Сметани янги ойнада очиш — " + f0.rows[0] + "-қатор белгиланган бўлади";
+      a0.innerHTML = GRID; a0.append("Сметада кўриш ↗");
+      where.appendChild(a0);
+    } else {
+      var toggle = el("button", "bulk-toggle self-start");
+      toggle.type = "button";
+      var CHEV = '<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+      var label = function (on) { toggle.innerHTML = (on ? "Ёпиш " : "Қайси сметалар? ") + CHEV; toggle.setAttribute("aria-expanded", on ? "true" : "false"); };
+      label(false);
+      toggle.addEventListener("click", function () { label(row.classList.toggle("is-open")); });
+      where.appendChild(toggle);
+    }
     line.appendChild(where);
 
     var cell = el("div", "c-price");
-    var input = el("input", "num w-full rounded-lg border-2 border-slate-400 bg-white px-3 py-2 text-right text-lg focus:border-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-600/20");
+    var input = el("input", "num w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-1.5 text-right text-base focus:border-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-600/20");
     input.type = "text"; input.inputMode = "decimal"; input.autocomplete = "off"; input.placeholder = "нархи";
     input.setAttribute("aria-label", "Нархи, сўм: " + g.name);
     input.addEventListener("input", function () { g.bad.classList.add("hidden"); input.classList.remove("!border-rose-500"); summary(); });
@@ -168,25 +224,35 @@
     line.appendChild(cell);
     row.appendChild(line);
 
-    var files = el("div", "bulk-files mt-3 rounded-lg border-2 border-slate-200 bg-white p-3 sm:ml-12");
-    files.appendChild(el("div", "mb-2 text-sm text-slate-600",
-      "Белгини олиб ташласангиз — шу сметага нарх ёзилмайди. «Жадвалда кўриш» — смета янги ойнада очилади, шу қатор белгиланган бўлади."));
+    // ичкари ҳам жадвал: ☑ | № | Папка | Смета | Қаторлар (босилса — смета янги ойнада, шу қатор белгиланган)
+    var files = el("div", "bulk-files mx-3 mb-3 mt-1 overflow-hidden rounded-lg border border-sky-300 bg-white sm:ml-12");
+    files.appendChild(el("div", "border-b border-sky-200 bg-sky-50 px-3 py-1.5 text-xs text-slate-600",
+      "Белгини олиб ташласангиз — шу сметага нарх ёзилмайди. Қатор рақамини босинг — смета янги ойнада очилади, шу қатор белгиланган бўлади."));
+    var fh = el("div", "bulk-fcols bulk-fhead border-b border-slate-300 bg-slate-100 text-[0.6875rem] font-semibold uppercase tracking-wide text-slate-600");
+    ["Қўйилсин", "№", "Папка", "Смета", "Қаторлар (кўриш ↗)"].forEach(function (t, i) { fh.appendChild(el("div", i < 2 ? "text-center" : "", t)); });
+    files.appendChild(fh);
     g.files.forEach(function (f, k) {
-      var item = el("div", "rounded-lg px-2 py-2" + (k ? " border-t border-slate-100" : ""));
-      var lab = el("label", "flex cursor-pointer items-start gap-3 text-base text-slate-800");
-      var cb = el("input", "mt-1 h-5 w-5 shrink-0 accent-emerald-600"); cb.type = "checkbox"; cb.checked = true;
-      cb.addEventListener("change", summary);
+      var cut = f.title.lastIndexOf(" · "), folder = cut >= 0 ? f.title.slice(0, cut) : "", sheet = cut >= 0 ? f.title.slice(cut + 3) : f.title;
+      var item = el("label", "bulk-fcols bulk-frow cursor-pointer text-sm text-slate-800" + (k ? " border-t border-slate-200" : ""));
+      var c0 = el("div", "items-center");
+      var cb = el("input", "h-5 w-5 accent-emerald-600"); cb.type = "checkbox"; cb.checked = true;
+      cb.addEventListener("change", function () { item.classList.toggle("is-off", !cb.checked); summary(); });
       f.cb = cb;
-      lab.append(cb, el("span", "min-w-0 flex-1 break-words", f.title));
-      item.appendChild(lab);
-      var looks = el("div", "mt-1.5 flex flex-wrap gap-1.5 pl-8");
+      c0.appendChild(cb);
+      item.appendChild(c0);
+      item.appendChild(el("div", "text-center text-xs text-slate-400", k + 1));
+      var fc = el("div", "break-words text-xs text-slate-500", folder || "—"); fc.title = folder;
+      item.appendChild(fc);
+      item.appendChild(el("div", "break-words font-medium", sheet));
+      var looks = el("div", "flex-row flex-wrap content-center gap-1");
       f.rows.forEach(function (r) {
         var a = el("a", "bulk-look");
-        a.href = box.dataset.jobUrl.replace("00000000-0000-0000-0000-000000000000", f.job) + "?view=xl_out&row=" + r + "#t-2";
+        a.href = lookUrl(f, r);
         a.target = "_blank"; a.rel = "noopener";
         a.title = "Сметани янги ойнада очиш — " + r + "-қатор белгиланган бўлади";
-        a.innerHTML = '<svg viewBox="0 0 24 24" class="h-4 w-4 text-sky-600" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>';
-        a.append(f.rows.length > 1 ? r + "-қатор — жадвалда кўриш" : "Жадвалда кўриш (" + r + "-қатор)");
+        a.innerHTML = GRID;
+        a.append(r + "-қатор");
+        a.addEventListener("click", function (e) { e.stopPropagation(); });  // ҳавола белгини ўзгартирмасин
         looks.appendChild(a);
       });
       item.appendChild(looks);
@@ -225,7 +291,9 @@
     groups.forEach(function (g) {
       if (!g.node) return;
       var on = g.files.filter(function (f) { return f.cb.checked; }), rows = on.reduce(function (s, f) { return s + f.rows.length; }, 0);
-      g.whereText.textContent = (on.length === g.files.length ? g.files.length : on.length + " / " + g.files.length) + " та сметада";
+      g.whereText.innerHTML = "";
+      g.whereText.append(el("b", "text-slate-900", on.length === g.files.length ? String(g.files.length) : on.length + " / " + g.files.length),
+                         " та сметада · ", el("b", "text-slate-900", String(rows)), " та қатор");
       g.node.classList.toggle("has-price", num(g.input.value) != null && rows > 0);
       g.node.classList.toggle("is-off", !rows);
     });

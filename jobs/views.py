@@ -404,14 +404,7 @@ def dashboard(request):
                 for k, label, color, hint in PIPELINE]
     states = [{"key": k, "label": label, "color": color, "icon": ic, "count": sum(1 for it in items if it["state"] == k)}
               for k, (label, color, ic) in WORK_STATES.items()]
-    # охирги 14 кун: ҳар куни нечта иш юкланди
-    today = timezone.localdate()
-    per_day = {today - timedelta(days=i): 0 for i in range(13, -1, -1)}
-    for it in items:
-        d = timezone.localtime(it["created"]).date()
-        if d in per_day:
-            per_day[d] += 1
-    peak = max(per_day.values()) or 1
+    by_state = {s["key"]: s["count"] for s in states}
     from texnazor.models import Act
     tn_recent = _tn_recent(request.user)
     tn_acts = Act.objects.filter(obj__owner=request.user).count()
@@ -419,8 +412,13 @@ def dashboard(request):
         "nav": "dashboard",
         "items": items,
         "latest": items[:2],
-        "last_total": next((it for it in items if it["total"]), None),
         "pipeline": pipeline,
+        "by_state": by_state,
+        "not_priced_rows": sum(it["not_priced"] for it in items if it["state"] == "warn"),
+        "count_notstarted": pipes.count("pending"),
+        "count_check": pipes.count("review"),
+        "warn_pct": round(100 * pipes.count("warn") / len(pipes)) if pipes else 0,
+        "wait_pct": round(100 * (pipes.count("pending") + pipes.count("review")) / len(pipes)) if pipes else 0,
         "states": states,
         "kinds": {k: sum(1 for it in items if it["kind"] == k) for k in ("folder", "object", "smeta")},
         "count_smetas": len(pipes),
@@ -439,8 +437,6 @@ def dashboard(request):
         "pane": "tn" if tn_recent and (not items or tn_recent[0]["when"] > items[0]["created"]) else "smeta",
         "priced_pct": round(100 * (pipes.count("done") + pipes.count("warn")) / len(pipes)) if pipes else 0,
         "any_working": any(it["working"] for it in items),
-        "days": [{"date": d, "count": n, "h": round(100 * n / peak)} for d, n in per_day.items()],
-        "days_total": sum(per_day.values()),
     })
 
 

@@ -411,7 +411,7 @@ def write(doc: ProjectOfyorta, parts: List[dict], jobs: Dict[str, Job], step=Non
             notes.append(f"«{p['title']}» — смета ўчирилган ёки нархи йўқ, олинмади")
             continue
         if step:
-            step(f"Смета қўшилмоқда: {p['title']}", i - 1, len(parts))
+            step(f"Смета қўшилмоқда: {p['title']}", i - 1, len(parts), p["job"])
         path = job.abs(job.output_path)
         if not path.is_file():
             raise OfyortaError(f"«{p['title']}»: нархланган файл топилмади — сметани қайта нархланг")
@@ -427,6 +427,8 @@ def write(doc: ProjectOfyorta, parts: List[dict], jobs: Dict[str, Job], step=Non
             src_wb.close()
     if not blocks:
         raise OfyortaError("Битта ҳам смета олинмади")
+    if step:
+        step("Умумий сводка ва Excel файл ёзилмоқда…", len(parts), len(parts))
     _grand(w, blocks)
     ws.page_setup.orientation = "landscape"
     ws.page_setup.fitToWidth, ws.page_setup.fitToHeight = 1, 0
@@ -478,8 +480,8 @@ def _head(w: _Writer, doc: ProjectOfyorta, src, job: Job, cached=None):
 
 def make(doc: ProjectOfyorta, progress=None) -> ProjectOfyorta:
     """Танланган сметаларни белгиланган тартибда ўқиб, офёрта файлини ёзади."""
-    def step(text, done=0, total=0):
-        doc.progress = {"step": text, "done": done, "total": total}
+    def step(text, done=0, total=0, job=""):
+        doc.progress = {"step": text, "done": done, "total": total, "job": job}
         ProjectOfyorta.objects.filter(pk=doc.pk).update(progress=doc.progress)
         if progress:
             progress()

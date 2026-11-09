@@ -17,9 +17,14 @@ from .views import _audit_download, _get_work, crumbs_for
 
 
 def _state(doc: ProjectOfyorta) -> dict:
+    """Тузилиш ҳолати. ``job`` — ҳозир қўшилаётган смета, ``since`` — «Офёрта тузиш» босилган пайт
+    (прогресс ``.update()`` билан ёзилади, ``updated`` ўзгармайди)."""
+    p = doc.progress or {}
+    done, total = p.get("done", 0), p.get("total", 0)
     return {"status": doc.status, "label": doc.get_status_display(), "error": doc.error,
-            "step": (doc.progress or {}).get("step", ""), "done": (doc.progress or {}).get("done", 0),
-            "total": (doc.progress or {}).get("total", 0)}
+            "step": p.get("step", ""), "done": done, "total": total, "job": p.get("job", ""),
+            "pct": round(100 * done / total) if total else 0,
+            "since": doc.updated.isoformat() if doc.updated else ""}
 
 
 def ofyorta_page(request, project_id):
@@ -63,7 +68,7 @@ def ofyorta_save(request, project_id):
     doc = ofyorta.for_project(project)
     url = reverse("project_ofyorta", args=[project.id])
     if doc.status == ProjectOfyorta.Status.BUILDING:
-        messages.error(request, "Офёрта ҳозир тузиляпти — тугашини кутинг.")
+        messages.info(request, "Офёрта ҳозир тузиляпти — тугагач, тартибни ўзгартиришингиз мумкин.")
         return redirect(url)
     try:
         parts = _parse(request.POST.get("parts"), {p["job"] for p in doc.parts})

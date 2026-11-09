@@ -30,6 +30,7 @@
           {% if n.job.sum_not_priced %}<span class="of-warn" title="Нархланмаган қаторлар бор">{{ n.job.sum_not_priced }} та қатор нархсиз</span>{% endif %}
           <a href="{% url 'job' n.job.id %}" class="of-open" title="Сметани очиш">{% icon "external" "h-3.5 w-3.5" %}</a></div>
       </div>
+      <span class="of-badge" data-badge></span>
       {% if own %}<span class="of-move">
         <button type="button" data-up title="Юқорига">{% icon "chevron-down" "h-4 w-4 rotate-180" %}</button>
         <button type="button" data-down title="Пастга">{% icon "chevron-down" "h-4 w-4" %}</button></span>{% endif %}

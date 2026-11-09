@@ -32,6 +32,21 @@
   .of-move button { padding: 3px; color: #64748b; border-radius: 4px; }
   .of-move button:hover { background: #f1f5f9; color: #0f172a; }
   .of-move button:disabled { opacity: .3; pointer-events: none; }
+  /* тузилаётганда: йўл-йўл ҳаракатланувчи чизиқ ва ҳар бир сметанинг ҳолати */
+  .of-bar { background-image: linear-gradient(45deg, rgba(255,255,255,.25) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.25) 50%, rgba(255,255,255,.25) 75%, transparent 75%);
+            background-size: 1rem 1rem; animation: of-stripes 1s linear infinite; min-width: .75rem; }
+  @keyframes of-stripes { to { background-position: 1rem 0; } }
+  .is-building .of-grip, .is-building .of-move { visibility: hidden; }
+  .of-file.b-done > .of-row { border-color: #6ee7b7; background: #ecfdf5; }
+  .of-file.b-done .of-num { background: #10b981; color: #fff; }
+  .of-file.b-now > .of-row { border-color: #0ea5e9; background: #f0f9ff; box-shadow: 0 0 0 3px rgba(14,165,233,.2); }
+  .of-file.b-now .of-num { background: #0284c7; color: #fff; }
+  .of-file.b-wait > .of-row { opacity: .6; }
+  .of-badge { display: none; flex-shrink: 0; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .b-done .of-badge, .b-now .of-badge, .b-wait .of-badge { display: inline-flex; }
+  .b-done .of-badge { background: #d1fae5; color: #047857; }
+  .b-now .of-badge { background: #e0f2fe; color: #0369a1; }
+  .b-wait .of-badge { background: #f1f5f9; color: #64748b; }
   @media (max-width: 640px) { .of-list .of-list { margin-left: 8px; padding-left: 6px; } .of-grip { display: none; } }
 </style>
 
@@ -44,11 +59,6 @@
     </div>
     <div data-state-box class="w-full max-w-sm sm:w-auto">
       {% if state.status == "building" %}
-      <div class="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
-        <div class="flex items-center gap-2 font-semibold">{% icon "loader" "h-4 w-4 animate-spin" %} Офёрта тузиляпти</div>
-        <div class="mt-1 text-xs" data-step>{{ state.step }}</div>
-        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100"><div class="h-full bg-sky-500 transition-all" data-bar style="width: {% if state.total %}{% widthratio state.done state.total 100 %}{% else %}0{% endif %}%"></div></div>
-      </div>
       {% elif has_file %}
       <a href="{% url 'project_ofyorta_file' project.id %}" class="flex items-center gap-3 rounded-lg bg-emerald-600 px-4 py-2.5 text-white shadow-sm hover:bg-emerald-700">
         <span class="grid h-9 w-9 place-items-center rounded-md bg-white/15">{% icon "download" "h-5 w-5" %}</span>
@@ -61,8 +71,36 @@
     </div>
   </div>
 
+  {% if state.status == "building" %}
+  {# ---- тузилиш жараёни: катта, кўзга ташланадиган панель ---- #}
+  <section data-build class="overflow-hidden rounded-xl border-2 border-sky-300 bg-white shadow-md" role="status" aria-live="polite">
+    <div class="flex flex-wrap items-center gap-4 bg-gradient-to-r from-sky-50 to-white px-5 py-4">
+      <span class="relative grid h-12 w-12 shrink-0 place-items-center rounded-full bg-sky-600 text-white shadow">
+        <span class="absolute inset-0 animate-ping rounded-full bg-sky-400 opacity-30"></span>{% icon "sheet" "h-6 w-6" %}</span>
+      <div class="min-w-0 flex-1 basis-64">
+        <div class="text-lg font-semibold text-slate-900">Офёрта тузиляпти…</div>
+        <div class="mt-0.5 truncate text-sm text-sky-800" data-step title="{{ state.step }}">{{ state.step|default:"Навбатда" }}</div>
+      </div>
+      <div class="text-right">
+        <div class="num text-3xl font-bold leading-none text-sky-700"><span data-pct>{{ state.pct }}</span>%</div>
+        <div class="mt-1 text-xs text-slate-500"><b class="num text-slate-700" data-done>{{ state.done }}</b> / <span class="num" data-total>{{ state.total }}</span> та смета · <span data-elapsed>0:00</span></div>
+      </div>
+    </div>
+    <div class="px-5 pb-4">
+      <div class="h-3 overflow-hidden rounded-full bg-slate-100">
+        <div class="of-bar h-full rounded-full bg-sky-500 transition-[width] duration-700" data-bar style="width: {{ state.pct }}%"></div></div>
+      <div class="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+        <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>қўшилди</span>
+        <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-sky-500"></span>ҳозир қўшиляпти</span>
+        <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-slate-300"></span>навбатда</span>
+        <span class="ml-auto">Саҳифани ёпсангиз ҳам давом этади — тугагач, юклаб олиш тугмаси шу ерда чиқади.</span>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
   {% for m in messages %}
-  <div class="rounded-lg border px-4 py-2.5 text-sm {% if m.level_tag == 'error' %}border-rose-200 bg-rose-50 text-rose-800{% else %}border-emerald-200 bg-emerald-50 text-emerald-800{% endif %}" role="status">{{ m }}</div>
+  <div class="rounded-lg border px-4 py-2.5 text-sm {% if m.level_tag == 'error' %}border-rose-200 bg-rose-50 text-rose-800{% elif m.level_tag == 'info' %}border-sky-200 bg-sky-50 text-sky-800{% else %}border-emerald-200 bg-emerald-50 text-emerald-800{% endif %}" role="status">{{ m }}</div>
   {% endfor %}
   {% if has_file and doc.error %}<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">{{ doc.error|linebreaksbr }}</div>{% endif %}
 
@@ -97,16 +135,19 @@
     {% if own %}
     <div class="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
       <span class="text-xs text-slate-500" data-dirty hidden>Ўзгаришлар сақланмаган</span>
+      {% if state.status == "building" %}<span class="inline-flex items-center gap-1.5 text-xs text-sky-700">{% icon "loader" "h-3.5 w-3.5 animate-spin" %} Офёрта тузилаётганда тартибни ўзгартириб бўлмайди</span>{% endif %}
       <span class="ml-auto flex flex-wrap gap-2">
-        <button type="submit" name="action" value="save" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Тартибни сақлаш</button>
-        <button type="submit" name="action" value="build" class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
-                {% if state.status == "building" %}disabled{% endif %}>{% icon "sheet" "h-4 w-4" %} Офёрта тузиш</button></span>
+        <button type="submit" name="action" value="save" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                {% if state.status == "building" %}disabled{% endif %}>Тартибни сақлаш</button>
+        <button type="submit" name="action" value="build" class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-sky-600"
+                {% if state.status == "building" %}disabled>{% icon "loader" "h-4 w-4 animate-spin" %} Тузиляпти…{% else %}>{% icon "sheet" "h-4 w-4" %} Офёрта тузиш{% endif %}</button></span>
     </div>
     {% endif %}
   </form>
   {% endif %}
 </div>
 
+{% if state.status == "building" %}{{ state|json_script:"of-state" }}{% endif %}
 <script>
 (function () {
   var tree = document.querySelector("[data-tree]");
@@ -227,15 +268,48 @@
 
   // ---- тузилаётган бўлса — ҳолатни кузатиш ----
   {% if state.status == "building" %}
-  var stateUrl = "{% url 'project_ofyorta_state' project.id %}";
+  var stateUrl = "{% url 'project_ofyorta_state' project.id %}", baseTitle = document.title;
+  var since = Date.parse("{{ state.since }}") || Date.now();
+  form.classList.add("is-building");
+  tree.querySelectorAll("input, button").forEach(function (x) { if (!x.matches("[data-toggle]")) x.disabled = true; });
+  function q(sel) { return document.querySelector(sel); }
+  function show(s) {
+    var pct = s.total ? Math.round(100 * s.done / s.total) : 0;
+    q("[data-step]").textContent = s.step || "Навбатда";
+    q("[data-step]").title = s.step || "";
+    q("[data-pct]").textContent = pct;
+    q("[data-done]").textContent = s.done;
+    q("[data-total]").textContent = s.total;
+    q("[data-bar]").style.width = pct + "%";
+    document.title = pct + "% · " + baseTitle;
+    // дарахтда: қўшилганлар — яшил, ҳозиргиси — кўк, қолганлари — навбатда
+    var k = 0, now = null;
+    tree.querySelectorAll(".of-file").forEach(function (li) {
+      li.classList.remove("b-done", "b-now", "b-wait");
+      if (!li.querySelector("[data-include]").checked) return;
+      var cls = s.job ? (li.dataset.job === s.job ? "b-now" : k < s.done ? "b-done" : "b-wait")
+                      : (k < s.done ? "b-done" : k === s.done && s.done < s.total ? "b-now" : "b-wait");
+      li.classList.add(cls);
+      li.querySelector("[data-badge]").textContent = cls === "b-done" ? "✓ қўшилди" : cls === "b-now" ? "қўшиляпти…" : "навбатда";
+      if (cls === "b-now") now = li;
+      k++;
+    });
+    if (now) {  // ҳозиргиси папка ичида ёпиқ қолмасин
+      for (var f = now.parentNode.closest(".of-folder"); f; f = f.parentNode.closest(".of-folder")) setOpen(f, true);
+    }
+  }
+  function tick() {
+    var sec = Math.max(0, Math.round((Date.now() - since) / 1000));
+    q("[data-elapsed]").textContent = Math.floor(sec / 60) + ":" + ("0" + sec % 60).slice(-2);
+  }
+  show(JSON.parse(document.getElementById("of-state").textContent));
+  setInterval(tick, 1000); tick();
   var timer = setInterval(function () {
-    fetch(stateUrl, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (s) {
-      var step = document.querySelector("[data-step]"), bar = document.querySelector("[data-bar]");
-      if (step) step.textContent = s.step || "";
-      if (bar && s.total) bar.style.width = Math.round(100 * s.done / s.total) + "%";
-      if (s.status !== "building") { clearInterval(timer); if (!dirty) location.reload(); }
+    fetch(stateUrl, { credentials: "same-origin", cache: "no-store" }).then(function (r) { return r.json(); }).then(function (s) {
+      show(s);
+      if (s.status !== "building") { clearInterval(timer); location.reload(); }
     }).catch(function () {});
-  }, 2000);
+  }, 1500);
   {% endif %}
 })();
 </script>

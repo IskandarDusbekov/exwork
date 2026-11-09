@@ -107,11 +107,17 @@
         <div class="min-w-0 text-sm">
           <div class="font-semibold text-slate-900">Нархланмаганларни тўғриланг</div>
           {% if count_warn %}<div class="text-slate-600"><b class="text-rose-700">{{ count_warn }} та қисм</b>да {{ not_priced_total }} та қатор нархсиз — сметани очиб, нархини қўйинг.</div>
-          <div class="mt-1.5 flex flex-wrap gap-1.5">
-            <button type="button" data-part-filter="warn" class="rounded-md bg-rose-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-rose-700">Шу қисмларни кўрсатиш</button>
-            <button type="button" data-bulk-open class="inline-flex items-center gap-1 rounded-md border border-rose-300 bg-white px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
-                    title="Бир хил ресурс бир неча сметада учраса — нархини бир марта ёзасиз, ҳаммасига қўйилади">{% icon "layers" "h-3.5 w-3.5" %} Бир хил ресурсларга бир йўла нарх қўйиш</button>
-          </div>
+          <button type="button" data-bulk-open
+                  class="mt-2 flex w-full items-center gap-2.5 rounded-lg bg-rose-600 px-3 py-2 text-left text-white shadow-sm ring-2 ring-rose-200 transition hover:bg-rose-700"
+                  title="Ҳамма нархсиз ресурслар битта жадвалда: нархини бир марта ёзасиз — у учраган ҳамма сметага қўйилади">
+            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white/20">{% icon "table" "h-4 w-4" %}</span>
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-semibold leading-tight">Нархсиз ресурслар жадвали</span>
+              <span class="block text-xs leading-tight text-rose-100">нархни бир марта ёзинг — ҳамма сметага қўйилади</span>
+            </span>
+            {% icon "chevron-right" "h-4 w-4 shrink-0" %}
+          </button>
+          <button type="button" data-part-filter="warn" class="mt-1.5 text-xs font-medium text-rose-700 underline underline-offset-2 hover:text-rose-900">ёки шу қисмларни рўйхатда кўрсатиш</button>
           {% else %}<div class="text-emerald-800">Ҳамма қатор нархланган.</div>{% endif %}
         </div>
       </li>
