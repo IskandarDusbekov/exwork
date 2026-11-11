@@ -126,10 +126,13 @@
         <span class="font-semibold text-slate-900">Сметалар</span>
         <span class="text-slate-500"><span data-in>{{ count_in }}</span> / {{ count }} та танланган</span>
         <span class="ml-auto flex gap-1">
+          <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50" data-flat aria-pressed="false"
+                  title="Папкалар қаторини яшириш — фақат сметалар, офёртадаги тартибда">Папкаларни яшириш</button>
           <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50" data-all="open">Ҳаммасини очиш</button>
           <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50" data-all="close">Йиғиш</button></span>
       </div>
       <div data-tree>{% include "jobs/_ofyorta_nodes.html" with nodes=nodes %}</div>
+      <template data-folder-tpl><li class="of-node of-folder" data-node>{% include "jobs/_ofyorta_folder_row.html" with name="" path="" %}<ul class="of-list" data-list></ul></li></template>
     </div>
 
     {% if own %}
@@ -155,6 +158,44 @@
   if (!tree || !form) return;
   var dirty = false, dirtyNote = document.querySelector("[data-dirty]");
   function changed() { dirty = true; if (dirtyNote) dirtyNote.hidden = false; refresh(); }
+
+  // ---- «Папкаларни яшириш»: сметалар битта рўйхатга йиғилади — ҳар бири алоҳида сурилади;
+  //      қайта кўрсатилганда дарахт шу тартибдан қурилади (серверда ``tree()`` каби: ёнма-ён турганлари — бир папкада) ----
+  var tpl = document.querySelector("[data-folder-tpl]");
+  function closedPaths() {
+    var out = {};
+    tree.querySelectorAll(".of-folder.is-closed").forEach(function (f) { out[f.dataset.path] = true; });
+    return out;
+  }
+  var closed = {};
+  function toFlat() {
+    closed = closedPaths();
+    var ul = document.createElement("ul");
+    ul.className = "of-list"; ul.setAttribute("data-list", "");
+    tree.querySelectorAll(".of-file").forEach(function (li) { ul.appendChild(li); });
+    tree.replaceChildren(ul);
+  }
+  function toTree() {
+    var root = document.createElement("ul"), chain = [];
+    root.className = "of-list"; root.setAttribute("data-list", "");
+    tree.querySelectorAll(".of-file").forEach(function (li) {
+      var segs = li.dataset.segs ? li.dataset.segs.split("/") : [], k = 0;
+      while (k < chain.length && k < segs.length && chain[k].seg === segs[k]) k++;
+      chain.length = k;
+      var list = k ? chain[k - 1].list : root;
+      for (var i = k; i < segs.length; i++) {
+        var f = tpl.content.firstElementChild.cloneNode(true), path = segs.slice(0, i + 1).join("/");
+        f.dataset.path = path;
+        var nm = f.querySelector("[data-fname]"); nm.textContent = segs[i]; nm.title = path;
+        list.appendChild(f);
+        if (closed[path]) setOpen(f, false);
+        list = f.querySelector("[data-list]");
+        chain.push({ seg: segs[i], list: list });
+      }
+      list.appendChild(li);
+    });
+    tree.replaceChildren(root);
+  }
 
   // ---- рақамлар, сонлар, тугмалар ----
   function refresh() {
@@ -207,13 +248,29 @@
       changed();
     }
   });
+  // ---- папкаларни яшириш (ҳолати эслаб қолинади) ----
+  var flatBtn = document.querySelector("[data-flat]"), flatKey = "narxlash-ofyorta-flat";
+  function setFlat(on) {
+    if (on !== tree.classList.contains("is-flat")) { if (on) toFlat(); else toTree(); }
+    tree.classList.toggle("is-flat", on);
+    flatBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    flatBtn.textContent = on ? "Папкаларни кўрсатиш" : "Папкаларни яшириш";
+    flatBtn.classList.toggle("bg-slate-900", on); flatBtn.classList.toggle("text-white", on); flatBtn.classList.toggle("border-slate-900", on);
+    document.querySelectorAll("[data-all]").forEach(function (b) { b.hidden = on; });
+    try { if (on) localStorage.setItem(flatKey, "1"); else localStorage.removeItem(flatKey); } catch (e) {}
+    refresh();
+  }
+  if (flatBtn) {
+    flatBtn.addEventListener("click", function () { setFlat(!tree.classList.contains("is-flat")); });
+    try { if (localStorage.getItem(flatKey) === "1") setFlat(true); } catch (e) {}
+  }
   document.querySelectorAll("[data-all]").forEach(function (b) {
     b.addEventListener("click", function () {
       tree.querySelectorAll(".of-folder").forEach(function (f) { setOpen(f, b.dataset.all === "open"); });
     });
   });
 
-  // ---- судраш: фақат ўз папкаси ичида (ёнма-ён тугунлар орасида) ----
+  // ---- судраш: ёнма-ён тугунлар орасида (дарахтда — ўз папкаси ичида, папкалар яширилганда — исталган жойга) ----
   var drag = null;
   tree.addEventListener("mousedown", function (e) {
     var g = e.target.closest("[data-grip]");

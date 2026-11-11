@@ -33,6 +33,13 @@ def _is_item_number(v) -> bool:
     return bool(re.fullmatch(r"\d+(\.\d+)*", str(v or "").strip()))
 
 
+def _price_key(v):
+    """Narxlarni solishtirish uchun: 90000 va «90000.0» bir xil; matn narx — matn."""
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return round(float(v), 6)
+    return str(v).strip() if v is not None else None
+
+
 @dataclass
 class Match:
     status: str
@@ -134,6 +141,9 @@ class ResourceIndex:
         self.fold = False
         self._cache_fold = False
         self._folded = {}  # birlik -> {fold_name(nom): nom}, birinchi kerak bo'lganda
+        # RES'da bir xil nom va birlik bir necha marta, HAR XIL narxda: (birlik, nom) -> [(narx, miqdor, qator), …]
+        # (by_unit'da birinchisi turadi; qaysi biri — lokal miqdor bo'yicha pipeline tanlaydi)
+        self.alts: Dict[tuple, List[tuple]] = {}
 
     def _folded_of(self, unit: str) -> Dict[str, str]:
         f = self._folded.get(unit)
@@ -152,6 +162,9 @@ class ResourceIndex:
 
     def raw_of(self, unit: str, name: str) -> tuple:
         return self.raw.get((unit, name), (name, unit))
+
+    def alts_of(self, unit: str, name: str) -> Optional[List[tuple]]:
+        return self.alts.get((unit, name))
 
     def section_of(self, unit: str, name: str) -> Optional[tuple]:
         return self.sections.get((unit, name))
@@ -174,6 +187,7 @@ class ResourceIndex:
         positions: Dict[tuple, tuple] = {}
         raw: Dict[tuple, tuple] = {}
         unitless: Dict[str, Any] = {}
+        seen: Dict[tuple, List[tuple]] = {}  # (birlik, nom) -> [(narx, miqdor, qator), …]
         current = None  # oxirgi ko'rilgan bo'lim: (kategoriya, sarlavha)
         for r in range(start_row, min(stop_row or ws.max_row + 1, ws.max_row + 1)):
             unit = norm_unit(ws.cell(row=r, column=ru).value)
@@ -201,6 +215,10 @@ class ResourceIndex:
             if not name:
                 continue
             d = by_unit.setdefault(unit, {})
+            # miqdor — birlik bilan narx orasidagi oxirgi raqam (RES: «№ | nom | birlik | miqdor | narx | summa»)
+            qty = next((v for v in (ws.cell(row=r, column=c).value for c in range(rp - 1, ru, -1))
+                        if isinstance(v, (int, float)) and not isinstance(v, bool)), None)
+            seen.setdefault((unit, name), []).append((ws.cell(row=r, column=rp).value, qty, r))
             if name not in d:
                 d[name] = ws.cell(row=r, column=rp).value
                 positions[(unit, name)] = (len(section_list) - 1, r)
@@ -208,6 +226,7 @@ class ResourceIndex:
                 if current:
                     sections[(unit, name)] = current
         index = cls(by_unit, sections, section_list, positions)
+        index.alts = {k: v for k, v in seen.items() if len({_price_key(p) for p, _q, _r in v}) > 1}
         index.raw = raw
         index.unitless = unitless
         return index

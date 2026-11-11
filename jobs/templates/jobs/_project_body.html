@@ -46,6 +46,11 @@
       <span><span class="block text-sm font-semibold">Офёрта тузиш</span>
         <span class="block text-xs text-slate-600">тартиб билан · ҳар бири ўз сводкаси билан</span></span>
     </a>
+    {% tender_on as show_tender %}{% if show_tender %}<a href="{% url 'project_tender' project.id %}" class="flex items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-slate-900 shadow-sm transition hover:bg-indigo-100">
+      <span class="grid h-9 w-9 place-items-center rounded-md bg-indigo-200 text-indigo-800">{% icon "chart" "h-5 w-5" %}</span>
+      <span><span class="block text-sm font-semibold">Объект таҳлили</span>
+        <span class="block text-xs text-slate-600">фойда, зарар ва хулоса</span></span>
+    </a>{% endif %}
     {% else %}
     <span data-guide="download" class="flex items-center gap-3 rounded-lg bg-slate-100 px-4 py-2.5 text-slate-400">
       {% icon "download" "h-5 w-5" %}<span class="text-sm">Натижа ҳали йўқ</span></span>

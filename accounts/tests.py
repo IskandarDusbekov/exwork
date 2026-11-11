@@ -31,7 +31,7 @@ class RegisterTests(TestCase):
         self.assertEqual(u.email, "ali@mail.uz")  # кичик ҳарфда
         self.assertTrue(u.password.startswith("argon2"))
         self.assertFalse(u.is_staff or u.is_superuser)
-        self.assertEqual(self.client.get(reverse("index")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("index"), HTTP_REFERER="http://testserver/").status_code, 200)
 
     def test_duplicate_email_case_insensitive(self):
         User.objects.create_user("ali@mail.uz", PASSWORD, first_name="A", last_name="B")
@@ -69,7 +69,7 @@ class LoginTests(TestCase):
         url = reverse("index")
         self.assertRedirects(self.client.post(url), f"{reverse('login')}?next={url}", fetch_redirect_response=False)
         self.client.force_login(self.user)
-        self.assertTemplateUsed(self.client.get(url), "jobs/index.html")
+        self.assertTemplateUsed(self.client.get(url, HTTP_REFERER="http://testserver/"), "jobs/index.html")
 
     def test_login_logout(self):
         r = self.client.post(reverse("login"), {"email": "ALI@mail.uz", "password": PASSWORD, "next": "/dashboard/"})

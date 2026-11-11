@@ -110,24 +110,83 @@ def stroyka_name(lines: List[str]) -> str:
     return ""
 
 
-def tree(parts: List[dict], jobs: Dict[str, Job]) -> List[dict]:
-    """Тартибланган рўйхатдан папкалар дарахти: папка тугуни ``{"kind": "folder", "name", "path", "children"}``,
-    смета ``{"kind": "file", "part", "job"}``. Тугунлар биринчи учраган жойида туради."""
+# сметалар одатда «…/АР/СМЕТА/bv74800.xls» да: «СМЕТА» папкаси ҳеч нима демайди — номга қўшилмайди
+_GENERIC = {"смета", "сметы", "сметалар", "smeta", "smety", "локальная смета", "локальные сметы", "лрв"}
+
+
+def _segs(folder: str) -> List[str]:
+    return [s.strip() for s in (folder or "").split("/") if s.strip()]
+
+
+def common_root(jobs) -> List[str]:
+    """Ҳамма сметалар учун умумий юқори папкалар («после напу техником / НУРАФШОН SITY (2) / …»)."""
+    paths = [_segs(j.batch.folder) for j in jobs]
+    if not paths:
+        return []
+    root = paths[0]
+    for p in paths[1:]:
+        n = 0
+        while n < min(len(root), len(p)) and root[n] == p[n]:
+            n += 1
+        root = root[:n]
+    return root
+
+
+def folder_title(job: Job, root_len: int) -> str:
+    """Сметанинг номи — файл йўли (умумий юқори папкаларсиз): «БЛОК-А / АР / СМЕТА / bv74800»."""
+    segs = _segs(job.batch.folder)[root_len:] + [Path(job.local_name).stem]
+    return " / ".join(s for s in segs if s)[:300]
+
+
+def auto_titles(jobs: Dict[str, Job]) -> Dict[str, str]:
+    """Стандарт сарлавҳалар — файл йўли; иккита смета бир хил йўлда бўлса — юклаш номи қўшилади."""
+    root_len = len(common_root(jobs.values()))
+    titles = {k: folder_title(j, root_len) or work_title(j) for k, j in jobs.items()}
+    count: Dict[str, int] = {}
+    for t in titles.values():
+        count[t] = count.get(t, 0) + 1
+    for k, j in jobs.items():
+        if count[titles[k]] > 1 and j.batch_label:
+            titles[k] = f"{titles[k]} — {j.batch_label}"[:300]
+    return titles
+
+
+def tree(parts: List[dict], jobs: Dict[str, Job], group: bool = False) -> List[dict]:
+    """Тартибланган рўйхатдан папкалар дарахти: папка ``{"kind": "folder", "name", "path", "children"}``,
+    смета ``{"kind": "file", "part", "job", "segs", "where"}`` (``where`` — файл йўли умумий юқори папкаларсиз). Тартиб ўзгармайди: бир папкадаги сметалар орасига
+    бошқаси сурилган бўлса, папка икки жойда кўринади. ``group=True`` — папка биринчи учраган жойида
+    (ҳамма сметалари ёнма-ён; стандарт тартиб учун)."""
+    skip = len(common_root([jobs[p["job"]] for p in parts if p["job"] in jobs]))
     root = {"children": [], "index": {}}
+    chain = []  # ҳозир очиқ папкалар: [(ном, тугун)]
     for p in parts:
         job = jobs.get(p["job"])
         if job is None:
             continue
-        node, path = root, ""
-        for seg in [s for s in (job.batch.folder or "").split("/") if s.strip()]:
-            path = f"{path}/{seg}" if path else seg
-            child = node["index"].get(seg)
-            if child is None:
-                child = {"kind": "folder", "name": seg, "path": path, "children": [], "index": {}}
-                node["index"][seg] = child
+        segs = _segs(job.batch.folder)
+        if group:
+            node, path = root, ""
+            for seg in segs:
+                path = f"{path}/{seg}" if path else seg
+                child = node["index"].get(seg)
+                if child is None:
+                    child = {"kind": "folder", "name": seg, "path": path, "children": [], "index": {}}
+                    node["index"][seg] = child
+                    node["children"].append(child)
+                node = child
+        else:
+            k = 0
+            while k < min(len(chain), len(segs)) and chain[k][0] == segs[k]:
+                k += 1
+            del chain[k:]
+            node = chain[-1][1] if chain else root
+            for n, seg in enumerate(segs[k:], start=k):
+                child = {"kind": "folder", "name": seg, "path": "/".join(segs[:n + 1]), "children": []}
                 node["children"].append(child)
-            node = child
-        node["children"].append({"kind": "file", "part": p, "job": job})
+                chain.append((seg, child))
+                node = child
+        node["children"].append({"kind": "file", "part": p, "job": job, "segs": segs,
+                                 "where": "/".join(segs[skip:] + [job.local_name])})
     return root["children"]
 
 
@@ -139,20 +198,37 @@ def flatten(nodes: List[dict]) -> List[dict]:
 
 
 def sync_parts(project: Project, saved: Optional[List[dict]]) -> List[dict]:
-    """Сақланган тартиб + янги нархланганлар (ўз папкасининг охирига); ўчирилган ёки нархи йўқолганлари олиб
-    ташланади. Тартиб дарахт бўйича (папка бўлаклари ёнма-ён)."""
+    """Сақланган тартиб (сметачи қандай сурган бўлса — шундай) + янги нархланганлар (ўз папкасидаги охирги
+    сметадан кейин); ўчирилган ёки нархи йўқолганлари олиб ташланади. Биринчи марта — папкалар бўйича."""
     jobs = {str(j.pk): j for j in priced_jobs(project)}
+    auto = auto_titles(jobs)
     out, seen = [], set()
     for p in saved or []:
         key = str(p.get("job", ""))
         if key in jobs and key not in seen:
             seen.add(key)
-            out.append({"job": key, "title": " ".join(str(p.get("title") or "").split())[:300] or work_title(jobs[key]),
+            title = " ".join(str(p.get("title") or "").split())[:300]
+            # смета­чи ёзган ном сақланади; стандарт (эски «файл номи / на …» ҳам) — папкадан олинган номга
+            mine = bool(title) and title != auto[key] and (p.get("auto") is False or (
+                "auto" not in p and title != work_title(jobs[key])))
+            out.append({"job": key, "title": title if mine else auto[key], "auto": not mine,
                         "include": bool(p.get("include", True))})
+    if not out:
+        out = [{"job": key, "title": auto[key], "auto": True, "include": True} for key in jobs]
+        return flatten(tree(out, jobs, group=True))
     for key, job in jobs.items():
-        if key not in seen:
-            out.append({"job": key, "title": work_title(job), "include": True})
-    return flatten(tree(out, jobs))
+        if key in seen:
+            continue
+        segs, best, at = _segs(job.batch.folder), 0, len(out)
+        for i, p in enumerate(out):
+            other = _segs(jobs[p["job"]].batch.folder)
+            n = 0
+            while n < min(len(segs), len(other)) and segs[n] == other[n]:
+                n += 1
+            if n and n >= best:
+                best, at = n, i + 1
+        out.insert(at, {"job": key, "title": auto[key], "auto": True, "include": True})
+    return out
 
 
 def for_project(project: Project, save: bool = True) -> ProjectOfyorta:
@@ -201,6 +277,7 @@ class _Writer:
         self.ws = ws
         self.r = 1
         self.width = MIN_COLS
+        self.filter_row = None  # «1 2 3 …» қатори — фильтр шу ерда
         self._styles = {}
 
     # --- асл варақдан нусха ---
@@ -371,32 +448,44 @@ def _block(w: _Writer, n: int, title: str, src, job: Job, cached) -> dict:
     return {"title": title, "cells": cells, "fmt": w.ws.cell(s, 8).number_format or NUM_FMT, "cols": cols}
 
 
+def _pct_of(ws, addr: Optional[str]):
+    """Блок сводкаси қаторидаги фоиз (D катак) — сон бўлса."""
+    if not addr:
+        return None
+    v = ws[f"D{addr[1:]}"].value
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
 def _grand(w: _Writer, blocks: List[dict]):
-    """Охирида: бўш сариқ қатор, «Умумий сводка» сарлавҳаси ва ҳамма сметалар сводкаларининг йиғиндиси (формула)."""
-    fmt = blocks[0]["fmt"]
+    """Охирида: бўш сариқ қатор, «Умумий сводка» сарлавҳаси ва ҳамма сметалар сводкаларининг йиғиндиси (формула).
+    Кўриниши — сметалар сводкасидек: қаторлар охирги смета сводкасидан нусха (шрифт, бирлашма, D даги фоиз);
+    фоиз ҳамма сметада бир хил бўлса кўрсатилади, ҳар хил бўлса — бўш (ёлғон фоиз чиқмасин). H — йиғинди."""
+    ws = w.ws
     w.band(None, cols=BAND_COLS, height=12)
     w.title(f"УМУМИЙ СВОДКА ({len(blocks)} та смета)", cols=BAND_COLS, size=13, height=26)
-
-    def row(text, h, bold=True):  # смета сводкасидек — ҳамма қатор қалин
-        w._merge(w.r, 3, w.r, 7)
-        w.ws.cell(w.r, 3, text)
-        w.ws.cell(w.r, 8, h)
-        for col in range(1, 9):
-            cell = w.ws.cell(w.r, col)
-            cell.border, cell.fill = BOX, GREY
-            cell.font = Font(name="Times New Roman", size=11, bold=bold)
-        w.ws.cell(w.r, 8).number_format = fmt
-        w.ws.cell(w.r, 3).alignment = Alignment(wrap_text=True, vertical="center")
-        w.r += 1
-
+    last = blocks[-1]["cells"]
+    rows = list(SVODKA_ROWS)
     extra = [c for b in blocks for k, c in b["cells"].items() if k.startswith("extra_")]
-    for key, text, _pct in SVODKA_ROWS:
-        if key == "pryamye" and extra:
-            row("Қўшимча устунлар", "=" + "+".join(extra))
-        if key == "s_nds":
-            text = "Всего с НДС"
-        cells = [b["cells"][key] for b in blocks if key in b["cells"]]
-        row(text, "=" + "+".join(cells))
+    if extra:  # сметачи қўшган устунлар — битта қатор, «Всего прямых затрат» дан олдин
+        i = next(k for k, (key, _t, _p) in enumerate(rows) if key == "pryamye")
+        rows.insert(i, ("extra", "Қўшимча устунлар", None))
+    for key, text, _pct in rows:
+        like = last.get(key) or last.get("pryamye")
+        src_row = int(like[1:])
+        w.copy_rows(ws, src_row, src_row, w.r, 8)
+        cells = extra if key == "extra" else [b["cells"][key] for b in blocks if key in b["cells"]]
+        if key == "extra" or key not in last:
+            ws.cell(w.r, 3).value = text
+        pcts = {_pct_of(ws, b["cells"].get(key)) for b in blocks} if key != "extra" else {None}
+        ws.cell(w.r, 4).value = pcts.pop() if len(pcts) == 1 else None
+        ws.cell(w.r, 8).value = "=" + "+".join(cells)
+        for col in range(1, 9):  # умумий жами — қалин (смета сводкасининг ўз шрифти, ранги сақланади)
+            c = ws.cell(w.r, col)
+            if not isinstance(c, MergedCell) and c.font and not c.font.b:
+                f = copy(c.font)
+                f.b = True
+                c.font = f
+        w.r += 1
 
 
 def write(doc: ProjectOfyorta, parts: List[dict], jobs: Dict[str, Job], step=None) -> dict:
@@ -429,6 +518,9 @@ def write(doc: ProjectOfyorta, parts: List[dict], jobs: Dict[str, Job], step=Non
         raise OfyortaError("Битта ҳам смета олинмади")
     if step:
         step("Умумий сводка ва Excel файл ёзилмоқда…", len(parts), len(parts))
+    end = w.r - 1  # охирги смета сводкаси тугади — умумий сводка фильтрга кирмайди
+    if w.filter_row and end > w.filter_row:
+        ws.auto_filter.ref = f"A{w.filter_row}:{get_column_letter(w.width)}{end}"
     _grand(w, blocks)
     ws.page_setup.orientation = "landscape"
     ws.page_setup.fitToWidth, ws.page_setup.fitToHeight = 1, 0
@@ -467,6 +559,7 @@ def _head(w: _Writer, doc: ProjectOfyorta, src, job: Job, cached=None):
         w.r = num + 1
         top = header_top(src, num)
         w.ws.freeze_panes = f"A{w.r}"
+        w.filter_row = num
         w.ws.print_title_rows = f"{top}:{num}"
     else:
         w.text(doc.name, size=12, bold=True, height=20)

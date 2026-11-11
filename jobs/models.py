@@ -329,3 +329,45 @@ class UploadTiming(models.Model):
     def mbps(self):
         """Интернет тезлиги, МБ/сония."""
         return self.size / (1024 * 1024) / self.upload_s if self.upload_s and self.size else None
+
+
+class TenderSettings(models.Model):
+    """Объект таҳлили созламалари (панел → «Объект таҳлили»): ёқилганми ва таҳлил нимага асосланади
+    (``jobs.tender.PARAMS``). Битта ёзув (pk=1)."""
+    enabled = models.BooleanField(default=False)
+    params = models.JSONField(default=dict, blank=True)  # {калит: қиймат}; йўқлари — стандарт
+    updated = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                   related_name="+")
+
+
+class TenderFactor(models.Model):
+    """Админнинг тажриба омили: қурувчи амалда смета нархидан бошқача сарфлайди ёки қўшимча олади. Таъсири
+    ``effect`` % — харажатга (иш ҳақи, машина, материал …) ёки даромадга. Фойдаланувчига фақат ``visible``
+    бўлса ``user_text`` кўринади; ``note`` — фақат админ учун, ҳеч қаерда кўрсатилмайди."""
+
+    class Scope(models.TextChoices):
+        ALL = "all", "Барча тўғри харажатлар"
+        I = "I", "Иш ҳақи (I)"
+        J = "J", "Машина ва механизмлар (J)"
+        K = "K", "Материаллар (K)"
+        L = "L", "Кабель маҳсулотлари (L)"
+        M = "M", "Ускуналар (M)"
+        PROCHIE = "prochie", "Прочие затраты (устама)"
+        REVENUE = "revenue", "Даромад (тўлов)"
+
+    title = models.CharField(max_length=200)
+    scope = models.CharField(max_length=10, choices=Scope.choices, default=Scope.ALL)
+    effect = models.FloatField(default=0)  # %: харажатда манфий — арзонроқ; даромадда мусбат — кўпроқ
+    active = models.BooleanField(default=True)
+    visible = models.BooleanField(default=False)
+    user_text = models.CharField(max_length=300, blank=True)
+    note = models.TextField(blank=True)
+    order = models.PositiveSmallIntegerField(default=0)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        return self.title

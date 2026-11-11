@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_ofyorta
+from . import views, views_ofyorta, views_tender
 
 urlpatterns = [
     path("", views.index, name="index"),
@@ -20,6 +20,9 @@ urlpatterns = [
     path("folder/<uuid:project_id>/unpriced/", views.project_unpriced, name="project_unpriced"),
     path("folder/<uuid:project_id>/download/", views.project_download, name="project_download"),
     path("folder/<uuid:project_id>/viewer/<uuid:batch_id>/", views.project_viewer, name="project_viewer"),
+    path("folder/<uuid:project_id>/tender/", views_tender.tender_project, name="project_tender"),
+    path("object/<uuid:batch_id>/tender/", views_tender.tender_batch, name="batch_tender"),
+    path("job/<uuid:job_id>/tender/", views_tender.tender_job, name="job_tender"),
     path("folder/<uuid:project_id>/ofyorta/", views_ofyorta.ofyorta_page, name="project_ofyorta"),
     path("folder/<uuid:project_id>/ofyorta/save/", views_ofyorta.ofyorta_save, name="project_ofyorta_save"),
     path("folder/<uuid:project_id>/ofyorta/state/", views_ofyorta.ofyorta_state, name="project_ofyorta_state"),

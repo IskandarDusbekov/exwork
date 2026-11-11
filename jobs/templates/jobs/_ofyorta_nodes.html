@@ -1,23 +1,13 @@
-{% load narx %}{# офёрта тартиби: папка (ичидагилари билан бирга сурилади) ёки смета — фақат ўз папкаси ичида #}
+{% load narx %}{# офёрта тартиби: папка (ичидагилари билан бирга сурилади) ёки смета; папкалар яширилганда — ҳар бир смета алоҳида #}
 <ul class="of-list" data-list>
   {% for n in nodes %}
   {% if n.kind == "folder" %}
-  <li class="of-node of-folder" data-node>
-    <div class="of-row">
-      {% if own %}<span class="of-grip" data-grip title="Ушлаб судранг — папка ичидагилари билан бирга сурилади">{% icon "menu" "h-4 w-4" %}</span>{% endif %}
-      <button type="button" class="of-toggle" data-toggle aria-expanded="true" title="Йиғиш / очиш">{% icon "chevron-down" "h-4 w-4" %}</button>
-      <input type="checkbox" class="of-check" data-folder-check title="Папкадаги ҳамма сметалар"{% if not own %} disabled{% endif %}>
-      <span class="text-amber-500">{% icon "folder" "h-4 w-4 shrink-0" %}</span>
-      <span class="of-fname" title="{{ n.path }}">{{ n.name }}</span>
-      <span class="of-count" data-count></span>
-      {% if own %}<span class="of-move">
-        <button type="button" data-up title="Юқорига">{% icon "chevron-down" "h-4 w-4 rotate-180" %}</button>
-        <button type="button" data-down title="Пастга">{% icon "chevron-down" "h-4 w-4" %}</button></span>{% endif %}
-    </div>
+  <li class="of-node of-folder" data-node data-path="{{ n.path }}">
+    {% include "jobs/_ofyorta_folder_row.html" with name=n.name path=n.path %}
     {% include "jobs/_ofyorta_nodes.html" with nodes=n.children %}
   </li>
   {% else %}
-  <li class="of-node of-file" data-node data-job="{{ n.part.job }}">
+  <li class="of-node of-file" data-node data-job="{{ n.part.job }}" data-segs="{{ n.segs|join:'/' }}">
     <div class="of-row">
       {% if own %}<span class="of-grip" data-grip title="Ушлаб судранг">{% icon "menu" "h-4 w-4" %}</span>{% endif %}
       <input type="checkbox" class="of-check" data-include{% if n.part.include %} checked{% endif %} title="Офёртага киритиш"{% if not own %} disabled{% endif %}>
@@ -25,7 +15,7 @@
       <div class="min-w-0 flex-1">
         <input type="hidden" data-title value="{{ n.part.title }}">
         <div class="of-name" title="{{ n.part.title }}">{{ n.part.title }}</div>
-        <div class="of-sub">{% icon "sheet" "h-3.5 w-3.5 shrink-0 text-emerald-600" %}<span class="truncate" title="{{ n.job.local_name }}">{{ n.job.local_name }}</span>
+        <div class="of-sub">{% icon "sheet" "h-3.5 w-3.5 shrink-0 text-emerald-600" %}<span class="truncate" title="{{ n.where }}">{{ n.where }}</span>
           {% if n.job.sum_total %}<span class="of-sum">{{ n.job.sum_total|som }}</span>{% endif %}
           {% if n.job.sum_not_priced %}<span class="of-warn" title="Нархланмаган қаторлар бор">{{ n.job.sum_not_priced }} та қатор нархсиз</span>{% endif %}
           <a href="{% url 'job' n.job.id %}" class="of-open" title="Сметани очиш">{% icon "external" "h-3.5 w-3.5" %}</a></div>

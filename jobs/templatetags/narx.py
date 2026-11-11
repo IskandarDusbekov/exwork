@@ -488,3 +488,17 @@ def xl_rows(rows, group, result_mode, grid_columns):
     from django.utils.safestring import mark_safe
     smart = result_mode == "smart"
     return mark_safe("".join(_xl_row(r, group, smart, grid_columns) for r in rows))
+
+
+@register.simple_tag(takes_context=True)
+def tender_on(context):
+    """«Объект таҳлили» тугмаси кўринсинми: панелда ёқилган бўлса — ҳаммага, ўчирилган бўлса — админга (синов)."""
+    from jobs import tender
+    user = getattr(context.get("request"), "user", None)
+    return tender.enabled() or bool(user and user.is_staff)
+
+
+@register.filter
+def som0(v):
+    """Катта суммалар (объект таҳлили): тийинсиз, 1 234 567."""
+    return som(round(v)) if isinstance(v, (int, float)) and not isinstance(v, bool) else som(v)

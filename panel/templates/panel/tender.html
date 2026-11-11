@@ -1,0 +1,124 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Объект таҳлили — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<div class="mb-4 flex flex-wrap items-end gap-3">
+  <div class="min-w-0 flex-1">
+    <h1 class="text-xl font-semibold text-slate-900">Объект таҳлили</h1>
+    <p class="mt-0.5 max-w-3xl text-sm text-slate-600">Қурувчи объект сметасини юклайди: тизим уни бозор нархларида нархлайди ва смета нархлари билан
+      солиштиради — қаерда зарар, қаерда фойда, ҳажм нормадан кам ёзилганми, харажат қанча ошса зарарга ўтади.
+      Таҳлил нимага асосланишини шу ерда бошқарасиз. Тажриба омилларингиз фойдаланувчига кўринмайди (фақат «кўринсин» деганингиз).</p>
+  </div>
+  <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold {% if enabled %}bg-emerald-100 text-emerald-800{% else %}bg-slate-100 text-slate-600{% endif %}">
+    <span class="h-2 w-2 rounded-full {% if enabled %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>{% if enabled %}Ёқилган{% else %}Ўчирилган{% endif %}</span>
+</div>
+{% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-700{% endif %}">{{ m }}</div>{% endfor %}
+
+<form method="post" action="{% url 'panel:tender_save' %}" class="space-y-3">
+  {% csrf_token %}
+  <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <label class="flex cursor-pointer items-start gap-3 px-4 py-4">
+      <input type="checkbox" name="enabled" value="1" {% if enabled %}checked{% endif %} {% if not can_act %}disabled{% endif %} class="mt-0.5 h-5 w-5 rounded border-slate-300 accent-emerald-600">
+      <span><span class="block font-semibold text-slate-900">Фойдаланувчиларга кўринсин</span>
+        <span class="block text-xs text-slate-500">Ёқилса — смета, объект ва папка саҳифаларида «Объект таҳлили» тугмаси чиқади. Ўчирилган бўлса — фақат администраторлар кўради (синаб кўриш учун).</span></span>
+    </label>
+  </section>
+
+  {% for group, rows in groups.items %}
+  <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">{{ group }}</h2>
+      {% if group == "Ҳақиқий харажат" %}<p class="mt-0.5 text-xs text-slate-500">Қурувчи амалда бозор (смета) нархининг неча фоизини сарфлайди. 100% — бозор нархида; 90% — 10% арзонроққа олади. Фойдаланувчига кўрсатилмайди.</p>
+      {% elif group == "Хулоса" %}<p class="mt-0.5 text-xs text-slate-500">Объект нархини буюртмачи белгилайди. Фойда улуши = (объект нархи − ҳақиқий харажат) ÷ объект нархи, НДСсиз.</p>{% endif %}</div>
+    <div class="divide-y divide-slate-100">
+      {% for f in rows %}
+      <div class="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_14rem] sm:items-center">
+        <div>
+          <label for="t-{{ f.key }}" class="text-sm font-medium text-slate-800">{{ f.label }}</label>
+          {% if f.changed %}<span class="ml-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700">ўзгартирилган · стандарт: {% if f.bool %}{{ f.default|yesno:"ҳа,йўқ" }}{% else %}{{ f.default }} {{ f.unit }}{% endif %}</span>{% endif %}
+          {% if f.help %}<p class="text-xs text-slate-500">{{ f.help }}</p>{% endif %}
+        </div>
+        <div>
+          {% if f.bool %}
+          <label class="inline-flex items-center gap-2 text-sm"><input id="t-{{ f.key }}" type="checkbox" name="{{ f.key }}" value="1" {% if f.value %}checked{% endif %} {% if not can_act %}disabled{% endif %} class="h-4 w-4 rounded border-slate-300"> ёқилган</label>
+          {% else %}
+          <div class="flex items-center gap-2">
+            <input id="t-{{ f.key }}" name="{{ f.key }}" value="{{ f.value }}" inputmode="decimal" {% if not can_act %}disabled{% endif %}
+                   class="num w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-right text-sm outline-none focus:border-slate-400">
+            <span class="w-8 shrink-0 text-xs text-slate-500">{{ f.unit }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  {% if can_act %}<button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Сақлаш</button>
+  {% else %}<p class="text-sm text-slate-500">Ўзгартириш — фақат суперфойдаланувчи.</p>{% endif %}
+</form>
+
+<section class="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3">
+    <h2 class="font-semibold">Тажриба омиллари</h2>
+    <p class="mt-0.5 max-w-3xl text-xs text-slate-500">Қурувчи амалда қаерда тежайди ёки қўшимча олади — сиз биласиз. Ҳар бир омил танланган харажат (ёки даромад)ни шунча фоизга ўзгартиради:
+      харажатда <b>−8</b> — 8% арзон, даромадда <b>+5</b> — 5% кўп. «Изоҳ» — фақат сиз учун, ҳеч қаерда кўрсатилмайди. «Кўринсин» белгиланмаса, фойдаланувчи фақат
+      «тажриба омиллари ҳисобга олинган» деган ёзувни кўради.</p>
+  </div>
+  <div class="divide-y divide-slate-100">
+    {% for f in factors %}
+    <form method="post" action="{% url 'panel:tender_factor' f.pk %}" class="grid gap-2 px-4 py-3 lg:grid-cols-[1fr_12rem_7rem_auto] lg:items-start {% if not f.active %}bg-slate-50 opacity-70{% endif %}">
+      {% csrf_token %}
+      <div class="space-y-1.5">
+        <input name="title" value="{{ f.title }}" maxlength="200" {% if not can_act %}disabled{% endif %} class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium" placeholder="Номи">
+        <input name="user_text" value="{{ f.user_text }}" maxlength="300" {% if not can_act %}disabled{% endif %} class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs" placeholder="Фойдаланувчига кўринадиган матн (ихтиёрий)">
+        <textarea name="note" rows="2" {% if not can_act %}disabled{% endif %} class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs" placeholder="Изоҳ — фақат сиз учун">{{ f.note }}</textarea>
+      </div>
+      <select name="scope" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm">
+        {% for v, label in scopes %}<option value="{{ v }}" {% if f.scope == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+      <div class="flex items-center gap-1"><input name="effect" value="{{ f.effect }}" inputmode="decimal" {% if not can_act %}disabled{% endif %} class="num w-full rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm"><span class="text-xs text-slate-500">%</span></div>
+      <div class="flex flex-wrap items-center gap-3 text-xs">
+        <label class="inline-flex items-center gap-1"><input type="checkbox" name="active" value="1" {% if f.active %}checked{% endif %} {% if not can_act %}disabled{% endif %}> ишлайди</label>
+        <label class="inline-flex items-center gap-1"><input type="checkbox" name="visible" value="1" {% if f.visible %}checked{% endif %} {% if not can_act %}disabled{% endif %}> кўринсин</label>
+        <input type="hidden" name="order" value="{{ f.order }}">
+        {% if can_act %}<button class="rounded-md bg-slate-900 px-2.5 py-1 font-semibold text-white hover:bg-slate-700">Сақлаш</button>
+        <button name="delete" value="1" class="rounded-md border border-rose-200 px-2.5 py-1 text-rose-700 hover:bg-rose-50" onclick="return confirm('Омил ўчирилсинми?')">Ўчириш</button>{% endif %}
+      </div>
+    </form>
+    {% empty %}
+    <p class="px-4 py-4 text-sm text-slate-500">Ҳали омил йўқ — таҳлил фақат бозор нархлари ва юқоридаги коэффициентлар билан ҳисобланади.</p>
+    {% endfor %}
+  </div>
+  {% if can_act %}
+  <form method="post" action="{% url 'panel:tender_factor_add' %}" class="grid gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 lg:grid-cols-[1fr_12rem_7rem_auto] lg:items-start">
+    {% csrf_token %}
+    <div class="space-y-1.5">
+      <input name="title" maxlength="200" required class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" placeholder="Янги омил номи">
+      <input name="user_text" maxlength="300" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs" placeholder="Фойдаланувчига кўринадиган матн (ихтиёрий)">
+      <textarea name="note" rows="2" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs" placeholder="Изоҳ — фақат сиз учун"></textarea>
+    </div>
+    <select name="scope" class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm">{% for v, label in scopes %}<option value="{{ v }}">{{ label }}</option>{% endfor %}</select>
+    <div class="flex items-center gap-1"><input name="effect" value="0" inputmode="decimal" class="num w-full rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm"><span class="text-xs text-slate-500">%</span></div>
+    <div class="flex flex-wrap items-center gap-3 text-xs">
+      <label class="inline-flex items-center gap-1"><input type="checkbox" name="active" value="1" checked> ишлайди</label>
+      <label class="inline-flex items-center gap-1"><input type="checkbox" name="visible" value="1"> кўринсин</label>
+      <button class="rounded-md bg-emerald-600 px-2.5 py-1 font-semibold text-white hover:bg-emerald-700">{% icon "plus" "h-3.5 w-3.5 inline" %} Қўшиш</button>
+    </div>
+  </form>
+  {% endif %}
+</section>
+
+{% if recent %}
+<section class="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Синаб кўриш</h2>
+    <p class="mt-0.5 text-xs text-slate-500">Охирги нархланган сметалар — таҳлил қандай чиқишини кўринг (ўчирилган ҳолда ҳам).</p></div>
+  <ul class="divide-y divide-slate-100 text-sm">
+    {% for j in recent %}<li class="flex flex-wrap items-center gap-3 px-4 py-2">
+      <span class="min-w-0 flex-1 truncate">{{ j.batch_label|default:j.local_name }}</span>
+      <span class="text-xs text-slate-400">{{ j.owner.email }} · {{ j.created|date:"d.m.Y" }}</span>
+      <a href="{% url 'job_tender' j.id %}" class="inline-flex items-center gap-1 rounded-md border border-indigo-200 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50">{% icon "chart" "h-3.5 w-3.5" %} Таҳлил</a>
+    </li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

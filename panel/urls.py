@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_access, views_base, views_base_usage, views_lm, views_mail, views_seo, views_settings, views_support, views_tn
+from . import views, views_access, views_base, views_base_usage, views_lm, views_mail, views_seo, views_settings, views_support, views_tender, views_tn
 
 app_name = "panel"
 
@@ -73,6 +73,10 @@ urlpatterns = [
     path("base/sources/<int:pk>/", views_base.base_source_detail, name="base_source_detail"),
     path("base/sources/<int:pk>/<str:action>/", views_base.base_source, name="base_source"),
     path("base/add/<str:kind>/<uuid:work_id>/", views_base.base_add, name="base_add"),
+    path("tender/", views_tender.tender_page, name="tender"),
+    path("tender/save/", views_tender.tender_save, name="tender_save"),
+    path("tender/factor/", views_tender.tender_factor, name="tender_factor_add"),
+    path("tender/factor/<int:pk>/", views_tender.tender_factor, name="tender_factor"),
     path("lm/", views_lm.lm_page, name="lm"),
     path("lm/teach/", views_lm.lm_teach, name="lm_teach"),
     path("lm/upload/", views_lm.lm_upload, name="lm_upload"),

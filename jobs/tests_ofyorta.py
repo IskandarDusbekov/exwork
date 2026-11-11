@@ -119,6 +119,15 @@ class ProjectOfyortaTests(TestCase):
         self.assertEqual(ws.cell(yellow[-1] + 1, 1).value, "УМУМИЙ СВОДКА (3 та смета)")
         grand = range(yellow[-1] + 2, ws.max_row + 1)  # умумий сводка қаторлари — ҳаммаси қалин
         self.assertEqual([r for r in grand if not (ws.cell(r, 3).font.b and ws.cell(r, 8).font.b)], [])
+        # сметалар сводкасидек: D да фоиз (ҳамма сметада бир хил бўлса); Благоустройство'да «прочие» 10% — бўш
+        by_text = {str(ws.cell(r, 3).value).strip(): ws.cell(r, 4).value for r in grand}
+        self.assertEqual(by_text["Трансп. услуги из мат."], 0.03)
+        self.assertEqual(by_text["Всего с НДС      12 %"], 0.12)
+        self.assertIsNone(by_text["Прочие затраты подрядчикa"])
+        # фильтр — жадвал сарлавҳасидан охирги смета сводкасигача, умумий сводка кирмайди
+        ref = ws.auto_filter.ref
+        self.assertTrue(ref and ref.startswith("A"), ref)
+        self.assertEqual(int(ref.split(":")[1].lstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZ")), yellow[-1] - 1)
         # ўзимиз қўшадиган сарлавҳа йўқ — сметанинг ўз сарлавҳаси қолади (икки марта чиқмасин)
         self.assertFalse(any("Ободонлаштириш" in str(c.value) for row in ws.iter_rows() for c in row if c.value))
         expected = [self.jobs[f].sum_total for f in ("10. Благоустройство", "2. Блок-А/2. Надземный", "2. Блок-А/1. Подземный")]
@@ -186,3 +195,33 @@ class ProjectOfyortaTests(TestCase):
         self.assertContains(r, "Камида битта сметани белгиланг")
         doc.refresh_from_db()
         self.assertEqual(doc.status, ProjectOfyorta.Status.DRAFT)
+
+
+def test_titles_are_file_paths_and_tree_keeps_users_order():
+    """Номи — файл йўли (умумий юқори папкаларсиз); дарахт тартибни ўзгартирмайди: смета бошқа папка
+    сметалари орасига сурилган бўлса, папка икки жойда кўринади (``group=True`` — биринчи учраган жойида)."""
+    from types import SimpleNamespace as NS
+
+    def job(folder, label):
+        return NS(batch=NS(folder=folder), batch_label=label, local_name=f"{label}.xls")
+    root = "после напу/НУРАФШОН SITY (2)/НУРАФШОН SITY"
+    jobs = {"1": job(f"{root}/БЛОК-А/АР/СМЕТА", "bv74800"), "2": job(f"{root}/БЛОК-А/БЛОК-Б/ВК", "bv25540"),
+            "4": job(f"{root}/ГП", "bv87540"), "5": job(f"{root}/НЭО", "a"), "6": job(f"{root}/НЭО", "b")}
+    assert ofyorta.common_root(jobs.values()) == root.split("/")
+    titles = ofyorta.auto_titles(jobs)
+    assert titles["1"] == "БЛОК-А / АР / СМЕТА / bv74800" and titles["2"] == "БЛОК-А / БЛОК-Б / ВК / bv25540"
+    assert titles["4"] == "ГП / bv87540" and titles["5"] == "НЭО / a"
+    parts = [{"job": k, "title": titles[k], "include": True} for k in ["5", "1", "6", "2", "4"]]
+
+    def folders(ns):
+        out = []
+        for n in ns:
+            if n["kind"] == "folder":
+                out += [n["name"]] + folders(n["children"])
+        return out
+    runs = ofyorta.tree(parts, jobs)
+    assert ofyorta.flatten(runs) == parts  # тартиб — сметачиники
+    split = [f for f in folders(runs) if f in ("НЭО", "БЛОК-А")]
+    assert split == ["НЭО", "БЛОК-А", "НЭО", "БЛОК-А"]  # бўлинган папкалар икки жойда
+    grouped = ofyorta.flatten(ofyorta.tree(parts, jobs, group=True))
+    assert [p["job"] for p in grouped] == ["5", "6", "1", "2", "4"]

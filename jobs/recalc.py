@@ -119,6 +119,18 @@ def start(job_id):
     threading.Thread(target=_thread_run, args=(job_id,), daemon=True, name=f"recalc-{job_id}").start()
 
 
+def resume(jobs) -> int:
+    """Thread rejimi: server qayta yonganda (kod o'zgardi, runserver qayta ishga tushdi) fondagi oqimlar o'ladi —
+    navbatdagi, lekin hech kim hisoblamayotgan (lease bo'sh yoki eskirgan) smetalarni qayta boshlaydi.
+    Sahifa ochilganda / holat so'ralganda chaqiriladi. ``jobs`` — Job queryset. Nechta boshlangani."""
+    if worker_mode():
+        return 0  # worker o'zi oladi (``claim_next`` eskirgan lease'ni ham ko'radi)
+    ids = list(jobs.filter(_pending()).filter(_free()).values_list("id", flat=True))
+    for job_id in ids:
+        start(job_id)
+    return len(ids)
+
+
 def run_now(job_id):
     """Navbatdagi hisobni shu jarayonda bajaradi (thread rejimi va testlar)."""
     me = f"thread:{os.getpid()}"

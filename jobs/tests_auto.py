@@ -40,7 +40,7 @@ class AutoModeTests(LoggedInTestCase):
                 and (r.get("near") or {}).get("price") is not None and str(r["row"]) not in (job.prices or {})]
 
     def test_percents_confirmed_on_upload_page(self):
-        page = self.client.get(reverse("index"))
+        page = self.client.get(reverse("index"), HTTP_REFERER="http://testserver/dashboard/")
         self.assertContains(page, 'id="auto-pct"')
         self.assertContains(page, "Сводка фоизлари")
         r = self.client.post(reverse("upload_percents"), {"pct_prochie": "17,5"})
@@ -111,7 +111,7 @@ class AutoModeTests(LoggedInTestCase):
 
     def test_manual_does_nothing_by_itself(self):
         self.client.post(reverse("nf_mode"), {"nf_mode": "manual"})
-        self.assertContains(self.client.get(reverse("index")), 'value="manual" checked')
+        self.assertContains(self.client.get(reverse("index"), HTTP_REFERER="http://testserver/dashboard/"), 'value="manual" checked')
         jobs = self._price_object()
         self.assertTrue(jobs)
         self.assertTrue(all(not j.table_checked and not j.prices and not j.categories for j in jobs))

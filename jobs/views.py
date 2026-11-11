@@ -101,6 +101,13 @@ def column_labels(job) -> dict:
     return labels
 
 
+def _from_inside(request) -> bool:
+    """Шу сайтнинг бошқа саҳифасидан келинганми (Referer — ўз хостимиз)."""
+    from urllib.parse import urlsplit
+    ref = request.headers.get("Referer") or ""
+    return bool(ref) and urlsplit(ref).netloc == request.get_host()
+
+
 @login_not_required
 @require_http_methods(["GET", "POST"])
 def index(request):
@@ -109,6 +116,10 @@ def index(request):
         if request.method == "POST":
             return redirect_to_login(request.get_full_path())
         return landing(request)
+    if request.method == "GET" and not request.GET and not _from_inside(request):
+        # сайт янгидан очилди (манзил сатри, хатчўп, эслаб қолинган сессия) — аввал «Иш столи»;
+        # сайт ичидаги «Смета юклаш» ҳаволалари (Referer — ўз сайтимиз) юклаш саҳифасини очади
+        return redirect("dashboard")
     error = None
     xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"  # юклаш саҳифаси файлларни XHR билан юборади
     if request.method == "POST":
@@ -565,6 +576,7 @@ def _part_nodes(node, out):
 def project_detail(request, project_id):
     project = _get_work(request, Project, id=project_id)
     ensure_running(project)
+    recalc.resume(Job.objects.filter(batch__project=project))  # server qayta yonganda to'xtab qolgan qayta hisob
     parts = list(project.parts.prefetch_related("jobs").order_by("folder"))
     tree = build_tree(project, parts)
     # нархланадиган лист йўқ қисмлар (масалан «Умумий қиймати») — жадвал охирида
@@ -641,6 +653,7 @@ def project_unpriced(request, project_id):
     project = _get_work(request, Project, id=project_id)
     if request.method == "GET":
         if request.GET.get("pending"):
+            recalc.resume(Job.objects.filter(batch__project=project))
             return JsonResponse({"pending": bulk_price.pending(project)})
         return JsonResponse({"groups": bulk_price.groups(project), "pending": bulk_price.pending(project)})
     if project.status == Project.Status.PROCESSING:
@@ -1085,6 +1098,8 @@ def batch_download(request, batch_id):
 
 def job_detail(request, job_id):
     job = _get_work(request, Job, id=job_id)
+    if job.recalc_pending:
+        recalc.resume(Job.objects.filter(pk=job.pk))
     ctx = {"job": job, "modes": MODE_LABELS.items(), "crumbs": crumbs_for(job=job),
            "siblings": list(job.batch.jobs.order_by("batch_order")) if job.batch_id else [],
            # база танлови фақат RES'сиз (базадан нархланган) сметада — RES'лисида база ишлатилмайди
@@ -1650,6 +1665,8 @@ def job_state(request, job_id):
     """Қайта ҳисоб ҳолати (саҳифа шуни сўраб туради): ``pending`` — навбатда ёки ҳисобланяпти; тугагач —
     натижа ҳолати ва smart режимда янги сводка."""
     job = _get_work(request, Job, id=job_id)
+    if job.recalc_pending:
+        recalc.resume(Job.objects.filter(pk=job.pk))
     data = {"pending": job.recalc_pending, "status": job.status, "error": job.error if job.status == Job.Status.FAILED else "",
             "running": bool(job.recalc_worker), "duration": job.duration,
             "elapsed": round((timezone.now() - job.recalc_requested).total_seconds()) if job.recalc_requested else None}

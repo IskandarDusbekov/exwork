@@ -38,7 +38,7 @@ class GuideTests(TestCase):
         self.assertEqual(self.client.get(reverse("calc")).status_code, 302)  # фақат кирганларга
 
     def test_new_user_gets_page_guide_once(self):
-        r = self.client.get(reverse("index"))
+        r = self.client.get(reverse("index"), HTTP_REFERER="http://testserver/")
         self.assertContains(r, 'page: "upload"')
         self.assertContains(r, 'id="help-data"')
         self.assertContains(r, '<script id="guides-seen" type="application/json">[]</script>', html=False)
@@ -46,7 +46,7 @@ class GuideTests(TestCase):
         self.client.post(reverse("guide_seen"), {"page": "upload"})  # такрор — бир марта ёзилади
         self.user.refresh_from_db()
         self.assertEqual(self.user.guides_seen, ["upload"])
-        self.assertContains(self.client.get(reverse("index")), '["upload"]')
+        self.assertContains(self.client.get(reverse("index"), HTTP_REFERER="http://testserver/"), '["upload"]')
         self.assertContains(self.client.get(reverse("dashboard")), 'page: "dashboard"')
 
     def test_guide_seen_rejects_unknown_page_and_get(self):
@@ -68,7 +68,7 @@ class GuideTests(TestCase):
         self.user.guides_seen = list(GUIDE_PAGES)
         self.user.save()
         r = self.client.post(reverse("guide_seen"), {"reset": "1"})
-        self.assertRedirects(r, reverse("index"))
+        self.assertRedirects(r, reverse("index"), fetch_redirect_response=False)
         self.user.refresh_from_db()
         self.assertEqual(self.user.guides_seen, [])
 

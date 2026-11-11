@@ -35,6 +35,8 @@ HOME = "dashboard"  # киргандан кейин — «Иш столи» (ю�
 def _next_url(request) -> str:
     """Киргандан кейин қаерга: фақат ўз сайтимиздаги манзил (бошқа сайтга йўналтириш бўлмасин)."""
     nxt = request.POST.get("next") or request.GET.get("next") or ""
+    if nxt.split("?")[0].split("#")[0] in ("/", reverse("index")):
+        return ""  # сайт илдизи (юклаш саҳифаси) — «Иш столи»га борилади
     if nxt and url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()},
                                                require_https=request.is_secure()):
         return nxt

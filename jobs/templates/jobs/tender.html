@@ -1,0 +1,307 @@
+{% extends "jobs/base.html" %}
+{% load narx %}
+{% block title %}Объект таҳлили — {{ title }} — mhisobot{% endblock %}
+{% block content %}
+<style>
+  .td-card { border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; box-shadow: 0 1px 2px rgb(15 23 42 / .04); }
+  .td-kpi-l { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; }
+  .td-kpi-v { font-size: 1.35rem; font-weight: 700; line-height: 1.2; color: #0f172a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .td-verdict { position: relative; overflow: hidden; border-radius: 16px; padding: 22px 24px; color: #fff; }
+  .td-verdict.go { background: linear-gradient(135deg, #059669, #047857); }
+  .td-verdict.careful { background: linear-gradient(135deg, #d97706, #b45309); }
+  .td-verdict.no { background: linear-gradient(135deg, #e11d48, #9f1239); }
+  .td-verdict::after { content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px; border-radius: 50%; background: rgb(255 255 255 / .08); }
+  .td-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; background: rgb(255 255 255 / .18); padding: 3px 10px; font-size: 12px; font-weight: 600; }
+  .td-bar { height: 10px; border-radius: 999px; }
+  .td-range { width: 100%; accent-color: #4f46e5; }
+  .td-track { position: relative; height: 12px; border-radius: 999px; background: linear-gradient(90deg, #10b981 0%, #f59e0b 50%, #e11d48 100%); }
+  .td-mark { position: absolute; top: -5px; width: 2px; height: 22px; background: #0f172a; }
+  .td-mark span { position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 11px; font-weight: 600; color: #475569; }
+  .td-mark.up span { bottom: 26px; } .td-mark.down span { top: 26px; }
+  .td-now { position: absolute; top: -3px; width: 4px; height: 18px; margin-left: -2px; border-radius: 2px; background: #4f46e5; box-shadow: 0 0 0 2px #fff; transition: left .1s; }
+  .td-list li { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid #f1f5f9; }
+  .td-list li:first-child { border-top: 0; }
+  .td-table { width: 100%; font-size: 13px; }
+  .td-table th { text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #94a3b8; padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+  .td-table td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  .td-table td.r, .td-table th.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .td-sum summary { list-style: none; cursor: pointer; }
+  .td-sum summary::-webkit-details-marker { display: none; }
+  .td-sum[open] .td-chev { transform: rotate(180deg); }
+</style>
+
+<div class="mb-5 flex flex-wrap items-end gap-3">
+  <div class="min-w-0 flex-1">
+    <div class="flex items-center gap-2 text-xs font-medium text-indigo-600">{% icon "chart" "h-3.5 w-3.5" %} Объект таҳлили</div>
+    <h1 class="mt-0.5 break-words text-2xl font-semibold text-slate-900">{{ title }}</h1>
+    <p class="text-sm text-slate-500">{{ r.jobs }} та смета · {{ r.rows }} та ресурс · сметадаги нархлар бозор нархлари билан солиштирилди</p>
+  </div>
+  <a href="{{ back }}" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">{% icon "arrow-left" "h-4 w-4" %} Сметага қайтиш</a>
+</div>
+
+{% if not enabled %}
+<div class="mb-4 flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-800">
+  {% icon "lock" "mt-0.5 h-4 w-4 shrink-0" %}
+  <span>Объект таҳлили панелда <b>ўчирилган</b> — бу саҳифани ҳозир фақат администратор кўради (синов учун).</span></div>
+{% endif %}
+
+{% if r.status == "empty" or r.status == "no_prices" %}
+<div class="td-card p-8 text-center">
+  <div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-slate-100 text-slate-500">{% icon "alert-circle" "h-6 w-6" %}</div>
+  {% if r.status == "empty" %}
+  <h2 class="mt-3 text-lg font-semibold">Таҳлил учун нархланган смета йўқ</h2>
+  <p class="mx-auto mt-1 max-w-lg text-sm text-slate-500">Аввал сметани нархланг — кейин объект таҳлили очилади.</p>
+  {% else %}
+  <h2 class="mt-3 text-lg font-semibold">Сметада нархлар топилмади</h2>
+  <p class="mx-auto mt-1 max-w-lg text-sm text-slate-500">Таҳлил сметадаги нархларни бозор нархлари билан солиштиради. Смета нархлари икки жойдан олинади:
+    сметанинг ўзидаги нарх ёки сумма устуни («Цена», «Сумма»), ёки смета нархланган ресурс файли (RES). Бу смета иккаласисиз —
+    фақат ресурс базасидан нархланган, шунинг учун солиштирадиган нарх йўқ.</p>
+  {% endif %}
+</div>
+{% else %}
+
+{# ---- хулоса ---- #}
+<section class="td-verdict {{ r.verdict.key }} mb-4">
+  <div class="relative z-10 flex flex-wrap items-center gap-6">
+    <div class="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/15">
+      {% if r.verdict.key == "go" %}{% icon "check-circle" "h-9 w-9" %}{% elif r.verdict.key == "careful" %}{% icon "alert" "h-9 w-9" %}{% else %}{% icon "x-circle" "h-9 w-9" %}{% endif %}</div>
+    <div class="min-w-0 flex-1">
+      <div class="text-xs font-semibold uppercase tracking-widest text-white/70">Хулоса</div>
+      <div class="text-3xl font-bold" data-verdict-title>{{ r.verdict.title }}</div>
+      <div class="mt-0.5 text-white/85" data-verdict-text>{{ r.verdict.text }}</div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <span class="td-pill">{% icon "chart" "h-3.5 w-3.5" %} солиштирилди: {{ r.coverage|floatformat:0 }}%</span>
+        {% if r.norms_checked %}<span class="td-pill">{% icon "layers" "h-3.5 w-3.5" %} ҳажм нормалар билан текширилди</span>{% endif %}
+      </div>
+    </div>
+    <div class="text-right">
+      <div class="text-xs font-semibold uppercase tracking-widest text-white/70">Фойда улуши</div>
+      <div class="text-5xl font-bold num" data-margin>{{ r.margin|floatformat:1 }}%</div>
+      <div class="num text-white/85" data-profit>{{ r.profit|som0 }} сўм</div>
+    </div>
+  </div>
+</section>
+{% if r.weak %}
+<div class="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+  {% icon "alert" "mt-0.5 h-4 w-4 shrink-0 text-amber-600" %}
+  <span><b>Маълумот етарли эмас:</b> смета суммасининг фақат {{ r.coverage|floatformat:0 }}% бозор нархлари билан солиштирилди — қолганларининг бозор нархи топилмади (нархлаш натижасида ҳам, ресурс базасида ҳам йўқ). Ресурс базаси тўлгани сари таҳлил аниқлашади.</span></div>
+{% endif %}
+
+{# ---- асосий рақамлар ---- #}
+<div class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  <div class="td-card p-4"><div class="td-kpi-l">Объект нархи</div><div class="td-kpi-v">{{ r.tender_bez|som0 }}</div>
+    <div class="text-xs text-slate-500">буюртмачи белгилаган, НДСсиз · НДС билан <span class="num">{{ r.tender_snds|som0 }}</span></div></div>
+  <div class="td-card p-4"><div class="td-kpi-l">Ҳақиқий харажат</div><div class="td-kpi-v" data-cost>{{ r.cost|som0 }}</div>
+    <div class="text-xs text-slate-500">бугунги бозор нархларида, НДСсиз</div></div>
+  <div class="td-card p-4"><div class="td-kpi-l">Қоладиган фойда</div><div class="td-kpi-v {% if r.profit < 0 %}text-rose-600{% else %}text-emerald-700{% endif %}" data-profit2>{{ r.profit|som0 }}</div>
+    <div class="text-xs text-slate-500">объект нархи − ҳақиқий харажат</div></div>
+  <div class="td-card p-4"><div class="td-kpi-l">Захира</div>
+    {% if r.reserve > 0 %}<div class="td-kpi-v">{{ r.reserve|floatformat:1 }}%</div>
+    <div class="text-xs text-slate-500">харажат шунча ошгунча зарар йўқ</div>
+    {% else %}<div class="td-kpi-v text-rose-600">йўқ</div><div class="text-xs text-slate-500">бугунги нархларда ҳам зарар</div>{% endif %}</div>
+</div>
+
+{# ---- нархлар ошса ---- #}
+<section class="td-card mb-4 p-5">
+  <div class="flex flex-wrap items-baseline gap-2">
+    <h2 class="font-semibold text-slate-900">Қурилиш давомида нархлар ошса</h2>
+    <span class="text-sm text-slate-500">— объект нархи ўзгармайди, материал ва иш ҳақи эса қимматлаши мумкин</span>
+  </div>
+  <div class="mt-3 flex flex-wrap items-end gap-x-8 gap-y-2">
+    <div><div class="td-kpi-l">Харажат ошиши</div><div class="text-3xl font-bold text-indigo-700 num" data-rise>0%</div></div>
+    <div><div class="td-kpi-l">Харажат</div><div class="text-xl font-semibold num text-slate-800" data-cost2>{{ r.cost|som0 }}</div></div>
+    <div><div class="td-kpi-l">Фойда</div><div class="text-xl font-semibold num" data-profit3>{{ r.profit|som0 }}</div></div>
+  </div>
+  <input type="range" class="td-range mt-4" min="0" max="30" step="1" value="0" data-rise-range aria-label="Харажат неча фоиз ошади">
+  <div class="mt-9 px-2"><div class="td-track" data-track>
+    {% if r.reserve_min > 0 and r.reserve_min <= 30 %}<div class="td-mark up" data-mark="{{ r.reserve_min|floatformat:"2u" }}"><span>{{ r.thresholds.min|floatformat:0 }}% фойда қолади · {{ r.reserve_min|floatformat:1 }}%</span></div>{% endif %}
+    {% if r.reserve > 0 and r.reserve <= 30 %}<div class="td-mark down" data-mark="{{ r.reserve|floatformat:"2u" }}"><span>зарар бошланади · {{ r.reserve|floatformat:1 }}%</span></div>{% endif %}
+    <div class="td-now" data-thumb title="Харажат ошиши"></div>
+  </div></div>
+  <div class="mt-7 flex justify-between px-2 text-[11px] text-slate-400"><span>бугунги нархлар</span><span>+30%</span></div>
+  <ul class="mt-5 space-y-1 text-sm text-slate-600">
+    {% if r.reserve > 0 %}
+    <li>Харажат <b>{{ r.reserve|floatformat:1 }}%</b> гача ошса ҳам объект зарарсиз битади.</li>
+    {% if r.reserve_min > 0 %}<li><b>{{ r.reserve_min|floatformat:1 }}%</b> дан кўп ошса — фойда {{ r.thresholds.min|floatformat:0 }}% дан кам қолади.</li>{% endif %}
+    {% else %}<li class="text-rose-700">Объект нархи бугунги бозор нархларидаги харажатни ҳам қопламайди.</li>{% endif %}
+  </ul>
+</section>
+
+{# ---- бўлимлар ---- #}
+<section class="td-card mb-4 p-5">
+  <div class="mb-3 flex flex-wrap items-center gap-3">
+    <h2 class="font-semibold text-slate-900">Бўлимлар бўйича: смета ↔ бозор</h2>
+    <span class="ml-auto flex items-center gap-3 text-xs text-slate-500"><span class="inline-flex items-center gap-1"><i class="td-bar inline-block w-4 bg-indigo-500"></i>смета</span>
+      <span class="inline-flex items-center gap-1"><i class="td-bar inline-block w-4 bg-slate-300"></i>бозор</span></span>
+  </div>
+  <div class="space-y-4">
+    {% for c in r.cats %}
+    <div>
+      <div class="mb-1 flex flex-wrap items-baseline gap-2 text-sm">
+        <span class="font-medium text-slate-800">{{ c.label }}</span>
+        <span class="ml-auto num {% if c.diff < 0 %}text-rose-600{% else %}text-emerald-700{% endif %} font-semibold">{% if c.diff >= 0 %}+{% endif %}{{ c.diff|som0 }}</span>
+        <span class="num w-14 text-right text-xs {% if c.pct < 0 %}text-rose-600{% else %}text-emerald-700{% endif %}">{% if c.pct >= 0 %}+{% endif %}{{ c.pct|floatformat:1 }}%</span>
+      </div>
+      <div class="space-y-1">
+        <div class="flex items-center gap-2"><div class="td-bar bg-indigo-500" style="width: {{ c.w_t|floatformat:"2u" }}%"></div><span class="num text-xs text-slate-500">{{ c.tender|som0 }}</span></div>
+        <div class="flex items-center gap-2"><div class="td-bar bg-slate-300" style="width: {{ c.w_r|floatformat:"2u" }}%"></div><span class="num text-xs text-slate-500">{{ c.real|som0 }}</span></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+{# ---- яхши / ёмон / хавф ---- #}
+<div class="mb-4 grid gap-4 lg:grid-cols-3">
+  <section class="td-card p-5">
+    <h2 class="mb-2 flex items-center gap-2 font-semibold text-emerald-800">{% icon "check-circle" "h-5 w-5 text-emerald-600" %} Яхши томонлари</h2>
+    {% if r.good %}<ul class="td-list">{% for g in r.good %}<li><span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500"></span>
+      <div class="min-w-0"><div class="text-sm font-medium text-slate-800">{{ g.title }}</div><div class="text-xs text-slate-500">{{ g.text }}</div>
+        {% if g.amount %}<div class="num mt-0.5 text-xs font-semibold text-emerald-700">+{{ g.amount|som0 }} сўм</div>{% endif %}</div></li>{% endfor %}</ul>
+    {% else %}<p class="text-sm text-slate-500">Сметада бозордан юқори баҳоланган бўлим топилмади.</p>{% endif %}
+  </section>
+  <section class="td-card p-5">
+    <h2 class="mb-2 flex items-center gap-2 font-semibold text-rose-800">{% icon "x-circle" "h-5 w-5 text-rose-600" %} Ёмон томонлари</h2>
+    {% if r.bad %}<ul class="td-list">{% for g in r.bad %}<li><span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-rose-500"></span>
+      <div class="min-w-0"><div class="text-sm font-medium text-slate-800">{{ g.title }}</div><div class="text-xs text-slate-500">{{ g.text }}</div>
+        {% if g.amount %}<div class="num mt-0.5 text-xs font-semibold text-rose-600">{{ g.amount|som0 }} сўм</div>{% endif %}</div></li>{% endfor %}</ul>
+    {% else %}<p class="text-sm text-slate-500">Сезиларли камчилик топилмади.</p>{% endif %}
+  </section>
+  <section class="td-card p-5">
+    <h2 class="mb-2 flex items-center gap-2 font-semibold text-amber-800">{% icon "alert" "h-5 w-5 text-amber-600" %} Хавфлар</h2>
+    {% if r.risks %}<ul class="td-list">{% for g in r.risks %}<li><span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500"></span>
+      <div class="min-w-0"><div class="text-sm font-medium text-slate-800">{{ g.title }}</div><div class="text-xs text-slate-500">{{ g.text }}</div></div></li>{% endfor %}</ul>
+    {% else %}<p class="text-sm text-slate-500">Алоҳида хавф топилмади.</p>{% endif %}
+  </section>
+</div>
+
+{# ---- ресурслар ---- #}
+{% if r.loss_rows %}
+<details class="td-card td-sum mb-4" open>
+  <summary class="flex flex-wrap items-center gap-2 px-5 py-4">
+    {% icon "alert-circle" "h-5 w-5 text-rose-600" %}<h2 class="font-semibold text-slate-900">Зарар келтирадиган ресурслар</h2>
+    <span class="text-sm text-slate-500">— сметада бозордан арзон · {{ r.n_loss }} та, энг каттаси</span>
+    <span class="td-chev ml-auto text-slate-400">{% icon "chevron-down" "h-4 w-4" %}</span></summary>
+  <div class="overflow-x-auto border-t border-slate-100"><table class="td-table">
+    <thead><tr><th>Ресурс</th><th class="r">Миқдор</th><th class="r">Смета нархи</th><th class="r">Бозор нархи</th><th class="r">Фарқ</th><th class="r">Зарар, сўм</th></tr></thead>
+    <tbody>{% for g in r.loss_rows %}<tr>
+      <td><div class="font-medium text-slate-800">{{ g.name }}</div><div class="text-xs text-slate-400">{{ g.unit }}{% if g.base %} · ресурс базасидан{% endif %}</div></td>
+      <td class="r">{{ g.qty|som }}</td><td class="r">{{ g.tp|som }}</td><td class="r">{{ g.rp|som }}</td>
+      <td class="r text-rose-600">{{ g.pct|floatformat:0 }}%</td><td class="r font-semibold text-rose-600">{{ g.diff|som0 }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</details>
+{% endif %}
+{% if r.gain_rows %}
+<details class="td-card td-sum mb-4">
+  <summary class="flex flex-wrap items-center gap-2 px-5 py-4">
+    {% icon "check-circle" "h-5 w-5 text-emerald-600" %}<h2 class="font-semibold text-slate-900">Фойда берадиган ресурслар</h2>
+    <span class="text-sm text-slate-500">— сметада бозордан қиммат · {{ r.n_gain }} та</span>
+    <span class="td-chev ml-auto text-slate-400">{% icon "chevron-down" "h-4 w-4" %}</span></summary>
+  <div class="overflow-x-auto border-t border-slate-100"><table class="td-table">
+    <thead><tr><th>Ресурс</th><th class="r">Миқдор</th><th class="r">Смета нархи</th><th class="r">Бозор нархи</th><th class="r">Фарқ</th><th class="r">Фойда, сўм</th></tr></thead>
+    <tbody>{% for g in r.gain_rows %}<tr>
+      <td><div class="font-medium text-slate-800">{{ g.name }}</div><div class="text-xs text-slate-400">{{ g.unit }}</div></td>
+      <td class="r">{{ g.qty|som }}</td><td class="r">{{ g.tp|som }}</td><td class="r">{{ g.rp|som }}</td>
+      <td class="r text-emerald-700">+{{ g.pct|floatformat:0 }}%</td><td class="r font-semibold text-emerald-700">+{{ g.diff|som0 }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</details>
+{% endif %}
+
+{% if r.suspicious %}
+<details class="td-card td-sum mb-4">
+  <summary class="flex flex-wrap items-center gap-2 px-5 py-4">
+    {% icon "alert" "h-5 w-5 text-amber-600" %}<h2 class="font-semibold text-slate-900">Шубҳали нархлар — ҳисобга олинмади</h2>
+    <span class="text-sm text-slate-500">— {{ r.n_susp }} та · бирлик (кг/т) ёки нарх хатоси бўлиши мумкин, сметадан текширинг</span>
+    <span class="td-chev ml-auto text-slate-400">{% icon "chevron-down" "h-4 w-4" %}</span></summary>
+  <div class="overflow-x-auto border-t border-slate-100"><table class="td-table">
+    <thead><tr><th>Ресурс</th><th class="r">Миқдор</th><th class="r">Смета нархи</th><th class="r">Бозор нархи</th><th>Нима учун</th></tr></thead>
+    <tbody>{% for g in r.suspicious %}<tr><td><div class="font-medium text-slate-800">{{ g.name }}</div><div class="text-xs text-slate-400">{{ g.unit }}</div></td>
+      <td class="r">{{ g.qty|som }}</td><td class="r">{{ g.tp|som }}</td><td class="r">{{ g.rp|som }}</td><td class="text-xs text-amber-800">{{ g.why }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</details>
+{% endif %}
+
+{# ---- ҳажм ---- #}
+<details class="td-card td-sum mb-4" {% if r.n_under %}open{% endif %}>
+  <summary class="flex flex-wrap items-center gap-2 px-5 py-4">
+    {% icon "layers" "h-5 w-5 text-indigo-500" %}<h2 class="font-semibold text-slate-900">Ҳажм текшируви (нормалар)</h2>
+    <span class="text-sm text-slate-500">— {% if r.norms_checked %}{{ r.n_under }} та кам, {{ r.n_over }} та кўп ёзилган{% else %}базада бу ишлар учун нормалар ҳали етарли эмас{% endif %}</span>
+    <span class="td-chev ml-auto text-slate-400">{% icon "chevron-down" "h-4 w-4" %}</span></summary>
+  <div class="border-t border-slate-100">
+    {% if r.under or r.over %}
+    <div class="overflow-x-auto"><table class="td-table">
+      <thead><tr><th>Иш · ресурс</th><th class="r">Сметада норма</th><th class="r">Одатий норма</th><th class="r">Фарқ</th><th class="r">Таъсири, сўм</th></tr></thead>
+      <tbody>{% for x in r.under %}<tr>
+        <td><div class="font-medium text-slate-800">{{ x.name }} <span class="text-xs font-normal text-slate-400">{{ x.unit }}</span></div><div class="text-xs text-slate-400">{{ x.shifr }} · {{ x.work|truncatechars:70 }}</div></td>
+        <td class="r">{{ x.norma|som }}</td><td class="r">{{ x.base|som }} <span class="text-xs text-slate-400">({{ x.files }} файл)</span></td>
+        <td class="r text-rose-600">{{ x.pct|floatformat:0 }}%</td><td class="r font-semibold text-rose-600">−{{ x.money|som0 }}</td></tr>{% endfor %}
+      {% for x in r.over %}<tr>
+        <td><div class="font-medium text-slate-800">{{ x.name }} <span class="text-xs font-normal text-slate-400">{{ x.unit }}</span></div><div class="text-xs text-slate-400">{{ x.shifr }} · {{ x.work|truncatechars:70 }}</div></td>
+        <td class="r">{{ x.norma|som }}</td><td class="r">{{ x.base|som }} <span class="text-xs text-slate-400">({{ x.files }} файл)</span></td>
+        <td class="r text-emerald-700">+{{ x.pct|floatformat:0 }}%</td><td class="r font-semibold text-emerald-700">+{{ x.money|som0 }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="px-5 py-4 text-sm text-slate-500">{% if r.norms_checked %}Ҳажмлар одатий нормаларга мос.{% else %}Ресурс базасига шу ишлар учун ЛРВ (норма) файллари кўпайгани сари бу текширув ўзи ишлай бошлайди.{% endif %}</p>{% endif %}
+  </div>
+</details>
+
+{% if r.missing.n %}
+<details class="td-card td-sum mb-4">
+  <summary class="flex flex-wrap items-center gap-2 px-5 py-4">
+    {% icon "alert" "h-5 w-5 text-amber-600" %}<h2 class="font-semibold text-slate-900">Сметада нархи йўқ ресурслар</h2>
+    <span class="text-sm text-slate-500">— {{ r.missing.n }} та · <span class="num">{{ r.missing.amount|som0 }}</span> сўм</span>
+    <span class="td-chev ml-auto text-slate-400">{% icon "chevron-down" "h-4 w-4" %}</span></summary>
+  <div class="overflow-x-auto border-t border-slate-100"><table class="td-table">
+    <thead><tr><th>Ресурс</th><th class="r">Миқдор</th><th class="r">Бозор нархи</th><th class="r">Харажат, сўм</th></tr></thead>
+    <tbody>{% for g in r.missing.rows %}<tr><td><div class="font-medium text-slate-800">{{ g.name }}</div><div class="text-xs text-slate-400">{{ g.unit }}</div></td>
+      <td class="r">{{ g.qty|som }}</td><td class="r">{{ g.rp|som }}</td><td class="r font-semibold">{{ g.ra|som0 }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</details>
+{% endif %}
+
+{# ---- нимага асосланган ---- #}
+<section class="rounded-xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+  <h2 class="mb-2 flex items-center gap-2 font-semibold text-slate-800">{% icon "help" "h-4 w-4" %} Таҳлил нимага асосланган</h2>
+  <ul class="list-disc space-y-1 pl-5">
+    {% if "smeta" in r.modes %}<li>Смета нархлари — юкланган сметанинг ўзидан (нарх ва сумма устунлари).</li>{% endif %}
+    {% if "smeta" in r.modes %}<li>Бозор нархлари — смета нархланган ресурс файли (RES) ва ресурс базаси.</li>{% endif %}
+    {% if "res" in r.modes %}<li>Смета нархлари — смета нархланган ресурс файли; бозор нархлари — ресурс базаси{% if r.periods %} ({{ r.periods|join:", " }}){% endif %}, бошқа сметалардан йиғилган ўртача (медиана) нархлар.</li>{% endif %}
+    <li>Сводка (транспорт, прочие затраты, суғурта) — сметадаги фоизлар билан; НДС ҳисобга кирмайди — у фойда эмас.</li>
+    {% if r.norms_checked %}<li>Ҳажм — базадаги бошқа сметаларда шу иш учун энг кўп ишлатилган норма билан солиштирилди.</li>{% endif %}
+    {% for f in r.factors_visible %}<li>{{ f.user_text }}</li>{% endfor %}
+    {% if r.factors_hidden %}<li>Қурилиш амалиётидаги тажриба омиллари ҳисобга олинган.</li>{% endif %}
+  </ul>
+  <p class="mt-3 text-xs text-slate-500">Бу таҳлил — маслаҳат. Объектни олиш қарорини ҳужжатлар ва шартнома шартларини (аванс, нарх ўзгариши, муддат) кўриб чиқиб, ўзингиз қабул қиласиз.</p>
+</section>
+
+{{ r.js|json_script:"td-data" }}
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById("td-data").textContent);
+  var range = document.querySelector("[data-rise-range]"); if (!range) return;
+  function fmt(v) { return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ").replace("-", "−"); }
+  function pos(p) { return Math.max(0, Math.min(100, p / 30 * 100)) + "%"; }  // 0..30% ошиш
+  document.querySelectorAll(".td-mark[data-mark]").forEach(function (el) { el.style.left = pos(parseFloat(el.dataset.mark)); });
+  var verdicts = D.verdicts;
+  var card = document.querySelector(".td-verdict");
+  function paint(el, v) { el.textContent = fmt(v); el.classList.toggle("text-rose-600", v < 0); el.classList.toggle("text-emerald-700", v >= 0); }
+  function update() {
+    var k = parseFloat(range.value) || 0, cost = D.cost * (1 + k / 100), profit = D.rev - cost, m = D.rev ? profit / D.rev * 100 : 0;
+    var key = m >= D.good ? (D.weak ? "careful" : "go") : m >= D.min ? "careful" : "no";
+    card.className = "td-verdict " + key + " mb-4";
+    document.querySelector("[data-verdict-title]").textContent = verdicts[key][0];
+    document.querySelector("[data-verdict-text]").textContent = k ? verdicts[key][1] + " (харажат " + k + "% ошганда)" : verdicts[key][1];
+    document.querySelector("[data-margin]").textContent = m.toFixed(1).replace(".", ",").replace("-", "−") + "%";
+    document.querySelector("[data-profit]").textContent = fmt(profit) + " сўм";
+    document.querySelector("[data-cost]").textContent = fmt(cost);
+    document.querySelector("[data-cost2]").textContent = fmt(cost);
+    paint(document.querySelector("[data-profit2]"), profit);
+    paint(document.querySelector("[data-profit3]"), profit);
+    document.querySelector("[data-rise]").textContent = (k ? "+" : "") + k + "%";
+    document.querySelector("[data-thumb]").style.left = pos(k);
+  }
+  range.addEventListener("input", update);
+  update();
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -48,10 +48,22 @@ class FlowTests(LoggedInTestCase):
         return self.client.post(reverse("index"), data)
 
     def test_index_page(self):
-        r = self.client.get(reverse("index"))
+        r = self.client.get(reverse("index"), HTTP_REFERER="http://testserver/dashboard/")
         self.assertContains(r, 'name="files"')
         self.assertContains(r, "Файл танлаш")
         self.assertContains(r, "Папка танлаш")
+
+    def test_fresh_visit_opens_dashboard(self):
+        """Сайт янгидан очилса (Referer йўқ ёки бошқа сайт) — «Иш столи»; сайт ичидан — юклаш саҳифаси."""
+        self.assertRedirects(self.client.get(reverse("index")), reverse("dashboard"), fetch_redirect_response=False)
+        self.assertRedirects(self.client.get(reverse("index"), HTTP_REFERER="https://google.com/"), reverse("dashboard"),
+                             fetch_redirect_response=False)
+        self.assertEqual(self.client.get(reverse("index"), HTTP_REFERER="http://testserver/folder/x/").status_code, 200)
+
+    def test_login_next_root_goes_to_dashboard(self):
+        self.client.logout()
+        r = self.client.post(f"{reverse('login')}?next=/", {"email": self.user.email, "password": "Kuchli-parol-2026"})
+        self.assertRedirects(r, reverse("dashboard"), fetch_redirect_response=False)
 
     # ---------------- объект: бир/кўп файл ----------------
     def _upload_files(self, *paths):
@@ -559,7 +571,7 @@ class FlowTests(LoggedInTestCase):
         job_dirs = [j.dir for j in batch.jobs.all()]
         self._upload(local=self.local, res=self.res)
         job = Job.objects.get(batch__isnull=True)
-        page = self.client.get(reverse("index"))
+        page = self.client.get(reverse("index"), HTTP_REFERER="http://testserver/dashboard/")
         self.assertContains(page, reverse("work_delete", args=["object", batch.id]))
         self.assertContains(page, reverse("work_delete", args=["smeta", job.id]))
 
@@ -576,7 +588,7 @@ class FlowTests(LoggedInTestCase):
         self.assertEqual(sum(p["count"] for p in dash.context["pipeline"]), dash.context["count_smetas"])
 
         r = self.client.post(reverse("work_delete", args=["smeta", job.id]))
-        self.assertRedirects(r, reverse("index"))
+        self.assertRedirects(r, reverse("index"), fetch_redirect_response=False)
         self.assertContains(self.client.get(reverse("dashboard")), "Ҳали ҳеч нарса юкланмаган")
         self.assertFalse(Job.objects.exists())
         self.assertFalse(job.dir.exists())
@@ -834,7 +846,7 @@ class FolderTests(LoggedInTestCase):
         project, data = self._upload()
         part_dirs = [p.dir for p in project.parts.all()]
         Project.objects.filter(id=project.id).update(status=Project.Status.PROCESSING, heartbeat=timezone.now())
-        self.assertContains(self.client.get(reverse("index")), reverse("project_stop", args=[project.id]))
+        self.assertContains(self.client.get(reverse("index"), HTTP_REFERER="http://testserver/dashboard/"), reverse("project_stop", args=[project.id]))
         # ишлаётган папка ҳам ўчирилади: аввал тўхтатилади
         r = self.client.post(reverse("work_delete", args=["folder", project.id]), HTTP_X_REQUESTED_WITH="fetch")
         self.assertEqual(r.json(), {"ok": True})
@@ -926,11 +938,11 @@ class NfModeTests(LoggedInTestCase):
     def test_choice_is_remembered_and_shown(self):
         from .services import nf_auto_of
         self.assertTrue(nf_auto_of(self.user))  # сукут — автоматик
-        page = self.client.get(reverse("index"))
+        page = self.client.get(reverse("index"), HTTP_REFERER="http://testserver/dashboard/")
         self.assertContains(page, 'value="auto" checked')
         self.assertEqual(self.client.post(reverse("nf_mode"), {"nf_mode": "manual"}).status_code, 200)
         self.assertFalse(nf_auto_of(self.user))
-        self.assertContains(self.client.get(reverse("index")), 'value="manual" checked')
+        self.assertContains(self.client.get(reverse("index"), HTTP_REFERER="http://testserver/dashboard/"), 'value="manual" checked')
         self.client.post(reverse("nf_mode"), {"nf_mode": "auto"})
         self.assertTrue(nf_auto_of(self.user))
 

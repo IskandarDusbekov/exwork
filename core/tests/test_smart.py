@@ -14,6 +14,7 @@ from openpyxl import Workbook, load_workbook
 
 from core.detect import detect_layout
 from core.log_sheet import LOG_TITLE
+from core.matcher import AMBIGUOUS, EXACT
 from core.pipeline import CHECK_TEXT, MACHINIST, NO_PRICE, NO_PRICE_TEXT, UNIT_MISMATCH, WORK_HEADER, Options, run
 from core.svodka import parse_text_number
 
@@ -275,6 +276,97 @@ def test_no_price_unit_mismatch_and_text_price(tmp_path):
     assert {p["row"] for p in r.problems} == {3, 4}
 
 
+def test_workers_labour_with_zero_price_is_not_priced(tmp_path):
+    """RES'да «ЗАТРАТЫ ТРУДА РАБОЧИХ-СТРОИТЕЛЕЙ» 0 сўм — нарх эмас: смета­чи соат нархини ўзи қўяди.
+    Машинистлар 0 бўлиши эса тўғри (машина нархи ичида)."""
+    r = _mini(tmp_path, [
+        ("1.1", "ЗАТРАТЫ ТРУДА РАБОЧИХ-СТРОИТЕЛЕЙ", "ЧЕЛ.-Ч", 99.17),
+        ("1.2", "ЗАТРАТЫ ТРУДА МАШИНИСТОВ", "ЧЕЛ.-Ч", 0.2),
+    ], [
+        ("ЗАТРАТЫ ТРУДА РАБОЧИХ-СТРОИТЕЛЕЙ", "ЧЕЛ.-Ч", 0),
+        ("ЗАТРАТЫ ТРУДА МАШИНИСТОВ", "ЧЕЛ.-Ч", 0),
+    ])
+    st = {row["row"]: row for row in r.rows}
+    assert st[3]["status"] == NO_PRICE and st[3]["g"] == NO_PRICE_TEXT
+    assert st[4]["status"] != NO_PRICE and st[4]["h"] == 0
+    assert {p["row"] for p in r.problems} == {3}
+
+
+def _two_price_res(tmp_path, local_rows):
+    """RES: бир хил ном ва бирлик икки марта, ҳар хил нархда («№ | ном | бирлик | миқдор | нарх»)."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "БВ"
+    ws["A1"], ws["C1"], ws["D1"], ws["E1"] = "N п.п.", "Наименование работ и затрат", "Единица измерения", "Кол-во"
+    for i, col in enumerate("ABCDEF", start=1):
+        ws[f"{col}2"] = i
+    for r, (a, name, unit, f) in enumerate(local_rows, start=3):
+        ws[f"A{r}"], ws[f"C{r}"], ws[f"D{r}"], ws[f"F{r}"] = a, name, unit, f
+    wb.save(tmp_path / "l.xlsx")
+    wb = Workbook()
+    ws = wb.active
+    ws["D1"], ws["E1"], ws["F1"], ws["G1"] = "НАИМЕНОВАНИЕ РЕСУРСА", "ЕД.ИЗМ", "КОЛ-ВО", "ЦЕНА"
+    for r, (name, unit, qty, price) in enumerate([
+        ("КОРОБКИ ОТВЕТВИТЕЛЬНЫЕ ОП У-130", "ШТ", 7, 90000),
+        ("КОРОБКИ ОТВЕТВИТЕЛЬНЫЕ ОП У-130", "ШТ", 470, 5360),
+        ("ВОДА", "М3", 3, 500),
+        ("ВОДА", "М3", 5, 500),          # бир хил нарх — муаммо эмас
+    ], start=2):
+        ws[f"D{r}"], ws[f"E{r}"], ws[f"F{r}"], ws[f"G{r}"] = name, unit, qty, price
+    wb.save(tmp_path / "r.xlsx")
+    return _run(tmp_path / "l.xlsx", tmp_path / "r.xlsx", tmp_path)
+
+
+def test_same_name_two_prices_picked_by_quantity(tmp_path):
+    """RES'да «КОРОБКИ …» 7 та × 90 000 ва 470 та × 5 360: смета қатори миқдорига тенги олинади;
+    миқдори ҳеч бирига тенг бўлмаса — нарх ёзилмайди (ТЕКШИРИНГ), иккала нарх таклиф қилинади."""
+    r = _two_price_res(tmp_path, [
+        ("1", "КОРОБКИ ОТВЕТВИТЕЛЬНЫЕ ОП У-130", "ШТ", 470),
+        ("2", "КОРОБКИ ОТВЕТВИТЕЛЬНЫЕ ОП У-130", "ШТ", 7),
+        ("3", "КОРОБКИ ОТВЕТВИТЕЛЬНЫЕ ОП У-130", "ШТ", 12),
+        ("4", "ВОДА", "М3", 1),
+    ])
+    st = {row["row"]: row for row in r.rows}
+    assert st[3]["status"] == EXACT and st[3]["g"] == 5360 and "ҳар хил нархда" in st[3]["note"]
+    assert st[4]["status"] == EXACT and st[4]["g"] == 90000
+    assert st[5]["status"] == AMBIGUOUS and st[5]["g"] == CHECK_TEXT
+    assert sorted(a["price"] for a in st[5]["near"]["alts"]) == [5360, 90000]
+    assert st[6]["status"] == EXACT and st[6]["g"] == 500 and not st[6]["note"]
+
+
+def test_same_name_two_prices_split_by_sum_of_quantities(tmp_path):
+    """Машина соати: RES'да жами (7,76 ва 41,61 соат), сметада бир неча қатор — йиғиндиси бўйича тақсимланади."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "БВ"
+    ws["A1"], ws["C1"], ws["D1"], ws["E1"] = "N п.п.", "Наименование работ и затрат", "Единица измерения", "Кол-во"
+    for i, col in enumerate("ABCDEF", start=1):
+        ws[f"{col}2"] = i
+    qtys = [20.0, 21.607, 3.0, 4.761, 2.0, 2.0]  # 20+21,607 = 41,607 · 3+4,761 = 7,761 · 2+2 — бири 38 000, бири 65 000
+    rows = [("1", "РАСТВОРОСМЕСИТЕЛИ ПЕРЕДВИЖНЫЕ 65 Л", "МАШ.-Ч", q) for q in qtys[:4]]
+    rows += [("2", "ФЛАНЕЦ Ф50", "ШТ", q) for q in qtys[4:]]
+    for r, (a, name, unit, f) in enumerate(rows, start=3):
+        ws[f"A{r}"], ws[f"C{r}"], ws[f"D{r}"], ws[f"F{r}"] = a, name, unit, f
+    wb.save(tmp_path / "l.xlsx")
+    wb = Workbook()
+    ws = wb.active
+    ws["D1"], ws["E1"], ws["F1"], ws["G1"] = "НАИМЕНОВАНИЕ РЕСУРСА", "ЕД.ИЗМ", "КОЛ-ВО", "ЦЕНА"
+    for r, (name, unit, qty, price) in enumerate([
+        ("РАСТВОРОСМЕСИТЕЛИ ПЕРЕДВИЖНЫЕ 65 Л", "МАШ.-Ч", 7.76126, 23067),
+        ("РАСТВОРОСМЕСИТЕЛИ ПЕРЕДВИЖНЫЕ 65 Л", "МАШ.-Ч", 41.60676, 14763),
+        ("ФЛАНЕЦ Ф50", "ШТ", 2, 38000),
+        ("ФЛАНЕЦ Ф50", "ШТ", 2, 65000),
+    ], start=2):
+        ws[f"D{r}"], ws[f"E{r}"], ws[f"F{r}"], ws[f"G{r}"] = name, unit, qty, price
+    wb.save(tmp_path / "r.xlsx")
+    r = _run(tmp_path / "l.xlsx", tmp_path / "r.xlsx", tmp_path)
+    st = {row["row"]: row for row in r.rows}
+    assert [st[n]["g"] for n in (3, 4, 5, 6)] == [14763, 14763, 23067, 23067]
+    assert "тақсимланди" in st[3]["note"]
+    # иккала фланец 2 тадан: бири 38 000, бири 65 000 — жами RES'дагидек (қайси қатор қайсиси — фарқсиз)
+    assert sorted([st[7]["g"], st[8]["g"]]) == [38000, 65000]
+
+
 def test_not_exact_is_never_priced(tmp_path):
     """Ўхшаш ва ШАБҲАЛИ — narx bir xil bo'lsa ham — yozilmaydi (taxmin qilinmaydi)."""
     r = _mini(tmp_path, [
@@ -384,6 +476,30 @@ def _equipment_case(tmp_path):
             ws[f"D{r}"], ws[f"E{r}"], ws[f"G{r}"] = name, unit, price
     wb.save(tmp_path / "r.xlsx")
     return tmp_path / "l.xlsx", tmp_path / "r.xlsx"
+
+
+def test_cable_in_res_materials_section_is_suggested_as_cable(tmp_path):
+    """Кўп RES'да кабель «материалы» бўлимида — номи «КАБЕЛЬ …» бўлса барибир L таклиф қилинади
+    (сводкада кабель транспорти 1,5%, материалники 3%). Кабель наконечниги, органайзер, проволока — материал."""
+    r = _mini(tmp_path, [
+        ("1", "КАБЕЛЬ С МЕДНЫМИ ЖИЛАМИ ВВГНГ-0,38 СЕЧЕНИЕМ 3Х2,5 ММ2", "М", 100),
+        ("2", "КАБЕЛЬ UTP 6E CAT", "М", 50),
+        ("3", "НАКОНЕЧНИКИ КАБЕЛЬНЫЕ", "ШТ", 10),
+        ("4", "КАБЕЛЬНЫЙ ОРГАНАЙЗЕР", "ШТ", 2),
+        ("5", "ПРОВОЛОКА СТАЛЬНАЯ ОЦИНКОВАННАЯ", "Т", 0.1),
+    ], [
+        ("СТРОИТЕЛЬНЫЕ МАТЕРИАЛЫ", None, None),
+        ("КАБЕЛЬ С МЕДНЫМИ ЖИЛАМИ ВВГНГ-0,38 СЕЧЕНИЕМ 3Х2,5 ММ2", "М", 18662),
+        ("КАБЕЛЬ UTP 6E CAT", "М", 6100),
+        ("НАКОНЕЧНИКИ КАБЕЛЬНЫЕ", "ШТ", 2100),
+        ("КАБЕЛЬНЫЙ ОРГАНАЙЗЕР", "ШТ", 68320),
+        ("ПРОВОЛОКА СТАЛЬНАЯ ОЦИНКОВАННАЯ", "Т", 9680000),
+    ])
+    rows = {x["row"]: x for x in r.rows}
+    assert all(rows[n]["category"] == "K" for n in range(3, 8))
+    assert rows[3]["suggested_category"] == "L" and rows[3]["suggest_sure"] and "материал бўлимида" in rows[3]["suggest_reason"]
+    assert rows[4]["suggested_category"] == "L"
+    assert [rows[n]["suggested_category"] for n in (5, 6, 7)] == [None, None, None]
 
 
 def test_equipment_and_cable_only_suggested_from_res_sections(tmp_path):

@@ -37,6 +37,7 @@ from .detect import _is_numbering_row, cell_value, detect_layout, override_layou
 from .log_sheet import LOG_TITLE, log_row, write_log
 from .matcher import AMBIGUOUS, EXACT, FUZZY, NOT_FOUND, Match, ResourceIndex
 from .normalize import norm_code, norm_name, norm_unit, unit_key
+from .tender import tender_prices
 from .svodka import (
     DEFAULT_PERCENTS, XlError, make_evaluator, parse_text_number, resolve_percents, write_svodka,
 )
@@ -296,6 +297,8 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     wb_vals = load_workbook(local_xlsx, data_only=True, keep_links=False)
     ws_vals = wb_vals[ws.title]
     local_cols = detect_local_columns(ws_vals, opts.local_columns if smart else None)
+    # тендер таҳлили учун сметанинг ўз нархлари — prepare_local G/H ни тозалашидан олдин
+    tender = tender_prices(ws_vals, local_cols) if smart else {}
     if local_cols is not None:
         warnings += prepare_local(ws, ws_vals, local_cols)
     threshold = int(max(80, min(100, opts.fuzzy_percent))) / 100.0
@@ -453,6 +456,8 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
             "cleared": r in priced.cleared,
             "marked": smart and r in marked,
             "near": priced.near.get(r),
+            "t_price": tender[r][0] if r in tender else None,  # тендердаги (асл) нарх ва сумма
+            "t_amount": tender[r][1] if r in tender else None,
         })
         hint = category_hints.get(r)
         if hint and KIND_COLUMN[hint[0]] != rows[-1]["category"]:
@@ -561,9 +566,15 @@ def _category_hints(ws, priced: "_Priced", default_kinds: Dict[int, str], ln: in
             continue
         name = _peek(ws, r, ln)
         hit = lm_base.lookup(name, _peek(ws, r, 2) if ln > 2 else None) if lm_base is not None else None
-        if section:  # RES'да материал бўлимида — фақат админ ўргатгани бошқа деса
+        if section:  # RES'да материал бўлимида — админ ўргатгани бошқа деса ёки номи аниқ кабель бўлса
             if hit and hit.strong and hit.how != "fuzzy" and hit.kind != OTHER:
                 hints[r] = (hit.kind, hit.reason, True)
+            elif not (hit and hit.strong and hit.kind == OTHER):
+                # кўп RES'да кабеллар «материалы» бўлимида туради, лекин сводкада кабель-ўтказгич маҳсулоти
+                # алоҳида (транспорт 1,5%, материал 3%) — номи «кабель …/провод …» бўлса L таклиф қилинади
+                hint = name_hint(name)
+                if hint and hint[0] == CABLE:
+                    hints[r] = (CABLE, f"номида «{hint[1]}…» (RES'да материал бўлимида)", True)
             continue
         near = priced.near_sections.get(r)
         if near and near[0] in (CABLE, EQUIPMENT):
@@ -800,6 +811,65 @@ def _real_unit(ws, r: int, ln: int, lu: int) -> bool:
     return bool(norm_unit(unit_raw)) and str(unit_raw).strip() != str(name_raw).strip()
 
 
+def _local_qty(ws, r: int):
+    """Lokal qator miqdori — H formulasidagidek: F (loyiha bo'yicha), bo'sh bo'lsa E."""
+    for c in (6, 5):
+        v = ws.cell(row=r, column=c).value
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            return v
+    return None
+
+
+def _num(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _same_qty(a, b) -> bool:
+    return _num(a) and _num(b) and abs(a - b) <= 1e-4 * max(1.0, abs(a), abs(b))
+
+
+QTY_SPLIT_MAX_ROWS = 24  # бундан кўп қатор бўлса — тақсимлаб кўрилмайди (смета­чи танлайди)
+
+
+def _split_by_quantity(qtys: List[float], targets: List[tuple]) -> Optional[List[int]]:
+    """Смета қаторларини RES вариантларига тақсимлаш: ``qtys`` — қаторлар миқдори, ``targets`` —
+    ``[(нарх, жами миқдор), …]`` (бир хил нархлилари қўшилган). Ҳар вариантдаги қаторлар йиғиндиси унинг
+    миқдорига тенг бўлиши керак. Ягона ечим бўлса — ҳар қатор учун вариант рақами; йўқ ёки бир нечта — None.
+    Миқдори бир хил қаторларнинг ўрни алмашгани — битта ечим (нархлар жами бир хил)."""
+    n, k = len(qtys), len(targets)
+    if not n or n > QTY_SPLIT_MAX_ROWS or k < 2 or k ** n > 4_000_000 and n > 12:
+        return None
+    goal = [t[1] for t in targets]
+    # миқдорлар вергулдан кейин 4 хонагача яхлитланган: ҳар қаторда хато ≤ 0,00005 — кенгроқ чегара
+    # тасодифий бошқа йиғиндиларни ҳам «тенг» деб, ечимни бир нечта қилиб қўяди
+    tol = 6e-5 * n + 1e-6 * max(1.0, max(abs(g) for g in goal))
+    if abs(sum(qtys) - sum(goal)) > tol:
+        return None
+    order = sorted(range(n), key=lambda i: -qtys[i])
+    found, pick, seen = [], [0] * n, set()
+
+    def go(pos, left):
+        if len(found) > 1:
+            return
+        if pos == n:
+            if all(abs(x) <= tol for x in left):
+                key = tuple(sorted((round(qtys[i], 6), pick[i]) for i in range(n)))
+                if key not in seen:
+                    seen.add(key)
+                    found.append(pick[:])
+            return
+        i = order[pos]
+        for v in range(k):
+            if left[v] - qtys[i] >= -tol:
+                pick[i] = v
+                left[v] -= qtys[i]
+                go(pos + 1, left)
+                left[v] += qtys[i]
+
+    go(0, goal[:])
+    return found[0] if len(found) == 1 else None
+
+
 def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warnings: List[str],
                  prices: Optional[Dict[int, float]] = None, cleared=None, layout=None,
                  base: Optional[Dict[str, dict]] = None, base_label: str = "", auto_clear: bool = False):
@@ -847,6 +917,36 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
     # resurs emas: narxlanmaydi, fayldagidek tegilmay qoladi
     head = layout.header_row if layout else None
     head_sig = (norm_name(_peek(ws, head, ln)), norm_unit(_peek(ws, head, lu))) if head else None
+
+    # RES'да бир хил ном ва бирлик ҳар хил нархда бир неча марта: шу номли смета қаторлари миқдори бўйича
+    # вариантларга тақсимланади (йиғиндилари RES'даги миқдорларга тенг бўлса). Ягона тақсимот — нарх ёзилади;
+    # бўлмаса — ТЕКШИРИНГ, иккала нарх таклиф.
+    variant_pick: Dict[int, object] = {}
+    if index.alts:
+        groups: Dict[tuple, List[int]] = {}
+        for r in range(start, stop):
+            nm = norm_name(_peek(ws, r, ln))
+            if not nm or r in headers:
+                continue
+            mm = index.match(nm, norm_unit(_peek(ws, r, lu)), threshold, delta)
+            if mm.status == EXACT and index.alts_of(mm.unit, mm.name):
+                groups.setdefault((mm.unit, mm.name), []).append(r)
+        for key, rows_ in groups.items():
+            merged: Dict[object, float] = {}
+            for vp, vq, _vr in index.alts_of(*key):
+                if _as_price(vp) is None or not _num(vq):
+                    merged = {}
+                    break
+                merged[_as_price(vp)] = merged.get(_as_price(vp), 0) + vq
+            qtys = [_local_qty(ws, r) for r in rows_]
+            if len(merged) < 2 or not all(_num(q) for q in qtys):
+                continue
+            targets = list(merged.items())
+            split = _split_by_quantity(qtys, targets)
+            if split is not None:
+                for r, v in zip(rows_, split):
+                    variant_pick[r] = targets[v][0]
+
     repeats = set()
     for r in range(start, stop):
         name_raw, unit_raw = _peek(ws, r, ln), _peek(ws, r, lu)
@@ -866,6 +966,25 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
 
         price = _as_price(m.price)
         suggestion = None
+        # RES'да шу ном бир неча марта, ҳар хил нархда — қайсиниси: миқдори локал қатор миқдорига тенги
+        variants = index.alts_of(m.unit, m.name) if m.status == EXACT else None
+        variant_note, variant_clash = "", None
+        if variants:
+            listed = ", ".join(f"{vp} ({vq if vq is not None else '?'} {unit_raw})" for vp, vq, _vr in variants)
+            q = _local_qty(ws, r)
+            same = {_as_price(vp) for vp, vq, _vr in variants if _same_qty(vq, q)} - {None}
+            if r in variant_pick:
+                price = variant_pick[r]
+                variant_note = (f"RES'да шу ном {len(variants)} марта ҳар хил нархда: {listed} — смета қаторлари "
+                                f"миқдори бўйича тақсимланди, бу қаторга {price}")
+            elif len(same) == 1:  # гуруҳ тақсимланмади, лекин шу қатор миқдори битта RES қаторига айнан тенг
+                price = next(iter(same))
+                variant_note = (f"RES'да шу ном {len(variants)} марта ҳар хил нархда: {listed} — миқдори ({q}) "
+                                "тенги олинди")
+            else:
+                variant_clash = variants
+                variant_note = (f"RES'да шу ном {len(variants)} марта ҳар хил нархда: {listed} — қайсиниси "
+                                "аниқланмади, текширинг")
         # Qat'iy qoida: narx faqat nom AYNAN mos kelsa va birlik bir xil bo'lsa yoziladi.
         # Qolgan hammasi G da matn (Excel'da qizil) — smetachi narxni o'zi kiritadi.
         if r in headers:
@@ -876,12 +995,19 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
             st, value, suggestion = UNIT_MISMATCH, CHECK_TEXT, m.price
             note = f"ном аниқ, лекин бирлик бошқа: локал «{unit_raw}», ресурс «{m.unit}» ({m.price})"
             unit_mismatch += 1
+        elif variant_clash:
+            st, value, suggestion, note = AMBIGUOUS, CHECK_TEXT, m.price, variant_note
         elif m.status == EXACT and price is None:
             st, value, note = NO_PRICE, NO_PRICE_TEXT, f"ресурсда нарх рақам эмас: «{m.price}»"
+        elif m.status == EXACT and price <= 0 and is_workers_row(name_raw, unit_raw):
+            # ишчилар меҳнати 0 сўм бўлмайди — RES'да 0 турса ҳам смета­чи соат нархини ўзи қўйсин
+            st, value, note = NO_PRICE, NO_PRICE_TEXT, "ресурсда иш ҳақи нархи 0 — соат нархини киритинг"
         elif m.status == EXACT:
             st, value = EXACT, price
             if m.name != local_name:
                 note = f"ҳарфлари бошқача ёзилган (лотин/кирилл): ресурсда «{index.raw_of(m.unit, m.name)[0]}»"
+            if variant_note:
+                note = f"{note}; {variant_note}" if note else variant_note
             section = index.section_of(m.unit, m.name)
             if section:
                 sections[r] = section
@@ -935,6 +1061,11 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
                 alts.append({"name": raw_name, "unit": raw_unit, "price": price, "score": round(score, 3),
                              "same_unit": u == local_unit, "res_row": (index.position_of(u, name) or (None, None))[1]})
                 alt_keys.append((_as_price(price), u, name, raw_name))
+            if variant_clash:  # «Батафсил»: RES'даги ҳар бир нарх варианти
+                raw_name, raw_unit = index.raw_of(m.unit, m.name)
+                alts = [{"name": f"{raw_name} — {vq if vq is not None else '?'} {raw_unit}", "unit": raw_unit, "price": vp,
+                         "score": 1.0, "same_unit": True, "res_row": vr}
+                        for vp, vq, vr in variant_clash if _as_price(vp) is not None]
             near[r]["alts"] = alts
             # o'xshash resursning RES bo'limi: smetachi uning (yoki «Батафсил»dagi boshqasining) narxini olgan
             # bo'lsa — o'sha resurs; olmagan bo'lsa — taklif ishonchli bo'lgandagina (FUZZY/AMBIGUOUS yoki 85%+)
