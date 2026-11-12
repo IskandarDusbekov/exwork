@@ -1,0 +1,48 @@
+{% load narx %}{# _picker.html: битта жуфтлик ёнма-ён — чапда локал (нархланади), ўнгда унинг ресурси (нарх шу ердан). r — локал қатори, r.pair, r.res #}
+{% with p=r.pair x=r.res %}
+<div class="pk-duo pk-pair{% if not p.include %} is-off{% endif %}" data-n="{{ p.n }}" data-local="{{ p.local }}" data-title="{{ p.title }}" data-tag="{{ p.tag }}"
+     data-type="local" data-q="{{ r.q }} {{ x.title|lower }} {{ x.file_name|lower }}">
+  <label class="pk-inc" title="Белгиланган бўлса — нархланади; белгини олсангиз — бу локал нархланмайди">
+    <input type="checkbox" name="include_{{ p.n }}" value="1" {% if p.include %}checked{% endif %}><span class="pk-box">{% icon "check" "h-4 w-4" "3" %}</span>
+  </label>
+
+  {# ---- чап: локал ---- #}
+  <div class="pk-side pk-sheet is-local" data-k="{{ r.key }}">
+    <div class="pk-cap"><span class="pk-tag">{{ p.tag }}</span> Локал · иш ҳажмлари</div>
+    <b class="pk-pname" title="{{ p.title }}">{{ p.title }}</b>
+    <div class="pk-psub" title="{{ r.file_name }} · {{ r.sheet }}">{{ r.file_name }} · {{ r.sheet }} · {{ p.rows }} ресурс</div>
+    <div class="pk-sact">
+      <button type="button" class="pk-view" data-view="{{ r.key }}" title="Excel кўринишида очиш">{% icon "eye" "h-4 w-4" %}<span>Кўриш</span></button>
+      <div class="pk-seg is-mini" role="radiogroup" aria-label="{{ r.sheet }} — тури">
+        {% for v, t in pk_roles %}<button type="button" data-role="{{ v }}" class="{% if r.show == v %}is-on{% endif %}" role="radio" aria-checked="{% if r.show == v %}true{% else %}false{% endif %}">{{ t }}</button>{% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {# ---- ўрта: мослик ва «Ёнма-ён кўриш» — иккаласининг ўртасида ---- #}
+  <div class="pk-mid"><span class="pk-ov" title="Локалдаги ресурсларнинг неча фоизи шу RES листида аниқ бор"></span>{% icon "arrow-right" "h-6 w-6" "2.5" %}
+    <button type="button" class="pk-compare{% if not p.res %} is-main{% endif %}" title="Локал ва ресурсни ёнма-ён кўриб танлаш">{% icon "columns" "h-4 w-4" %}<span>{% if p.res %}Ёнма-ён кўриш{% else %}Ресурсни танлаш{% endif %}</span></button></div>
+
+  {# ---- ўнг: ресурс ---- #}
+  <div class="pk-side pk-res{% if x %} pk-sheet is-resource{% else %} is-empty{% endif %}"{% if x %} data-k="{{ x.key }}"{% endif %}>
+    <div class="pk-cap">{% if x %}<span class="pk-tag">{{ x.tag }}</span>{% endif %} Ресурс · нархлар{% if x.same_file %} · <i>шу файлда</i>{% endif %}</div>
+    {% if x %}
+    <b class="pk-pname" title="{{ x.title }}">{{ x.title }}</b>
+    <div class="pk-psub" title="{{ x.file_name }} · {{ x.sheet }}">{{ x.file_name }} · {{ x.sheet }}</div>
+    {% elif p.res %}
+    <b class="pk-pname">Ресурс базасидан</b><div class="pk-psub">RES файлсиз — нархлар базадан олинади</div>
+    {% else %}
+    <b class="pk-pname is-miss">Ресурс танланмаган</b><div class="pk-psub">Бу локал учун нархлар қаерда — ўзингиз кўрсатинг</div>
+    {% endif %}
+    <div class="pk-sact">
+      {% if x %}<button type="button" class="pk-view" data-view="{{ x.key }}" title="Excel кўринишида очиш">{% icon "eye" "h-4 w-4" %}<span>Кўриш</span></button>{% endif %}
+      <select name="res_{{ p.n }}" class="pk-select" aria-label="{{ p.tag }} учун ресурс" title="Бошқа ресурсни танлаш">
+        <option value="">{% if p.res %}Бошқасини танлаш…{% else %}— рўйхатдан танлаш —{% endif %}</option>
+        {% if pk_base %}<option value="{{ base_res }}" data-base="1" {% if p.res == base_res %}selected{% endif %}>Ресурс базасидан (RES'сиз)</option>{% endif %}
+        {% for c in p.options %}<option value="{{ c.key }}" data-ov="{% if c.overlap is not None %}{{ c.overlap|stringformat:'.4f' }}{% endif %}" data-same="{{ c.same_file|yesno:'1,' }}" {% if c.key == p.res %}selected{% endif %}>{% if c.best %}★ {% endif %}{{ c.tag }} · {{ c.title|truncatechars:40 }}{% if c.overlap is not None %} — {% widthratio c.overlap 1 100 %}%{% endif %} · {{ c.file_name|truncatechars:30 }}{% if c.key in pk_unpriced %} · нархи йўқ!{% endif %}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
+  <input type="hidden" name="label_{{ p.n }}" value="{{ p.label }}">
+</div>
+{% endwith %}

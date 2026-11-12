@@ -492,10 +492,9 @@ def xl_rows(rows, group, result_mode, grid_columns):
 
 @register.simple_tag(takes_context=True)
 def tender_on(context):
-    """«Объект таҳлили» тугмаси кўринсинми: панелда ёқилган бўлса — ҳаммага, ўчирилган бўлса — админга (синов)."""
+    """«Объект таҳлили» тугмаси кўринсинми: фақат панелда ёқилган бўлса (ўчирилганда админга ҳам кўринмайди)."""
     from jobs import tender
-    user = getattr(context.get("request"), "user", None)
-    return tender.enabled() or bool(user and user.is_staff)
+    return tender.enabled()
 
 
 @register.filter

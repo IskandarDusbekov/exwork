@@ -52,6 +52,8 @@ class FlowTests(LoggedInTestCase):
         self.assertContains(r, 'name="files"')
         self.assertContains(r, "Файл танлаш")
         self.assertContains(r, "Папка танлаш")
+        html = r.content.decode()  # усул — юклашдан олдин (1-қадам)
+        self.assertLess(html.index('name="nf_mode"'), html.index('id="drop"'))
 
     def test_fresh_visit_opens_dashboard(self):
         """Сайт янгидан очилса (Referer йўқ ёки бошқа сайт) — «Иш столи»; сайт ичидан — юклаш саҳифаси."""
@@ -93,10 +95,10 @@ class FlowTests(LoggedInTestCase):
         self.assertRedirects(r, reverse("batch", args=[batch.id]))
         self.assertEqual(len(batch.pairs), 4)
         page = self.client.get(reverse("batch", args=[batch.id]))
-        self.assertContains(page, "Стройка:")
+        self.assertContains(page, 'data-step="1"')        # листларни белгилаш → жуфтлаш → усул → Бошлаш
         self.assertContains(page, "МОСТ НА ПК 75+34")
-        self.assertContains(page, "Нусхалар (6)")
-        self.assertContains(page, "93% мос")              # ҳар бир вариантнинг мослиги
+        self.assertEqual(page.content.decode().count("is-dup"), 6)  # нусхалар ҳам кўринади
+        self.assertContains(page, "— 93%")                # ҳар бир вариантнинг мослиги
         self.assertContains(page, "★ ")                    # энг мос вариант белгиланган
         self.assertContains(page, "Л1")                    # боғланиш белгилари: Л1 → Р…
 
@@ -135,7 +137,7 @@ class FlowTests(LoggedInTestCase):
         self.assertIsNone(most["res"])                       # bu faylda 450_БР yo'q
         page = self.client.get(reverse("batch", args=[batch.id]))
         self.assertContains(page, 'data-k="0:202611450_БВ"')   # листни Excel кўринишида очиш
-        self.assertContains(page, "алмаштириш")
+        self.assertContains(page, "Ёнма-ён кўриш")
         prev = self.client.get(reverse("batch_sheet", args=[batch.id]), {"k": "0:202611450_БВ", "n": "30"}).json()
         self.assertEqual((prev["sheet"], prev["rows"], prev["truncated"]), ("202611450_БВ", 30, True))
         self.assertEqual(self.client.get(reverse("batch_sheet", args=[batch.id]), {"k": "0:йўқ"}).status_code, 404)
@@ -719,6 +721,65 @@ class FolderTests(LoggedInTestCase):
         self.assertEqual(part.stage, Batch.Stage.READY, part.message)
         self.assertTrue(any(p.get("res") for p in part.pairs))
 
+    def test_stop_during_pricing_then_resume(self):
+        """Нархлаш тўхтатилса — «Давом эттириш» катта тугма бўлиб чиқади ва қолган қисмлар нархланади."""
+        from unittest import mock
+        from . import folders
+
+        project, data = self._upload()
+        with mock.patch.object(folders, "start", lambda project: None):  # навбатга қўйилди, лекин ҳали ишланмади
+            self.client.post(reverse("project_price", args=[project.id]))
+        self.assertTrue(project.parts.filter(stage=Batch.Stage.PRICING).exists())
+        folders._finish_stop(project)
+        self.assertFalse(project.parts.filter(stage=Batch.Stage.PRICING).exists())
+        page = self.client.get(data["url"])
+        self.assertContains(page, "Давом эттириш")
+        self.assertContains(page, "Иш тўхтатилган")
+        with mock.patch.object(folders, "start", lambda project: folders._run(project.id)):
+            self.client.post(reverse("project_resume", args=[project.id]))
+        for p in project.parts.all():
+            self.assertEqual(p.stage, Batch.Stage.DONE, p.message)
+        self.assertNotContains(self.client.get(data["url"]), "Иш тўхтатилган")
+
+    def test_manual_resource_pick_clears_warning(self):
+        """Ресурс қўлда танлангач «ресурс топилмади» огоҳлантириши йўқолади; карта боши қайта чизилади."""
+        project, data = self._upload()
+        part = project.parts.get(folder="2. ОВ")
+        pick = reverse("batch_pick", args=[part.id])
+        res = part.pairs[0]["res"]
+        self.client.post(pick, {"what": "pair", "n": 0, "res": "", "include": "1"})
+        head = self.client.get(data["url"] + f"?partial=part&id={part.id}")
+        self.assertContains(head, "ресурс танланмаган")
+        r = self.client.post(pick, {"what": "pair", "n": 0, "res": res, "include": "1"}).json()
+        self.assertEqual(r["stage"], Batch.Stage.READY)
+        part.refresh_from_db()
+        self.assertNotIn("топилмади", part.message)
+        head = self.client.get(data["url"] + f"?partial=part&id={part.id}")
+        self.assertNotContains(head, "ресурс танланмаган")
+        self.assertNotContains(head, "топилмади")
+
+    def test_manual_folder_prices_only_marked_parts(self):
+        """«Қўлда»: листлари белгиланган қисм нархланади, белгиланмагани ўтказилади."""
+        from unittest import mock
+        from . import folders
+
+        self.client.post(reverse("nf_mode"), {"nf_mode": "manual"})
+        project, data = self._upload()
+        parts = {p.folder: p for p in project.parts.all()}
+        page = self.client.get(data["url"])
+        self.assertContains(page, 'value="manual" checked')
+        marked = parts["2. ОВ"]
+        pick = reverse("batch_pick", args=[marked.id])
+        for sh in marked.sheets:
+            if not sh.get("duplicate_of"):
+                self.assertTrue(self.client.post(pick, {"what": "role", "key": sh["key"], "role": sh["role"]}).json()["ok"])
+        with mock.patch.object(folders, "start", lambda project: folders._run(project.id)):
+            self.client.post(reverse("project_price", args=[project.id]))
+        self.assertEqual(Batch.objects.get(id=marked.id).jobs.count(), 1)
+        other = Batch.objects.get(id=parts["1. Блок-А/Подзем"].id)
+        self.assertEqual(other.jobs.count(), 0)
+        self.assertEqual(other.stage, Batch.Stage.READY)
+
     def test_folder_upload_prices_each_subfolder(self):
         from unittest import mock
 
@@ -737,9 +798,15 @@ class FolderTests(LoggedInTestCase):
         self.assertContains(page, "Ҳисоблашни бошлаш")
         self.assertContains(page, "A_lokal.xlsx")         # режа: қайси локал → қайси ресурс
         self.assertContains(page, "A_res.xlsx")
-        self.assertContains(page, 'class="pv-open')              # локал/ресурс — Excel кўриниши
-        self.assertContains(page, 'data-viewer-url="')           # листлар ва номзодлар — босилганда сўралади
+        self.assertContains(page, 'class="pp-open')              # ҳар бир қисм — «Очиш»
         part = next(iter(parts.values()))
+        # қисм ичи шу ерда очилади: листлар ва жуфтликлар (ичма-ич папка ҳам)
+        self.assertContains(page, 'data-path="1. Блок-А/Подзем"')
+        self.assertContains(page, reverse("batch", args=[part.id]) + "?partial=picker&amp;embed=1")
+        inner = self.client.get(reverse("batch", args=[part.id]) + "?partial=picker&embed=1")
+        self.assertContains(inner, 'data-step="1"')
+        self.assertContains(inner, "is-embed")
+        self.assertNotContains(inner, 'data-step="go"')
         viewer = self.client.get(reverse("project_viewer", args=[project.id, part.id])).json()
         self.assertEqual(viewer["url"], reverse("batch_sheet", args=[part.id]))
         self.assertTrue(viewer["sheets"])
@@ -938,11 +1005,15 @@ class NfModeTests(LoggedInTestCase):
     def test_choice_is_remembered_and_shown(self):
         from .services import nf_auto_of
         self.assertTrue(nf_auto_of(self.user))  # сукут — автоматик
-        page = self.client.get(reverse("index"), HTTP_REFERER="http://testserver/dashboard/")
-        self.assertContains(page, 'value="auto" checked')
+        # усул листлар билан бирга танланади (_picker.html: юклаш ва объект саҳифасида)
+        from core.tests.test_batch import OBJ_LOCAL
+        files = [SimpleUploadedFile(Path(OBJ_LOCAL).name, Path(OBJ_LOCAL).read_bytes())]
+        self.client.post(reverse("index"), {"files": files})
+        picker = reverse("batch", args=[Batch.objects.latest("created").id]) + "?partial=picker"
+        self.assertContains(self.client.get(picker), 'value="auto" checked')
         self.assertEqual(self.client.post(reverse("nf_mode"), {"nf_mode": "manual"}).status_code, 200)
         self.assertFalse(nf_auto_of(self.user))
-        self.assertContains(self.client.get(reverse("index"), HTTP_REFERER="http://testserver/dashboard/"), 'value="manual" checked')
+        self.assertContains(self.client.get(picker), 'value="manual" checked')
         self.client.post(reverse("nf_mode"), {"nf_mode": "auto"})
         self.assertTrue(nf_auto_of(self.user))
 
@@ -1037,3 +1108,54 @@ class RepriceTests(LoggedInTestCase):
         other = User.objects.create_user("x@test.uz", "Kuchli-parol-2026")
         self.client.force_login(other)
         self.assertEqual(self.client.post(reverse("job_reprice", args=[self.job.id]), {"confirm": "1"}).status_code, 404)
+
+
+@override_settings(MEDIA_ROOT=TMP_MEDIA)
+class PickerTests(LoggedInTestCase):
+    """Листларни белгилаш ва жуфтлаш дарҳол сақланади; «Бошлаш» — XHR, аниқ прогресс билан."""
+
+    def _batch(self):
+        from core.tests.test_batch import OBJ_LOCAL, OBJ_RES
+        files = [SimpleUploadedFile(Path(p).name, Path(p).read_bytes()) for p in (OBJ_LOCAL, OBJ_RES)]
+        self.client.post(reverse("index"), {"files": files})
+        return Batch.objects.latest("created")
+
+    def test_role_pair_and_start(self):
+        batch = self._batch()
+        pick = reverse("batch_pick", args=[batch.id])
+        # лист турини ўзгартириш — қайта жуфтланади, танлов эслаб қолинади
+        r = self.client.post(pick, {"what": "role", "key": "1:202611450_БР", "role": "unknown"})
+        self.assertTrue(r.json()["ok"])
+        batch.refresh_from_db()
+        self.assertEqual(batch.roles, {"1:202611450_БР": "unknown"})
+        self.assertNotIn("1:202611450_БР", {p["res"] for p in batch.pairs})
+        # жуфтлик: биринчи локални ўчириб қўйиш — қайта таҳлилдан кейин ҳам сақланади
+        n0 = batch.pairs[0]
+        self.client.post(pick, {"what": "pair", "n": 0, "res": n0["res"] or "", "include": ""})
+        self.client.post(pick, {"what": "role", "key": "1:202611450_БР", "role": "resource"})
+        batch.refresh_from_db()
+        p0 = next(p for p in batch.pairs if p["local"] == n0["local"])
+        self.assertFalse(p0["include"])
+        self.assertEqual(self.client.post(pick, {"what": "pair", "n": 99}).status_code, 400)
+        page = self.client.get(reverse("batch", args=[batch.id]) + "?partial=picker")
+        self.assertContains(page, 'data-role="resource" class="is-on"')
+        # битта жадвал: локал қаторида ресурс танлови, ресурс қаторида — қайси локалга нарх бериши
+        # ёнма-ён: локал карточкаси ёнида унинг ресурси ўз номи билан
+        self.assertContains(page, 'class="pk-duo pk-pair')
+        self.assertContains(page, 'class="pk-side pk-res pk-sheet is-resource" data-k="1:202611450_БР"')
+        # бошлаш (XHR): JSON манзил, прогресс тугаган
+        data = {}
+        for n, p in enumerate(batch.pairs):
+            data.update({f"include_{n}": "1" if p["include"] else "", f"res_{n}": p["res"] or "", f"label_{n}": p["label"]})
+        r = self.client.post(reverse("batch_confirm", args=[batch.id]), data, headers={"X-Requested-With": "XMLHttpRequest"})
+        self.assertTrue(r.json()["ok"])
+        self.assertEqual(r.json()["url"], reverse("batch", args=[batch.id]))
+        prog = self.client.get(reverse("batch_progress", args=[batch.id])).json()
+        self.assertEqual((prog["status"], prog["done"]), ("done", sum(1 for p in batch.pairs if p["include"] and p["res"])))
+
+    def test_other_user_cannot_pick(self):
+        batch = self._batch()
+        other = User.objects.create_user("b@test.uz", "Kuchli-parol-2026")
+        self.client.force_login(other)
+        r = self.client.post(reverse("batch_pick", args=[batch.id]), {"what": "role", "key": "0:202611400_БВ", "role": "unknown"})
+        self.assertIn(r.status_code, (403, 404))

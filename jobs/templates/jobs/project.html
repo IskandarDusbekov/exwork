@@ -1,5 +1,5 @@
 {% extends "jobs/base.html" %}
-{% load narx %}
+{% load narx static %}
 {% block title %}{{ project.name }} · mhisobot{% endblock %}
 {% block side %}rail{% endblock %}
 {% block main_class %}{% endblock %}
@@ -15,6 +15,8 @@
 <div id="project-body" data-viewer-url="{% url 'project_viewer' project.id '00000000-0000-0000-0000-000000000000' %}">{% include "jobs/_project_body.html" %}</div>
 {% include "jobs/_sheet_viewer.html" %}
 {% include "jobs/_bulk_price.html" %}
+<link rel="stylesheet" href="{% static 'css/picker.css' %}">
+<script src="{% static 'js/picker.js' %}"></script>
 
 <style>
   .explorer { font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
@@ -51,7 +53,7 @@
   .part-chip.is-on { background: #0f172a; border-color: #0f172a; color: #fff; }
   .part-chip.is-on svg { color: inherit; }
   /* katta ekranda (2000px+) asosiy qism cho'zilib ketmasin: tugmalar bir-biridan uzoqlashmaydi, ko'z bir joyda */
-  .proj-main { width: 100%; max-width: 1360px; margin: 0 auto; }
+  .proj-main { width: 100%; max-width: 1880px; margin: 0 auto; }  /* катта экранда ён томонлар бўш қолмайди */
   .stat-filter { cursor: var(--cur-hand, pointer); }
   .stat-filter[aria-disabled="true"] { cursor: var(--cur, default); }
   .stat-filter.is-on { box-shadow: 0 0 0 2px #0f172a; }
@@ -132,7 +134,7 @@
         });
       });
       // жадвалдаги қисм устига келса — дарахтда ёритилади (ва аксинча)
-      body.querySelectorAll(".part-row").forEach(function (tr) {
+      body.querySelectorAll(".pp-part").forEach(function (tr) {
         var d = body.querySelector('details.tree-folder[data-path="' + CSS.escape(tr.dataset.path) + '"] > summary');
         if (!d) return;
         tr.addEventListener("mouseenter", function () { d.classList.add("is-active"); });
@@ -145,7 +147,7 @@
     var partFilter = "";
     function applyPartFilter(scroll) {
       var shown = 0;
-      body.querySelectorAll(".part-row").forEach(function (tr) {
+      body.querySelectorAll(".pp-part").forEach(function (tr) {
         var on = !partFilter || tr.dataset.state === partFilter;
         tr.style.display = on ? "" : "none";
         if (on) shown++;
@@ -164,12 +166,113 @@
       applyPartFilter(!f.classList.contains("part-chip"));
     }
     body.addEventListener("click", pickFilter);
+    // нархлагандан кейин: «…га ўтиш ↓» тугмалари — ўша блокка суриб, бир лаҳза ёритади
+    body.addEventListener("click", function (e) {
+      var g = e.target.closest("[data-go]");
+      if (!g) return;
+      var t = body.querySelector(g.dataset.go);
+      if (!t) return;
+      t.scrollIntoView({behavior: "smooth", block: "start"});
+      t.classList.remove("is-flash-blk"); void t.offsetWidth; t.classList.add("is-flash-blk");
+    });
+    // «Пастда: N та смета» — сметалар рўйхати экранга чиқмагунча кўринади
+    function downCue() {
+      var b = body.querySelector(".ph-down"), p = body.querySelector("#parts");
+      if (b && p) b.hidden = p.getBoundingClientRect().top < innerHeight * 0.85;
+    }
+    document.addEventListener("scroll", downCue, true);
+    addEventListener("resize", downCue);
+    downCue();
     body.addEventListener("keydown", function (e) {
       if ((e.key === "Enter" || e.key === " ") && e.target.matches('[role="button"][data-part-filter]')) { e.preventDefault(); pickFilter(e); }
     });
 
     wire();
     applyPartFilter(false);
+
+    // ---- қисм картаси: «Очиш» — ичидаги файллар ва листлар шу ерда (листларни белгилаш, жуфтлаш) ----
+    function openPart(card, scroll) {
+      var bodyEl = card.querySelector(".pp-body");
+      if (!card.dataset.picker || !bodyEl) return;
+      var open = bodyEl.hidden;
+      if (open) {  // бир вақтда битта қисм очиқ — олдингиси ёпилади
+        body.querySelectorAll(".pp-part.is-open").forEach(function (c) {
+          if (c === card) return;
+          c.classList.remove("is-open");
+          c.querySelector(".pp-body").hidden = true;
+        });
+        scroll = true;
+      }
+      bodyEl.hidden = !open;
+      card.classList.toggle("is-open", open);
+      if (open && !bodyEl.dataset.loaded) {
+        bodyEl.dataset.loaded = "1";
+        bodyEl.innerHTML = '<div class="pp-loading">Листлар очиляпти…</div>';
+        fetch(card.dataset.picker, {credentials: "same-origin", cache: "no-store"}).then(function (r) {
+          if (!r.ok) throw new Error(r.status);
+          return r.text();
+        }).then(function (html) {
+          bodyEl.innerHTML = html;
+          window.narxPicker.mount(bodyEl.firstElementChild, {onSaved: function (d) { partSaved(card, d); }});
+        }).catch(function () {
+          delete bodyEl.dataset.loaded;
+          bodyEl.innerHTML = '<div class="pp-loading is-err">Очиб бўлмади — саҳифани янгилаб, қайта уриниб кўринг.</div>';
+        });
+      }
+      if (open && scroll) setTimeout(function () { card.scrollIntoView({behavior: "smooth", block: "start"}); }, 60);
+    }
+    // қисм ичида танлов сақланди — ҳолат белгиси ва «Ҳаммасини бошлаш» сони янгиланади
+    var TONES = ["slate", "sky", "violet", "emerald", "rose", "amber"];
+    function partSaved(card, d) {
+      if (!d || !d.stage) return;
+      card = body.querySelector('.pp-part[data-id="' + card.dataset.id + '"]') || card;  // жонли янгиланишдан кейин ҳам
+      var chip = card.querySelector("[data-chip]");
+      var mark = d.stage === "ready" && d.left > 0;  // «Қўлда»: ҳали белгиланмаган листлар бор
+      if (chip && d.state) {
+        chip.textContent = mark ? d.left + " та лист белгиланмаган" : d.state;
+        TONES.forEach(function (t) { chip.classList.remove("tone-" + t); });
+        chip.classList.add("tone-" + (mark ? "amber" : d.tone));
+      }
+      var open = card.querySelector(".pp-open");
+      if (open) open.classList.toggle("is-need", mark || d.stage === "review" || d.stage === "failed");
+      card.dataset.state = d.stage === "failed" || mark ? "review" : d.stage;
+      // картанинг боши (жуфтликлар, «ресурс топилмади» огоҳлантириши) серверда қайта чизилади
+      var head = card.querySelector(".pp-head");
+      fetch(location.pathname + "?partial=part&id=" + encodeURIComponent(card.dataset.id), {credentials: "same-origin", cache: "no-store"})
+        .then(function (r) { return r.ok ? r.text() : null; })
+        .then(function (html) { if (html) head.innerHTML = html; });
+      card.dataset.left = d.left || 0;
+      var ready = body.querySelectorAll('.pp-part[data-state="ready"]').length, n = document.getElementById("pp-ready");
+      if (n) n.textContent = ready;
+      var go = body.querySelector(".pp-go .pk-go");
+      if (go) go.disabled = !ready;
+    }
+    body.addEventListener("click", function (e) {
+      var b = e.target.closest(".pp-open, .pp-head");
+      if (!b || e.target.closest("a, .pp-body")) return;
+      var card = b.closest(".pp-part");
+      if (card && card.dataset.picker) openPart(card, false);
+    });
+    // дарахтда папка ёки файлни босиш — ўша қисм шу ерда очилади (ичма-ич папкалар ҳам)
+    body.addEventListener("click", function (e) {
+      var row = e.target.closest(".explorer .tree-open, .explorer a.tree-file");
+      if (!row) return;
+      var folder = row.closest("details.tree-folder");
+      var card = folder && body.querySelector('.pp-part[data-path="' + CSS.escape(folder.dataset.path) + '"]');
+      if (!card || !card.dataset.picker) return;  // нархланган қисм — ўз саҳифасига
+      e.preventDefault();
+      if (card.querySelector(".pp-body").hidden) openPart(card, true);
+      else card.scrollIntoView({behavior: "smooth", block: "start"});
+      card.classList.remove("is-flash"); void card.offsetWidth; card.classList.add("is-flash");
+    }, true);
+    // усул (папка учун битта): сақланади ва саҳифа янгиланади — очиқ қисмлар ичидаги листлар шунга мос чизилади
+    body.addEventListener("change", function (e) {
+      var inp = e.target.closest("#pp-mode input[name=nf_mode]");
+      if (!inp) return;
+      var f = inp.form, fd = new FormData(f);
+      fetch("{% url 'nf_mode' %}", {method: "POST", body: fd, credentials: "same-origin", headers: {"X-CSRFToken": f.csrfmiddlewaretoken.value}})
+        .then(function (r) { if (r.ok) location.reload(); });
+    });
 
     // локал / ресурс номини босиш — Excel кўриниши (файлнинг ҳамма листлари); фоиз — ёнма-ён.
     // Қисм маълумоти биринчи босилганда сўралади ва эслаб қолинади
@@ -285,10 +388,16 @@
         fetch(location.pathname + "?partial=1", {cache: "no-store"}).then(function (r) { return r.text(); }).then(function (html) {
           var tree = body.querySelector(".tree"), top = tree ? tree.scrollTop : 0;
           if (window.narxBulk) window.narxBulk.park();  // жадвал (ёзилган нархлар) йўқолмасин
+          // очиқ қисм (листлар жадвали) янгиланишда ёпилиб қолмасин — ўша DOM янги картага кўчирилади
+          var was = body.querySelector(".pp-part.is-open"), keep = was && was.querySelector(".pp-body");
           body.innerHTML = html;
+          if (keep) {
+            var nc = body.querySelector('.pp-part[data-id="' + was.dataset.id + '"]');
+            if (nc && nc.dataset.picker) { nc.querySelector(".pp-body").replaceWith(keep); nc.classList.add("is-open"); }
+          }
           if (window.narxBulk) window.narxBulk.mount();
           wire();
-          applyPartFilter(false);
+          applyPartFilter(false); downCue();
           trackState();
           var t2 = body.querySelector(".tree");
           if (t2) t2.scrollTop = top;
@@ -299,36 +408,95 @@
     poll();
   })();
 </script>
+<style>
+  .pp-msg { padding: 10px 14px; border-radius: 12px; border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; font-size: 14px; }
+  .pp-msg.is-warn { border-color: #fde68a; background: #fffbeb; color: #92400e; }
+  .pp-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 14px; border-radius: 14px; border: 1px solid #e2e8f0; background: #fff; font-size: 14px; color: #475569; }
+  .pp-mode .pk-modebar { margin: 0; }
+  .pp-hint { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border-radius: 14px; background: #f0fdf4; font-size: 14px; line-height: 1.5; color: #334155; }
+  .pp-hint .pk-num { background: #0f172a; color: #fff; }
+  .pp-list { display: grid; gap: 10px; }
+  .pp-list-h { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .pp-list-h h2 { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; }
+  .pp-list-h h2 .num { font-size: 14px; font-weight: 500; color: #94a3b8; }
+  .pp-chips { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; }
+  .pp-skipped { margin-left: auto; font-size: 12px; color: #64748b; }
+  .pp-none { padding: 20px; text-align: center; color: #64748b; }
+  .pp-part { border: 2px solid #e2e8f0; border-radius: 18px; background: #fff; transition: border-color .2s, box-shadow .2s; }
+  .pp-part:hover { border-color: #cbd5e1; }
+  .pp-part.is-open { border-color: #22c55e; box-shadow: 0 8px 24px rgba(15, 23, 42, .08); }
+  .pp-part.is-flash { animation: pk-flash 1.2s ease-out; }
+  .pp-part.is-review, .pp-part.is-failed { border-color: #fcd34d; }
+  .pp-part.is-empty { opacity: .7; }
+  .pp-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px 16px; }
+  .pp-part[data-picker] .pp-head { cursor: pointer; }
+  .pp-ic { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: #fef3c7; color: #d97706; }
+  .pp-tt b { display: block; font-size: 17px; font-weight: 700; color: #0f172a; overflow-wrap: anywhere; }
+  .pp-tt small { display: block; font-size: 12px; color: #94a3b8; overflow-wrap: anywhere; }
+  .pp-sum { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .pp-pair, .pp-file { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 3px 10px; border-radius: 999px; background: #f1f5f9; font-size: 13px; color: #334155;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pp-pair.is-miss { background: #fff1f2; color: #9f1239; }
+  .pp-pair i { font-style: normal; }
+  .pp-pair .t-loc, .pp-pair .t-res { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; font-size: 11px; font-weight: 800; color: #fff; }
+  .pp-pair .t-loc { background: #059669; } .pp-pair .t-res { background: #0284c7; }
+  .pp-pair .pp-arr { color: #94a3b8; } .pp-pair .pp-ov { font-weight: 700; color: #166534; }
+  .pp-note { margin-top: 6px; font-size: 13px; color: #92400e; }
+  .pp-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .pp-chip { white-space: nowrap; border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 700; }
+  .tone-slate { background: #f1f5f9; color: #475569; } .tone-sky { background: #e0f2fe; color: #0369a1; } .tone-violet { background: #dcfce7; color: #166534; }
+  .tone-emerald { background: #dcfce7; color: #166534; } .tone-rose { background: #ffe4e6; color: #be123c; } .tone-amber { background: #fef3c7; color: #92400e; }
+  .pp-total { font-size: 16px; color: #0f172a; }
+  .pp-acts { display: flex; gap: 6px; }
+  .pp-open { display: inline-flex; align-items: center; gap: 6px; height: 46px; padding: 0 18px; border-radius: 12px; background: #16a34a; color: #fff; font-size: 16px; font-weight: 700;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, .3); transition: background .15s; }
+  .pp-open:hover { background: #15803d; }
+  .pp-open.is-need { background: #f59e0b; box-shadow: 0 4px 12px rgba(245, 158, 11, .35); animation: pk-beat 1.8s ease-in-out infinite; }
+  .pp-part.is-open .pp-open svg { transform: rotate(180deg); }
+  .pp-part.is-open .pp-open span::after { content: " — ёпиш"; }
+  .pp-btn { display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 14px; border-radius: 12px; border: 1px solid #cbd5e1; font-weight: 600; font-size: 14px; color: #0f172a; background: #fff; }
+  .pp-btn:hover { border-color: #0f172a; }
+  .pp-btn.is-main { background: #16a34a; border-color: #16a34a; color: #fff; }
+  .pp-btn.is-main:hover { background: #15803d; }
+  .pp-body { padding: 0 14px 14px; border-top: 1px dashed #e2e8f0; padding-top: 14px; }
+  .pp-loading { padding: 18px; text-align: center; color: #64748b; } .pp-loading.is-err { color: #be123c; }
+  .pp-go { position: sticky; bottom: 12px; z-index: 20; display: grid; gap: 8px; justify-items: center; padding: 14px; border-radius: 22px; background: rgba(255, 255, 255, .96);
+    border: 1px solid #e2e8f0; box-shadow: 0 -6px 30px rgba(15, 23, 42, .12); backdrop-filter: blur(6px); }
+  .pp-go .pk-go:disabled { background: #cbd5e1; color: #fff; cursor: not-allowed; }
+  /* ихчам: фоизлар | тугма | сон — бир қаторда, жадвални ёпиб қўймайди */
+  .pp-go { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; justify-items: stretch; gap: 12px; padding: 10px 12px; border-radius: 18px; }
+  .pp-go .pk-go { height: 54px; font-size: 19px; border-radius: 14px; }
+  .pp-go .pk-pct { margin: 0; padding: 8px 12px; }
+  .pp-go .pk-pct[open] { position: absolute; left: 12px; right: 12px; bottom: calc(100% + 8px); box-shadow: 0 10px 30px rgba(15, 23, 42, .18); border: 1px solid #e2e8f0; background: #fff; }
+  .pp-go .pk-pct-s { display: none; }
+  .pp-go .pk-go-note { max-width: 220px; text-align: left; font-size: 13px; }
+  @media (max-width: 760px) { .pp-go { grid-template-columns: 1fr; } .pp-go .pk-go-note { max-width: none; text-align: center; } }
+  .pp-run { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .pp-run-ic { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: #e0f2fe; color: #0284c7; }
+  .pp-run-ic.is-paused { background: #fef3c7; color: #b45309; }
+  .pp-run-t { display: grid; gap: 6px; min-width: 0; }
+  .pp-run-t b { font-size: 16px; color: #0f172a; }
+  .pp-run-t small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: #64748b; }
+  .pp-run-t .pk-bar { height: 10px; }
+  .pp-stop { display: inline-flex; align-items: center; gap: 8px; height: 54px; padding: 0 24px; border-radius: 14px; border: 2px solid #f59e0b; background: #fffbeb;
+    color: #92400e; font-size: 17px; font-weight: 800; }
+  .pp-stop:hover { background: #fef3c7; }
+  .pp-go .pk-go.pp-resume { width: auto; padding: 0 28px; }
+  @media (max-width: 760px) { .pp-run { grid-template-columns: auto minmax(0, 1fr); } .pp-run > form, .pp-run > .pk-go { grid-column: 1 / -1; } .pp-stop, .pp-go .pk-go.pp-resume { width: 100%; justify-content: center; } }
+  .pp-go .t-warn { color: #b45309; }
+  @media (max-width: 760px) { .pp-pair { white-space: normal; } .pp-head { grid-template-columns: auto minmax(0, 1fr); } .pp-side { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; } }
+</style>
 {% endblock %}
 {% block guide %}{page: "folder", steps: [
-  {sel: '[data-guide="awaiting"]', title: "Файллар очилди — энди текширинг",
-   text: "<p>Тизим ҳар бир папкада <b>локал</b> (иш ҳажмлари) ва <b>ресурс</b> (нархлар)ни топиб, жуфтлади.</p>" +
-         "<p><b>Ҳисоблаш ҳали бошланмаган.</b> Аввал пастдаги жадвални кўриб чиқинг.</p>"},
-  {sel: '[data-guide="next"]', title: "Нима қилиш керак",
-   text: "<p>Ҳисоблангандан кейин уч қадам:</p><ol><li>Ресурс аниқ топилмаган қисмларда уни <b>танлаш</b></li>" +
-         "<li>Нархи топилмаган қаторларни <b>тўғирлаш</b></li><li>Натижани <b>юклаб олиш</b></li></ol>" +
-         "<div class='tip'>Тугмани боссангиз — жадвалда фақат ўша қисмлар қолади.</div>"},
-  {sel: '[data-guide="progress"]', title: "Жараён ва натижалар",
-   text: "<ul><li>Нечта қисм <b>тайёр</b></li><li><b>Жами сумма</b> (Всего с НДС)</li><li>Нечтасида <b>нархсиз қатор</b> бор</li><li>Нечтаси <b>текширишни кутяпти</b></li></ul>" +
-         "<div class='tip'>Ҳисоблаш фонда давом этади — бошқа саҳифага ўтсангиз ҳам тўхтамайди.</div>"},
+  {sel: '[data-guide="awaiting"]', title: "1. Қандай ишлаймиз?",
+   text: "<ul><li><b>Автоматик</b> — тизим ҳар бир папкада локал ва ресурсни ўзи ажратади</li><li><b>Қўлда</b> — ҳар бир листни ўзингиз белгилайсиз</li></ul>"},
+  {sel: '[data-guide="parts"]', title: "2. Қисмлар",
+   text: "<p>Ҳар бир ички папка — битта карта. <b>«Очиш»</b>ни босинг: ичидаги файллар ва листлар шу ерда очилади.</p>" +
+         "<div class='tip'>Чапдаги дарахтда папкани ёки файлни боссангиз ҳам — ўша қисм очилади.</div>"},
   {sel: '[data-guide="tree"]', title: "Папка тузилиши",
-   text: "<p>Юкланган папка — худди компьютердагидек.</p><ul><li><b class='text-emerald-700'>Л</b> — локал</li><li><b class='text-sky-700'>Р</b> — ресурс</li>" +
-         "<li><b class='text-emerald-700'>Н</b> — тайёр натижа</li><li><span class='text-slate-400'>кулранг</span> — олинмаган файл (эски натижа, сводка)</li></ul>" +
-         "<div class='tip'>Четини суриб кенгайтиринг ёки тепадаги тугма билан яширинг.</div>"},
-  {sel: '[data-guide="parts"]', title: "Қисмлар — ҳар бир ички папка алоҳида смета",
-   text: "<p>Ҳар бир қаторда: папка, қайси локал қайси ресурс билан ҳисобланади, ҳолати ва суммаси.</p><div class='tip'>Қаторни боссангиз — смета очилади.</div>"},
-  {sel: '[data-guide="pairs-col"]', title: "Локал → ресурс ва мослик фоизи",
-   text: "<ul><li>Локал <b>номини</b> боссангиз — Excel кўринишида очилади</li><li><b>→ %</b> ни боссангиз — локал ва ресурс ёнма-ён</li></ul>" +
-         "<p>Фоиз — локалдаги ресурсларнинг қанчаси шу ресурсда топилгани:</p>" +
-         "<ul><li><span class='rounded bg-emerald-100 px-1 text-emerald-800'>70%+</span> яхши</li><li><span class='rounded bg-amber-100 px-1 text-amber-800'>40–70%</span> текшириб кўринг</li>" +
-         "<li><span class='rounded bg-rose-100 px-1 text-rose-800'>кам</span> — эҳтимол бошқа ресурс керак</li></ul>" +
-         "<div class='tip'>«ресурс топилмади» ёзуви бўлса — босиб, ресурсни ўзингиз танланг.</div>"},
-  {sel: '[data-guide="state-col"]', title: "Ҳолат",
-   text: "<p>Энг муҳимлари:</p><ul><li><b class='text-amber-700'>Текширинг</b> — ресурсни ўзингиз танланг</li>" +
-         "<li><b class='text-rose-700'>N та қатор нархланмади</b> — сметани очиб тўғирланг</li></ul>" +
-         "<div class='tip'>Ҳар бир ҳолат ёнидаги <span class='help-q'>?</span> — нимани билдириши ва нима қилиш керак.</div>"},
-  {sel: '[data-guide="price-start"]', title: "Ҳаммаси тўғри бўлса — «Ҳисоблашни бошлаш»",
-   text: "<p>Тизим ҳамма жуфтликларни фонда нархлайди. Жараённи шу саҳифада кузатасиз.</p>"},
+   text: "<p>Юкланган папка — худди компьютердагидек, ичма-ич.</p><ul><li><b class='text-emerald-700'>Л</b> — локал</li><li><b class='text-sky-700'>Р</b> — ресурс</li><li><b class='text-emerald-700'>Н</b> — тайёр натижа</li></ul>"},
+  {sel: '[data-guide="price-start"]', title: "«Ҳаммасини бошлаш»",
+   text: "<p>Тайёр қисмлар фонда нархланади, жараён шу саҳифада кўринади.</p>"},
   {sel: '[data-guide="download"]', title: "Натижани юклаб олиш",
-   text: "<p>Ҳамма натижалар битта ZIP файлда, папкалар тузилиши сақланади.</p><div class='tip'>Ҳар бир қисмни алоҳида ҳам юклаб олиш мумкин — жадвалдаги ↓ белгиси.</div>"}
+   text: "<p>Ҳамма натижалар битта ZIP файлда, папкалар тузилиши сақланади.</p>"}
 ]}{% endblock %}

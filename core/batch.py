@@ -216,13 +216,15 @@ def inspect_sheet(ws, file: int = 0, file_name: str = "", role: Optional[str] = 
         if "дефектн" in joined or "дефектн" in _low(ws.title):
             return _skipped(file, file_name, ws, KIND_ACT, "дефект акти — ишлар рўйхати, ресурслар эмас", hidden, headers)
         if has_price:
-            if not any(w in header for w in _QTY_WORDS):
-                return _skipped(file, file_name, ws, KIND_CATALOG,
-                                "нарх каталоги — миқдор устуни йўқ, смета эмас (жуфтлашга олинмайди)", hidden, headers)
-            if _dotted_share(ws, 1, layout.data_start, layout.data_stop) >= DOTTED_SHARE:
+            # миқдор устуни йўқ — нарх каталоги бўлиши мумкин. Лекин баъзи дастурларнинг RES'ида (ABC «vr_…»)
+            # миқдор сарлавҳаси бошқача: лист ресурс сифатида ўқилади ва «каталог» белгиси билан қолади —
+            # ``promote_catalogs`` локал ресурслари шу ерда топилса, уни ресурс қилади
+            catalog = not any(w in header for w in _QTY_WORDS)
+            if not catalog and _dotted_share(ws, 1, layout.data_start, layout.data_stop) >= DOTTED_SHARE:
                 return _skipped(file, file_name, ws, KIND_PRICED,
                                 "нархланган локал смета (иш ва унинг ресурслари «1.1, 1.2…», нарх ёзилган) — тайёр. "
                                 "Қайта нархлаш керак бўлса — турини «Локал» қилинг", hidden, headers)
+    catalog = forced is None and has_price and not any(w in header for w in _QTY_WORDS)
     role = forced or (RESOURCE if has_price else LOCAL)
     found = {"header": layout.header_row}
     if role == RESOURCE:
@@ -276,9 +278,11 @@ def inspect_sheet(ws, file: int = 0, file_name: str = "", role: Optional[str] = 
         extra = (cell_value(ws, r, price_col),) if price_col else (cell_value(ws, r, 5), cell_value(ws, r, 6))
         rows_for_sig.append((name, unit) + tuple(str(x) for x in extra))
     signature = hashlib.sha1(repr((role, rows_for_sig)).encode("utf-8")).hexdigest()[:16]
+    if catalog:
+        role, reason = UNKNOWN, "нарх каталоги — миқдор устуни йўқ, смета эмас (жуфтлашга олинмайди)"
 
     return SheetInfo(
-        file, file_name, ws.title, role, reason, title=title, number=number,
+        file, file_name, ws.title, role, reason, title=title, number=number, kind=KIND_CATALOG if catalog else "",
         stroyka=_labelled(head, low, "наименование стройки", "наименование стройки"),
         obj=_labelled(head, low, "наименование объекта", "наименование объекта"),
         part=part, rows=len(rows_for_sig), signature=signature, hidden=hidden, names=frozenset(names),
@@ -396,6 +400,25 @@ def pair_options(loc: SheetInfo, resources: List[SheetInfo]) -> List[dict]:
                     "same_file": res.file == loc.file, "reasons": reasons[:3]})
     out.sort(key=lambda o: (-o["score"], -o["overlap"]))
     return out
+
+
+PROMOTE_OVERLAP = 0.3  # каталогга ўхшаган лист: локал ресурсларининг шунчаси унда бўлса — ресурс
+
+
+def promote_catalogs(infos: List[SheetInfo], roles: Optional[Dict[str, str]] = None) -> List[SheetInfo]:
+    """«Нарх каталоги» деб ўтказилган, лекин ичида локал ресурслари аниқ бор лист — бу RES (миқдор сарлавҳаси
+    бошқача ёзилган, масалан ABC дастурининг «vr_…» листи). Смета­чи қўлда белгилаганига тегилмайди."""
+    roles = roles or {}
+    locals_ = [i for i in infos if i.role == LOCAL and i.names]
+    for info in infos:
+        if info.role != UNKNOWN or info.kind != KIND_CATALOG or not info.names or info.key in roles:
+            continue
+        best = max((len(loc.names & info.names) / max(1, len(loc.names)) for loc in locals_), default=0.0)
+        if best >= PROMOTE_OVERLAP:
+            info.role, info.kind = RESOURCE, ""
+            info.reason = (f"нарх устуни бор, миқдор сарлавҳаси топилмади — лекин локал ресурсларининг {best:.0%} "
+                           "шу ерда, ресурс деб олинди")
+    return infos
 
 
 def apply_roles(infos: List[SheetInfo], roles: Dict[str, str]) -> List[SheetInfo]:

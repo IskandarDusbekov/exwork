@@ -15,11 +15,22 @@
       </div>
     </div>
     <div class="mt-5 flex flex-wrap justify-end gap-2">
-      <button type="button" id="narx-dialog-cancel" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Бекор қилиш</button>
-      <button type="button" id="narx-dialog-ok" class="rounded-lg px-4 py-2 text-sm font-semibold text-white"></button>
+      <button type="button" id="narx-dialog-cancel" class="nd-cancel">Бекор қилиш</button>
+      <button type="button" id="narx-dialog-ok" class="nd-ok"></button>
     </div>
   </div>
 </div>
+<style>
+  #narx-dialog .nd-ok { min-width: 132px; height: 46px; padding: 0 20px; border-radius: 12px; background: #16a34a; color: #fff; font-size: 15px; font-weight: 700;
+    box-shadow: 0 6px 16px rgba(22, 163, 74, .35); transition: background .15s, transform .1s; }
+  #narx-dialog .nd-ok:hover { background: #15803d; } #narx-dialog .nd-ok:active { transform: scale(.97); }
+  #narx-dialog .nd-ok:focus-visible { outline: 3px solid #86efac; outline-offset: 2px; }
+  #narx-dialog .nd-ok.is-danger { background: #e11d48; box-shadow: 0 6px 16px rgba(225, 29, 72, .3); }
+  #narx-dialog .nd-ok.is-danger:hover { background: #be123c; } #narx-dialog .nd-ok.is-danger:focus-visible { outline-color: #fda4af; }
+  #narx-dialog .nd-cancel { height: 46px; padding: 0 14px; border-radius: 12px; background: transparent; color: #64748b; font-size: 14px; font-weight: 500; }
+  #narx-dialog .nd-cancel:hover { background: #f1f5f9; color: #0f172a; }
+  #narx-dialog .nd-cancel:focus-visible { outline: 2px solid #cbd5e1; }
+</style>
 <script>
 (function () {
   var box = document.getElementById("narx-dialog"), title = document.getElementById("narx-dialog-title"),
@@ -50,8 +61,8 @@
     cancelBtn.classList.toggle("hidden", d.kind === "alert");
     cancelBtn.textContent = d.cancel || "Бекор қилиш";
     okBtn.textContent = d.ok || (d.kind === "alert" ? "Тушунарли" : d.kind === "prompt" ? "Сақлаш" : "Ҳа, давом этиш");
-    okBtn.className = "rounded-lg px-4 py-2 text-sm font-semibold text-white " +
-      (d.danger && d.kind !== "alert" ? "bg-rose-600 hover:bg-rose-700" : "bg-slate-900 hover:bg-slate-700");
+    // асосий тугма — доим ўнгда, катта ва яшил (ўчириш каби хавфли амалда — қизил); «Йўқ» — оддий матн
+    okBtn.className = "nd-ok" + (d.danger && d.kind !== "alert" ? " is-danger" : "");
     box.classList.remove("hidden"); box.classList.add("flex"); box.setAttribute("aria-hidden", "false");
     setTimeout(function () { (d.kind === "prompt" ? input : d.danger && d.kind !== "alert" ? cancelBtn : okBtn).focus(); if (d.kind === "prompt") input.select(); }, 0);
   }

@@ -1,0 +1,202 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Нарх базаси — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+{% include "panel/_base_ui.html" %}
+<style>
+  main.mx-auto { max-width: 118rem; }  /* бу саҳифа — кенгроқ */
+  .ic-O { background: #ffe4e6; color: #be123c; }
+  .nx-summary { margin-bottom: 1rem; border: 1px solid var(--ui-line); border-radius: 1rem; background: #fff; padding: 1rem 1.1rem 1.1rem; }
+  .nx-sum-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .9rem; }
+  .nx-sum-head h2 { font-size: 1rem; font-weight: 700; color: var(--ui-ink); }
+  .nx-btn { padding: .5rem 1rem !important; font-size: .875rem !important; }
+  .nx-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+  @media (max-width: 1279.98px) { .nx-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 639.98px) { .nx-kpis { grid-template-columns: minmax(0, 1fr); } }
+  .nx-kpi { display: flex; align-items: flex-start; gap: .8rem; border: 1px solid #eef2f7; border-radius: .9rem; background: var(--ui-soft); padding: .85rem 1rem; }
+  .nx-kpi.warn { border-color: #fde68a; background: #fffbeb; }
+  .nx-ki { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; flex-shrink: 0; border-radius: .75rem; }
+  .nx-kpi .l { font-size: .8rem; color: var(--ui-muted); }
+  .nx-kpi .v { font-size: 1.55rem; font-weight: 700; color: var(--ui-ink); font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .nx-kpi .s { margin-top: .15rem; font-size: .74rem; color: var(--ui-muted); }
+  .nx-bar { display: block; margin-top: .4rem; height: .4rem; overflow: hidden; border-radius: 9999px; background: #e2e8f0; }
+  .nx-bar > i { display: block; height: 100%; border-radius: 9999px; background: linear-gradient(90deg, #22c55e, #16a34a); }
+  .nx-cats { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .65rem; margin-bottom: 1rem; }
+  @media (max-width: 1279.98px) { .nx-cats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @media (max-width: 639.98px) { .nx-cats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .nx-cat { display: flex; min-width: 0; flex-direction: column; border: 1px solid var(--ui-line); border-radius: 1rem; background: #fff; padding: .75rem .85rem; transition: box-shadow .15s, border-color .15s; }
+  .nx-cat:hover { border-color: #cbd5e1; box-shadow: 0 4px 14px rgb(15 23 42 / .06); }
+  .nx-cat .top { display: flex; min-width: 0; align-items: center; gap: .55rem; }
+  .nx-cat .ic { display: grid; place-items: center; width: 1.9rem; height: 1.9rem; flex-shrink: 0; border-radius: .6rem; font-size: .8rem; font-weight: 700; }
+  .nx-cat .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .875rem; font-weight: 600; color: var(--ui-ink); }
+  .nx-cat .n { margin-top: .5rem; font-size: 1.35rem; font-weight: 700; color: var(--ui-ink); font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .nx-cat .m { margin-top: .15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .72rem; color: var(--ui-muted); font-variant-numeric: tabular-nums; }
+  .nx-cat.on { border-color: var(--ui-blue); background: var(--ui-blue); box-shadow: 0 8px 20px rgb(37 99 235 / .25); }
+  .nx-cat.on .t, .nx-cat.on .n { color: #fff; } .nx-cat.on .m { color: rgb(255 255 255 / .8); }
+  .nx-cat.on .ic { background: rgb(255 255 255 / .18) !important; color: #fff !important; }
+  .nx-cat.on .nx-bar { background: rgb(255 255 255 / .25); } .nx-cat.on .nx-bar > i { background: #fff; }
+  .nx-three { display: grid; grid-template-columns: repeat(3, 7.6rem); flex-shrink: 0; overflow: hidden; border: 1px solid var(--ui-line); border-radius: .85rem; text-align: right; }
+  .nx-three > div { padding: .45rem .7rem; }
+  .nx-three > div + div { border-left: 1px solid #f1f5f9; }
+  .nx-three small { display: block; font-size: .68rem; font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
+  .nx-three b { display: block; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .nx-three .lo { background: #f0fdf4; } .nx-three .lo small, .nx-three .lo b { color: #15803d; }
+  .nx-three .mi { background: #fff; } .nx-three .mi small { color: var(--ui-muted); } .nx-three .mi b { font-size: 1.05rem; color: var(--ui-ink); }
+  .nx-three .hi { background: #fff1f2; } .nx-three .hi small, .nx-three .hi b { color: #be123c; }
+  .nx-three.one { grid-template-columns: 22.8rem; text-align: center; }
+  .nx-three.one .mi small { color: var(--ui-muted); }
+  .nx-three.none { grid-template-columns: 22.8rem; text-align: center; color: var(--ui-muted); font-size: .85rem; }
+  @media (max-width: 767.98px) { .nx-three { grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; } .nx-three.one, .nx-three.none { grid-template-columns: minmax(0, 1fr); } }
+  .ui-row .where { width: 10rem; flex-shrink: 0; font-size: .78rem; color: var(--ui-muted); line-height: 1.3; }
+  .ui-row .where b { display: block; color: #334155; font-weight: 600; }
+</style>
+
+{% include "panel/_narx_tabs.html" %}
+
+{# ---------- умумий ҳолат: кўрсаткичлар ва амаллар ---------- #}
+<section class="nx-summary">
+  <div class="nx-sum-head">
+    <h2>Умумий ҳолат</h2>
+    {% if can_act %}
+    <div class="flex flex-wrap items-center gap-2">
+      <button type="button" data-modal="narx-add" class="ui-btn">{% icon "plus" "h-4 w-4" %} Қўлда қўшиш</button>
+      <button type="button" data-modal="narx-upload" class="ui-btn-o nx-btn">{% icon "upload" "h-4 w-4" %} Файлдан қўшиш</button>
+      <a href="{% url 'panel:narx_collect' %}" class="ui-btn-o nx-btn">{% icon "check-circle" "h-4 w-4" %} Сметалардан йиғиш{% if n_pending %} <span class="num rounded-full bg-sky-600 px-1.5 text-[11px] font-semibold text-white">{{ n_pending }}</span>{% endif %}</a>
+    </div>
+    {% endif %}
+  </div>
+  <div class="nx-kpis">
+    <div class="nx-kpi">
+      <span class="nx-ki" style="background:#eff6ff;color:#2563eb">{% icon "database" "h-5 w-5" %}</span>
+      <div class="min-w-0"><div class="l">Жами ресурс</div><div class="v">{{ counts.items|som }}</div>
+        <div class="s">номи + бирлиги бўйича ҳар хил</div></div>
+    </div>
+    <div class="nx-kpi">
+      <span class="nx-ki" style="background:#f0fdf4;color:#16a34a">{% icon "tag" "h-5 w-5" %}</span>
+      <div class="min-w-0"><div class="l">Жами нарх</div><div class="v">{{ counts.prices|som }}</div>
+        <div class="s">{{ counts.batches }} та тўпламдан киритилган</div></div>
+    </div>
+    <div class="nx-kpi" title="Охирги {{ cover.jobs }} та нархланган сметанинг ресурс қаторлари: номи + бирлиги базада борми (вилоят ва йилдан қатъи назар). Сметанинг ўз папкасидан киритилган нархлар ҳисобланмайди.">
+      <span class="nx-ki" style="background:#ecfeff;color:#0e7490">{% icon "chart" "h-5 w-5" %}</span>
+      <div class="min-w-0 flex-1"><div class="l">Тахминан нархлай олади</div>
+        <div class="v">{{ cover.pct }}%</div>
+        <div class="nx-bar"><i style="width: {{ cover.pct }}%"></i></div>
+        <div class="s">охирги {{ cover.jobs }} смета · {{ cover.rows|som }} қатор</div></div>
+    </div>
+    <div class="nx-kpi warn" title="Четда — бошқалардан 3 баробар фарқ қилади; истисно — админ олиб ташлаган. Иккаласи ҳам паст/ўрта/юқорига кирмайди">
+      <span class="nx-ki" style="background:#fef3c7;color:#b45309">{% icon "alert" "h-5 w-5" %}</span>
+      <div class="min-w-0"><div class="l">Ҳисобга кирмаган нарх</div><div class="v">{{ counts.outliers|add:counts.excluded }}</div>
+        <div class="s">{{ counts.outliers }} четда · {{ counts.excluded }} истисно</div></div>
+    </div>
+  </div>
+</section>
+
+{# ---------- тоифалар: ресурслар, нархлар, нархлай олиш ---------- #}
+<nav class="nx-cats" aria-label="Тоифа">
+  <a href="{{ url_all }}" class="nx-cat {% if not f.cat %}on{% endif %}">
+    <span class="top"><span class="ic ic-all">{% icon "database" "h-4 w-4" %}</span><span class="t">Ҳаммаси</span></span>
+    <span class="n">{{ all_n|som }}</span>
+    <span class="m">{{ counts.prices|som }} нарх · {{ cover.pct }}%</span>
+    <span class="nx-bar"><i style="width: {{ cover.pct }}%"></i></span>
+  </a>
+  {% for c in cat_cards %}
+  <a href="{{ c.url }}" class="nx-cat {% if f.cat == c.k %}on{% endif %}" title="{{ c.full }}{% if c.cover is not None %} — база шу тоифадаги қаторларнинг {{ c.cover }}% ини нархлай олади{% endif %}">
+    <span class="top"><span class="ic ic-{{ c.k }}">{{ c.k }}</span><span class="t">{{ c.label }}</span></span>
+    <span class="n">{{ c.n|som }}</span>
+    <span class="m">{{ c.prices|som }} нарх{% if c.cover is not None %} · {{ c.cover }}%{% endif %}</span>
+    <span class="nx-bar">{% if c.cover is not None %}<i style="width: {{ c.cover }}%"></i>{% endif %}</span>
+  </a>
+  {% endfor %}
+</nav>
+
+<div class="ui-layout">
+  {# ---------- чап фильтр ---------- #}
+  <aside class="ui-side" aria-label="Фильтр">
+    <section>
+      <h3>Вилоятлар <small>{{ region_opts|length }} та</small></h3>
+      <a href="{{ region_any }}" class="ui-opt {% if not f.region %}on{% endif %}"><span class="box"></span><span class="lbl">Ҳаммаси</span><span class="ui-pill">{{ counts.items }}</span></a>
+      {% for k, label, n, url in region_opts %}
+      <a href="{{ url }}" class="ui-opt {% if f.region == k %}on{% endif %}"><span class="box"></span><span class="lbl">{{ label }}</span><span class="ui-pill">{{ n }}</span></a>
+      {% empty %}<p class="py-2 text-xs text-slate-400">Ҳали нарх йўқ.</p>{% endfor %}
+    </section>
+    {% if year_opts %}
+    <section>
+      <h3>Йил <small>нархлашда шу ишлатилади</small></h3>
+      {% for y, n, url in year_opts %}
+      <a href="{{ url }}" class="ui-opt sq {% if f.year == y %}on{% endif %}"><span class="box"></span><span class="lbl num">{{ y }}</span><span class="ui-pill">{{ n }}</span></a>
+      {% endfor %}
+    </section>
+    {% endif %}
+    <section>
+      <h3>Белгилар</h3>
+      {% for k, label, url in flag_opts %}
+      <a href="{{ url }}" class="ui-opt sq {% if f.flag == k %}on{% endif %}"><span class="box"></span><span class="lbl">{{ label }}</span></a>
+      {% endfor %}
+    </section>
+  </aside>
+
+  {# ---------- асосий қисм ---------- #}
+  <div class="min-w-0">
+    <form method="get" class="ui-toolbar">
+      {% if f.cat %}<input type="hidden" name="cat" value="{{ f.cat }}">{% endif %}
+      {% if f.region %}<input type="hidden" name="region" value="{{ f.region }}">{% endif %}
+      {% if f.year %}<input type="hidden" name="year" value="{{ f.year }}">{% endif %}
+      {% if f.flag %}<input type="hidden" name="flag" value="{{ f.flag }}">{% endif %}
+      <label class="ui-search">{% icon "search" "h-4 w-4 text-slate-400" %}
+        <input type="search" name="q" value="{{ f.q }}" placeholder="Ресурс номи бўйича қидириш (бир неча сўз — ҳаммаси бўлсин)…" autocomplete="off"></label>
+      <select name="sort" class="ui-select" aria-label="Саралаш" onchange="this.form.submit()">
+        {% for k, label in sorts %}<option value="{{ k }}" {% if f.sort == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <select name="per" class="ui-select" aria-label="Саҳифада" onchange="this.form.submit()">
+        {% for n in per_page %}<option value="{{ n }}" {% if f.per == n %}selected{% endif %}>{{ n }} та</option>{% endfor %}
+      </select>
+      <button class="ui-btn">Излаш</button>
+      {% if f.q or f.cat or f.sort or f.region or f.year or f.flag %}<a href="{{ clear_url }}" class="text-sm text-slate-500 hover:underline">тозалаш</a>{% endif %}
+    </form>
+
+    <div class="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-sm">
+      <span class="font-semibold text-slate-900">{% if f.region %}{{ region_labels|get_item:f.region }}{% else %}Ҳамма вилоят{% endif %}{% if f.year %}, {{ f.year }}{% endif %}</span>
+      {% if f.q %}<span class="text-slate-400">·</span><span class="text-slate-600">«{{ f.q }}»</span>{% endif %}
+      <span class="ml-auto text-xs text-slate-500">{% if page.paginator.count %}{{ page.start_index }}–{{ page.end_index }} / {{ page.paginator.count }} ресурс{% else %}0 ресурс{% endif %}</span>
+    </div>
+    {% if not f.region and page.object_list %}
+    <div class="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">Вилоят танланмаган — ҳар ресурсда <b>энг охирги йилнинг, нархи энг кўп вилояти</b> кўрсатилган (қатордаги «қаердан»). Аниқ вилоят нархини кўриш учун чапдан танланг.</div>
+    {% endif %}
+
+    {% if page.object_list %}
+      {% if f.sort %}
+        <details class="ui-group" open>
+          <summary><span class="gt">Натижалар<small>{{ sort_label }}</small></span><span class="ui-count">{{ page.paginator.count }} та</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
+          {% for i in page %}{% include "panel/_narx_row.html" %}{% endfor %}
+        </details>
+      {% else %}
+        {% regroup rows by category as groups %}
+        {% for g in groups %}
+        <details class="ui-group" open>
+          <summary>
+            <span class="ic ic-{{ g.grouper }} grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-bold">{{ g.grouper }}</span>
+            <span class="gt">{{ g.list.0.get_category_display }}</span>
+            <span class="ui-count">{% for c in cat_cards %}{% if c.k == g.grouper %}{{ c.n }}{% endif %}{% endfor %} та</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}
+          </summary>
+          {% for i in g.list %}{% include "panel/_narx_row.html" %}{% endfor %}
+        </details>
+        {% endfor %}
+      {% endif %}
+    {% else %}
+      <div class="ui-empty">{% if f.q or f.cat or f.region or f.year or f.flag %}Бундай ресурс топилмади.{% else %}База ҳали бўш. Юқоридан қўлда ёки файлдан қўшинг, ёки <a href="{% url 'panel:narx_collect' %}" class="font-medium text-blue-600 hover:underline">сметалардан тасдиқлаб йиғинг</a>.{% endif %}</div>
+    {% endif %}
+
+    {% if page.has_other_pages %}
+    <nav class="ui-pager" aria-label="Саҳифалар">
+      <span class="text-xs text-slate-500">{{ page.number }} / {{ page.paginator.num_pages }} саҳифа</span>
+      <span class="ml-auto flex flex-wrap items-center gap-1">
+        {% for p in pages %}{% if p.n %}{% if p.n == page.number %}<span class="cur">{{ p.n }}</span>{% else %}<a href="{{ p.url }}">{{ p.n }}</a>{% endif %}{% else %}<span class="px-1 text-slate-400">…</span>{% endif %}{% endfor %}
+      </span>
+    </nav>
+    {% endif %}
+  </div>
+</div>
+
+{% include "panel/_narx_modals.html" with default_region=f.region %}
+{% endblock %}

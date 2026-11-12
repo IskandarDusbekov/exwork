@@ -87,11 +87,7 @@ def base_overview(request):
 @require_POST
 @superuser_required
 def base_toggle(request):
-    cfg = BaseConfig.get()
-    cfg.enabled = request.POST.get("enabled") == "1"
-    cfg.updated_by = request.user
-    cfg.save()
-    audit(request, Event.Kind.ADMIN_BASE, detail="базадан нархлаш " + ("ёқилди" if cfg.enabled else "ўчирилди"))
+    """Эски база нархлашда ишлатилмайди — ёқиш / ўчириш йўқ (эски ҳаволалар учун қолган)."""
     return redirect("panel:base")
 
 

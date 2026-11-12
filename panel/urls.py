@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_access, views_base, views_base_usage, views_lm, views_mail, views_seo, views_settings, views_support, views_tender, views_tn
+from . import views, views_access, views_base, views_base_usage, views_lm, views_mail, views_narx, views_seo, views_settings, views_support, views_tender, views_tn
 
 app_name = "panel"
 
@@ -73,6 +73,22 @@ urlpatterns = [
     path("base/sources/<int:pk>/", views_base.base_source_detail, name="base_source_detail"),
     path("base/sources/<int:pk>/<str:action>/", views_base.base_source, name="base_source"),
     path("base/add/<str:kind>/<uuid:work_id>/", views_base.base_add, name="base_add"),
+    path("narx/", views_narx.narx_list, name="narx"),
+    path("narx/i/<int:pk>/", views_narx.narx_item, name="narx_item"),
+    path("narx/i/<int:pk>/edit/", views_narx.narx_item_edit, name="narx_item_edit"),
+    path("narx/i/<int:pk>/delete/", views_narx.narx_item_delete, name="narx_item_delete"),
+    path("narx/p/<int:pk>/<str:action>/", views_narx.narx_price, name="narx_price"),
+    path("narx/add/", views_narx.narx_add, name="narx_add"),
+    path("narx/upload/", views_narx.narx_upload, name="narx_upload"),
+    path("narx/upload/<str:token>/", views_narx.narx_upload_review, name="narx_upload_review"),
+    path("narx/batches/<int:pk>/file/", views_narx.narx_batch_file, name="narx_batch_file"),
+    path("narx/collect/", views_narx.narx_collect, name="narx_collect"),
+    path("narx/collect/<str:kind>/<uuid:work_id>/", views_narx.narx_review, name="narx_review"),
+    path("narx/batches/", views_narx.narx_batches, name="narx_batches"),
+    path("narx/batches/<int:pk>/", views_narx.narx_batch, name="narx_batch"),
+    path("narx/batches/<int:pk>/delete/", views_narx.narx_batch_delete, name="narx_batch_delete"),
+    path("narx/how/", views_narx.narx_how, name="narx_how"),
+    path("narx/config/", views_narx.narx_config, name="narx_config"),
     path("tender/", views_tender.tender_page, name="tender"),
     path("tender/save/", views_tender.tender_save, name="tender_save"),
     path("tender/factor/", views_tender.tender_factor, name="tender_factor_add"),

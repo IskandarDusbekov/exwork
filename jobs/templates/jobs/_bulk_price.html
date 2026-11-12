@@ -670,8 +670,11 @@
     applyBtn.classList.add("hidden");
     list.innerHTML = "";
     var w = el("div", "mx-auto max-w-xl px-6 py-10 text-center");
-    w.innerHTML = '<span class="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-100 text-emerald-700"><svg viewBox="0 0 24 24" class="h-8 w-8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>';
-    var title = el("div", "mt-4 text-xl font-semibold text-slate-900", "Тайёр! " + d.rows + " та қаторга нарх қўйилди (" + d.files + " та смета).");
+    // «Тайёр!» фақат қайта ҳисоб тугагач — ундан олдин айланиб турган белги ва «ҳисобланяпти»
+    var ic = el("span", "mx-auto grid h-14 w-14 place-items-center rounded-full");
+    w.appendChild(ic);
+    var title = el("div", "mt-4 text-xl font-semibold text-slate-900");
+    title.dataset.text = d.rows + " та қаторга нарх қўйилди (" + d.files + " та смета)";
     w.appendChild(title);
     if (d.skipped) w.appendChild(el("div", "mt-2 text-base text-amber-800", d.skipped + " та қаторга олдинроқ нарх қўйилган экан — улар ўзгармади."));
     var st = el("div", "mt-3 rounded-lg bg-slate-100 px-4 py-3 text-base text-slate-700", "Сметалар қайта ҳисобланяпти, бир оз кутинг…");
@@ -681,7 +684,7 @@
     more.type = "button"; more.disabled = true;
     more.addEventListener("click", function () { load(); });
     var closeBtn = el("button", "inline-flex items-center gap-2 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700", "Саҳифани янгилаш");
-    closeBtn.type = "button";
+    closeBtn.type = "button"; closeBtn.disabled = true; closeBtn.style.opacity = ".45";
     closeBtn.addEventListener("click", function () { location.reload(); });
     row.append(more, closeBtn);
     w.appendChild(row);
@@ -694,27 +697,43 @@
         post(applied, true).then(function (u) {
           applied = [];
           undo.remove();
-          title.textContent = "Қайтариб олинди: " + u.rows + " та қатордан нарх олиб ташланди.";
-          watch(st, more);
+          title.dataset.text = "Қайтариб олинди: " + u.rows + " та қатордан нарх олиб ташланди";
+          title.dataset.undo = "1";
+          watch(st, more, title, ic, closeBtn);
         }, function (err) { undo.disabled = false; narxDialog.alert(String(err.message || err), {title: "Қайтариб бўлмади", danger: true}); });
       });
     });
     w.appendChild(undo);
     list.appendChild(w);
-    watch(st, more);
+    watch(st, more, title, ic, closeBtn);
   }
 
-  function watch(st, more) {  // қайта ҳисоб тугагунча кутади
+  var SPIN = '<svg viewBox="0 0 24 24" class="h-8 w-8 animate-spin" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>';
+  var TICK = '<svg viewBox="0 0 24 24" class="h-8 w-8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+  function watch(st, more, title, ic, closeBtn) {  // қайта ҳисоб тугагунча кутади: тугамагунча «Тайёр» дейилмайди
     clearTimeout(timer);
+    var busy = function (on) {
+      ic.className = "mx-auto grid h-14 w-14 place-items-center rounded-full " + (on ? "bg-sky-100 text-sky-600" : "bg-emerald-100 text-emerald-700");
+      ic.innerHTML = on ? SPIN : TICK;
+      title.textContent = on ? title.dataset.text + " — сметалар қайта ҳисобланяпти…" : (title.dataset.undo ? "" : "Тайёр! ") + title.dataset.text + ".";
+      more.disabled = on; closeBtn.disabled = on; closeBtn.style.opacity = on ? ".45" : "";
+    };
+    busy(true);
+    var seen = false, t0 = Date.now();
     st.className = "mt-3 rounded-lg bg-slate-100 px-4 py-3 text-base text-slate-700";
     (function tick() {
       fetch(box.dataset.url + "?pending=1", {credentials: "same-origin", cache: "no-store"}).then(function (r) { return r.json(); }).then(function (d) {
         if (!box.isConnected) return;
-        if (d.pending) { st.textContent = "Сметалар қайта ҳисобланяпти, бир оз кутинг… (яна " + d.pending + " та смета)"; timer = setTimeout(tick, 2000); }
+        if (d.pending) seen = true;
+        // навбатга энди қўйилган бўлиши мумкин — биринчи сўровдаги 0 га ишонмаймиз (камида 3 сония кутилади)
+        if (d.pending || (!seen && Date.now() - t0 < 3000)) {
+          st.textContent = "Сметалар қайта ҳисобланяпти, бир оз кутинг…" + (d.pending ? " (яна " + d.pending + " та смета)" : "");
+          timer = setTimeout(tick, d.pending ? 2000 : 800);
+        }
         else {
+          busy(false);
           st.textContent = "Ҳисоб тугади — нарх қўйилган сметалар энди «тайёр». Қолганларига нарх қўйиш учун «Жадвалга қайтиш», суммаларни кўриш учун «Саҳифани янгилаш».";
           st.className = "mt-3 rounded-lg bg-emerald-50 px-4 py-3 text-base text-emerald-800";
-          more.disabled = false;
         }
       }).catch(function () { timer = setTimeout(tick, 4000); });
     })();

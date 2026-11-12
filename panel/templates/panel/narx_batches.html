@@ -1,0 +1,34 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Киритилганлар — Нарх базаси{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+{% include "panel/_narx_tabs.html" %}
+<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3 text-sm">
+    <h2 class="mr-auto font-semibold">Киритилган тўпламлар</h2>
+    <a href="?" class="rounded-full border px-3 py-0.5 {% if not k %}border-slate-900 bg-slate-900 text-white{% else %}border-slate-300 hover:bg-slate-50{% endif %}">ҳаммаси</a>
+    <a href="?k=work" class="rounded-full border px-3 py-0.5 {% if k == 'work' %}border-slate-900 bg-slate-900 text-white{% else %}border-slate-300 hover:bg-slate-50{% endif %}">сметалардан</a>
+    <a href="?k=manual" class="rounded-full border px-3 py-0.5 {% if k == 'manual' %}border-slate-900 bg-slate-900 text-white{% else %}border-slate-300 hover:bg-slate-50{% endif %}">қўлда</a>
+  </div>
+  {% if page.object_list %}
+  <div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-4 py-2 font-medium">Нима</th><th class="px-3 py-2 font-medium">Вилоят</th><th class="px-3 py-2 font-medium">Сана</th><th class="px-3 py-2 text-right font-medium">Нархлар</th><th class="px-3 py-2 font-medium">Ким</th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for b in page %}
+      <tr class="hover:bg-slate-50">
+        <td class="max-w-md px-4 py-2.5"><a href="{% url 'panel:narx_batch' b.pk %}" class="break-words font-medium text-slate-900 hover:underline">{{ b.title }}</a>
+          <div class="text-xs text-slate-500">{{ b.get_kind_display }}{% if b.note %} · {{ b.note }}{% endif %}</div></td>
+        <td class="px-3 py-2.5 text-xs">{{ b.get_region_display }}</td>
+        <td class="num whitespace-nowrap px-3 py-2.5 text-xs">{{ b.date|date:"d.m.Y" }}</td>
+        <td class="num px-3 py-2.5 text-right">{{ b.n }}</td>
+        <td class="px-3 py-2.5 text-xs text-slate-600">{% if b.kind != "manual" %}{{ b.owner.get_full_name|default:"—" }} → {% endif %}{{ b.added_by.get_full_name|default:"—" }}
+          <div class="text-slate-400">{{ b.created|date:"d.m.Y H:i" }}</div></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {% include "panel/_pager.html" with page=page %}
+  {% else %}<div class="px-4 py-10 text-center text-sm text-slate-500">Ҳали ҳеч нарса киритилмаган.</div>{% endif %}
+</section>
+{% endblock %}

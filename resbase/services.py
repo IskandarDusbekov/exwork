@@ -750,24 +750,35 @@ def period_complete(period) -> bool:
     return bool(period and period.get("region") and period.get("year"))  # чорак ишлатилмайди
 
 
+def new_base_on() -> bool:
+    """Нархлашда доим янги «Нарх базаси» (narxbaza) ишлайди — эски база нархлашга аралашмайди."""
+    return True
+
+
+def base_on() -> bool:
+    """Базадан нархлаш ёқилганми — фақат янги «Нарх базаси» (панелда ёқилади / ўчирилади)."""
+    from narxbaza.services import enabled
+    return enabled()
+
+
 def period_label(period) -> str:
     from .regions import REGION_LABELS
     if not period_complete(period):
         return ""
-    return f"{REGION_LABELS.get(period['region'], period['region'])} · {period['year']}"
+    label = f"{REGION_LABELS.get(period['region'], period['region'])} · {period['year']}"
+    if new_base_on():
+        from narxbaza.models import LEVEL_LABELS
+        from narxbaza.services import level_of
+        label += f" · {LEVEL_LABELS[level_of(period)].split()[0].lower()}"
+    return label
 
 
 def price_map(period) -> dict:
     """Narxlash uchun (``core.pipeline.Options.base_prices``): {kod: {price, n, unit_key, unit, category}} — faqat
-    tanlangan viloyat va davr medianasi. Baza o'chirilgan yoki davr to'liq emas — {}."""
-    from .models import BaseConfig
-    if not period_complete(period) or not BaseConfig.get().enabled:
-        return {}
-    table = price_table(period["region"], int(period["year"]))
-    meta = {c: (k, u, cat) for c, k, u, cat in
-            Resource.objects.filter(code__in=table).values_list("code", "unit_key", "unit", "category")}
-    return {code: {"price": float(price), "n": n, "unit_key": meta[code][0], "unit": meta[code][1],
-                   "category": meta[code][2]} for code, (price, n) in table.items() if code in meta}
+    tanlangan viloyat va davr medianasi. Baza o'chirilgan yoki davr to'liq emas — {}.
+    Yangi «Нарх базаси» ulangan bo'lsa — undan: {номи|бирлиги: …}, smetachi tanlagan past / o'rta / yuqori narx."""
+    from narxbaza.services import price_map as new_map
+    return new_map(period) if period_complete(period) and base_on() else {}
 
 
 def parse_period(data) -> dict:
@@ -781,8 +792,11 @@ def parse_period(data) -> dict:
         year = quarter = None
     if year and not 2000 <= year <= 2100:
         year = None
-    return {"region": region if region in REGION_LABELS else "", "year": year,
-            "quarter": None}  # чорак ишлатилмайди — давр вилоят ва йил
+    out = {"region": region if region in REGION_LABELS else "", "year": year,
+           "quarter": None}  # чорак ишлатилмайди — давр вилоят ва йил
+    if data.get("level") in ("low", "mid", "high"):  # янги база: смета­чи танлаган нарх (паст / ўрта / юқори)
+        out["level"] = data["level"]
+    return out
 
 
 # ===================== текширув навбати =====================

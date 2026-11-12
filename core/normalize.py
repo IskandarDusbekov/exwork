@@ -80,3 +80,9 @@ def norm_code(raw) -> str:
 def unit_key(unit) -> str:
     """Birlikni solishtirish kaliti: «ЧЕЛ.-Ч» = «ЧЕЛ-ЧАС» = «челч»."""
     return re.sub(r"час$", "ч", norm_unit(unit))
+
+
+def name_unit_key(name, unit) -> str:
+    """Нарх базаси (narxbaza) калити: номи + бирлиги — катта-кичик ҳарф, бўшлиқ, лотин/кирилл ўхшаш ҳарфлар ва
+    «ЧЕЛ.-Ч» / «ЧЕЛ-ЧАС» фарқ қилмайди. Ҳар доим «|» бор — миллий код билан адашмайди."""
+    return f"{fold_name(norm_name(name))}|{unit_key(unit)}"[:560]

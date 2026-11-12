@@ -58,9 +58,14 @@ def _natural(path: str):
     return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", path)]
 
 
-def priced_jobs(project: Project) -> List[Job]:
-    """Папканинг нархланган сметалари — папкалар тартибида (рақамлари бўйича), папка ичида — жуфтлик тартибида."""
-    jobs = list(Job.objects.filter(batch__project=project, status=Job.Status.DONE).exclude(output_path="")
+def _of(work) -> dict:
+    """Ишнинг сметалари: папка — ҳамма ички қисмлари, объект (алоҳида юкланган файллар) — ўзиники."""
+    return {"batch__project": work} if isinstance(work, Project) else {"batch": work}
+
+
+def priced_jobs(work) -> List[Job]:
+    """Папка (ёки объект) нинг нархланган сметалари — папкалар тартибида (рақамлари бўйича), папка ичида — жуфтлик тартибида."""
+    jobs = list(Job.objects.filter(status=Job.Status.DONE, **_of(work)).exclude(output_path="")
                 .select_related("batch"))
     return sorted(jobs, key=lambda j: (_natural(j.batch.folder or ""), j.batch_order, j.created))
 
@@ -197,7 +202,7 @@ def flatten(nodes: List[dict]) -> List[dict]:
     return out
 
 
-def sync_parts(project: Project, saved: Optional[List[dict]]) -> List[dict]:
+def sync_parts(project, saved: Optional[List[dict]]) -> List[dict]:
     """Сақланган тартиб (сметачи қандай сурган бўлса — шундай) + янги нархланганлар (ўз папкасидаги охирги
     сметадан кейин); ўчирилган ёки нархи йўқолганлари олиб ташланади. Биринчи марта — папкалар бўйича."""
     jobs = {str(j.pk): j for j in priced_jobs(project)}
@@ -231,11 +236,12 @@ def sync_parts(project: Project, saved: Optional[List[dict]]) -> List[dict]:
     return out
 
 
-def for_project(project: Project, save: bool = True) -> ProjectOfyorta:
-    """Папканинг офёртаси (биринчи очилганда — стандарт тартиб ва сарлавҳалар билан)."""
-    doc = ProjectOfyorta.objects.filter(project=project).first()
+def for_project(project, save: bool = True) -> ProjectOfyorta:
+    """Папка ёки объектнинг офёртаси (биринчи очилганда — стандарт тартиб ва сарлавҳалар билан)."""
+    field = "project" if isinstance(project, Project) else "batch"
+    doc = ProjectOfyorta.objects.filter(**{field: project}).first()
     if doc is None:
-        doc = ProjectOfyorta(project=project, owner=project.owner, name=project.name[:300])
+        doc = ProjectOfyorta(owner=project.owner, name=project.name[:300], **{field: project})
     parts = sync_parts(project, doc.parts)
     if parts != doc.parts:
         doc.parts = parts
@@ -344,7 +350,8 @@ class _Writer:
     # --- ўзимиз ёзадиган қаторлар ---
     def band(self, text: Optional[str], fill=YELLOW, size=12, height=24, cols=None):
         cols = cols or self.width
-        self._merge(self.r, 1, self.r, cols)  # аввал: ўрнидаги катаклар кейин ранг олади
+        # бирлаштирилмайди: ҳар катак ўзи бўялади (тепадаги катаклардек) — устунни пастга тортганда
+        # бирлашма бутун қаторни танлаб юбормайди
         for col in range(1, cols + 1):
             cell = self.ws.cell(self.r, col)
             cell.fill, cell.border = fill, BOX
@@ -457,12 +464,11 @@ def _pct_of(ws, addr: Optional[str]):
 
 
 def _grand(w: _Writer, blocks: List[dict]):
-    """Охирида: бўш сариқ қатор, «Умумий сводка» сарлавҳаси ва ҳамма сметалар сводкаларининг йиғиндиси (формула).
+    """Охирида: битта бўш оқ қатор ва ҳамма сметалар сводкаларининг йиғиндиси (формула) — сариқ ва сарлавҳасиз.
     Кўриниши — сметалар сводкасидек: қаторлар охирги смета сводкасидан нусха (шрифт, бирлашма, D даги фоиз);
     фоиз ҳамма сметада бир хил бўлса кўрсатилади, ҳар хил бўлса — бўш (ёлғон фоиз чиқмасин). H — йиғинди."""
     ws = w.ws
-    w.band(None, cols=BAND_COLS, height=12)
-    w.title(f"УМУМИЙ СВОДКА ({len(blocks)} та смета)", cols=BAND_COLS, size=13, height=26)
+    w.r += 1  # бўш оқ қатор — охирги смета сводкасидан ажратади
     last = blocks[-1]["cells"]
     rows = list(SVODKA_ROWS)
     extra = [c for b in blocks for k, c in b["cells"].items() if k.startswith("extra_")]
@@ -525,7 +531,7 @@ def write(doc: ProjectOfyorta, parts: List[dict], jobs: Dict[str, Job], step=Non
     ws.page_setup.orientation = "landscape"
     ws.page_setup.fitToWidth, ws.page_setup.fitToHeight = 1, 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
-    out = doc.project.abs(FILE)
+    out = doc.work.abs(FILE)
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".tmp.xlsx")
     wb.save(tmp)
@@ -584,7 +590,7 @@ def make(doc: ProjectOfyorta, progress=None) -> ProjectOfyorta:
         if not parts:
             raise OfyortaError("Битта ҳам смета танланмаган")
         jobs = {str(j.pk): j for j in Job.objects.filter(
-            pk__in=[p["job"] for p in parts], batch__project=doc.project, status=Job.Status.DONE).exclude(output_path="")
+            pk__in=[p["job"] for p in parts], status=Job.Status.DONE, **_of(doc.work)).exclude(output_path="")
             .select_related("batch")}
         out = write(doc, parts, jobs, step)
         doc.file = FILE

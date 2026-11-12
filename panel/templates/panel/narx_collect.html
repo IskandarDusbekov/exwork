@@ -1,0 +1,29 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Тасдиқлаб йиғиш — Нарх базаси{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+{% include "panel/_narx_tabs.html" %}
+<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3">
+    <h2 class="font-semibold">Нархланган, ҳали киритилмаган ишлар <span class="num text-sm font-normal text-slate-500">{{ pending|length }} та</span></h2>
+    <p class="text-xs text-slate-500">Бирини очинг: ресурслари рўйхати чиқади, RES билан аниқ нархланганлари белгиланган. Кўриб чиқиб, вилоят ва санани қўйиб тасдиқлайсиз — шундагина базага тушади.</p>
+  </div>
+  {% if pending %}
+  <div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-4 py-2 font-medium">Иш</th><th class="px-3 py-2 font-medium">Тури</th><th class="px-3 py-2 font-medium">Смета­чи</th><th class="px-3 py-2 font-medium">Юкланган</th><th class="px-3 py-2"></th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for w in pending %}
+      <tr class="hover:bg-slate-50">
+        <td class="max-w-md px-4 py-2.5 font-medium text-slate-900"><span class="break-words">{{ w.title }}</span></td>
+        <td class="px-3 py-2.5 text-xs text-slate-600">{{ w.kind_label }}</td>
+        <td class="px-3 py-2.5 text-xs text-slate-600">{{ w.owner.get_full_name|default:"—" }}</td>
+        <td class="num whitespace-nowrap px-3 py-2.5 text-xs text-slate-500">{{ w.created|date:"d.m.Y" }}</td>
+        <td class="px-3 py-2.5 text-right"><a href="{% url 'panel:narx_review' w.kind w.pk %}" class="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700">Кўриб чиқиш {% icon "arrow-right" "h-3.5 w-3.5" %}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<div class="px-4 py-10 text-center text-sm text-slate-500">Ҳамма нархланган ишлар киритилган.</div>{% endif %}
+</section>
+{% endblock %}

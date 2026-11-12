@@ -23,6 +23,14 @@
   .xs tbody tr.xs-edge > th { background: #7c3aed; color: #fff; font-weight: 700; }
   .xv-picking .xs td, .xv-picking .xs th { cursor: crosshair; }
   .xv-picking .xs tbody tr:hover > th { background: #ddd6fe; }
+  /* ресурсни танлаш: ресурс номининг ёнида, яшил, ўртача; танлангач — «ёпиш» */
+  .xv-pick { display: inline-flex; flex-shrink: 0; align-items: center; gap: 6px; height: 34px; padding: 0 16px; border-radius: 10px; background: #16a34a; color: #fff;
+    font-size: 14px; font-weight: 700; box-shadow: 0 3px 10px rgba(22, 163, 74, .3); animation: xv-pulse 1.8s ease-in-out infinite; }
+  .xv-pick:hover { background: #15803d; }
+  .xv-pick.hidden { display: none; }
+  .xv-pick.is-chosen { background: #dcfce7; color: #166534; box-shadow: none; animation: none; }
+  .xv-pick.is-chosen:hover { background: #bbf7d0; }
+  @keyframes xv-pulse { 0%, 100% { box-shadow: 0 3px 10px rgba(22, 163, 74, .3), 0 0 0 0 rgba(34, 197, 94, .45); } 60% { box-shadow: 0 3px 10px rgba(22, 163, 74, .3), 0 0 0 7px rgba(34, 197, 94, 0); } }
   {% include "jobs/_xs_css.html" %}
 </style>
 <script>
@@ -74,12 +82,11 @@
     el.className = "flex min-h-0 min-w-0 flex-col bg-white";
     el.innerHTML =
       '<div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2 text-sm">' +
-        '<span class="xv-tag"></span><b class="xv-sheet min-w-0 truncate"></b><span class="xv-file min-w-0 truncate text-xs text-slate-500"></span><span class="xv-fact"></span>' +
+        '<span class="xv-tag"></span><b class="xv-sheet min-w-0 truncate"></b><button type="button" class="xv-pick hidden"></button><span class="xv-file min-w-0 truncate text-xs text-slate-500"></span><span class="xv-fact"></span>' +
         '<span class="ml-auto flex items-center gap-1">' +
           '<input type="search" class="xv-q w-44 rounded-md border border-slate-300 px-2 py-1 text-xs" placeholder="Листда излаш…">' +
           '<span class="xv-count w-14 text-center text-[11px] text-slate-500"></span>' +
           '<button type="button" class="xv-all rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100"></button>' +
-          '<button type="button" class="xv-pick hidden rounded-md px-2.5 py-1 text-xs font-semibold"></button>' +
         "</span></div>" +
       '<div class="xv-mark hidden flex-wrap items-center gap-1.5 border-b border-violet-100 bg-violet-50 px-3 py-1.5 text-xs"></div>' +
       '<div class="flex min-h-0 flex-1">' +
@@ -295,10 +302,10 @@
       var p = cfg.pick && cfg.pick.label(cur.k, s);
       pickBtn.classList.toggle("hidden", !p);
       if (p) {
-        pickBtn.textContent = p.text;
-        pickBtn.disabled = !!p.chosen;
-        pickBtn.className = "xv-pick rounded-md px-2.5 py-1 text-xs font-semibold " +
-          (p.chosen ? "bg-emerald-100 text-emerald-800" : "bg-sky-600 text-white hover:bg-sky-700");
+        pickBtn.textContent = p.chosen ? "✓ Танланган — ёпиш" : "✓ Шуни танлаш";
+        pickBtn.title = p.chosen ? "Локал шу листдаги нархлар билан ҳисобланади" : p.text;
+        pickBtn.classList.toggle("is-chosen", !!p.chosen);
+        pickBtn.dataset.chosen = p.chosen ? "1" : "";
       }
       drawTabs();
       picking = null;
@@ -322,7 +329,10 @@
       });
     }
     allBtn.addEventListener("click", function () { cur.n = ALL; load(); });
-    pickBtn.addEventListener("click", function () { cfg.pick.choose(cur.k); load(); });
+    pickBtn.addEventListener("click", function () {
+      if (pickBtn.dataset.chosen) { close(); return; }
+      cfg.pick.choose(cur.k); load();
+    });
     load();
     return el;
   }

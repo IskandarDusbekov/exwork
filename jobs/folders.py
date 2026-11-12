@@ -372,9 +372,11 @@ def queue_part(part: Batch, decisions: dict):
     start(project)
 
 
-def start_pricing(project: Project) -> int:
-    """«Ҳисоблашни бошлаш»: tayyor qismlar navbatga qo'yiladi va fonda narxlanadi. Nechta qism."""
-    n = project.parts.filter(stage=Batch.Stage.READY).update(stage=Batch.Stage.PRICING, message="")
+def start_pricing(project: Project, exclude=()) -> int:
+    """«Ҳисоблашни бошлаш»: tayyor qismlar navbatga qo'yiladi va fonda narxlanadi. Nechta qism.
+    ``exclude`` — hali tayyor deb hisoblanmaydigan qismlar («Қўлда»: listlari belgilanmagan)."""
+    n = project.parts.filter(stage=Batch.Stage.READY).exclude(id__in=list(exclude)).update(
+        stage=Batch.Stage.PRICING, message="")
     if n:
         project.status = Project.Status.PROCESSING
         project.save(update_fields=["status"])
@@ -382,11 +384,14 @@ def start_pricing(project: Project) -> int:
     return n
 
 
+PAUSED = "нархлаш тўхтатилди — «Давом эттириш» билан давом этади"
+
+
 def _finish_stop(project: Project):
     """To'xtatilgandan keyin: ochilmagan qismlar «Тўхтатилди», narxlash navbatidagilari yana «тайёр»."""
     project.parts.filter(stage__in=(Batch.Stage.QUEUED, Batch.Stage.CONVERTING)).update(
         stage=Batch.Stage.STOPPED, message="тўхтатилди — «Давом эттириш» билан қайта бошланади")
-    project.parts.filter(stage=Batch.Stage.PRICING).update(stage=Batch.Stage.READY, message="")
+    project.parts.filter(stage=Batch.Stage.PRICING).update(stage=Batch.Stage.READY, message=PAUSED)
     project.stop_requested = False
     project.save(update_fields=["stop_requested"])
     settle(project)
@@ -409,8 +414,10 @@ def stop_project(project: Project):
 
 
 def resume_project(project: Project) -> int:
-    """«Давом эттириш»: to'xtatilgan qismlar qayta navbatga."""
+    """«Давом эттириш»: to'xtatilgan qismlar qayta navbatga — ochilayotganlari ochiladi, narxlanayotganlari
+    (to'xtatilganda yana «тайёр» bo'lgan) narxlanadi."""
     n = project.parts.filter(stage=Batch.Stage.STOPPED).update(stage=Batch.Stage.QUEUED, message="")
+    n += project.parts.filter(stage=Batch.Stage.READY, message=PAUSED).update(stage=Batch.Stage.PRICING, message="")
     if n:
         project.status, project.stop_requested = Project.Status.PROCESSING, False
         project.save(update_fields=["status", "stop_requested"])
@@ -487,7 +494,8 @@ def ready_stage(part: Batch):
         return Batch.Stage.REVIEW, ("RES листларида нарх йўқ («ЦЕНА» устуни ҳамма жойда 0) — нархланган RES "
                                     "файлни қўшинг ёки бошқа RES танланг")
     if ready:
-        missing = len(part.pairs) - len(ready)
+        # смета­чи атайлаб олиб ташлаган локал (белгини олган) — «топилмади» эмас
+        missing = sum(1 for p in part.pairs if not pair_ready(p) and not (p.get("picked") and not p.get("include")))
         notes = []
         if missing:
             notes.append(f"{missing} та локал учун ресурс топилмади — қўлда танланг")
@@ -558,7 +566,7 @@ def price_part(part: Batch, decisions=None):
         jobs = confirm_batch(part, decisions or {})
         ready = [p for p in part.pairs if pair_ready(p)]
         failed = [j for j in jobs if j.status != j.Status.DONE]
-        missing = len(part.pairs) - len(ready)
+        missing = sum(1 for p in part.pairs if not pair_ready(p) and not (p.get("picked") and not p.get("include")))
         if failed:
             _set(part, Batch.Stage.FAILED, failed[0].error)
         elif not jobs:
@@ -660,7 +668,7 @@ def _planned(part: Batch):
     out = []
     for i, p in enumerate(part.pairs):
         loc, res = sheets.get(p["local"]), sheets.get(p.get("res"))
-        if not loc or (res and not p.get("include")):
+        if not loc or (res and not p.get("include")) or (p.get("picked") and not p.get("include")):
             continue
         out.append({"local": loc["file_name"], "local_sheet": loc["sheet"],
                     "title": readable(p.get("label") or loc.get("part") or file_title(loc["file_name"])),

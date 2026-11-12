@@ -1,0 +1,29 @@
+{% load narx %}{# папка саҳифасидаги қисм картасининг боши: n — тугун, p — қисм, b — Batch, st — ҳолат. Танловдан кейин шу қайта чизилади #}
+<span class="pp-ic">{% icon "folder" "h-6 w-6" "1.75" %}</span>
+<div class="pp-tt">
+  <b>{{ n.name|default:project.name }}</b>
+  {% if n.path and n.path != n.name %}<small>{{ n.path }}</small>{% endif %}
+  <div class="pp-sum">
+    {% if p.pairs|length > 3 %}<span class="pp-pair"><i class="t-loc">Л</i> {{ p.pairs|length }} та смета нархланди</span>
+    {% elif p.pairs %}{% for x in p.pairs %}<span class="pp-pair"><i class="t-loc">Л</i> {{ x.title }} <i class="pp-arr">→</i> <i class="t-res">Р</i> {{ x.job.res_sheet|default:"база" }}</span>{% endfor %}
+    {% elif p.planned|length > 3 %}
+      <span class="pp-pair"><i class="t-loc">Л</i> {{ p.planned|length }} локал <i class="pp-arr">→</i> <i class="t-res">Р</i> {{ p.n_res }} ресурс</span>
+      {% if p.n_miss %}<span class="pp-pair is-miss">{{ p.n_miss }} тасида ресурс танланмаган</span>{% endif %}
+    {% elif p.planned %}{% for x in p.planned %}<span class="pp-pair{% if not x.rk and not x.base %} is-miss{% endif %}"><i class="t-loc">Л</i> {{ x.title }} <i class="pp-arr">→</i> {% if x.rk %}<i class="t-res">Р</i> {{ x.res_sheet }}{% if not x.same_file %} · {{ x.res|file_title }}{% endif %} <i class="pp-ov">{% widthratio x.overlap 1 100 %}%</i>{% elif x.base %}база{% else %}<b>ресурс танланмаган</b>{% endif %}</span>{% endfor %}
+    {% else %}{% for f in b.files|slice:":4" %}<span class="pp-file">{{ f.name }}</span>{% endfor %}{% if b.files|length > 4 %}<span class="pp-file">+{{ b.files|length|add:"-4" }}</span>{% endif %}{% endif %}
+  </div>
+  {% if b.message and p.state != "done" %}<div class="pp-note">{{ b.message|truncatechars:160 }}</div>{% endif %}
+</div>
+<div class="pp-side">
+  {% if p.left %}<span class="pp-chip tone-amber" data-chip>{{ p.left }} та лист белгиланмаган</span>
+  {% else %}<span class="pp-chip tone-{{ st.1 }}" data-chip>{% if p.state == "warn" %}{{ p.not_priced }} та қатор нархланмади{% else %}{{ st.0 }}{% endif %}</span>{% endif %}
+  {% if p.jobs %}<b class="pp-total num" title="Всего с НДС">{{ p.total|som }}</b>{% endif %}
+  <div class="pp-acts">
+    {% if not p.jobs and p.state != "queued" and p.state != "converting" and p.state != "pricing" %}
+    <button type="button" class="pp-open{% if p.state == 'review' or p.state == 'failed' or p.left %} is-need{% endif %}">{% icon "chevron-down" "h-5 w-5" "2.5" %}<span>Очиш</span></button>
+    {% elif p.jobs|length == 1 %}<a href="{% url 'job' p.jobs.0.id %}" class="pp-btn is-main">{% icon "external" "h-4 w-4" %} Сметани очиш</a>
+    {% elif p.jobs %}<a href="{% url 'batch' b.id %}" class="pp-btn is-main">{% icon "external" "h-4 w-4" %} Очиш</a>{% endif %}
+    {% if p.jobs|length == 1 %}<a href="{% url 'job_download' p.jobs.0.id %}" class="pp-btn" title="Шу сметани юклаб олиш">{% icon "download" "h-4 w-4" %}</a>
+    {% elif p.jobs %}<a href="{% url 'batch_download' b.id %}" class="pp-btn" title="Шу қисмдаги {{ p.jobs|length }} та сметани юклаб олиш">{% icon "download" "h-4 w-4" %}</a>{% endif %}
+  </div>
+</div>

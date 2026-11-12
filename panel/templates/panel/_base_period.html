@@ -7,3 +7,8 @@
   <option value="">йил ?</option>
   {% for v in years %}<option value="{{ v }}" {% if y == v %}selected{% endif %}>{{ v }}</option>{% endfor %}
 </select>
+{% if levels %}{# янги нарх базаси: қайси нарх ишлатилади #}
+<select name="level" class="rounded-lg border border-violet-300 bg-violet-50 px-2 py-1 text-sm text-violet-900" aria-label="Қайси нарх" title="Базада ҳар ресурсда учта нарх бор: паст, ўрта ва юқори. Смета қайсиси билан нархлансин">
+  {% for k, label in levels %}<option value="{{ k }}" {% if level == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+</select>
+{% endif %}

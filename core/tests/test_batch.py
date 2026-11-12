@@ -133,3 +133,30 @@ def test_visible_copy_preferred_over_hidden_original(tmp_path):
     opts = next(p for p in pairs if p.local == "0:Лист5").options
     assert opts[0]["res"] == "0:202611410_БР" and opts[0]["same_file"]
     assert len(opts) == sum(1 for i in infos if i.role == RESOURCE and not i.duplicate_of)
+
+
+def test_res_without_qty_header_promoted_when_local_matches(tmp_path):
+    """ABC «vr_…» каби RES: нарх бор, миқдор сарлавҳаси бошқача — каталог эмас, локал ресурслари шу ерда."""
+    from core.batch import KIND_CATALOG, promote_catalogs
+    d = TESTS / "excel_calc/bolnitsa7_kr_blok2"
+    wb = load_workbook(d / "input_res.xlsx")
+    ws = wb["RES"]
+    hits = 0
+    for row in ws.iter_rows(max_row=40):
+        for c in row:
+            if isinstance(c.value, str) and any(w in c.value.lower() for w in ("колич", "кол-во", "кол.", "объем", "объём")):
+                c.value = "Потребность"
+                hits += 1
+    assert hits
+    wb.save(tmp_path / "vr.xlsx")
+    infos = _infos(d / "input_local.xlsx", tmp_path / "vr.xlsx")
+    res = next(i for i in infos if i.file == 1)
+    assert (res.role, res.kind) == (UNKNOWN, KIND_CATALOG) and res.names  # аввал — «нарх каталоги»
+    promote_catalogs(infos)
+    assert res.role == RESOURCE and res.kind == ""
+    pairs, _ = plan_pairs(infos)
+    assert [(p.local, p.res) for p in pairs] == [("0:LRV", "1:RES")]
+    # смета­чи қўлда «Ўтказиш» деса — тегилмайди
+    infos = _infos(d / "input_local.xlsx", tmp_path / "vr.xlsx")
+    promote_catalogs(infos, {"1:RES": UNKNOWN})
+    assert next(i for i in infos if i.file == 1).role == UNKNOWN

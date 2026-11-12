@@ -1,0 +1,85 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Тасдиқлаш: {{ title|truncatechars:50 }} — Нарх базаси{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+{% include "panel/_narx_tabs.html" %}
+{% if upload %}<a href="{% url 'panel:narx' %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-4 w-4" %} Ресурслар</a>
+{% else %}<a href="{% url 'panel:narx_collect' %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-4 w-4" %} Ишлар рўйхати</a>{% endif %}
+
+<form method="post" id="narx-review">{% csrf_token %}
+<input type="hidden" name="sig" value="{{ sig }}"><input type="hidden" name="pick" value="">
+<section class="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <div class="flex flex-wrap items-start gap-4">
+    <div class="min-w-0 flex-1">
+      <div class="text-xs font-medium uppercase tracking-wide text-slate-400">{% if upload %}Юкланган файл — кўриб чиқиб тасдиқланг{% else %}Смета­чи ресурслари — кўриб чиқиб тасдиқланг{% endif %}</div>
+      <h2 class="break-words text-lg font-semibold">{% if upload %}{% icon "sheet" "inline h-5 w-5 text-emerald-600" %} {% endif %}{{ title }}</h2>
+      <p class="text-sm text-slate-600">{% if upload %}Юклади{% else %}Смета­чи{% endif %}: <b>{{ owner.get_full_name|default:"—" }}</b> · {{ subtitle }} · {{ rows|length }} та нарх
+        (<span class="num">{{ n_sure }}</span> таси аниқ, <span class="num">{{ n_new }}</span> таси базада йўқ ресурс)</p>
+      <div class="mt-2 flex flex-wrap gap-1.5">{% for k, label, n in cat_split %}<span class="inline-flex items-center gap-1">{% include "panel/_narx_cat.html" with c=k label=label %}<span class="num text-xs text-slate-500">{{ n }}</span></span>{% endfor %}</div>
+      {% if already %}<p class="mt-1 text-sm text-amber-700">Бу иш {{ already.created|date:"d.m.Y" }} да киритилган — яна киритсангиз, нархлар иккинчи марта қўшилади.</p>{% endif %}
+    </div>
+    {% if can_act %}
+    <div class="flex flex-wrap items-end gap-2">
+      <label class="text-xs text-slate-500">Вилоят{% if hint %} <span class="text-slate-400" title="Шу сўздан топилди">(«{{ hint|truncatechars:24 }}»)</span>{% endif %}
+        <select name="region" required class="mt-0.5 block rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900"><option value=""></option>
+          {% for k, label in regions %}<option value="{{ k }}" {% if region == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label class="text-xs text-slate-500">Сана (нархлар шу кунники)
+        <input type="date" name="date" required value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" class="mt-0.5 block rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900"></label>
+      <label class="text-xs text-slate-500">Изоҳ<input name="note" maxlength="300" class="mt-0.5 block w-48 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900"></label>
+      <button class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Тасдиқлаш — <span data-n>{{ n_sure }}</span> та нарх</button>
+      {% if upload %}<button name="action" value="cancel" formnovalidate class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Бекор қилиш</button>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2.5 text-sm">
+    <span class="text-slate-500">Белгилаш:</span>
+    <button type="button" data-sel="all" class="rounded border border-slate-300 px-2 py-0.5 hover:bg-slate-50">ҳаммаси</button>
+    <button type="button" data-sel="sure" class="rounded border border-slate-300 px-2 py-0.5 hover:bg-slate-50">фақат аниқлари</button>
+    <button type="button" data-sel="none" class="rounded border border-slate-300 px-2 py-0.5 hover:bg-slate-50">ҳеч бири</button>
+    <input type="search" data-filter placeholder="рўйхатдан қидириш" class="ml-auto rounded-lg border border-slate-300 px-2 py-1 text-sm">
+  </div>
+  <div class="max-h-[70vh] overflow-auto"><table class="w-full text-sm">
+    <thead class="sticky top-0 bg-slate-50 text-left text-xs text-slate-500">
+      <tr><th class="w-8 px-3 py-2"></th><th class="px-2 py-2 font-medium">Номи</th><th class="px-2 py-2 font-medium">Бирлиги</th><th class="px-2 py-2 font-medium">Тоифа</th>
+        <th class="px-2 py-2 text-right font-medium">Нархи</th><th class="px-2 py-2 text-right font-medium">Сони</th><th class="px-2 py-2 font-medium">Қаердан</th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for r in rows %}
+      <tr class="align-top has-[:checked]:bg-emerald-50/40" data-row="{{ r.name|lower }}">
+        <td class="px-3 py-2"><input type="checkbox" value="{{ r.i }}" data-sure="{{ r.sure|yesno:'1,0' }}" {% if r.sure %}checked{% endif %} aria-label="{{ r.name }}"></td>
+        <td class="max-w-md px-2 py-2"><span class="break-words">{{ r.name }}</span>{% if not r.known %} <span class="rounded bg-sky-100 px-1 text-[10px] font-semibold text-sky-800">янги</span>{% endif %}</td>
+        <td class="whitespace-nowrap px-2 py-2 text-xs">{{ r.unit }}</td>
+        <td class="px-2 py-2">{% include "panel/_narx_cat.html" with c=r.category label=r.category_label %}</td>
+        <td class="num whitespace-nowrap px-2 py-2 text-right font-medium">{{ r.price|som }}</td>
+        <td class="num whitespace-nowrap px-2 py-2 text-right text-xs text-slate-500">{% if r.qty %}{{ r.qty|qty }}{% endif %}</td>
+        <td class="px-2 py-2 text-xs"><span class="{% if r.sure %}text-emerald-700{% else %}text-amber-700{% endif %}">{{ r.status_label }}</span>
+          <div class="text-slate-400" title="{% for p in r.places %}{{ p.file }}{% if not forloop.last %}; {% endif %}{% endfor %}">{{ r.places.0.file|truncatechars:40 }}{% if r.n > 1 %} · {{ r.n }} марта{% endif %}</div></td>
+      </tr>
+      {% empty %}<tr><td colspan="7" class="px-4 py-10 text-center text-slate-500">Нархланган ресурс топилмади.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+</form>
+<script>
+(function () {
+  const f = document.getElementById("narx-review"); if (!f) return;
+  const boxes = () => [...f.querySelectorAll("tbody input[type=checkbox]")];
+  const count = () => { const n = boxes().filter(b => b.checked).length; f.querySelectorAll("[data-n]").forEach(e => e.textContent = n); };
+  f.addEventListener("change", count);
+  f.querySelectorAll("[data-sel]").forEach(b => b.addEventListener("click", () => {
+    const m = b.dataset.sel;
+    boxes().forEach(x => { if (x.closest("tr").hidden) return; x.checked = m === "all" || (m === "sure" && x.dataset.sure === "1"); });
+    count();
+  }));
+  const q = f.querySelector("[data-filter]");
+  q && q.addEventListener("input", () => { const s = q.value.trim().toLowerCase();
+    f.querySelectorAll("tbody tr[data-row]").forEach(tr => tr.hidden = s && !tr.dataset.row.includes(s)); });
+  f.addEventListener("submit", () => { f.elements.pick.value = JSON.stringify(boxes().filter(b => b.checked).map(b => +b.value)); });
+})();
+</script>
+{% endblock %}

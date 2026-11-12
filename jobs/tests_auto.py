@@ -7,6 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
 
+from .services import nf_auto_of
 from .models import Batch, Job
 from .tests import LoggedInTestCase
 
@@ -26,6 +27,12 @@ class AutoModeTests(LoggedInTestCase):
         files = [SimpleUploadedFile(Path(p).name, Path(p).read_bytes()) for p in (OBJ_LOCAL, OBJ_RES)]
         self.client.post(reverse("index"), {"files": files})
         batch = Batch.objects.latest("created")
+        if not nf_auto_of(self.user):  # «Қўлда»: смета­чи ҳар бир листни ўзи белгилайди (тизим таклифини тасдиқлайди)
+            pick = reverse("batch_pick", args=[batch.id])
+            for s in batch.sheets:
+                if not s.get("duplicate_of"):
+                    self.client.post(pick, {"what": "role", "key": s["key"], "role": s["role"]})
+            batch.refresh_from_db()
         data = {}
         for n, p in enumerate(batch.pairs):
             if p["res"]:
@@ -40,14 +47,15 @@ class AutoModeTests(LoggedInTestCase):
                 and (r.get("near") or {}).get("price") is not None and str(r["row"]) not in (job.prices or {})]
 
     def test_percents_confirmed_on_upload_page(self):
-        page = self.client.get(reverse("index"), HTTP_REFERER="http://testserver/dashboard/")
-        self.assertContains(page, 'id="auto-pct"')
-        self.assertContains(page, "Сводка фоизлари")
         r = self.client.post(reverse("upload_percents"), {"pct_prochie": "17,5"})
         self.assertEqual(r.json(), {"ok": True})
         jobs = self._price_object()
         self.assertTrue(jobs)
         self.assertTrue(all(abs(j.percents["prochie"] - 0.175) < 1e-9 for j in jobs))
+        # фоизлар «Бошлаш» олдида (листлар билан бирга) кўрсатилади
+        picker = self.client.get(reverse("batch", args=[jobs[0].batch_id]) + "?partial=picker")
+        self.assertContains(picker, "Сводка фоизлари")
+        self.assertContains(picker, 'name="pct_prochie" value="17,5"')
         self.assertEqual(self.client.post(reverse("upload_percents"), {}).status_code, 400)
 
     def test_xhr_upload_answers_json(self):
@@ -55,7 +63,9 @@ class AutoModeTests(LoggedInTestCase):
         files = [SimpleUploadedFile(Path(p).name, Path(p).read_bytes()) for p in (OBJ_LOCAL, OBJ_RES)]
         r = self.client.post(reverse("index"), {"files": files}, headers={"X-Requested-With": "XMLHttpRequest"})
         batch = Batch.objects.latest("created")
-        self.assertEqual(r.json(), {"ok": True, "url": reverse("batch", args=[batch.id]), "timing": r.json()["timing"]})
+        self.assertEqual(r.json(), {"ok": True, "url": reverse("batch", args=[batch.id]), "timing": r.json()["timing"], "id": str(batch.id),
+                                    "picker": reverse("batch", args=[batch.id]) + "?partial=picker",
+                                    "delete": reverse("work_delete", args=["object", batch.id])})
         r = self.client.post(reverse("index"), {}, headers={"X-Requested-With": "XMLHttpRequest"})
         self.assertEqual((r.status_code, r.json()["ok"]), (400, False))
 
@@ -82,6 +92,11 @@ class AutoModeTests(LoggedInTestCase):
         jobs = self._price_object()
         auto_set = [(j, int(r)) for j in jobs for r, c in (j.categories or {}).items() if c in ("L", "M")]
         self.assertTrue(all(r in (j.lm_accepted or []) for j, r in auto_set))
+        # смета саҳифасида L/M картаси: «таклиф йўқ» эмас — нечтаси қабул қилингани кўринади
+        if auto_set:
+            page = self.client.get(reverse("job", args=[auto_set[0][0].id]))
+            self.assertContains(page, "тизим таклифи қабул қилинди")
+            self.assertContains(page, 'class="cat-chip lm-see"')
         self.assertFalse(LMVote.objects.filter(kind="user").exists())  # «Автоматик» ўз таклифига овоз бермайди
         # RES овозлари файл бўйича: битта RES файлдан келган ҳар ёзувда RES овози ≤ 1
         srcs = {j.id: j.res_path for j in jobs}
@@ -111,7 +126,16 @@ class AutoModeTests(LoggedInTestCase):
 
     def test_manual_does_nothing_by_itself(self):
         self.client.post(reverse("nf_mode"), {"nf_mode": "manual"})
-        self.assertContains(self.client.get(reverse("index"), HTTP_REFERER="http://testserver/dashboard/"), 'value="manual" checked')
+        self.assertFalse(nf_auto_of(self.user))
+        # листлар белгиланмагунча нархлаш бошланмайди
+        from core.tests.test_batch import OBJ_LOCAL, OBJ_RES
+        files = [SimpleUploadedFile(Path(p).name, Path(p).read_bytes()) for p in (OBJ_LOCAL, OBJ_RES)]
+        self.client.post(reverse("index"), {"files": files})
+        batch = Batch.objects.latest("created")
+        page = self.client.get(reverse("batch", args=[batch.id]) + "?partial=picker")
+        self.assertContains(page, "белгиланмаган")
+        self.client.post(reverse("batch_confirm", args=[batch.id]), {"include_0": "1"})
+        self.assertFalse(Job.objects.filter(batch=batch).exists())
         jobs = self._price_object()
         self.assertTrue(jobs)
         self.assertTrue(all(not j.table_checked and not j.prices and not j.categories for j in jobs))

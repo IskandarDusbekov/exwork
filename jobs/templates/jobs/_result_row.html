@@ -1,0 +1,15 @@
+{% load narx %}{# объект натижасидаги битта смета: j — Job, fix — тўғирлаш керак (нархланмаган қатор ёки хато) #}
+<div class="rs-row{% if fix %} is-fix{% endif %}" data-href="{% url 'job' j.id %}">
+  <span class="rs-ic">{% if fix %}{% icon "alert-circle" "h-5 w-5" %}{% else %}{% icon "check" "h-5 w-5" "3" %}{% endif %}</span>
+  <div class="rs-n">
+    <b>{{ j.batch_label|readable }}</b>
+    <small><span><i class="t-l">Л</i> {{ j.local_sheet }}</span><span><i class="t-r">Р</i> {{ j.res_name }}</span>
+      {% if j.status != "done" %}<span class="rs-bad">хато: {{ j.error|truncatechars:90 }}</span>
+      {% elif j.result.stats.NOT_PRICED %}<span class="rs-bad">{{ j.result.stats.NOT_PRICED }} та қатор нархланмади</span>{% endif %}</small>
+  </div>
+  <b class="rs-sum num">{% if j.status == "done" %}{{ j.result.totals.s_nds|som }}{% else %}—{% endif %}</b>
+  <div class="rs-btns">
+    <a href="{% url 'job' j.id %}" class="rs-open">{% if fix %}{% icon "pencil" "h-4 w-4" %} Тўғирлаш{% else %}{% icon "external" "h-4 w-4" %} Очиш{% endif %}</a>
+    {% if j.status == "done" %}<a href="{% url 'job_download' j.id %}" class="rs-get" title="Фақат шу сметани юклаб олиш">{% icon "download" "h-4 w-4" %}</a>{% endif %}
+  </div>
+</div>

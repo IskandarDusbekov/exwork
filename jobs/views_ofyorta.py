@@ -12,8 +12,21 @@ from panel.audit import log as audit
 from panel.models import Event
 
 from . import ofyorta
-from .models import Project, ProjectOfyorta
+from .models import Batch, Project, ProjectOfyorta
 from .views import _audit_download, _get_work, crumbs_for
+
+
+def _work(request, project_id=None, batch_id=None):
+    """Папка ёки алоҳида юкланган объект: (иш, URL олд қўшимчаси, қайтиш манзили, номи)."""
+    if project_id:
+        w = _get_work(request, Project, id=project_id)
+        return w, "project", reverse("project", args=[w.id]), "folder"
+    w = _get_work(request, Batch, id=batch_id)
+    return w, "batch", reverse("batch", args=[w.id]), "object"
+
+
+def _urls(kind, work):
+    return {k: reverse(f"{kind}_ofyorta{'_' + k if k != 'page' else ''}", args=[work.id]) for k in ("page", "save", "state", "file")}
 
 
 def _state(doc: ProjectOfyorta) -> dict:
@@ -27,15 +40,16 @@ def _state(doc: ProjectOfyorta) -> dict:
             "since": doc.updated.isoformat() if doc.updated else ""}
 
 
-def ofyorta_page(request, project_id):
-    project = _get_work(request, Project, id=project_id)
+def ofyorta_page(request, project_id=None, batch_id=None):
+    project, kind, back, _k = _work(request, project_id, batch_id)
     own = project.owner_id == request.user.pk
     doc = ofyorta.for_project(project, save=own)
     jobs = {str(j.pk): j for j in ofyorta.priced_jobs(project)}
     included = [p for p in doc.parts if p["include"]]
-    crumbs = crumbs_for(project=project) + [{"label": "Офёрта", "url": "", "icon": "sheet", "color": "text-amber-500"}]
+    crumbs = (crumbs_for(project=project) if kind == "project" else crumbs_for(batch=project)) + [{"label": "Офёрта", "url": "", "icon": "sheet", "color": "text-amber-500"}]
     return render(request, "jobs/ofyorta.html", {
-        "crumbs": crumbs, "project": project, "doc": doc, "nodes": ofyorta.tree(doc.parts, jobs), "own": own,
+        "crumbs": crumbs, "project": project, "doc": doc, "urls": _urls(kind, project), "back": back,
+        "is_folder": kind == "project", "nodes": ofyorta.tree(doc.parts, jobs), "own": own,
         "count": len(doc.parts), "count_in": len(included),
         "sum_in": sum(jobs[p["job"]].sum_total or 0 for p in included if p["job"] in jobs),
         "state": _state(doc), "has_file": doc.status == ProjectOfyorta.Status.READY and bool(doc.file),
@@ -63,10 +77,10 @@ def _parse(raw: str, allowed: set) -> list:
 
 
 @require_POST
-def ofyorta_save(request, project_id):
-    project = _get_work(request, Project, id=project_id)  # POST — фақат эгасига
+def ofyorta_save(request, project_id=None, batch_id=None):
+    project, kind, _b, _k = _work(request, project_id, batch_id)  # POST — фақат эгасига
     doc = ofyorta.for_project(project)
-    url = reverse("project_ofyorta", args=[project.id])
+    url = _urls(kind, project)["page"]
     if doc.status == ProjectOfyorta.Status.BUILDING:
         messages.info(request, "Офёрта ҳозир тузиляпти — тугагач, тартибни ўзгартиришингиз мумкин.")
         return redirect(url)
@@ -89,7 +103,7 @@ def ofyorta_save(request, project_id):
     doc.save()
     if build:
         from texnazor import tasks
-        audit(request, Event.Kind.TEXNAZOR, detail=f"Папка офёртаси тузилмоқда: {project.name} "
+        audit(request, Event.Kind.TEXNAZOR, detail=f"{'Папка' if kind == 'project' else 'Объект'} офёртаси тузилмоқда: {project.name} "
                                                     f"({doc.progress['total']} та смета)")
         tasks.start(doc.pk)
     else:
@@ -97,22 +111,22 @@ def ofyorta_save(request, project_id):
     return redirect(url)
 
 
-def ofyorta_state(request, project_id):
-    project = _get_work(request, Project, id=project_id)
-    doc = ProjectOfyorta.objects.filter(project=project).first()
+def ofyorta_state(request, project_id=None, batch_id=None):
+    project, kind, _b, _k = _work(request, project_id, batch_id)
+    doc = ProjectOfyorta.objects.filter(**{kind: project}).first()
     if doc is None:
         raise Http404("Офёрта йўқ")
     return JsonResponse(_state(doc))
 
 
-def ofyorta_file(request, project_id):
-    project = _get_work(request, Project, id=project_id)
-    doc = ProjectOfyorta.objects.filter(project=project).first()
+def ofyorta_file(request, project_id=None, batch_id=None):
+    project, kind, _b, audit_kind = _work(request, project_id, batch_id)
+    doc = ProjectOfyorta.objects.filter(**{kind: project}).first()
     if doc is None or doc.status != ProjectOfyorta.Status.READY or not doc.file:
         raise Http404("Офёрта ҳали тузилмаган")
     path = project.abs(doc.file)
     if not path.is_file():
         raise Http404("Офёрта файли топилмади — қайта тузинг")
     name = f"Офёрта — {doc.name}.xlsx".replace("/", "-").replace("\\", "-")
-    _audit_download(request, project, "folder", name)
+    _audit_download(request, project, audit_kind, name)
     return FileResponse(open(path, "rb"), as_attachment=True, filename=name)

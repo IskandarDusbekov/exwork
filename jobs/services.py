@@ -11,7 +11,7 @@ from openpyxl import load_workbook
 
 from core import convert
 from core.columns import LayoutError
-from core.batch import apply_roles, inspect_workbook, mark_duplicates, plan_pairs
+from core.batch import apply_roles, inspect_workbook, mark_duplicates, plan_pairs, promote_catalogs
 from core.detect import pair_sheets
 from core.normalize import norm_name
 from core.pipeline import MODES, Options, run
@@ -93,9 +93,10 @@ def base_period_of(owner) -> dict:
     """Смета­чининг ресурс базаси танлови (вилоят ва давр); танламаган бўлса — админ белгилагани.
     Базадан нархлаш ўчирилган бўлса — {} (смета базасиз нархланади)."""
     from resbase.models import BaseConfig
-    cfg = BaseConfig.get()
-    if not cfg.enabled:
+    from resbase.services import base_on
+    if not base_on():
         return {}
+    cfg = BaseConfig.get()
     s = Setting.objects.filter(owner_id=getattr(owner, "pk", owner), key="base_period").first()
     return dict(s.value) if s and isinstance(s.value, dict) and s.value else cfg.period
 
@@ -535,6 +536,7 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
                   timings: Optional[dict] = None) -> "Batch":
     """Listlar turini aniqlaydi (``roles`` / ``columns`` — smetachining qo'lda tuzatishlari: list turi
     va ustunlar), nusxalarni ajratadi va juftliklarni taklif qiladi."""
+    prev_pairs = list(batch.pairs or [])
     if roles is not None:
         batch.roles = roles
     if columns is not None:
@@ -555,15 +557,24 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
             if timings is not None:
                 timings[i] = time.monotonic() - t
     apply_roles(infos, batch.roles or {})
+    promote_catalogs(infos, batch.roles or {})
     mark_duplicates(infos)
     pairs, _unused = plan_pairs(infos)
     batch.sheets = [dict(i.to_dict(), prices=prices.get(i.key)) for i in infos]
     # «Фақат ресурс базаси» танланган бўлса — ҳамма локал базадан (топилган RES жуфтга қўйилмайди).
     # «Локал + RES» — фақат RES билан: RES топилмаган локал нархланмайди (база аралашмайди)
+    # смета­чи аввал қўлда танлаган жуфтликлар (қайси RES, нархлансинми, номи) қайта таҳлилда ҳам сақланади
+    keep = {p["local"]: p for p in (prev_pairs or []) if p.get("picked")}
+    res_keys = {i.key for i in infos if i.role == "resource" and not i.duplicate_of}
     if base_only(batch.owner_id):
         batch.pairs = [dict(p.to_dict(), res=None, include=True, base=True) for p in pairs]
     else:
         batch.pairs = [dict(p.to_dict(), include=p.res is not None, base=False) for p in pairs]
+    for p in batch.pairs:
+        old = keep.get(p["local"])
+        if old and (not old.get("res") or old["res"] in res_keys):
+            p.update(res=old.get("res"), include=old.get("include"), base=old.get("base", False),
+                     label=old.get("label") or p["label"], picked=True)
     return batch
 
 
@@ -666,6 +677,8 @@ def apply_decisions(batch: "Batch", decisions: dict):
             p["base"] = False
         if d.get("label", "").strip():
             p["label"] = d["label"].strip()[:200]
+        if d.get("picked"):
+            p["picked"] = True
 
 
 def confirm_batch(batch: "Batch", decisions: dict) -> list:
@@ -688,8 +701,9 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
     for n, p in enumerate(batch.pairs):
         if not pair_ready(p):
             continue
-        if batch.project_id:  # papka qismi: panel va sahifada jonli jarayon
-            Batch.objects.filter(pk=batch.pk).update(step=f"{len(jobs) + 1}/{todo} смета нархланяпти: {p['label']}"[:300])
+        # жонли жараён: папка панели ва юклаш саҳифасидаги аниқ прогресс (``batch_progress``) шуни ўқийди
+        Batch.objects.filter(pk=batch.pk).update(step=f"{len(jobs) + 1}/{todo} смета нархланяпти: {p['label']}"[:300])
+        if batch.project_id:
             Project.objects.filter(pk=batch.project_id).update(heartbeat=timezone.now())
         loc, res = batch.sheet(p["local"]), batch.sheet(p["res"]) if p.get("res") else None  # None — ресурс базасидан
         lf, rf = batch.files[loc["file"]], batch.files[res["file"]] if res else None
@@ -715,6 +729,8 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
         run_job(job, None, None, job.fuzzy, job.mode)
         jobs.append(job)
     batch.status = Batch.Status.DONE
+    if not batch.project_id:
+        batch.step = ""
     batch.save()
     return jobs
 

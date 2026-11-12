@@ -37,7 +37,7 @@
                title="RES топа олмаган қаторлар ресурс базасидан шу вилоят ва давр нархи билан нархланади">
         {% icon "database" "h-4 w-4" %} {% if base_label %}База: {{ base_label }}{% else %}База ишлатилмаяпти{% endif %} {% icon "chevron-down" "h-3.5 w-3.5 opacity-60" %}</summary>
       <form method="post" action="{% url 'job_base' job.id %}" data-busy class="absolute right-0 z-40 mt-1 w-80 space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-lg">{% csrf_token %}
-        <p class="text-xs text-slate-500">Нарх манбаи: RES топа олмаган (ёки RES йўқ) қаторлар ресурс базасидан, коди ва бирлиги мос келса, шу вилоят ва даврнинг ўрта нархи билан нархланади. Қўлда қўйилган нарх ўзгармайди.</p>
+        <p class="text-xs text-slate-500">{% if levels %}Нарх манбаи: RES топа олмаган (ёки RES йўқ) қаторлар нарх базасидан, номи ва бирлиги мос келса, шу вилоят ва йилнинг танланган нархи (паст, ўрта ёки юқори) билан нархланади.{% else %}Нарх манбаи: RES топа олмаган (ёки RES йўқ) қаторлар ресурс базасидан, коди ва бирлиги мос келса, шу вилоят ва даврнинг ўрта нархи билан нархланади.{% endif %} Қўлда қўйилган нарх ўзгармайди.</p>
         <div class="flex flex-wrap gap-1.5">{% include "panel/_base_period.html" with r=base_period.region y=base_period.year q=base_period.quarter %}</div>
         <button class="w-full rounded-lg bg-slate-900 px-3 py-1.5 font-medium text-white hover:bg-slate-700">Қайта нархлаш</button>
       </form>
@@ -183,10 +183,10 @@
 
 {# ================= босқичлар (таблар): доим тепада, бир-бирига чизиқ билан уланган; бирини босиш — ўша босқич очилади ================= #}
 <nav id="tabs" class="sticky top-0 z-30 -mx-4 mb-4 border-b border-slate-200 bg-slate-50/95 px-4 py-2 backdrop-blur lg:-mx-6 lg:px-6" aria-label="Босқичлар">
-  <div class="flex items-center gap-3 overflow-x-auto" role="tablist">
-    <ol class="flex flex-1 items-center">
+  <div class="tabs-in flex items-center gap-3 overflow-x-auto" role="tablist">
+    <ol class="steps flex items-center">
     {% for st in stages %}
-      <li class="flex items-center {% if not forloop.last %}flex-1{% endif %}">
+      <li class="flex items-center">
         <button type="button" role="tab" data-tab-btn="{{ st.n }}" data-state="{{ st.state }}"
                 class="tab-btn step-btn flex shrink-0 items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm"
                 title="{{ st.n }}-босқич: {{ st.title }}{% if st.state == 'locked' %} — аввалги босқичдан кейин{% endif %}">
@@ -198,7 +198,7 @@
             <span class="hidden whitespace-nowrap text-xs sm:block {% if st.state == 'done' %}text-emerald-700{% elif st.state == 'current' %}text-slate-600{% else %}text-slate-400{% endif %}">{{ st.note }}</span></span>
         </button>
         {% if not forloop.last %}{# уловчи чизиқ: аввалги босқич тугаган бўлса — яшил #}
-        <span class="mx-1.5 h-1 min-w-[1rem] flex-1 rounded-full sm:mx-2 sm:min-w-[1.5rem] {% if st.state == 'done' %}bg-emerald-500{% else %}bg-slate-200{% endif %}" aria-hidden="true"></span>
+        <span class="step-line mx-1.5 h-1 rounded-full sm:mx-2 {% if st.state == 'done' %}bg-emerald-500{% else %}bg-slate-200{% endif %}" aria-hidden="true"></span>
         {% endif %}
       </li>
     {% empty %}
@@ -639,14 +639,17 @@
   {# кабель (L) ва ускуна (M): ҳар бири катта карта — нечта, қанча сумма, қайси қаторлар ва битта асосий тугма #}
   <div class="lm-cards">
     {% for c in lm.cards %}
-    <div class="lm-card {% if c.rows %}has{% else %}none{% endif %}">
+    <div class="lm-card {% if c.rows %}has{% elif c.done %}ok{% else %}none{% endif %}">
       <div class="lm-head">
         <span class="lm-col {{ c.col|cat_class }}">{{ c.col }}</span>
         <span class="min-w-0">
           <b class="block text-base text-slate-900">{% if c.col == 'L' %}Кабель{% else %}Ускуна{% endif %}{% if c.label != "Кабель" and c.label != "Ускуна" and c.label != "Оборудование" %} <span class="font-normal text-slate-500">· {{ c.label }}</span>{% endif %}</b>
           {% if c.rows %}<span class="block text-sm text-slate-600">тизим <b class="num text-fuchsia-800">{{ c.rows|length }}</b> та қаторни {% if c.col == 'L' %}кабель{% else %}ускуна{% endif %} деб топди · жами <b class="num text-slate-900">{{ c.sum|som }}</b></span>
-          {% else %}<span class="block text-sm text-emerald-700">{% icon "check" "inline h-3.5 w-3.5" %} таклиф йўқ{% if c.done %} · устунда {{ c.done }} та қатор{% endif %}</span>{% endif %}
+          {% elif c.done %}<span class="block text-sm text-emerald-800">{% icon "check" "inline h-3.5 w-3.5" %} <b class="num">{{ c.done }}</b> та қатор {{ c.col }} устунида · жами <b class="num">{{ c.done_sum|som }}</b></span>
+            <span class="block text-xs text-slate-500">{% if c.accepted %}тизим таклифи қабул қилинди: <b class="num text-slate-700">{{ c.accepted }}</b> та{% endif %}{% if c.accepted and c.moved %} · {% endif %}{% if c.moved %}ўзингиз ўтказгансиз: <b class="num text-slate-700">{{ c.moved }}</b> та{% endif %}{% if not c.accepted and not c.moved %}сметанинг ўзида шу устунда эди{% endif %}</span>
+          {% else %}<span class="block text-sm text-slate-500">бу сметада {% if c.col == 'L' %}кабель{% else %}ускуна{% endif %} йўқ — ўтказиладиган қатор топилмади</span>{% endif %}
         </span>
+        {% if not c.rows and c.done %}<button type="button" class="cat-chip lm-see" data-filter="CAT_{{ c.col }}" data-label="Устун {{ c.col }} · {% if c.col == 'L' %}Кабель{% else %}Ускуна{% endif %}">Кўриш {% icon "arrow-right" "h-3.5 w-3.5" %}</button>{% endif %}
       </div>
       {% if c.rows %}
       <ul class="lm-list">
@@ -667,25 +670,30 @@
   </div>
   </div>
   {% endif %}
-  <div class="space-y-2.5 border-b border-slate-200 px-4 py-3">
-    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <h2 class="font-semibold">Жадвал</h2>
-      <span class="js-grid text-xs text-slate-500 {% if xl_file %}hidden{% endif %}"><span id="row-visible" class="num font-medium text-slate-700"></span> та қатор кўриняпти</span>
-      <span class="inline-flex overflow-hidden rounded-lg border border-slate-300 text-sm" role="group" aria-label="Қаторлар тартиби">
-        {% if res_groups %}
-        <a href="?view=res#t-2" data-view="res" title="Ресурс (нархлар) файлидаги бўлимлар бўйича гуруҳлаш"
-           class="view-btn px-3 py-1.5 {% if view == 'res' %}is-on{% endif %}">Ресурс бўлимлари</a>
-        {% endif %}
-        <a href="?view=local#t-2" data-view="local" title="Сметадаги асл тартиб — нарх ва устунлар билан ишлаш"
-           class="view-btn {% if res_groups %}border-l border-slate-300 {% endif %}px-3 py-1.5 {% if view == 'local' %}is-on{% endif %}">Смета тартиби</a>
-      </span>
-      <span class="{% if not xl_file %}adv {% endif %}inline-flex overflow-hidden rounded-lg border border-emerald-300 text-sm" role="group" aria-label="Файл кўриниши">
-        <span class="flex items-center gap-1 bg-emerald-50 px-2 text-xs font-medium text-emerald-800" title="Файлнинг ўзи — Excel'даги каби: ҳамма устун ва қаторлар, бирлаштирилган катаклар, ранглар">{% icon "file" "h-3.5 w-3.5" %}Файл</span>
-        {% for v, label in xl_files %}
-        <a href="?view={{ v }}#t-2" data-view="{{ v }}"
-           class="view-btn view-xl border-l border-emerald-300 px-3 py-1.5 {% if view == v %}is-on{% endif %}">{{ label }}</a>
-        {% endfor %}
-      </span>
+  <div class="space-y-3 border-b border-slate-200 px-4 py-3">
+    <div class="tb-row">
+      {# кўриниш: 1) жадвал (ишлаш учун) — ресурс бўлимлари ёки смета тартиби; 2) Excel файлнинг ўзи — натижа, локал, RES #}
+      <div class="vt-group" role="group" aria-label="Жадвал кўриниши">
+        <span class="vt-cap">{% icon "list" "h-3.5 w-3.5" %} Жадвал <i class="js-grid {% if xl_file %}hidden{% endif %}"><span id="row-visible" class="num"></span> қатор</i></span>
+        <div class="vt-seg">
+          {% if res_groups %}
+          <a href="?view=res#t-2" data-view="res" title="Ресурс (нархлар) файлидаги бўлимлар бўйича гуруҳлаш: иш ҳақи, машина, материал…"
+             class="view-btn {% if view == 'res' %}is-on{% endif %}">{% icon "layers" "h-4 w-4" %}<span>Ресурс бўлимлари</span></a>
+          {% endif %}
+          <a href="?view=local#t-2" data-view="local" title="Сметадаги асл тартиб — нарх ва устунлар билан ишлаш"
+             class="view-btn {% if view == 'local' %}is-on{% endif %}">{% icon "list" "h-4 w-4" %}<span>Смета тартиби</span></a>
+        </div>
+      </div>
+      <div class="vt-group{% if not xl_file %} adv{% endif %}" role="group" aria-label="Excel файл">
+        <span class="vt-cap is-xl">{% icon "file" "h-3.5 w-3.5" %} Excel файлнинг ўзи</span>
+        <div class="vt-seg is-xl">
+          {% for v, label in xl_files %}
+          <a href="?view={{ v }}#t-2" data-view="{{ v }}"
+             title="{% if v == 'xl_out' %}Нархланган натижа — юклаб олинадиган файл{% elif v == 'xl_local' %}Сиз юклаган локал смета — ўзгаришсиз{% else %}Нархлар олинган ресурс (RES) файли{% endif %}"
+             class="view-btn view-xl {% if view == v %}is-on{% endif %}">{% if v == 'xl_out' %}{% icon "check-circle" "h-4 w-4" %}{% elif v == 'xl_local' %}{% icon "upload" "h-4 w-4" %}{% else %}{% icon "database" "h-4 w-4" %}{% endif %}<span>{{ label }}</span></a>
+          {% endfor %}
+        </div>
+      </div>
       <label class="js-grid relative min-w-[220px] flex-1 sm:max-w-sm {% if xl_file %}hidden{% endif %}">
         <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">{% icon "search" "h-4 w-4" %}</span>
         <input type="search" id="row-search" placeholder="Номи бўйича излаш…" autocomplete="off"
@@ -716,18 +724,18 @@
         <span class="dot bg-rose-500"></span>Нархланмади <span class="num cnt">{{ not_priced }}</span></button>{% help "warn" "text-slate-400" %}
       <button type="button" data-filter="HAS_SUGG" data-label="Нарх таклифи бор" {% if not sugg_price_count %}disabled{% endif %} class="chip cat-chip">
         <span class="dot bg-amber-400"></span>Нарх таклифи бор <span class="num cnt">{{ sugg_price_count }}</span></button>
-      <button type="button" data-filter="MANUAL" data-label="Қўлда нархланган" {% if not manual_count %}disabled{% endif %} class="chip cat-chip adv">
-        <span class="dot bg-sky-500"></span>Қўлда нархланган <span class="num cnt">{{ manual_count }}</span></button>{% help "manual" "adv text-slate-400" %}
+      <button type="button" data-filter="MANUAL" data-label="Қўлда нархланган" {% if not manual_count %}disabled{% endif %} class="chip cat-chip">
+        <span class="dot bg-sky-500"></span>Қўлда нархланган <span class="num cnt">{{ manual_count }}</span></button>{% help "manual" "text-slate-400" %}
       <button type="button" data-filter="SUGG_ANY" data-label="Устун таклифи" {% if not sugg_cat_count %}disabled{% endif %} class="chip cat-chip">
         <span class="dot bg-fuchsia-500"></span>Устун таклифи <span class="num cnt">{{ sugg_cat_count }}</span></button>
-      <button type="button" data-filter="OVERRIDE" data-label="Қўлда ўтказилган устун" {% if not override_count %}disabled{% endif %} class="chip cat-chip adv">
+      <button type="button" data-filter="OVERRIDE" data-label="Қўлда ўтказилган устун" {% if not override_count %}disabled{% endif %} class="chip cat-chip">
         {% icon "swap" "h-3.5 w-3.5" %}Қўлда ўтказилган <span class="num cnt">{{ override_count }}</span></button>
       {% endif %}
-      <span class="adv mx-1.5 h-5 w-px bg-slate-200" aria-hidden="true"></span>
-      <span class="adv mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Устун</span>
+      <span class="mx-1.5 h-5 w-px bg-slate-200" aria-hidden="true"></span>
+      <span class="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Устун</span>
       {% for c, label, count in category_counts %}{% if c != "I" and c != "J" and c != "K" %}
       <button type="button" data-filter="CAT_{{ c }}" data-label="Устун {{ c }} · {{ label }}" {% if not count %}disabled{% endif %}
-              title="Фақат «{{ c }} · {{ label }}» устунидаги қаторлар" class="chip cat-chip adv">
+              title="Фақат «{{ c }} · {{ label }}» устунидаги қаторлар" class="chip cat-chip">
         <span class="rounded px-1 text-xs font-bold {{ c|cat_class }}">{{ c }}</span>{{ label }} <span class="num cnt">{{ count }}</span></button>
       {% endif %}{% endfor %}
       <span id="row-filter" class="hidden inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1 text-sm text-white">
@@ -1660,11 +1668,27 @@
   .stat-card.is-active { box-shadow: 0 0 0 2px #0f172a; }
   /* Excel'га ўхшаш катакча жадвал */
   /* жадвал / файл тугмалари */
-  .view-btn { color: #334155; }
-  .view-btn:hover { background: #f1f5f9; }
-  .view-btn.is-on { background: #0f172a; color: #fff; font-weight: 500; }
-  .view-xl:hover { background: #ecfdf5; }
-  .view-xl.is-on { background: #047857; color: #fff; }
+  /* кўриниш тугмалари: икки гуруҳ — «Жадвал» ва «Excel файлнинг ўзи»; ҳар бири белгиси ва номи билан */
+  .vt-group { display: flex; flex-direction: column; gap: 4px; }
+  .vt-cap { display: inline-flex; align-items: center; gap: 5px; padding-left: 4px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
+  .vt-cap.is-xl { color: #047857; }
+  .vt-cap i { font-style: normal; font-weight: 500; text-transform: none; letter-spacing: 0; color: #94a3b8; }
+  .vt-seg { display: inline-flex; gap: 3px; padding: 3px; border-radius: 12px; background: #f1f5f9; border: 1px solid #e2e8f0; }
+  .vt-seg.is-xl { background: #ecfdf5; border-color: #a7f3d0; }
+  .view-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: #475569; white-space: nowrap;
+    transition: background .15s, color .15s, box-shadow .15s; }
+  .view-btn svg { opacity: .7; }
+  .view-btn:hover { background: #fff; color: #0f172a; }
+  .view-btn.is-on { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15, 23, 42, .15), 0 0 0 1px #cbd5e1; }
+  .view-btn.is-on svg { opacity: 1; }
+  .view-xl { color: #065f46; }
+  .view-xl:hover { background: #fff; color: #064e3b; }
+  .view-xl.is-on { background: #059669; color: #fff; box-shadow: 0 2px 6px rgba(5, 150, 105, .35); }
+  @media (max-width: 639px) { .view-btn span { display: none; } .view-btn { padding: 0 10px; } }
+  /* жадвал асбоблари */
+  #rows-section .tb-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; }
+  #row-search { height: 40px; border-radius: 12px; }
+  .js-grid[role="group"] { padding: 8px 10px; border-radius: 12px; background: #f8fafc; }
   .nf-look { border: 1px solid #cbd5e1; border-radius: 6px; padding: 2px 6px; color: #334155; background: #fff; white-space: nowrap; }
   .nf-look:hover { background: #f1f5f9; }
   /* 1-босқич: белгиланганлар билан амаллар — белги бўлса ёришади, бўлмаса сокин */
@@ -1681,10 +1705,21 @@
   .lm-card.has { flex: 1 1 440px; max-width: 760px; }
   .lm-card { border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px 16px; background: #fff; }
   .lm-card.has { border-color: #f0abfc; background: #fdf4ff; }
-  .lm-card.none { padding: 10px 14px; }
+  .lm-card.none, .lm-card.ok { padding: 10px 14px; }
+  .lm-card.ok { border-color: #a7f3d0; background: #f0fdf4; }
+  .lm-card.none { background: #f8fafc; }
+  .lm-card.none .lm-col { opacity: .55; }
+  .lm-see { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; flex-shrink: 0; height: 32px; padding: 0 12px; border-radius: 10px; border: 1px solid #6ee7b7; background: #fff; color: #047857; font-size: 13px; font-weight: 600; }
+  .lm-see:hover { background: #ecfdf5; }
+  .lm-see.is-active { background: #047857; color: #fff; border-color: #047857; }
+  /* босқичлар: ихчам, ўртада — тугмалар бир-биридан узоқлашмайди */
+  #tabs .tabs-in { max-width: 1600px; margin: 0 auto; }
+  #tabs .steps { flex: 0 1 auto; margin: 0 auto; }
+  #tabs .step-line { flex: 0 0 auto; width: 56px; }
+  @media (min-width: 1280px) { #tabs .step-line { width: 88px; } }
   .lm-head { display: flex; align-items: center; gap: 12px; }
   .lm-col { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px; font-size: 18px; font-weight: 800; }
-  .lm-card.none .lm-col { width: 30px; height: 30px; font-size: 14px; }
+  .lm-card.none .lm-col, .lm-card.ok .lm-col { width: 30px; height: 30px; font-size: 14px; }
   .lm-list { margin-top: 10px; border-radius: 10px; background: #fff; border: 1px solid #f5d0fe; font-size: 13px; }
   .lm-list li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 10px; border-top: 1px solid #fae8ff; }
   .lm-list li:first-child { border-top: 0; }

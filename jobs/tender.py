@@ -174,7 +174,7 @@ def job_items(job: Job) -> dict:
         period = job.base_period if period_complete(job.base_period) else base_period_of(job.owner)
         market = price_map(period) if period_complete(period) else {}
         mode = "res"
-    from core.normalize import unit_key
+    from core.normalize import name_unit_key, unit_key
     items, works = [], []
     work = None
     for r in rows:
@@ -203,7 +203,7 @@ def job_items(job: Job) -> dict:
         else:
             from_res = g is not None and r.get("status") != "BASE"
             tp, ta = (g, h) if from_res else (None, None)
-            m = market.get(rcode)
+            m = market.get(rcode) or market.get(name_unit_key(r.get("name"), r.get("unit")))
             if m and m["unit_key"] == unit_key(r.get("unit")) and qty:
                 rp, ra = m["price"], m["price"] * qty
             elif r.get("status") == "BASE" and g is not None:

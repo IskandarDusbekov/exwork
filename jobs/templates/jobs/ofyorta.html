@@ -60,7 +60,7 @@
     <div data-state-box class="w-full max-w-sm sm:w-auto">
       {% if state.status == "building" %}
       {% elif has_file %}
-      <a href="{% url 'project_ofyorta_file' project.id %}" class="flex items-center gap-3 rounded-lg bg-emerald-600 px-4 py-2.5 text-white shadow-sm hover:bg-emerald-700">
+      <a href="{{ urls.file }}" class="flex items-center gap-3 rounded-lg bg-emerald-600 px-4 py-2.5 text-white shadow-sm hover:bg-emerald-700">
         <span class="grid h-9 w-9 place-items-center rounded-md bg-white/15">{% icon "download" "h-5 w-5" %}</span>
         <span><span class="block text-sm font-semibold">Офёртани юклаб олиш</span>
           <span class="block text-xs text-emerald-100">{{ doc.built|date:"d.m.Y H:i" }} · {{ doc.total|som }}</span></span></a>
@@ -105,10 +105,10 @@
   {% if has_file and doc.error %}<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">{{ doc.error|linebreaksbr }}</div>{% endif %}
 
   {% if not count %}
-  <div class="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-600">Бу папкада ҳали нархланган смета йўқ. Аввал нархланг — кейин офёрта тузилади.
-    <div class="mt-3"><a href="{% url 'project' project.id %}" class="text-sm font-medium text-slate-900 underline">Папкага қайтиш</a></div></div>
+  <div class="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-600">Бу {% if is_folder %}папкада{% else %}объектда{% endif %} ҳали нархланган смета йўқ. Аввал нархланг — кейин офёрта тузилади.
+    <div class="mt-3"><a href="{{ back }}" class="text-sm font-medium text-slate-900 underline">{% if is_folder %}Папкага{% else %}Объектга{% endif %} қайтиш</a></div></div>
   {% else %}
-  <form method="post" action="{% url 'project_ofyorta_save' project.id %}" data-of-form>
+  <form method="post" action="{{ urls.save }}" data-of-form>
     {% csrf_token %}
     <input type="hidden" name="parts" data-parts>
     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -325,7 +325,7 @@
 
   // ---- тузилаётган бўлса — ҳолатни кузатиш ----
   {% if state.status == "building" %}
-  var stateUrl = "{% url 'project_ofyorta_state' project.id %}", baseTitle = document.title;
+  var stateUrl = "{{ urls.state }}", baseTitle = document.title;
   var since = Date.parse("{{ state.since }}") || Date.now();
   form.classList.add("is-building");
   tree.querySelectorAll("input, button").forEach(function (x) { if (!x.matches("[data-toggle]")) x.disabled = true; });

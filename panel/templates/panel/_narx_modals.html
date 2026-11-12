@@ -1,0 +1,86 @@
+{% load narx %}{% comment %}«Нарх базаси»: қўлда қўшиш ва файлдан қўшиш ойналари. it — паспорт саҳифасида шу ресурс (бўлса — фақат нарх).
+Очиш: data-modal="narx-add" / data-modal="narx-upload" тугмаси.{% endcomment %}
+<style>
+  dialog.nx-modal { width: min(44rem, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); border: 0; border-radius: 1rem; padding: 0; box-shadow: 0 24px 60px rgb(15 23 42 / .25); }
+  dialog.nx-modal::backdrop { background: rgb(15 23 42 / .45); backdrop-filter: blur(2px); }
+  .nx-modal .hd { display: flex; align-items: flex-start; gap: .75rem; border-bottom: 1px solid #f1f5f9; padding: 1rem 1.25rem; }
+  .nx-modal .bd { padding: 1rem 1.25rem; }
+  .nx-modal .ft { display: flex; justify-content: flex-end; gap: .5rem; border-top: 1px solid #f1f5f9; background: #f8fafc; padding: .8rem 1.25rem; }
+  .nx-modal label > span { font-size: .8125rem; color: #475569; }
+  .nx-modal input:not([type=radio]):not([type=file]), .nx-modal select { margin-top: .25rem; width: 100%; border: 1px solid #cbd5e1; border-radius: .6rem; padding: .5rem .7rem; font-size: .875rem; }
+  .nx-modal .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+  @media (max-width: 639.98px) { .nx-modal .grid2 { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+{% if can_act %}
+<dialog id="narx-add" class="nx-modal" aria-labelledby="narx-add-t">
+  <form method="post" action="{% url 'panel:narx_add' %}">{% csrf_token %}
+    {% if it %}<input type="hidden" name="item" value="{{ it.pk }}">{% endif %}
+    <div class="hd">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-600">{% icon "pencil" "h-5 w-5" %}</span>
+      <div class="min-w-0 flex-1"><h2 id="narx-add-t" class="font-semibold text-slate-900">Қўлда нарх киритиш</h2>
+        <p class="text-xs text-slate-500">{% if it %}«{{ it.name|truncatechars:70 }}» — {{ it.unit }} нархи.{% else %}Номи ва бирлиги базада бўлса — ўша ресурсга қўшилади, бўлмаса янги ресурс очилади.{% endif %}
+          Паспортда номингиз билан «қўлда киритилган» бўлиб туради.</p></div>
+      <button type="button" data-close class="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Ёпиш">{% icon "x" "h-5 w-5" %}</button>
+    </div>
+    <div class="bd space-y-3">
+      {% if not it %}
+      <label class="block"><span>Ресурс номи</span><input name="name" required maxlength="500" placeholder="масалан: НОУТБУК HP 15"></label>
+      <div class="grid2">
+        <label class="block"><span>Ўлчов бирлиги</span><input name="unit" required maxlength="40" placeholder="шт, м3, т, чел.-ч"></label>
+        <label class="block"><span>Тоифаси</span><select name="category">{% for k, label in categories %}<option value="{{ k }}" {% if k == 'K' %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      </div>
+      {% endif %}
+      <div class="grid2">
+        <label class="block"><span>Бирлик нархи, сўм</span><input name="price" required inputmode="decimal" placeholder="10 000 000" class="num"></label>
+        <label class="block"><span>Сони <small class="text-slate-400">(маълумот учун)</small></span><input name="qty" inputmode="decimal" class="num"></label>
+        <label class="block"><span>Вилоят</span><select name="region" required><option value=""></option>{% for k, label in regions %}<option value="{{ k }}" {% if k == default_region %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        <label class="block"><span>Сана</span><input type="date" name="date" required value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}"></label>
+      </div>
+      <label class="block"><span>Изоҳ <small class="text-slate-400">(қаердан: тижорий таклиф, бозор, ҳисоб-фактура…)</small></span><input name="note" maxlength="300"></label>
+    </div>
+    <div class="ft">
+      <button type="button" data-close class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50">Бекор</button>
+      <button class="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Қўшиш</button>
+    </div>
+  </form>
+</dialog>
+
+{% if not it %}
+<dialog id="narx-upload" class="nx-modal" aria-labelledby="narx-upload-t">
+  <form method="post" action="{% url 'panel:narx_upload' %}" enctype="multipart/form-data" data-progress>{% csrf_token %}
+    <div class="hd">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600">{% icon "upload" "h-5 w-5" %}</span>
+      <div class="min-w-0 flex-1"><h2 id="narx-upload-t" class="font-semibold text-slate-900">Файлдан ресурс қўшиш</h2>
+        <p class="text-xs text-slate-500">Аввал рўйхат кўрсатилади: белгилаб, вилоят ва санани қўйиб тасдиқлайсиз. Тасдиқламагунингизча базага ҳеч нарса тушмайди. Файл паспортда сақланади.</p></div>
+      <button type="button" data-close class="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Ёпиш">{% icon "x" "h-5 w-5" %}</button>
+    </div>
+    <div class="bd space-y-3">
+      <label class="block"><span>Файл (.xls, .xlsx)</span>
+        <input type="file" name="file" required accept=".xls,.xlsx,.xlsm" class="mt-1 block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm hover:file:bg-slate-200"></label>
+      <fieldset class="space-y-1.5 text-sm"><legend class="mb-1 text-[13px] text-slate-600">Файл тури</legend>
+        {% for k, label in file_kinds %}<label class="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 p-2.5 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50/50"><input type="radio" name="kind" value="{{ k }}" required class="mt-1" {% if forloop.first %}checked{% endif %}> <span class="text-slate-700">{{ label }}</span></label>{% endfor %}
+      </fieldset>
+      <label class="block"><span>Тоифа устуни бўлмаса — ҳаммаси <small class="text-slate-400">(оддий Excel учун)</small></span>
+        <select name="category">{% for k, label in categories %}<option value="{{ k }}" {% if k == 'K' %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <p class="rounded-lg bg-slate-50 p-2.5 text-xs text-slate-500">Оддий Excel'да сарлавҳа қатори бўлсин: <b>Наименование</b> (номи), <b>Ед. изм.</b> (бирлиги), <b>Цена</b> (бирлик нархи); ихтиёрий — <b>Кол-во</b>, <b>Тоифа</b> («материал», «ускуна», «кабель», «иш ҳақи», «машина»).</p>
+    </div>
+    <div class="ft">
+      <button type="button" data-close class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50">Бекор</button>
+      <button class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700">Юклаш ва кўриш</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+<script>
+(function () {
+  document.querySelectorAll("[data-modal]").forEach(b => b.addEventListener("click", () => {
+    const d = document.getElementById(b.dataset.modal); if (d && !d.open) d.showModal();
+  }));
+  document.querySelectorAll("dialog.nx-modal").forEach(d => {
+    d.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => d.close()));
+    d.addEventListener("click", e => { if (e.target === d) d.close(); });  // орқа фонга босилса
+  });
+})();
+</script>
+{% endif %}

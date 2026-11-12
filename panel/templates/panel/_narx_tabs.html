@@ -1,0 +1,30 @@
+{% load narx %}{# «Нарх базаси (янги)»: сарлавҳа, бўлимлар, хабарлар #}
+<div class="mb-4 flex flex-wrap items-end gap-3">
+  <div class="min-w-0 flex-1">
+    <h1 class="text-xl font-semibold text-slate-900">Нарх базаси {% if ncfg.enabled %}<span class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-emerald-800">● нархлашда ишлаяпти</span>{% else %}<span class="ml-1 rounded bg-slate-200 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-slate-600">○ нархлаш ўчирилган</span>{% endif %}</h1>
+    <p class="text-sm text-slate-500">Миллий кодсиз — ресурс <b>номи ва бирлиги</b> бўйича. Ҳар ресурсда вилоят ва йил бўйича
+      <b>паст / ўрта / юқори</b> нарх, ҳар нархнинг паспорти: қайси файлдан, ким, қачон.</p>
+  </div>
+  <nav class="inline-flex overflow-hidden rounded-lg border border-slate-300 bg-white text-sm" aria-label="Нарх базаси бўлимлари">
+    <a href="{% url 'panel:narx' %}" class="px-3 py-1.5 {% if ntab == 'list' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}">Ресурслар</a>
+    <a href="{% url 'panel:narx_collect' %}" class="border-l border-slate-300 px-3 py-1.5 {% if ntab == 'collect' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}" title="Нархланган сметалардан ресурсларни кўриб, тасдиқлаб киритиш">Тасдиқлаб йиғиш{% if n_pending %} <span class="num ml-0.5 rounded-full bg-sky-600 px-1.5 text-[11px] font-semibold text-white">{{ n_pending }}</span>{% endif %}</a>
+    <a href="{% url 'panel:narx_batches' %}" class="border-l border-slate-300 px-3 py-1.5 {% if ntab == 'batches' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}" title="Ҳар бир тасдиқлаб киритилган тўплам ва қўлда киритилганлар">Киритилганлар</a>
+    <a href="{% url 'panel:narx_how' %}" class="border-l border-slate-300 px-3 py-1.5 {% if ntab == 'how' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}">Қандай ҳисобланади</a>
+  </nav>
+</div>
+{% if can_act %}
+<form method="post" action="{% url 'panel:narx_config' %}" class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-sm {% if ncfg.enabled %}border-emerald-200 bg-emerald-50/60{% else %}border-slate-300 bg-slate-50{% endif %}">{% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg {% if ncfg.enabled %}bg-emerald-100 text-emerald-700{% else %}bg-slate-200 text-slate-500{% endif %}">{% icon "calculator" "h-5 w-5" %}</span>
+  <div class="min-w-0 flex-1">
+    <div class="font-semibold text-slate-900">{% if ncfg.enabled %}Сметалар шу базадан нархланади{% else %}Базадан нархлаш ўчирилган — сметалар фақат RES файл билан нархланади{% endif %}</div>
+    <div class="text-xs text-slate-500">RES топа олмаган (ёки RES'сиз) қаторлар <b>номи ва бирлиги</b> бўйича, сметанинг <b>вилояти ва йили</b> бўйича нархланади. Смета­чи вилоят, йил ва нархни (паст / ўрта / юқори) юклашда ўзи танлайди; танламаса — шу ердагиси.</div>
+  </div>
+  <div class="flex flex-wrap items-center gap-2"><span class="text-xs text-slate-500">Смета­чи танламаса:</span>
+    {% include "panel/_base_period.html" with r=bcfg.region y=bcfg.year years=base_years level=ncfg.level %}
+    <button class="rounded-lg bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700">Сақлаш</button>
+    {% if ncfg.enabled %}<button name="enabled" value="0" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-100" title="Сметалар базасиз, фақат RES файл билан нархланади">Ўчириш</button>
+    {% else %}<button name="enabled" value="1" class="rounded-lg bg-slate-900 px-3 py-1.5 font-semibold text-white hover:bg-slate-700">Ёқиш</button>{% endif %}</div>
+</form>
+{% endif %}
+{% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.level_tag == 'error' %}border-rose-200 bg-rose-50 text-rose-800{% else %}border-emerald-200 bg-emerald-50 text-emerald-800{% endif %}" role="status">{{ m }}</div>{% endfor %}

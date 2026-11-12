@@ -1,0 +1,106 @@
+{% load narx %}{% comment %}
+  Битта жадвал (юклаш, объект ва папка саҳифасида бир хил): ҳар бир лист — бир қатор:
+  [Кўриш] [номи] [Локал | Ресурс | Ўтказиш] [локал бўлса — қайси ресурс билан нархланади].
+  Усул (Автоматик / Қўлда) юклашдан олдин танланади; бу ерда фақат кичик белги.
+  Ҳар бир танлов дарҳол сақланади (batch_pick). pk_embed — папка саҳифасидаги қисм ичида («Бошлаш» папка учун битта).
+  JS — static/js/picker.js (narxPicker.mount).
+{% endcomment %}
+<div class="pk{% if pk_embed %} is-embed{% endif %}" data-pk
+     data-pick="{% url 'batch_pick' batch.id %}" data-partial="{% url 'batch' batch.id %}?partial=picker{% if pk_embed %}&amp;embed=1{% endif %}"
+     data-sheet="{% url 'batch_sheet' batch.id %}" data-progress="{% url 'batch_progress' batch.id %}"
+     data-nf="{% url 'nf_mode' %}" data-pct="{% url 'upload_percents' %}" data-project="{% if batch.project_id %}1{% endif %}"
+     data-base="{{ base_res }}" data-mine="{% if batch.owner_id == user.pk %}1{% endif %}" data-manual="{% if not nf_auto %}1{% endif %}">
+<form method="post" action="{% url 'batch_confirm' batch.id %}" class="pk-form">{% csrf_token %}
+
+  <section class="pk-step" data-step="1">
+    <header class="pk-h">
+      {% if not pk_embed %}<span class="pk-num">2</span>{% endif %}
+      <div class="pk-ht"><h2>Листлар ва жуфтликлар</h2>
+        {% if nf_auto %}<p>Тизим ўзи ажратди ва жуфтлади. Текширинг: нотўғри бўлса — бир босишда ўзгартиринг.</p>
+        {% else %}<p>Ҳар бир листни <b>«Кўриш»</b> билан очиб, турини <b>ўзингиз</b> белгиланг; локал учун ресурсни танланг.
+          {% if pk_left %}<span class="pk-left">Яна <b class="pk-left-n">{{ pk_left }}</b> та лист белгиланмаган</span>{% endif %}</p>{% endif %}</div>
+      {% if not pk_embed %}
+      <div class="pk-modebar" title="Усул юклашдан олдин танланади — бу ерда ўзгартириш ҳам мумкин">
+        <label class="pk-mode{% if nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="auto" {% if nf_auto %}checked{% endif %}>Автоматик</label>
+        <label class="pk-mode{% if not nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="manual" {% if not nf_auto %}checked{% endif %}>Қўлда</label>
+      </div>
+      {% endif %}
+    </header>
+
+    {# ҳозир нима қилиш керак — JS ҳолатга қараб ёзади ва керакли жойга олиб боради #}
+    <div class="pk-now" data-now hidden><span class="pk-now-ic"></span><div class="pk-now-t"></div><button type="button" class="pk-now-go" hidden></button></div>
+
+    {% if pk_rows|length > 6 %}
+    <div class="pk-tools">
+      <input type="search" class="pk-search" placeholder="Қидириш: локал, ресурс ёки файл номи…" aria-label="Қидириш">
+      <div class="pk-filters" role="group" aria-label="Сузгич">
+        <button type="button" data-f="" class="is-on">Ҳаммаси</button>
+        <button type="button" data-f="need" class="is-bad" hidden>Ресурси йўқ <i class="pk-need-n">0</i></button>
+      </div>
+    </div>
+    {% else %}<div class="pk-filters" hidden><button type="button" data-f="need" hidden><i class="pk-need-n">0</i></button></div>{% endif %}
+
+    {% if not pk_rows %}
+    <div class="pk-empty">{% icon "alert" "h-6 w-6 shrink-0" %}<div><b>Нархланадиган лист топилмади.</b> Пастдаги «ўтказилган листлар»ни очиб, сметани <b>«Локал»</b>, нархлар листини <b>«Ресурс»</b> деб белгиланг.</div></div>
+    {% endif %}
+
+    {% if pk_unmarked %}
+    <div class="pk-group is-mark">
+      <h3><span class="pk-gnum">!</span> Аввал шу листларни белгиланг <i>{{ pk_unmarked|length }}</i>
+        <small><b>Локал</b> — иш ҳажмлари (нархланади) · <b>Ресурс</b> — нархлар (RES) · <b>Ўтказиш</b> — свод, акт. Билмасангиз — «Кўриш»ни босиб қаранг.</small></h3>
+      <div class="pk-table">{% for r in pk_unmarked %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>
+    </div>
+    {% endif %}
+
+    {% if pk_pair_rows %}
+    <div class="pk-group">
+      <h3>Ҳар бир локал қайси ресурс билан нархланади <i>{{ pk_pair_rows|length }}</i>
+        <small>Чапда — <b class="t-loc">локал</b> (иш ҳажмлари), ўнгда — унинг <b class="t-res">ресурси</b> (нархлар). Тўғри бўлса — ҳеч нарса қилманг. Нотўғри бўлса — «Ёнма-ён кўриш» ёки рўйхатдан бошқасини танланг.</small></h3>
+      <div class="pk-duos">{% for r in pk_pair_rows %}{% include "jobs/_picker_pair.html" %}{% endfor %}</div>
+    </div>
+    {% elif pk_rows and not pk_unmarked %}
+    <div class="pk-empty">{% icon "alert" "h-6 w-6 shrink-0" %}<div><b>Локал лист йўқ.</b> Нархланадиган сметани (иш ҳажмлари) пастдан топиб <b>«Локал»</b> деб белгиланг.</div></div>
+    {% endif %}
+
+    {% if pk_idle %}
+    <div class="pk-group is-idle">
+      <h3>Жуфтликка кирмаган листлар <i>{{ pk_idle|length }}</i>
+        <small>Ҳеч қайси локалга танланмаган ресурслар. Керак бўлса — юқоридаги локалнинг ресурсини шунга алмаштиринг.</small></h3>
+      <div class="pk-table">{% for r in pk_idle %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>
+    </div>
+    {% endif %}
+    <div class="pk-nores" hidden>Бу сузгичда ҳеч нарса йўқ.</div>
+
+    {% if pk_skipped %}
+    <details class="pk-skip">
+      <summary>{% icon "chevron-down" "h-4 w-4" "2.5" %} <b>{{ pk_skipped|length }}</b> та лист ўтказилди <span>— свод, акт, бўш ёки нусха. Керак бўлса очиб, турини ўзгартиринг</span></summary>
+      <div class="pk-table">{% for r in pk_skipped %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>
+    </details>
+    {% endif %}
+  </section>
+
+  {% if not pk_embed %}
+  {# ================= бошлаш ================= #}
+  <div class="pk-go-wrap" data-step="go">
+    <details class="pk-pct">
+      <summary>{% icon "sliders" "h-4 w-4" %} Сводка фоизлари <span class="pk-pct-s">— ўзгартириш керак бўлса очинг</span></summary>
+      <div class="pk-pcts">
+        {% for f in pct_form %}
+        <label><span title="{{ f.text }}">{{ f.text }}</span>
+          <span class="pk-pct-i"><input type="text" inputmode="decimal" name="pct_{{ f.key }}" value="{{ f.pct|pct_input }}" autocomplete="off"
+                 class="num{% if f.pct != f.default %} is-changed{% endif %}" title="Стандарт: {{ f.default|pct }}">%</span></label>
+        {% endfor %}
+      </div>
+      <span class="pk-saved" hidden>✓ сақланди</span>
+    </details>
+    <button type="submit" class="pk-go">{% icon "play" "h-6 w-6" %}<span class="pk-go-t">{% if pk_again %}Қайта бошлаш{% else %}Бошлаш{% endif %}</span></button>
+    <p class="pk-go-note"><b class="pk-count">{{ pk_ready }}</b> та смета нархланади{% if pk_again %} · олдинги натижа ва ундаги қўлда ўзгаришлар ўчади{% endif %}</p>
+    <div class="pk-prog" hidden>
+      <div class="pk-bar"><i></i></div>
+      <p><span class="pk-prog-t">Бошланяпти…</span><span class="pk-prog-p num">0%</span></p>
+    </div>
+  </div>
+  {% endif %}
+</form>
+{{ sheets_js|json_script:sheets_id }}
+</div>

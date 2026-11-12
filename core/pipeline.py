@@ -36,7 +36,7 @@ from .columns import detect_local_columns, num as as_number, prepare_local
 from .detect import _is_numbering_row, cell_value, detect_layout, override_layout
 from .log_sheet import LOG_TITLE, log_row, write_log
 from .matcher import AMBIGUOUS, EXACT, FUZZY, NOT_FOUND, Match, ResourceIndex
-from .normalize import norm_code, norm_name, norm_unit, unit_key
+from .normalize import name_unit_key, norm_code, norm_name, norm_unit, unit_key
 from .tender import tender_prices
 from .svodka import (
     DEFAULT_PERCENTS, XlError, make_evaluator, parse_text_number, resolve_percents, write_svodka,
@@ -1031,11 +1031,15 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
                         + ("" if m.near_unit == local_unit else f"; бирлик бошқа (локал «{unit_raw}»)"))
 
         # RES narxlay olmadi — ресурс базасидан, kod va birlik mos kelsa (taklif emas, narx yoziladi)
-        entry = base.get(norm_code(_peek(ws, r, 2))) if base and st in UNPRICED_STATUSES and real_unit and ln > 2 else None
+        # (эски база — миллий код бўйича; янги нарх базаси — номи + бирлиги бўйича)
+        entry = None
+        if base and st in UNPRICED_STATUSES and real_unit:
+            entry = (base.get(norm_code(_peek(ws, r, 2))) if ln > 2 else None) or base.get(name_unit_key(name_raw, unit_raw))
         if entry and entry["unit_key"] == unit_key(unit_raw):
             orig_status[r] = st
             st, value, suggestion = BASE, entry["price"], None
-            note = f"база: {base_label}, {entry['n']} та смета медианаси" + (f" (RES: {note})" if note else "")
+            note = (f"база: {base_label}, {entry.get('note') or str(entry['n']) + ' та смета медианаси'}"
+                    + (f" (RES: {note})" if note else ""))
             if entry.get("category") in COLUMN_KIND:
                 sections[r] = (COLUMN_KIND[entry["category"]], "ресурс базаси")
             near.pop(r, None)

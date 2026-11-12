@@ -115,9 +115,17 @@ class ProjectOfyortaTests(TestCase):
         self.assertEqual(self._folders(doc), ["10. Благоустройство", "2. Блок-А/2. Надземный",
                                               "2. Блок-А/1. Подземный", "1. Архитектура"])
         ws, ev, yellow, nds = self._read(doc)
-        self.assertEqual(len(yellow), 3)  # 3 смета: орасида 2 та + умумий сводка олдида 1 та
-        self.assertEqual(ws.cell(yellow[-1] + 1, 1).value, "УМУМИЙ СВОДКА (3 та смета)")
-        grand = range(yellow[-1] + 2, ws.max_row + 1)  # умумий сводка қаторлари — ҳаммаси қалин
+        self.assertEqual(len(yellow), 2)  # 3 смета: фақат орасида 2 та; умумий сводка олдида сариқ ва сарлавҳа йўқ
+        self.assertFalse(any("УМУМИЙ СВОДКА" in str(c.value) for row in ws.iter_rows() for c in row if c.value))
+        # сариқ қатор бирлаштирилмаган — ҳар катак алоҳида бўялган
+        self.assertFalse([m for m in ws.merged_cells.ranges if m.min_row in yellow])
+        self.assertTrue(all(ws.cell(yellow[0], c).fill.fgColor.rgb == YELLOW for c in range(1, 9)))
+        # умумий сводка: охирги смета сводкасидан кейин битта бўш оқ қатор
+        last_nds = max(r for r in range(1, ws.max_row + 1) if str(ws.cell(r, 3).value or "").startswith("Всего с НДС")
+                       and r < ws.max_row)
+        self.assertTrue(all(ws.cell(last_nds + 1, c).value in (None, "") for c in range(1, 9)))
+        self.assertIsNone(ws.cell(last_nds + 1, 1).fill.fill_type)
+        grand = range(last_nds + 2, ws.max_row + 1)  # умумий сводка қаторлари — ҳаммаси қалин
         self.assertEqual([r for r in grand if not (ws.cell(r, 3).font.b and ws.cell(r, 8).font.b)], [])
         # сметалар сводкасидек: D да фоиз (ҳамма сметада бир хил бўлса); Благоустройство'да «прочие» 10% — бўш
         by_text = {str(ws.cell(r, 3).value).strip(): ws.cell(r, 4).value for r in grand}
@@ -127,7 +135,7 @@ class ProjectOfyortaTests(TestCase):
         # фильтр — жадвал сарлавҳасидан охирги смета сводкасигача, умумий сводка кирмайди
         ref = ws.auto_filter.ref
         self.assertTrue(ref and ref.startswith("A"), ref)
-        self.assertEqual(int(ref.split(":")[1].lstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZ")), yellow[-1] - 1)
+        self.assertEqual(int(ref.split(":")[1].lstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZ")), last_nds)
         # ўзимиз қўшадиган сарлавҳа йўқ — сметанинг ўз сарлавҳаси қолади (икки марта чиқмасин)
         self.assertFalse(any("Ободонлаштириш" in str(c.value) for row in ws.iter_rows() for c in row if c.value))
         expected = [self.jobs[f].sum_total for f in ("10. Благоустройство", "2. Блок-А/2. Надземный", "2. Блок-А/1. Подземный")]
@@ -225,3 +233,43 @@ def test_titles_are_file_paths_and_tree_keeps_users_order():
     assert split == ["НЭО", "БЛОК-А", "НЭО", "БЛОК-А"]  # бўлинган папкалар икки жойда
     grouped = ofyorta.flatten(ofyorta.tree(parts, jobs, group=True))
     assert [p["job"] for p in grouped] == ["5", "6", "1", "2", "4"]
+
+
+@override_settings(MEDIA_ROOT=TMP_MEDIA, NARXLASH_TASKS="worker")
+class BatchOfyortaTests(TestCase):
+    """Алоҳида юкланган файллар (папкасиз объект) — худди папкадагидек офёрта."""
+
+    def test_object_without_folder_gets_ofyorta(self):
+        src = Path(tempfile.mkdtemp(prefix="narxlash_of_b_"))
+        local, res = build_local(src / "Локал.xlsx"), build_res(src / "Ресурс.xlsx")
+        user = User.objects.create_user("ob@test.uz", "Kuchli-parol-2026")
+        self.client.force_login(user)
+        batch = Batch.objects.create(owner=user, name="Алоҳида объект")
+        jobs = []
+        for n in range(2):
+            job = Job.objects.create(owner=user, batch=batch, batch_label=f"Смета {n + 1}", batch_order=n,
+                                     local_name=f"s{n}.xlsx", res_name="r.xlsx", local_path="in/local.xlsx", res_path="in/res.xlsx",
+                                     local_sheet="202611450_БВ", res_sheet="202611450_БР")
+            job.abs("in").mkdir(parents=True, exist_ok=True)
+            shutil.copy(local, job.abs(job.local_path))
+            shutil.copy(res, job.abs(job.res_path))
+            recompute(job)
+            job.status = Job.Status.DONE
+            job.save()
+            jobs.append(job)
+        # натижалар саҳифасида тугма бор
+        self.assertContains(self.client.get(reverse("batch", args=[batch.id])), reverse("batch_ofyorta", args=[batch.id]))
+        page = self.client.get(reverse("batch_ofyorta", args=[batch.id]))
+        self.assertContains(page, reverse("batch_ofyorta_save", args=[batch.id]))
+        doc = ofyorta.for_project(batch)
+        self.assertEqual(len(doc.parts), 2)
+        r = self.client.post(reverse("batch_ofyorta_save", args=[batch.id]),
+                             {"parts": json.dumps(doc.parts), "name": "Объект", "action": "build"})
+        self.assertRedirects(r, reverse("batch_ofyorta", args=[batch.id]), fetch_redirect_response=False)
+        doc.refresh_from_db()
+        ofyorta.make(doc)
+        doc.refresh_from_db()
+        self.assertEqual(doc.status, ProjectOfyorta.Status.READY, doc.error)
+        self.assertTrue(batch.abs(doc.file).is_file())
+        self.assertEqual(self.client.get(reverse("batch_ofyorta_file", args=[batch.id])).status_code, 200)
+        shutil.rmtree(src, ignore_errors=True)

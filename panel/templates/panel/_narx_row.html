@@ -1,0 +1,24 @@
+{% load narx %}{# «Нарх базаси» рўйхатида битта ресурс (i): номи, белгилари, қаердан, паст / ўрта / юқори #}
+<div class="ui-row">
+  <div class="main">
+    <a href="{% url 'panel:narx_item' i.pk %}" class="title font-medium hover:text-blue-700 hover:underline">{{ i.name }}</a>
+    <div class="ui-tags">
+      <span class="ui-tag">{{ i.unit }}</span>
+      <span class="ui-tag {% if i.n > 1 %}ok{% endif %}" title="Паспортдаги ҳамма нархлар (ҳамма вилоят ва йил)">{{ i.n }} та нарх</span>
+      {% if i.st and i.st.n != i.n %}<span class="ui-tag" title="Шу вилоят ва йилда ҳисобга кирган">шундан {{ i.st.n }} таси ҳисобда</span>{% endif %}
+      {% if i.edited %}<span class="ui-tag book" title="Номи ёки тоифасини админ тузатган">✓ тузатилган</span>{% endif %}
+    </div>
+  </div>
+  <div class="where">{% if i.st %}<b>{{ region_labels|get_item:i.st.region }}</b>{{ i.st.year }} йил · охиргиси {{ i.st.last_date|date:"d.m.Y" }}{% else %}—{% endif %}</div>
+  {% with s=i.st %}
+  {% if not s %}<div class="nx-three none"><div>ҳисобга кирадиган нарх йўқ</div></div>
+  {% elif s.single %}<div class="nx-three one"><div class="mi"><small>битта нарх · сўм / {{ i.unit }}</small><b>{{ s.mid|som }}</b></div></div>
+  {% else %}
+  <div class="nx-three" title="сўм / {{ i.unit }}">
+    <div class="lo"><small>паст</small><b>{{ s.low|som }}</b></div>
+    <div class="mi"><small>ўрта</small>{% if s.mid is not None %}<b>{{ s.mid|som }}</b>{% else %}<b class="text-slate-400" title="Иккита нарх — ўртаси йўқ">—</b>{% endif %}</div>
+    <div class="hi"><small>юқори</small><b>{{ s.high|som }}</b></div>
+  </div>
+  {% endif %}{% endwith %}
+  <a href="{% url 'panel:narx_item' i.pk %}" class="ui-btn-o" title="Ҳар нарх қаердан, ким киритди — тарих">{% icon "file" "h-4 w-4" %}Паспорт</a>
+</div>

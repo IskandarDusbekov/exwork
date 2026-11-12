@@ -14,7 +14,9 @@
     </span>
   </div>
   <div class="tree-resize" title="Суриб кенгайтиринг ёки торайтиринг · икки марта босилса — асл ҳолига"></div>
-  <div class="tree max-h-[60vh] overflow-auto pb-3 lg:sticky lg:top-0 lg:max-h-[calc(100vh-9rem)]">
+  {# дарахт ва изоҳ бирга ёпишиб туради — изоҳ дарахт устига тушиб қолмайди #}
+  <div class="bg-[#f8f8f8] lg:sticky lg:top-0">
+  <div class="tree max-h-[60vh] overflow-auto pb-3 lg:max-h-[calc(100vh-9rem)]">
     {% include "jobs/_tree_node.html" with node=tree %}
   </div>
   <div class="border-t border-slate-200 px-3 py-2 text-[11px] leading-relaxed text-slate-500">
@@ -22,6 +24,7 @@
     <span class="font-semibold text-sky-700">Р</span> ресурс ·
     <span class="font-semibold text-emerald-700">Н</span> натижа ·
     <span class="text-slate-400">кулранг</span> — олинмаган файл
+  </div>
   </div>
 </aside>
 
@@ -35,26 +38,6 @@
         {% if project.owner_id == user.pk %}<button type="button" class="mt-1 shrink-0 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                 data-rename-url="{% url 'work_rename' 'folder' project.id %}" data-rename-name="{{ project.name }}" title="Номини ўзгартириш">{% icon "pencil" "h-4 w-4" %}</button>{% endif %}</div>
     </div>
-    {% if can_download %}
-    <a href="{% url 'project_download' project.id %}" data-guide="download" class="flex items-center gap-3 rounded-lg bg-emerald-600 px-4 py-2.5 text-white shadow-sm ring-1 ring-inset ring-emerald-700/30 transition hover:bg-emerald-700">
-      <span class="grid h-9 w-9 place-items-center rounded-md bg-white/15">{% icon "download" "h-5 w-5" %}</span>
-      <span><span class="block text-sm font-semibold">Ҳаммасини юклаб олиш</span>
-        <span class="block text-xs text-emerald-100">ZIP · папкалар тузилиши сақланади</span></span>
-    </a>
-    <a href="{% url 'project_ofyorta' project.id %}" data-guide="ofyorta" class="flex items-center gap-3 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2.5 text-slate-900 shadow-sm transition hover:bg-yellow-100">
-      <span class="grid h-9 w-9 place-items-center rounded-md bg-yellow-200 text-yellow-900">{% icon "sheet" "h-5 w-5" %}</span>
-      <span><span class="block text-sm font-semibold">Офёрта тузиш</span>
-        <span class="block text-xs text-slate-600">тартиб билан · ҳар бири ўз сводкаси билан</span></span>
-    </a>
-    {% tender_on as show_tender %}{% if show_tender %}<a href="{% url 'project_tender' project.id %}" class="flex items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-slate-900 shadow-sm transition hover:bg-indigo-100">
-      <span class="grid h-9 w-9 place-items-center rounded-md bg-indigo-200 text-indigo-800">{% icon "chart" "h-5 w-5" %}</span>
-      <span><span class="block text-sm font-semibold">Объект таҳлили</span>
-        <span class="block text-xs text-slate-600">фойда, зарар ва хулоса</span></span>
-    </a>{% endif %}
-    {% else %}
-    <span data-guide="download" class="flex items-center gap-3 rounded-lg bg-slate-100 px-4 py-2.5 text-slate-400">
-      {% icon "download" "h-5 w-5" %}<span class="text-sm">Натижа ҳали йўқ</span></span>
-    {% endif %}
   </div>
 
   <div class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
@@ -62,209 +45,169 @@
   </div>
 
   {# ---- нархсиз ресурслар жадвали (jobs/_bulk_price.html) шу ерга жойлашади — бошидан очиқ, йиғиш мумкин ---- #}
-  {% if not working and not awaiting and nodes %}<div id="bulk-slot"></div>{% endif %}
 
-  {# ---- текшириш: ҳисоблаш смета­чи босгандагина бошланади ---- #}
-  {% if awaiting and count_ready %}
-  <div data-guide="awaiting" class="rounded-xl border border-violet-300 bg-violet-50 p-4 shadow-sm">
-    <div class="flex flex-wrap items-center gap-4">
-      <div class="min-w-0 flex-1 text-sm text-slate-800">
-        <div class="flex items-center gap-1.5 text-base font-semibold text-violet-900">Файллар очилди — ҳисоблашдан олдин бир кўриб чиқинг {% help "awaiting" %}</div>
-        <div class="mt-1 text-slate-700"><b>{{ count_ready }} та қисм</b>да <b>{{ count_pairs_ready }} та локал → ресурс жуфтлиги</b> топилди.
-          Пастдаги жадвалда қайси локал қайси ресурс билан ҳисобланишини кўринг; ўзгартириш керак бўлса — қисмни очинг.</div>
-        {% if count_review %}<div class="mt-1 font-semibold text-amber-800">{{ count_review }} та қисмда ресурсни ўзингиз танланг.</div>{% endif %}
-      </div>
-    </div>
-    <form method="post" action="{% url 'project_price' project.id %}" class="mt-4 border-t border-violet-200 pt-4">{% csrf_token %}
-      <div class="mb-2 text-sm text-slate-800"><b>Сводка фоизлари</b> — ҳамма смета шу фоизлар билан ҳисобланади.
-        Шундай қолдирасизми ёки ўзгартирасизми? <span class="text-xs text-slate-500">Охирги танловингиз эслаб қолинади.</span></div>
-      <div class="flex flex-wrap items-end gap-x-3 gap-y-3">
-        {% for f in pct_form %}
-        <label class="block w-[150px]">
-          <span class="block truncate text-[11px] text-slate-600" title="{{ f.text }}">{{ f.text }}</span>
-          <span class="mt-1 flex items-center gap-1">
-            <input type="text" inputmode="decimal" name="pct_{{ f.key }}" value="{{ f.pct|pct_input }}" autocomplete="off"
-                   class="w-20 rounded border px-2 py-1 text-right text-sm num {% if f.pct != f.default %}border-amber-400 bg-amber-50 text-amber-900{% else %}border-slate-300 bg-white{% endif %}"
-                   title="Стандарт: {{ f.default|pct }}"><span class="text-sm text-slate-500">%</span>
-          </span>
-        </label>
-        {% endfor %}
-        <button type="submit" data-guide="price-start" class="ml-auto flex items-center gap-2 rounded-lg bg-violet-700 px-5 py-3 font-semibold text-white shadow-sm hover:bg-violet-800">
-          {% icon "calculator" "h-5 w-5" %} Ҳисоблашни бошлаш</button>
-      </div>
+  {% for m in messages %}<div class="pp-msg{% if m.level_tag == 'error' or m.level_tag == 'warning' %} is-warn{% endif %}" role="status">{{ m }}</div>{% endfor %}
+
+  {# ---- текшириш: 1 усул → 2 ҳар бир қисмни очиб текшириш → «Ҳаммасини бошлаш» (ҳисоблаш смета­чи босгандагина) ---- #}
+  {% if awaiting %}
+  <div class="pp-mode" data-guide="awaiting">
+    <form id="pp-mode" class="pk-modebar">{% csrf_token %}
+      <label class="pk-mode{% if nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="auto" {% if nf_auto %}checked{% endif %}>Автоматик</label>
+      <label class="pk-mode{% if not nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="manual" {% if not nf_auto %}checked{% endif %}>Қўлда</label>
     </form>
+    <span>{% if nf_auto %}Тизим локал ва ресурсни <b>ўзи ажратди</b>; нархлагач ишончли таклифларни (90%+) қабул қилади, кабель/ускунани L/M га ўтказади. Сиз текширасиз.{% else %}Листларни, нарх таклифларини ва кабель/ускунани <b>ўзингиз</b> ҳал қиласиз. Белгиланмаган қисм нархланмайди.{% endif %}</span>
+  </div>
+  <div class="pp-hint">
+    {% icon "help" "h-5 w-5 shrink-0 text-emerald-600" %}
+    <div>Ҳар бир қатор — битта ички папка (ичма-ичлари ҳам). <b>«Очиш»</b> — ичидаги ҳамма лист битта жадвалда: тури ва қайси ресурс билан нархланиши.
+      Чапдаги дарахтдан папка ёки файлни боссангиз ҳам шу қисм очилади.</div>
   </div>
   {% endif %}
 
-  {# ---- нима қилиш керак: ҳисоблангандан кейин — навбатма-навбат қадамлар ---- #}
-  {% if not working and not awaiting and nodes %}
-  <div data-guide="next" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div class="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{% icon "list" "h-3.5 w-3.5" %} Нима қилиш керак — тўғирлаш ва юклаб олиш</div>
-    <ol class="grid gap-2 md:grid-cols-3">
-      <li class="flex items-start gap-3 rounded-lg border px-3 py-2.5 {% if count_review %}border-amber-300 bg-amber-50{% else %}border-emerald-200 bg-emerald-50/60{% endif %}">
-        <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold text-white {% if count_review %}bg-amber-500{% else %}bg-emerald-600{% endif %}">{% if count_review %}1{% else %}{% icon "check" "h-3.5 w-3.5" "3" %}{% endif %}</span>
-        <div class="min-w-0 text-sm">
-          <div class="font-semibold text-slate-900">Ресурсни танланг</div>
-          {% if count_review %}<div class="text-slate-600"><b class="text-amber-800">{{ count_review }} та қисм</b>да тизим ресурсни аниқ топа олмади — очиб, тўғрисини танланг.</div>
-          <button type="button" data-part-filter="review" class="mt-1.5 rounded-md bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-600">Шу қисмларни кўрсатиш</button>
-          {% else %}<div class="text-emerald-800">Ҳамма қисмда ресурс бор.</div>{% endif %}
-        </div>
-      </li>
-      <li class="flex items-start gap-3 rounded-lg border px-3 py-2.5 {% if count_warn %}border-rose-300 bg-rose-50{% else %}border-emerald-200 bg-emerald-50/60{% endif %}">
-        <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold text-white {% if count_warn %}bg-rose-600{% else %}bg-emerald-600{% endif %}">{% if count_warn %}2{% else %}{% icon "check" "h-3.5 w-3.5" "3" %}{% endif %}</span>
-        <div class="min-w-0 text-sm">
-          <div class="font-semibold text-slate-900">Нархланмаганларни тўғриланг</div>
-          {% if count_warn %}<div class="text-slate-600"><b class="text-rose-700">{{ count_warn }} та қисм</b>да {{ not_priced_total }} та қатор нархсиз — сметани очиб, нархини қўйинг.</div>
-          <button type="button" data-part-filter="warn" class="mt-1.5 text-xs font-medium text-rose-700 underline underline-offset-2 hover:text-rose-900">шу қисмларни рўйхатда кўрсатиш</button>
-          {% else %}<div class="text-emerald-800">Ҳамма қатор нархланган.</div>{% endif %}
-        </div>
-      </li>
-      <li class="flex items-start gap-3 rounded-lg border px-3 py-2.5 {% if can_download and not count_review and not count_warn %}border-emerald-300 bg-emerald-50{% else %}border-slate-200 bg-slate-50{% endif %}">
-        <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold {% if can_download and not count_review and not count_warn %}bg-emerald-600 text-white{% else %}bg-white text-slate-400 ring-1 ring-slate-300{% endif %}">3</span>
-        <div class="min-w-0 text-sm">
-          <div class="font-semibold text-slate-900">Юклаб олинг</div>
-          <div class="text-slate-600">{% if can_download %}ZIP — ҳамма натижа, папкалар тузилиши сақланади.{% if count_review or count_warn %} Ҳозир ҳам олиш мумкин, лекин аввал 1–2 қадам тавсия этилади.{% endif %}{% else %}Натижа ҳали йўқ.{% endif %}</div>
-          {% if can_download %}<a href="{% url 'project_download' project.id %}" class="mt-1.5 inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700">{% icon "download" "h-3.5 w-3.5" %} ZIP юклаб олиш</a>{% endif %}
-        </div>
-      </li>
-    </ol>
-  </div>
+  {# ---- нархлаш тугагач: қора блок (жами, ҳолат, юклаб олиш) → навбатма-навбат қадамлар → жадвал → сметалар ---- #}
+  {% if done_view %}
+  <section class="rs-hero{% if unpriced_rows or count_review %} is-fix{% endif %}" data-guide="next">
+    <div class="rs-total">
+      <span>Всего с НДС · {{ count_smeta }} та смета · {{ nodes|length }} қисм</span>
+      <b class="num">{{ grand_total|som }}</b>
+      <div class="rs-chips">
+        <button type="button" class="rs-chip is-ok" data-go="#parts">{% icon "check" "h-4 w-4" "3" %} {{ count_done }} қисм тайёр</button>
+        {% if unpriced_rows %}<button type="button" class="rs-chip is-fix" data-go="#unpriced">{% icon "alert-circle" "h-4 w-4" %} {{ unpriced_rows }} та қатор нархсиз · {{ unpriced_parts }} қисмда</button>{% endif %}
+        {% if count_recalc %}<span class="rs-chip is-run">{% icon "loader" "h-4 w-4 animate-spin" "2.5" %} {{ count_recalc }} қисм қайта ҳисобланяпти</span>{% endif %}
+        {% if count_review %}<button type="button" class="rs-chip is-warn" data-part-filter="review">{% icon "alert" "h-4 w-4" %} {{ count_review }} қисмни текширинг</button>{% endif %}
+      </div>
+    </div>
+    <div class="rs-acts">
+      {% if can_download %}<a href="{% url 'project_download' project.id %}" class="rs-dl" data-guide="download">{% icon "download" "h-6 w-6" %}<span>Ҳаммасини юклаб олиш<small>ZIP · папкалар тузилиши сақланади</small></span></a>{% endif %}
+      {% if can_download %}<a href="{% url 'project_ofyorta' project.id %}" class="rs-of" data-guide="ofyorta">{% icon "sheet" "h-5 w-5" %}<span>Офёрта тузиш<small>тартиб билан · ҳар бири ўз сводкаси билан</small></span></a>{% endif %}
+      <div class="ph-sec2">
+        {% tender_on as show_tender %}{% if show_tender %}<a href="{% url 'project_tender' project.id %}" class="rs-sec">{% icon "chart" "h-4 w-4" %} Объект таҳлили</a>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  {# йўлбошчи: ҳар бир қадам — нима ва нега; тугмаси ўша жойга олиб боради #}
+  <ol class="ph-steps">
+    {% if count_review %}
+    <li class="is-now"><div><b>Ресурсни текширинг</b><span>{{ count_review }} та қисмда тизим ресурсни аниқ топа олмади ёки лист белгиланмаган.</span></div>
+      <button type="button" class="ph-go" data-part-filter="review">Шу қисмларга ўтиш ↓</button></li>
+    {% endif %}
+    <li class="{% if unpriced_rows %}{% if not count_review %}is-now{% endif %}{% else %}is-done{% endif %}"><div><b>Нархсиз ресурсларга нарх қўйинг</b>
+      {% if unpriced_rows %}<span>{{ unpriced_rows }} та қатор RES'да топилмади. Улар <b>ҳамма сметалардан битта жадвалга</b> йиғилди — нархни бир марта ёзасиз, ҳамма сметага тушади.</span>
+      {% else %}<span>Ҳамма қатор нархланган.</span>{% endif %}</div>
+      {% if unpriced_rows %}<button type="button" class="ph-go" data-go="#unpriced">Жадвалга ўтиш ↓</button>{% endif %}</li>
+    <li class="{% if not unpriced_rows and not count_review %}is-done{% endif %}"><div><b>Нархланган сметаларни кўринг</b><span>Пастда {{ nodes|length }} та қисм, {{ count_smeta }} та смета — ҳар бирининг суммаси ва «Очиш».</span></div>
+      <button type="button" class="ph-go is-light" data-go="#parts">Сметаларга ўтиш ↓</button></li>
+    <li class="{% if not unpriced_rows and not count_review %}is-now{% endif %}"><div><b>Юклаб олинг</b><span>ZIP — ҳамма натижа{% if unpriced_rows or count_review %}; ҳозир ҳам мумкин, лекин аввал юқоридаги қадамлар тавсия этилади{% endif %}.</span></div>
+      {% if can_download %}<a href="{% url 'project_download' project.id %}" class="ph-go is-light">{% icon "download" "h-4 w-4" %} ZIP</a>{% endif %}</li>
+    {% if can_download %}<li><div><b>Офёрта тузинг</b><span>Сметаларни тартиб билан битта офёртага йиғинг — ҳар бири ўз сводкаси билан.</span></div>
+      <a href="{% url 'project_ofyorta' project.id %}" class="ph-go is-of">{% icon "sheet" "h-4 w-4" %} Офёрта</a></li>{% endif %}
+  </ol>
+
+  {% if unpriced_rows %}
+  <section id="unpriced" class="ph-block is-fix">
+    <h2>{% icon "alert-circle" "h-5 w-5" %} Нархсиз ресурслар — ҳамма сметалар бўйича битта жадвал</h2>
+    <div class="ph-explain">
+      <p>Тизим бу ресурсларни RES файлларидан топа олмади. Улар <b>{{ unpriced_parts }} та қисмдаги ҳамма сметалардан йиғилган</b>:
+        бир хил ресурс (номи ва бирлиги) — битта қатор, қайси сметаларда учраши ёнида ёзилган.</p>
+      <ol>
+        <li><b class="t-near">Таклиф бор</b> — тизим ўхшашини топди: белгиланг ва <b>«Таклифни қабул қилиш»</b>ни босинг.</li>
+        <li><b class="t-none">Нарх йўқ</b> — нархни ўзингиз ёзинг ва <b>«Нархни қўйиш»</b>ни босинг.</li>
+        <li>Нарх у учраган <b>ҳамма сметага бирданига</b> тушади, сметалар ўзи қайта ҳисобланади.</li>
+      </ol>
+    </div>
+    <div id="bulk-slot"></div>
+  </section>
+  {% elif done_view %}<div id="bulk-slot"></div>{% endif %}
+  {% elif not working and not awaiting and nodes %}<div id="bulk-slot"></div>
   {% endif %}
 
-  {# ---- жараён ---- #}
-  <div data-guide="progress" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-      <span class="flex items-center gap-2 font-medium">
-        {% if working and stopping %}<span class="text-amber-600">{% icon "loader" "h-4 w-4 animate-spin" "2.5" %}</span> Тўхтатиляпти…
-        {% elif working %}<span class="text-sky-600">{% icon "loader" "h-4 w-4 animate-spin" "2.5" %}</span> Ишланяпти
-        <button type="button" id="notify-ask" class="hidden rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-normal text-sky-800 hover:bg-sky-100"
-                title="Бошқа ойнада бўлсангиз ҳам, тугаганда браузер хабар беради">{% icon "clock" "inline h-3.5 w-3.5 -mt-0.5" %} Тугаганда хабар бериш</button>
-        {% elif count_recalc %}<span class="text-sky-600">{% icon "loader" "h-4 w-4 animate-spin" "2.5" %}</span> Нарх қўйилди — <b>{{ count_recalc }} та қисм</b> қайта ҳисобланяпти
-        {% elif awaiting and count_ready %}<span class="text-violet-600">{% icon "clock" "h-4 w-4" %}</span> Текширинг — ҳисоблаш бошланмаган
-        {% else %}<span class="text-emerald-600">{% icon "check-circle" "h-4 w-4" %}</span> Тугади{% endif %}
-        <span class="font-normal text-slate-500">· {{ finished }} / {{ nodes|length }} қисм</span>
-      </span>
-      <span class="flex min-w-0 items-center gap-3">
-        {% if current %}<span class="min-w-0 truncate text-xs text-slate-500" title="{{ current.part.batch.step }}">{{ current.part.batch.get_stage_display }}: <b class="text-slate-700">{{ current.path }}</b>{% if current.part.batch.step %} · {{ current.part.batch.step }}{% endif %}</span>{% endif %}
-        {% if working and not stopping %}
-        <form method="post" action="{% url 'project_stop' project.id %}" class="shrink-0">{% csrf_token %}
-          <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
-                  title="Кейинги файлдан олдин тўхтайди; очилганлари сақланади">{% icon "stop" "h-3.5 w-3.5" %} Тўхтатиш</button></form>
-        {% elif count_stopped and not working %}
-        <form method="post" action="{% url 'project_resume' project.id %}" class="shrink-0">{% csrf_token %}
-          <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700">
-            {% icon "play" "h-3.5 w-3.5" %} Давом эттириш ({{ count_stopped }} та қисм)</button></form>
-        {% endif %}
-      </span>
-    </div>
-    <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-      <div class="h-full rounded-full {% if working %}bg-sky-500{% else %}bg-emerald-500{% endif %} transition-all" style="width: {{ progress }}%"></div>
-    </div>
-    <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div class="col-span-2 rounded-lg bg-slate-900 px-3 py-2.5 text-white sm:col-span-1">
-        <div class="text-[11px] uppercase tracking-wider text-slate-400">Всего с НДС</div>
-        <div class="num text-lg font-semibold">{{ grand_total|som }}</div>
-      </div>
-      {# карталар — жадвал филтри: босилса, фақат шу ҳолатдаги қисмлар қолади #}
-      <div role="button" tabindex="0" data-part-filter="done" {% if not count_done %}aria-disabled="true"{% endif %} title="Фақат тайёр қисмларни кўрсатиш"
-              class="stat-filter rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-left hover:border-emerald-400">
-        <div class="text-xs text-emerald-800">Тайёр</div><div class="num text-lg font-semibold text-emerald-700">{{ count_done }}</div>
-      </div>
-      <div role="button" tabindex="0" data-part-filter="warn" {% if not count_warn %}aria-disabled="true"{% endif %} title="Фақат нархланмаган қатори бор қисмларни кўрсатиш"
-              class="stat-filter rounded-lg border px-3 py-2.5 text-left {% if count_warn %}border-rose-200 bg-rose-50 hover:border-rose-400{% else %}border-slate-200{% endif %}">
-        <div class="flex items-center gap-1.5 text-xs {% if count_warn %}text-rose-800{% else %}text-slate-500{% endif %}">Нархланмаган қатори бор {% help "warn" %}</div>
-        <div class="num text-lg font-semibold {% if count_warn %}text-rose-700{% else %}text-slate-300{% endif %}">{{ count_warn }}{% if not_priced_total %} <span class="text-xs font-normal">({{ not_priced_total }} қатор)</span>{% endif %}</div>
-      </div>
-      <div role="button" tabindex="0" data-part-filter="review" {% if not count_review %}aria-disabled="true"{% endif %} title="Фақат текшириш керак бўлган қисмларни кўрсатиш"
-              class="stat-filter rounded-lg border px-3 py-2.5 text-left {% if count_review %}border-amber-200 bg-amber-50 hover:border-amber-400{% else %}border-slate-200{% endif %}">
-        <div class="flex items-center gap-1.5 text-xs {% if count_review %}text-amber-800{% else %}text-slate-500{% endif %}">Текшириш керак {% help "review" %}</div>
-        <div class="num text-lg font-semibold {% if count_review %}text-amber-700{% else %}text-slate-300{% endif %}">{{ count_review }}</div>
+  {# ---- ишлаётганда / тўхтатилганда: тугагандаги каби қора блок; юклаб олиш ва офёрта — фақат тугагач ---- #}
+  {% if working or count_resume %}
+  <section class="rs-hero is-run" data-guide="progress">
+    <div class="rs-total">
+      <span>{% if working and stopping %}Тўхтатиляпти…{% elif working %}Нархланяпти{% else %}Иш тўхтатилган{% endif %} · {{ finished }} / {{ nodes|length }} қисм</span>
+      <b class="num">{{ progress }}%</b>
+      <div class="ph-bar{% if not working %} is-paused{% endif %}"><i style="width: {{ progress }}%"></i></div>
+      {% if current %}<small class="ph-now" title="{{ current.part.batch.step }}">{{ current.path|default:project.name }}{% if current.part.batch.step %} · {{ current.part.batch.step }}{% endif %}</small>{% endif %}
+      <div class="rs-chips">
+        <span class="rs-chip is-ok">{% icon "check" "h-4 w-4" "3" %} {{ count_done|add:count_warn }} қисм тайёр</span>
+        {% if count_warn %}<span class="rs-chip is-fix">{% icon "alert-circle" "h-4 w-4" %} {{ not_priced_total }} та қатор нархсиз</span>{% endif %}
       </div>
     </div>
-  </div>
+    <div class="rs-acts ph-wait">
+      {% icon "clock" "h-6 w-6" %}
+      <p><b>Юклаб олиш ва офёрта</b> ҳамма қисм нархлангач шу ерда очилади.</p>
+      {% if working %}<button type="button" id="notify-ask" class="rs-sec hidden" title="Бошқа ойнада бўлсангиз ҳам, тугаганда браузер хабар беради">{% icon "clock" "h-4 w-4" %} Тугаганда хабар бериш</button>{% endif %}
+    </div>
+  </section>
+  {% endif %}
 
-  {# ---- қисмлар ---- #}
-  <div data-guide="parts" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-100 px-4 py-3">
-      <h2 class="flex items-center gap-2 font-semibold">{% icon "list" "h-4 w-4 text-slate-500" %} Қисмлар <span class="num text-sm font-normal text-slate-400">{{ nodes|length }}</span></h2>
-      <div class="flex flex-wrap items-center gap-1.5 text-xs" role="group" aria-label="Ҳолат бўйича">
+  {# ---- қисмлар: ҳар бир ички папка — карта; «Очиш» — листлар ва жуфтликлар шу ерда (_picker.html) ---- #}
+  <div data-guide="parts" class="pp-list" id="parts">
+    <div class="pp-list-h">
+      {% if done_view %}<h2 class="is-done">{% icon "check-circle" "h-5 w-5 text-emerald-600" %} Нархланган сметалар <span class="num">{{ nodes|length }} қисм · {{ count_smeta }} смета</span>
+        <small>Ҳар бир қатор — битта ички папка. «Очиш» ёки смета номини босинг — Excel кўринишида очилади, у ерда қаторларни тўғирлаш мумкин.</small></h2>
+      {% else %}<h2>{% icon "folder" "h-5 w-5 text-amber-500" %} Қисмлар <span class="num">{{ nodes|length }}</span></h2>{% endif %}
+      <div class="pp-chips" role="group" aria-label="Ҳолат бўйича">
         <button type="button" data-part-filter="" class="part-chip is-on">Ҳаммаси <span class="num">{{ nodes|length }}</span></button>
-        {% if count_review %}<button type="button" data-part-filter="review" class="part-chip">{% icon "alert" "h-3.5 w-3.5 text-amber-600" %} Текширинг <span class="num">{{ count_review }}</span></button>{% endif %}
-        {% if count_warn %}<button type="button" data-part-filter="warn" class="part-chip">{% icon "alert-circle" "h-3.5 w-3.5 text-rose-600" %} Нархланмаган <span class="num">{{ count_warn }}</span></button>{% endif %}
-        {% if count_done %}<button type="button" data-part-filter="done" class="part-chip">{% icon "check" "h-3.5 w-3.5 text-emerald-600" "2.5" %} Тайёр <span class="num">{{ count_done }}</span></button>{% endif %}
+        {% if count_ready %}<button type="button" data-part-filter="ready" class="part-chip">Тайёр <span class="num">{{ count_ready }}</span></button>{% endif %}
+        {% if count_review %}<button type="button" data-part-filter="review" class="part-chip">Текширинг <span class="num">{{ count_review }}</span></button>{% endif %}
+        {% if count_warn %}<button type="button" data-part-filter="warn" class="part-chip">Нархланмаган <span class="num">{{ count_warn }}</span></button>{% endif %}
+        {% if count_done %}<button type="button" data-part-filter="done" class="part-chip">Нархланди <span class="num">{{ count_done }}</span></button>{% endif %}
       </div>
-      <span class="ml-auto text-xs text-slate-500">қаторни босинг — қисм очилади{% if count_skipped %} · {{ count_skipped }} та олдинги натижа олинмади {% help "skipped" %}{% endif %}</span>
+      {% if count_skipped %}<span class="pp-skipped">{{ count_skipped }} та олдинги натижа олинмади {% help "skipped" %}</span>{% endif %}
     </div>
-    <div id="part-empty" class="hidden px-4 py-6 text-center text-sm text-slate-500">Бу ҳолатда қисм йўқ.</div>
-    <div class="overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="bg-slate-50 text-left text-xs text-slate-500">
-        <tr><th class="px-4 py-2 font-medium">Папка</th><th class="px-3 py-2 font-medium" data-guide="pairs-col"><span class="inline-flex items-center gap-1.5">Смета: локал → ресурс {% help "overlap" %}</span></th>
-          <th class="px-3 py-2 font-medium" data-guide="state-col">Ҳолат · всего с НДС</th><th class="px-3 py-2"></th></tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">
-      {% for n in nodes %}
-      {% with p=n.part b=n.part.batch %}
-      <tr data-state="{% if p.state == 'failed' %}review{% else %}{{ p.state }}{% endif %}" class="part-row group align-top hover:bg-slate-50 {% if p.jobs or p.state == 'review' %}cursor-pointer{% endif %} {% if p.state == 'empty' %}text-slate-400{% endif %}" data-path="{{ n.path }}"
-          {% if p.jobs|length == 1 %}data-href="{% url 'job' p.jobs.0.id %}"{% elif p.state != "queued" and p.state != "converting" and p.state != "empty" %}data-href="{% url 'batch' b.id %}"{% endif %}>
-        <td class="max-w-[14rem] px-4 py-2.5">
-          <div class="flex items-start gap-2">
-            <span class="mt-0.5 text-amber-500">{% icon "folder" "h-4 w-4" "1.75" %}</span>
-            <div class="min-w-0">
-              <div class="break-words font-medium text-slate-800 {% if p.jobs or p.state == 'review' %}group-hover:underline{% endif %}">{{ n.name|default:project.name }}</div>
-              {% if n.path and n.path != n.name %}<div class="break-words text-xs text-slate-400">{{ n.path }}</div>{% endif %}
-            </div>
-          </div>
-        </td>
-        <td class="max-w-[20rem] px-3 py-2.5 text-xs text-slate-600 2xl:max-w-[28rem]">
-          {% for x in p.pairs %}<div class="pair-cell {% if not forloop.first %}mt-2{% endif %}">
-            <button type="button" class="pv-open block max-w-full truncate text-left text-[13px] font-medium text-slate-800 hover:text-emerald-700 hover:underline" data-part="{{ b.id }}" data-k="{{ x.lk }}" title="{{ x.title }} — локални Excel кўринишида очиш">{{ x.title }}</button>
-            <div class="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-slate-400">
-              <span class="tag tag-loc !min-w-0 !leading-4">Л</span><span class="truncate" title="{{ x.local }}">{{ x.job.local_sheet }}</span>
-              <button type="button" class="pv-compare shrink-0 rounded px-0.5 hover:bg-slate-100 hover:text-slate-700" data-part="{{ b.id }}" data-i="{{ x.i }}" data-k="{{ x.lk }}" data-r="{{ x.rk }}" title="Локал ва ресурс ёнма-ён">{% icon "arrow-right" "h-3 w-3" %}</button>
-              <span class="tag tag-res !min-w-0 !leading-4">Р</span><button type="button" class="pv-open truncate text-left text-sky-700 hover:underline" data-part="{{ b.id }}" data-k="{{ x.rk }}" title="Ресурс — {{ x.res }} (лист {{ x.job.res_sheet }})">{{ x.job.res_sheet }}{% if x.res != x.local %} · {{ x.res|file_title }}{% endif %}</button>
-            </div></div>
-          {% empty %}{% for x in p.planned %}<div class="pair-cell {% if not forloop.first %}mt-2{% endif %}" title="Ҳали ҳисобланмаган — режа">
-            <button type="button" class="pv-open block max-w-full truncate text-left text-[13px] font-medium text-slate-800 hover:text-emerald-700 hover:underline" data-part="{{ b.id }}" data-k="{{ x.lk }}" title="{{ x.title }} — локални Excel кўринишида очиш ({{ x.local }} · {{ x.local_sheet }})">{{ x.title }}</button>
-            <div class="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-slate-400">
-              <span class="tag tag-loc !min-w-0 !leading-4">Л</span><span class="truncate" title="{{ x.local }}">{{ x.local_sheet }}</span>
-              {% if x.rk %}
-              <button type="button" class="pv-compare shrink-0 rounded px-1 font-semibold {% if x.overlap >= 0.7 %}bg-emerald-50 text-emerald-700{% elif x.overlap >= 0.4 %}bg-amber-50 text-amber-700{% else %}bg-rose-50 text-rose-700{% endif %} hover:ring-1 hover:ring-slate-300" data-part="{{ b.id }}" data-i="{{ x.i }}" data-k="{{ x.lk }}" data-r="{{ x.rk }}"
-                      title="Локал ва таклиф қилинган ресурслар ёнма-ён (ҳар бирининг мослиги билан)">→ {% widthratio x.overlap 1 100 %}%</button>
-              <span class="tag tag-res !min-w-0 !leading-4">Р</span><button type="button" class="pv-open truncate text-left text-sky-700 hover:underline" data-part="{{ b.id }}" data-k="{{ x.rk }}" title="Ресурс — {{ x.res }} (лист {{ x.res_sheet }})">{{ x.res_sheet }}{% if x.same_file %} <span class="text-slate-400">(шу файлда)</span>{% else %} · {{ x.res|file_title }}{% endif %}</button>
-              {% else %}
-              {% if x.base %}<span class="tag !min-w-0 !leading-4 bg-violet-100 text-violet-800">Б</span><span class="truncate font-medium text-violet-700" title="Нарх ресурс базасидан олинади — RES файл ишлатилмайди">ресурс базасидан</span>{% else %}<a href="{% url 'batch' b.id %}#structure" class="shrink-0 rounded bg-rose-50 px-1.5 font-semibold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100">{% icon "search" "inline h-3 w-3" %} ресурс топилмади — танлаш</a>{% help "res_missing" "text-rose-400" %}{% endif %}
-              {% endif %}
-            </div></div>
-          {% empty %}{% for f in b.files %}<div class="truncate text-slate-400">{{ f.name }}</div>{% endfor %}{% endfor %}{% endfor %}
-          {% if p.pairs %}{% for x in p.planned %}{% if not x.rk %}<div class="pair-cell mt-2">
-            <button type="button" class="pv-open block max-w-full truncate text-left text-[13px] font-medium text-slate-800 hover:text-emerald-700 hover:underline" data-part="{{ b.id }}" data-k="{{ x.lk }}" title="{{ x.title }} — локални Excel кўринишида очиш ({{ x.local }})">{{ x.title }}</button>
-            <div class="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-slate-400">
-              <span class="tag tag-loc !min-w-0 !leading-4">Л</span><span class="truncate">{{ x.local_sheet }}</span>
-              {% if x.base %}<span class="tag !min-w-0 !leading-4 bg-violet-100 text-violet-800">Б</span><span class="truncate font-medium text-violet-700" title="Нарх ресурс базасидан олинади — RES файл ишлатилмайди">ресурс базасидан</span>{% else %}<a href="{% url 'batch' b.id %}#structure" class="shrink-0 rounded bg-rose-50 px-1.5 font-semibold text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-100">{% icon "search" "inline h-3 w-3" %} ресурс топилмади — танлаш</a>{% help "res_missing" "text-rose-400" %}{% endif %}
-            </div></div>{% endif %}{% endfor %}{% endif %}
-          {% if p.unused and p.state != "queued" and p.state != "converting" %}<a href="{% url 'batch' b.id %}#unused" class="mt-1.5 inline-flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 ring-1 ring-inset ring-sky-200 hover:bg-sky-100" title="Ҳеч бир локалга бириктирилмаган ресурс листлари — очиб, керакли локалга бириктиринг">{{ p.unused }} та ишлатилмаган ресурс</a> {% help "unused_res" "text-sky-500" %}{% endif %}
-        </td>
-        <td class="max-w-[13rem] px-3 py-2.5">
-          {% with st=states|get_item:p.state %}
-          <span class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium bg-{{ st.1 }}-50 text-{{ st.1 }}-700 ring-1 ring-inset ring-{{ st.1 }}-200">
-            {% if p.state == "warn" %}{% icon "alert-circle" "h-3.5 w-3.5" %}{% else %}{% include "jobs/_tree_state.html" with state=p.state message="" %}{% endif %}{% if p.state == "warn" %}{{ p.not_priced }} та қатор нархланмади{% else %}{{ st.0 }}{% endif %}</span>{% help p.state "ml-1 text-slate-400" %}
-          {% endwith %}
-          {% if b.message and p.state != "done" %}<div class="mt-1 text-xs text-slate-500">{{ b.message|truncatechars:140 }}</div>{% endif %}
-          {% if p.jobs %}<div class="num mt-1.5 font-semibold text-slate-800" title="Всего с НДС">{{ p.total|som }}</div>{% endif %}
-        </td>
-        <td class="px-3 py-2.5"><div class="flex flex-col items-end gap-1 whitespace-nowrap">
-          {% if p.jobs|length == 1 %}<a href="{% url 'job' p.jobs.0.id %}" class="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">{% icon "external" "h-3.5 w-3.5" %} Очиш</a>
-          {% elif p.state != "queued" and p.state != "converting" %}<a href="{% url 'batch' b.id %}" class="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">{% icon "external" "h-3.5 w-3.5" %} {% if p.state == "review" %}Танлаш{% else %}Очиш{% endif %}</a>{% endif %}
-          {% if p.jobs|length == 1 %}<a href="{% url 'job_download' p.jobs.0.id %}" class="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100" title="Шу сметани юклаб олиш">{% icon "download" "h-3.5 w-3.5" %}</a>
-          {% elif p.jobs %}<a href="{% url 'batch_download' b.id %}" class="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100" title="Шу қисмдаги {{ p.jobs|length }} та сметани юклаб олиш">{% icon "download" "h-3.5 w-3.5" %}<span class="num">{{ p.jobs|length }}</span></a>{% endif %}
-        </div></td>
-      </tr>
-      {% endwith %}
-      {% endfor %}
-      </tbody>
-    </table>
+    <div id="part-empty" class="hidden pp-none">Бу ҳолатда қисм йўқ.</div>
+    {% for n in nodes %}
+    {% with p=n.part b=n.part.batch %}
+    {% with st=states|get_item:p.state %}
+    <div class="pp-part is-{{ p.state }}" data-state="{% if p.state == 'failed' or p.left %}review{% else %}{{ p.state }}{% endif %}" data-path="{{ n.path }}" data-id="{{ b.id }}"
+         {% if not p.jobs and p.state != "queued" and p.state != "converting" and p.state != "pricing" %}data-picker="{% url 'batch' b.id %}?partial=picker&amp;embed=1"{% endif %}>
+      <div class="pp-head">{% include "jobs/_project_part_head.html" %}</div>
+      <div class="pp-body" hidden></div>
     </div>
+    {% endwith %}{% endwith %}
+    {% endfor %}
   </div>
+
+  {# ---- пастда доим кўринадиган бошқарув: ишлаётганда — «Тўхтатиш», тўхтатилгач — «Давом эттириш», текширишда — «Ҳаммасини бошлаш» ---- #}
+  {% if working %}
+  <div class="pp-go pp-run" data-guide="price-start">
+    <span class="pp-run-ic">{% icon "loader" "h-6 w-6 animate-spin" "2.5" %}</span>
+    <div class="pp-run-t">
+      <b>{% if stopping %}Тўхтатиляпти — жорий файл тугагач тўхтайди…{% else %}Ишланяпти: {{ finished }} / {{ nodes|length }} қисм{% endif %}</b>
+      <div class="pk-bar"><i style="width: {{ progress }}%"></i></div>
+      {% if current %}<small title="{{ current.part.batch.step }}">{{ current.path|default:project.name }}{% if current.part.batch.step %} · {{ current.part.batch.step }}{% endif %}</small>{% endif %}
+    </div>
+    {% if not stopping %}
+    <form method="post" action="{% url 'project_stop' project.id %}">{% csrf_token %}
+      <button type="submit" class="pp-stop" title="Жорий файл тугагач тўхтайди; тайёр бўлганлари сақланади">{% icon "stop" "h-5 w-5" %} Тўхтатиш</button></form>
+    {% endif %}
+  </div>
+  {% elif count_resume %}
+  <form method="post" action="{% url 'project_resume' project.id %}" class="pp-go pp-run">{% csrf_token %}
+    <span class="pp-run-ic is-paused">{% icon "stop" "h-6 w-6" %}</span>
+    <div class="pp-run-t"><b>Иш тўхтатилган</b><small>{{ count_resume }} та қисм қолди — тайёрлари сақланган, давом эттирсангиз қолган жойидан бошланади.</small></div>
+    <button type="submit" class="pk-go pp-resume">{% icon "play" "h-6 w-6" %}<span>Давом эттириш</span></button>
+  </form>
+  {% elif done_view %}
+  <button type="button" class="ph-down" data-go="#parts" hidden>{% icon "chevron-down" "h-5 w-5" "2.5" %} Пастда: {{ count_smeta }} та нархланган смета</button>
+  {% elif awaiting %}
+  <form method="post" action="{% url 'project_price' project.id %}" class="pp-go" data-guide="price-start">{% csrf_token %}
+    <details class="pk-pct">
+      <summary>{% icon "sliders" "h-4 w-4" %} Сводка фоизлари <span class="pk-pct-s">— ҳамма смета шу фоизлар билан</span></summary>
+      <div class="pk-pcts">
+        {% for f in pct_form %}
+        <label><span title="{{ f.text }}">{{ f.text }}</span>
+          <span class="pk-pct-i"><input type="text" inputmode="decimal" name="pct_{{ f.key }}" value="{{ f.pct|pct_input }}" autocomplete="off"
+                 class="num{% if f.pct != f.default %} is-changed{% endif %}" title="Стандарт: {{ f.default|pct }}">%</span></label>
+        {% endfor %}
+      </div>
+    </details>
+    <button type="submit" class="pk-go"{% if not count_ready %} disabled{% endif %}>{% icon "play" "h-6 w-6" %}<span>Ҳаммасини бошлаш</span></button>
+    <p class="pk-go-note"><b id="pp-ready">{{ count_ready }}</b> та қисм нархланади{% if count_mark %} · <b class="t-warn">{{ count_mark }}</b> тасида листларни белгиланг{% endif %}{% if count_check %} · <b class="t-warn">{{ count_check }}</b> тасида ресурсни танланг{% endif %}</p>
+  </form>
+  {% endif %}
 </section>
 </div>

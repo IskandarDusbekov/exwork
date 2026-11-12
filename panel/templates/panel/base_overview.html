@@ -6,28 +6,15 @@
 {% include "panel/_base_ui.html" %}
 {% include "panel/_base_tabs.html" with base_tab="settings" %}
 
-{# ---------- базадан нархлаш: ёқиш / ўчириш ---------- #}
-<section class="ui-group" style="padding:1.1rem 1.25rem;{% if cfg.enabled %}border-color:#86efac;background:#f0fdf4{% endif %}">
+{# ---------- нархлашда бу база ишлатилмайди ---------- #}
+<section class="ui-group" style="padding:1.1rem 1.25rem;border-color:#fde68a;background:#fffbeb">
   <div class="flex flex-wrap items-center gap-4">
-    <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl {% if cfg.enabled %}text-white{% else %}text-slate-500{% endif %}" style="background:{% if cfg.enabled %}#16a34a{% else %}#e2e8f0{% endif %}">{% icon "database" "h-5 w-5" %}</span>
+    <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-amber-700" style="background:#fef3c7">{% icon "database" "h-5 w-5" %}</span>
     <div class="min-w-0 flex-1">
-      <div class="font-semibold text-slate-900">Базадан нархлаш {% if cfg.enabled %}<span style="color:#15803d">ёқилган</span>{% else %}<span class="text-slate-500">ўчирилган</span>{% endif %}</div>
-      <div class="text-sm text-slate-600">{% if cfg.enabled %}RES'да йўқ нархлар базадан олинади.{% else %}Смета фақат смета­чининг RES файли билан нархланади.{% endif %}</div>
+      <div class="font-semibold text-slate-900">Бу эски база нархлашда ишлатилмайди</div>
+      <div class="text-sm text-slate-600">Сметалар энди фақат <a href="{% url 'panel:narx' %}" class="font-medium text-sky-700 underline">«Нарх базаси (янги)»</a> дан нархланади. Бу ердаги маълумотлар фақат кўриш учун қолган.</div>
     </div>
-    {% if can_act %}
-    <form method="post" action="{% url 'panel:base_toggle' %}">{% csrf_token %}
-      <input type="hidden" name="enabled" value="{% if cfg.enabled %}0{% else %}1{% endif %}">
-      {% if cfg.enabled %}<button class="ui-btn-o" style="color:#334155">Ўчириш</button>{% else %}<button class="ui-btn" style="background:#16a34a">Ёқиш</button>{% endif %}
-    </form>
-    {% endif %}
   </div>
-  {% if can_act %}
-  <form method="post" action="{% url 'panel:base_default' %}" class="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200/70 pt-3 text-sm">{% csrf_token %}
-    <span class="mr-1 text-slate-600" title="Смета­чи ўзи танламаса, шу вилоят ва давр нархи олинади">Асосий вилоят ва давр:</span>
-    {% include "panel/_base_period.html" with r=cfg.region y=cfg.year q=cfg.quarter %}
-    <button class="ui-btn-o" style="color:#334155">Сақлаш</button>
-  </form>
-  {% endif %}
 </section>
 
 {# ---------- рақамлар ---------- #}

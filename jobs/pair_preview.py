@@ -63,7 +63,11 @@ def build(batch, local_key: str, res_key: str = "", base_prices=None) -> dict:
         price = lambda r: (True, by_name[r["key"]]) if r["key"] in by_name else (False, None)
         kind = "res"
     elif base_prices is not None:
-        price = lambda r: (True, base_prices[r["code"]]["price"]) if r["code"] in base_prices else (False, None)
+        from core.normalize import name_unit_key
+
+        def price(r):  # эски база — код бўйича, янги нарх базаси — номи + бирлиги бўйича
+            e = base_prices.get(r["code"]) or base_prices.get(name_unit_key(r["name"], r["unit"]))
+            return (True, e["price"]) if e else (False, None)
         kind = "base"
     else:
         price, kind = (lambda r: (False, None)), ""

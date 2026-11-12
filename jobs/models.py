@@ -241,7 +241,9 @@ class ProjectOfyorta(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
-    project = models.OneToOneField(Project, on_delete=models.CASCADE, related_name="ofyorta")
+    # папка ёки алоҳида юкланган файллар (объект) — иккаласидан бири
+    project = models.OneToOneField(Project, on_delete=models.CASCADE, related_name="ofyorta", null=True, blank=True)
+    batch = models.OneToOneField(Batch, on_delete=models.CASCADE, related_name="ofyorta", null=True, blank=True)
     name = models.CharField(max_length=300)
     # [{"job": id, "title": сариқ сарлавҳа, "include": bool}] — тартиби офёртадаги тартиб
     parts = models.JSONField(default=list, blank=True)
@@ -256,6 +258,11 @@ class ProjectOfyorta(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def work(self):
+        """Офёрта кимники: папка (``Project``) ёки объект (``Batch``) — файл шу ишнинг папкасида сақланади."""
+        return self.project if self.project_id else self.batch
 
 
 class Worker(models.Model):

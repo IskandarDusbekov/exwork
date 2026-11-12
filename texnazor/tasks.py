@@ -89,7 +89,7 @@ def _run_project_ofyorta(doc_id, worker: str):
     from jobs.models import ProjectOfyorta
     beat = lambda: ProjectOfyorta.objects.filter(pk=doc_id, worker=worker).update(heartbeat=timezone.now())  # noqa: E731
     try:
-        ofyorta.make(ProjectOfyorta.objects.select_related("project").get(pk=doc_id), progress=beat)
+        ofyorta.make(ProjectOfyorta.objects.select_related("project", "batch").get(pk=doc_id), progress=beat)
     except Exception:  # noqa: BLE001
         log.exception("папка офёртаси: %s", doc_id)
         ProjectOfyorta.objects.filter(pk=doc_id).update(status=ProjectOfyorta.Status.FAILED, error="кутилмаган хато")
