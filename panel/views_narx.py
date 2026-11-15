@@ -823,7 +823,7 @@ def narx_intake(request, pk):
     if it.status in (it.Status.READING, it.Status.FAILED):
         return render(request, "panel/narx_intake_wait.html", _nctx(request, "uploads" if it.kind == "file" else "collect", it=it, pr=it.progress or {},
                                                                      stuck=I.stuck(it)))
-    rows = [I.row_json(r) for r in it.rows.select_related("item")]
+    rows = I.rows_json(it)
     files = []
     for i, f in enumerate(it.files or []):
         n = sum(1 for r in rows if r["fi"] == i)
@@ -834,7 +834,16 @@ def narx_intake(request, pk):
         request, "uploads" if it.kind == "file" else "collect", it=it, files=files, c=I.counts(it), stale=I.stale(it), bad=bad,
         file_names=[f["file"] + (f" — {f['sheet']}" if it.kind == "file" and f.get("sheet") else "") for f in files],
         file_done=[bool(f.get("done")) for f in files],
-        rows_json=rows, cats_json=[[k, label, GUTTER[k]] for k, label in CATEGORIES]))
+        rows_script=_json_tag(rows, "ni-rows"), cats_json=[[k, label, GUTTER[k]] for k, label in CATEGORIES]))
+
+
+def _json_tag(value, eid: str):
+    """``json_script`` каби, лекин кирилл ҳарфлар ``\\uXXXX`` эмас, ўзи — минглаб қаторда саҳифа икки баравар енгил."""
+    from django.core.serializers.json import DjangoJSONEncoder
+    from django.utils.safestring import mark_safe
+    s = json.dumps(value, ensure_ascii=False, separators=(",", ":"), cls=DjangoJSONEncoder)
+    s = s.replace("<", "\\u003C").replace(">", "\\u003E").replace("&", "\\u0026")
+    return mark_safe(f'<script id="{eid}" type="application/json">{s}</script>')
 
 
 @superuser_required

@@ -355,15 +355,41 @@ def row_json(r: IntakeRow) -> dict:
             "item_cat": r.item.category if r.item_id else None}
 
 
+def rows_json(intake: Intake) -> list:
+    """``row_json`` ҳамма қатор учун — модел объектларисиз (минглаб қаторда бир неча баравар тез)."""
+    cols = ("pk", "fi", "row", "name", "unit", "price", "qty", "category", "suggested", "reason", "sure", "warn",
+            "known", "state", "item_id", "item__verified", "item__category")
+    out = []
+    for (pk, fi, row, name, unit, price, qty, cat, sug, reason, sure, warn, known, state, iid, iver,
+         icat) in intake.rows.order_by(*IntakeRow._meta.ordering or ["pk"]).values_list(*cols):
+        out.append({"id": pk, "fi": fi, "row": row, "name": name, "unit": unit, "price": S.fmt(price),
+                    "qty": S.fmt(qty) if qty is not None else "", "cat": cat, "sug": sug, "reason": reason,
+                    "sure": sure, "warn": warn, "known": known, "state": state, "item": iid or None,
+                    "item_verified": bool(iid and iver), "item_cat": icat if iid else None})
+    return out
+
+
 def stale(intake: Intake) -> bool:
     """Смета навбат очилгандан кейин қайта нархланганми."""
     if intake.kind not in WORK_KINDS or intake.status != Intake.Status.OPEN:
         return False
+    import hashlib
+    from django.core.cache import cache
+    from jobs.models import Job
     try:
         work = S.work_of(intake.kind, intake.work_id)
     except Exception:  # noqa: BLE001 — иш ўчирилган
         return True
-    return S.signature(S.rows_from_jobs(S.jobs_of(intake.kind, work))) != intake.sig
+    # сметалар натижаси катта — ҳар очилганда қайта ўқимаслик учун имзо уларнинг версияси (жамиси) бўйича кешда
+    flt = {"folder": {"batch__project": work}, "object": {"batch": work}}.get(intake.kind, {"pk": work.pk})
+    ver = list(Job.objects.filter(status=Job.Status.DONE, **flt).order_by("id")
+               .values_list("id", "sum_total", "sum_not_priced"))
+    ck = "narxbaza:sig:" + hashlib.sha1(f"{intake.kind}|{intake.work_id}|{ver}".encode()).hexdigest()
+    sig = cache.get(ck)
+    if sig is None:
+        sig = S.signature(S.rows_from_jobs(S.jobs_of(intake.kind, work)))
+        cache.set(ck, sig, 24 * 3600)
+    return sig != intake.sig
 
 
 # ===================== қарорлар =====================

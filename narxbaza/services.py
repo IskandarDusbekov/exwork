@@ -768,6 +768,29 @@ def category_stats() -> list:
 
 
 COVER_JOBS = 60
+JOB_ROWS_TTL = 7 * 24 * 3600
+
+
+def _job_rows(jobs: list) -> dict:
+    """{смета id: [(калит, тоифа), ...]} — сметанинг ресурс қаторлари. ``result`` катта (ҳар бири ярим МБгача),
+    шунинг учун ҳар смета бир марта ўқилиб, кешда сақланади; смета қайта нархланса (жами ўзгаради) — янгидан."""
+    from django.core.cache import cache
+    ck = {j[0]: f"narxbaza:jobrows:{j[0]}:{j[1]}:{j[2]}" for j in jobs}
+    got = cache.get_many(list(ck.values()))
+    out = {jid: got[k] for jid, k in ck.items() if k in got}
+    miss = [jid for jid in ck if jid not in out]
+    fresh = {}
+    for jid, res in Job.objects.filter(pk__in=miss).values_list("id", "result").iterator(chunk_size=10):
+        rows = []
+        for r in (res or {}).get("rows") or []:
+            name, unit = str(r.get("name") or "").strip(), str(r.get("unit") or "").strip()
+            if r.get("status") == "WORK_HEADER" or not name or not unit:
+                continue
+            rows.append((item_key(name, unit), category_of(r.get("category") or r.get("default_category"))))
+        out[jid] = fresh[ck[jid]] = rows
+    if fresh:
+        cache.set_many(fresh, JOB_ROWS_TTL)
+    return out
 
 
 def coverage(limit=COVER_JOBS) -> dict:
@@ -795,15 +818,14 @@ def coverage(limit=COVER_JOBS) -> dict:
             job_batches.setdefault(str(jid), set()).add(b.pk)
     total = covered = 0
     by_cat, per_job = {k: [0, 0] for k in CATEGORY_LABELS}, []
-    jobs = Job.objects.filter(status=Job.Status.DONE).order_by("-created").only("id", "result")[:limit]
-    for job in jobs:
-        mine, t, c = job_batches.get(str(job.id), set()), 0, 0
-        for r in (job.result or {}).get("rows") or []:
-            name, unit = str(r.get("name") or "").strip(), str(r.get("unit") or "").strip()
-            if r.get("status") == "WORK_HEADER" or not name or not unit:
-                continue
-            cat = category_of(r.get("category") or r.get("default_category"))
-            ok = bool(src.get(item_key(name, unit), set()) - mine)
+    # фақат индексдаги устунлар — ``result``га тегмайди
+    jobs = list(Job.objects.filter(status=Job.Status.DONE).order_by("-created")
+                .values_list("id", "sum_total", "sum_not_priced")[:limit])
+    rows_of = _job_rows(jobs)
+    for jid, *_ in jobs:
+        mine, t, c = job_batches.get(str(jid), set()), 0, 0
+        for key, cat in rows_of.get(jid, ()):
+            ok = bool(src.get(key, set()) - mine)
             t += 1
             c += ok
             by_cat[cat][0] += 1

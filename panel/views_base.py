@@ -203,8 +203,8 @@ def base_obs(request, pk, action):
 @staff_required
 def base_coverage(request):
     """База танланган сметани шу вилоят ва даврда қанчалик нархлай олади."""
-    jobs = (Job.objects.filter(status=Job.Status.DONE).select_related("batch", "batch__project")
-            .defer("result").order_by("-created")[:300])
+    jobs = (Job.objects.filter(status=Job.Status.DONE).select_related("batch")
+            .only("id", "local_name", "batch__name").order_by("-created")[:300])
     job = report = None
     r, y, q = "", None, None
     if request.GET.get("job"):

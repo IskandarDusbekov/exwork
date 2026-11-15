@@ -354,6 +354,21 @@ def _avg(xs):
     return sum(xs) / len(xs) if xs else None
 
 
+def _done_stats(done):
+    """[(эгаси, жами, result.stats)] — ``result``нинг ўзи катта, шунинг учун ``stats`` ҳар смета учун кешда
+    (смета қайта нархланса — жами ўзгаради, калит ҳам)."""
+    rows = list(done.values_list("id", "owner_id", "sum_total", "sum_not_priced"))
+    ver = {str(jid): f"{total}:{np}" for jid, _, total, np in rows}
+    got = cache.get("panel:jobstats") or {}  # битта ёзув: {смета: (версия, stats)}
+    miss = [jid for jid, *_ in rows if (got.get(str(jid)) or ("",))[0] != ver[str(jid)]]
+    for i in range(0, len(miss), 200):
+        for jid, st in Job.objects.filter(pk__in=miss[i:i + 200]).values_list("id", "result__stats"):
+            got[str(jid)] = (ver[str(jid)], st if isinstance(st, dict) else {})
+    if miss:
+        cache.set("panel:jobstats", got, 7 * 24 * 3600)
+    return [(owner, total, (got.get(str(jid)) or ("", {}))[1]) for jid, owner, total, _ in rows]
+
+
 def stats(days: int) -> dict:
     """Статистика саҳифаси: охирги ``days`` кун."""
     from django.contrib.auth import get_user_model
@@ -367,7 +382,7 @@ def stats(days: int) -> dict:
     logins = list(Event.objects.filter(kind=Event.Kind.LOGIN, created__gte=since).values_list("created", flat=True))
 
     by_user, match = {}, {}
-    for owner_id, total, st in done.values_list("owner_id", "result__totals__s_nds", "result__stats"):
+    for owner_id, total, st in _done_stats(done):
         r = by_user.setdefault(owner_id, {"n": 0, "sum": 0.0})
         r["n"] += 1
         r["sum"] += total if isinstance(total, (int, float)) else 0

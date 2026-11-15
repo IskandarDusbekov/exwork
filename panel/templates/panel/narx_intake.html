@@ -145,7 +145,7 @@
   {% else %}<div id="ni-info" class="border-t px-3 py-2 text-sm text-slate-500"></div>{% endif %}
 </div>
 
-{{ rows_json|json_script:"ni-rows" }}{{ cats_json|json_script:"ni-cats" }}{{ file_names|json_script:"ni-files" }}{{ file_done|json_script:"ni-fdone" }}
+{{ rows_script }}{{ cats_json|json_script:"ni-cats" }}{{ file_names|json_script:"ni-files" }}{{ file_done|json_script:"ni-fdone" }}
 <script>
 (function () {
   const ROWS = JSON.parse(document.getElementById("ni-rows").textContent);
