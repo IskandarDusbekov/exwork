@@ -36,11 +36,28 @@ class ThreeTests(TestCase):
     def test_quartiles_and_outlier(self):
         low, mid, high, out = services.three([D(100), D(110), D(120), D(130), D(1000)])
         self.assertEqual(out, {D(1000)})
-        self.assertEqual((low, mid, high), (D(100), D(110), D(120)))
+        self.assertEqual((low, mid, high), (D(100), D(110), D(130)))  # юқори — энг қиммат ҳақиқий нарх
 
     def test_always_real_prices_by_rank(self):
         ps = [D(100 + i) for i in range(25)]
-        self.assertEqual(services.three(ps)[:3], (D(106), D(112), D(118)))  # 7-, 13-, 19-нарх
+        self.assertEqual(services.three(ps)[:3], (D(100), D(112), D(124)))  # энг арзони, 13-нарх, энг қиммати
+
+    def test_high_is_real_price_from_many_files(self):
+        # 1-ресурс ҳолати: 36 030 атрофида 6 та (яхлитлаш фарқи), 53 339 — 7 файлда, 54 606,75 — 20 файлда
+        ps = [D("36030"), D("36030"), D("36030.1"), D("36030.1"), D("36030.1"), D("36030.12"), D("53339"), D("54606.75")]
+        seen = [13, 13, 20, 1, 6, 10, 7, 20]
+        low, mid, high, out = services.three(ps, seen)
+        self.assertEqual((low, mid, high, out), (D("36030.1"), D("36030.1"), D("54606.75"), set()))
+
+    def test_weight_by_files_moves_mid(self):
+        # қиммат нарх кўп файлда — ўрта шунга сурилади
+        self.assertEqual(services.three([D(100), D(150)], [2, 30])[1], D(150))
+        self.assertEqual(services.three([D(100), D(120), D(150)], [1, 1, 30])[1], D(150))
+
+    def test_same_file_counted_once(self):
+        f = frozenset({"job1", "job2"})
+        # 100 — икки тўпламда, лекин ўша 2 та файл; 120 — 3 та бошқа файлда
+        self.assertEqual(services.three([D(100), D(100), D(120)], [f, f, frozenset({"a", "b", "c"})])[1], D(120))
 
     def test_new_low_price_shifts_down(self):
         a = services.three([D(100), D(110), D(120), D(130)])
@@ -97,111 +114,16 @@ class CollectTests(TestCase):
         services.set_excluded(p2, True)
         st = Stat.objects.get(item=p.item)
         self.assertEqual((st.mid, st.n), (D(10_000_000), 1))
-        services.delete_batch(p.batch)
+        services.trash_batch(p.batch)
         self.assertFalse(Stat.objects.filter(item=p.item).exists())  # қолгани истисно — ҳисобга кирадиган нарх йўқ
 
 
-class PanelTests(TestCase):
-    def setUp(self):
-        self.admin = User.objects.create_superuser("admin@test.uz", PASSWORD, first_name="A", last_name="D")
-        self.smetachi = User.objects.create_user("s@test.uz", PASSWORD, first_name="S", last_name="V")
-        self.job = make_job(self.smetachi, [row(11, "ВОДА", "М3", 760), row(12, "ГРАВИЙ", "М3", 35000, status="FUZZY")])
-        self.url = reverse("panel:narx_review", args=["smeta", self.job.pk])
-        self.client.force_login(self.admin)
-
-    def test_pages_and_confirm_flow(self):
-        for name in ("panel:narx", "panel:narx_collect", "panel:narx_batches", "panel:narx_how"):
-            self.assertEqual(self.client.get(reverse(name)).status_code, 200, name)
-        r = self.client.get(self.url)
-        self.assertContains(r, "ГРАВИЙ")
-        r = self.client.post(self.url, {"sig": r.context["sig"], "region": "buxoro", "date": "2026-05-03",
-                                        "pick": json.dumps([0, 1])})
-        b = Batch.objects.get()
-        self.assertRedirects(r, reverse("panel:narx_batch", args=[b.pk]))
-        self.assertEqual(b.prices.count(), 2)
-        it = Item.objects.get(name="ВОДА")
-        r = self.client.get(reverse("panel:narx_item", args=[it.pk]))
-        self.assertContains(r, "lokal.xlsx")
-        self.assertContains(r, self.smetachi.get_full_name())
-        self.assertEqual(self.client.get(reverse("panel:narx_batch", args=[b.pk])).status_code, 200)
-        self.assertContains(self.client.get(reverse("panel:narx")), "ВОДА")
-        self.assertNotContains(self.client.get(reverse("panel:narx_collect")), self.url)
-
-    def test_no_js_takes_only_sure_rows(self):
-        sig = self.client.get(self.url).context["sig"]
-        self.client.post(self.url, {"sig": sig, "region": "buxoro", "date": "2026-05-03"})
-        self.assertEqual(list(Price.objects.values_list("name", flat=True)), ["ВОДА"])
-
-    def test_future_date_and_stale_sig_rejected(self):
-        sig = self.client.get(self.url).context["sig"]
-        self.client.post(self.url, {"sig": sig, "region": "buxoro", "date": "2999-01-01"})
-        self.client.post(self.url, {"sig": "eski", "region": "buxoro", "date": "2026-05-03"})
-        self.assertFalse(Price.objects.exists())
-
-    def test_manual_add_view(self):
-        r = self.client.post(reverse("panel:narx_add"), {"name": "Ноутбук", "unit": "шт", "category": "M",
-                                                          "price": "10 000 000", "region": "buxoro", "date": "2026-11-01"})
-        it = Item.objects.get()
-        self.assertRedirects(r, reverse("panel:narx_item", args=[it.pk]))
-        self.assertEqual(it.prices.get().price, D(10_000_000))
-        self.assertContains(self.client.get(reverse("panel:narx_item", args=[it.pk])), "қўлда киритилган")
-
-    def test_staff_cannot_confirm(self):
-        staff = User.objects.create_user("st@test.uz", PASSWORD, first_name="S", last_name="T", is_staff=True)
-        self.client.force_login(staff)
-        sig = self.client.get(self.url).context["sig"]
-        self.assertEqual(self.client.post(self.url, {"sig": sig, "region": "buxoro", "date": "2026-05-03"}).status_code, 404)
-
-
 class UploadAndListTests(TestCase):
+    """Эски тўғридан-тўғри тасдиқлаш ва файл юклаш синовлари — ``tests_intake.py`` да (текширув навбати)."""
+
     def setUp(self):
-        import tempfile
-        self.media = tempfile.mkdtemp()
         self.admin = User.objects.create_superuser("admin@test.uz", PASSWORD, first_name="A", last_name="D")
         self.client.force_login(self.admin)
-
-    def tearDown(self):
-        import shutil
-        shutil.rmtree(self.media, ignore_errors=True)
-
-    def _xlsx(self):
-        import io
-        from openpyxl import Workbook
-        wb = Workbook()
-        ws = wb.active
-        ws.append(["Тижорий таклиф"])
-        ws.append(["№", "Наименование", "Ед. изм.", "Кол-во", "Цена", "Тоифа"])
-        ws.append([1, "Ноутбук HP", "шт", 2, 10_000_000, "ускуна"])
-        ws.append([2, "Кабель ВВГ 3х2.5", "м", 100, 12_000, "кабель"])
-        ws.append([3, "Итого", None, None, None, None])
-        buf = io.BytesIO()
-        wb.save(buf)
-        from django.core.files.uploadedfile import SimpleUploadedFile
-        return SimpleUploadedFile("taklif.xlsx", buf.getvalue())
-
-    def test_excel_upload_preview_and_confirm(self):
-        from django.test import override_settings
-        with override_settings(MEDIA_ROOT=self.media):
-            r = self.client.post(reverse("panel:narx_upload"), {"file": self._xlsx(), "kind": "excel", "category": "K"})
-            self.assertEqual(r.status_code, 302, r)
-            page = self.client.get(r["Location"])
-            self.assertContains(page, "Ноутбук HP")
-            self.assertEqual([x["category"] for x in page.context["rows"]], ["M", "L"])
-            r = self.client.post(r["Location"], {"region": "buxoro", "date": "2026-11-01", "pick": "[0, 1]"})
-            b = Batch.objects.get()
-            self.assertEqual((b.kind, b.title, b.prices.count()), ("file", "taklif.xlsx", 2))
-            self.assertEqual(Price.objects.get(item__name="Ноутбук HP").qty, D(2))
-            self.assertEqual(self.client.get(reverse("panel:narx_batch_file", args=[b.pk])).status_code, 200)
-            it = Item.objects.get(name="Ноутбук HP")
-            self.assertContains(self.client.get(reverse("panel:narx_item", args=[it.pk])), "асл файл")
-
-    def test_upload_cancel(self):
-        from django.test import override_settings
-        with override_settings(MEDIA_ROOT=self.media):
-            r = self.client.post(reverse("panel:narx_upload"), {"file": self._xlsx(), "kind": "excel"})
-            self.client.post(r["Location"], {"action": "cancel"})
-            self.assertFalse(Batch.objects.exists())
-            self.assertEqual(self.client.get(r["Location"]).status_code, 404)
 
     def test_list_filters_sorts_and_coverage(self):
         services.add_manual(name="Цемент", unit="т", category="K", price=D(1_200_000), region="buxoro", day=date(2026, 3, 1))
@@ -228,7 +150,10 @@ class DeleteItemTests(TestCase):
         p = services.add_manual(name="Ноутбук", unit="шт", category="M", price=D(10), region="buxoro", day=date(2026, 1, 1))
         r = self.client.post(reverse("panel:narx_item_delete", args=[p.item_id]))
         self.assertRedirects(r, reverse("panel:narx"))
-        self.assertFalse(Item.objects.exists() or Price.objects.exists() or Stat.objects.exists() or Batch.objects.exists())
+        self.assertFalse(Item.objects.exists() or Price.objects.exists() or Stat.objects.exists())  # саватчада
+        self.assertContains(self.client.get(reverse("panel:narx_trash")), "Ноутбук")
+        self.client.post(reverse("panel:narx_trash_purge", args=["item", p.item_id]))
+        self.assertFalse(Item.all_objects.exists() or Price.all_objects.exists() or Batch.all_objects.exists())
 
 
 import shutil as _shutil
@@ -317,3 +242,271 @@ class PricingTests(TestCase):
         self.client.force_login(admin)
         self.client.post(reverse("panel:base_toggle"), {"enabled": "1"})
         self.assertFalse(BaseConfig.get().enabled)
+
+
+# ===================== тузатиш, бирлаштириш, саватча =====================
+from .models import Alias, Log  # noqa: E402
+
+
+class EditMergeTrashTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser("admin@test.uz", PASSWORD, first_name="A", last_name="D")
+        self.client.force_login(self.admin)
+
+    def manual(self, name, price, unit="т", region="buxoro", day=date(2026, 3, 1)):
+        return services.add_manual(name=name, unit=unit, category="K", price=D(price), region=region, day=day,
+                                   user=self.admin)
+
+    def stat(self, item, region="buxoro", year=2026):
+        return Stat.objects.get(item=item, region=region, year=year)
+
+    def test_edit_price_logs_and_recalcs(self):
+        p = self.manual("Цемент М400", 12_000_000)  # битта нол ортиқча
+        self.manual("Цемент М400", 1_100_000)
+        url = reverse("panel:narx_price_edit", args=[p.pk])
+        self.client.post(url, {"price": "1 200 000", "region": "buxoro", "date": "2026-03-01"})  # сабабсиз — йўқ
+        p.refresh_from_db()
+        self.assertEqual(p.price, D(12_000_000))
+        self.client.post(url, {"price": "1 200 000", "region": "buxoro", "date": "2026-03-01", "reason": "нол ортиқча"})
+        p.refresh_from_db()
+        self.assertEqual((p.price, p.edited), (D(1_200_000), True))
+        self.assertEqual(self.stat(p.item).high, D(1_200_000))
+        g = Log.objects.get(action=Log.Action.PRICE_EDIT)
+        self.assertEqual((g.data["old"]["price"], g.data["reason"], g.user), ("12000000.0000", "нол ортиқча", self.admin))
+        r = self.client.get(reverse("panel:narx_item", args=[p.item_id]))
+        self.assertContains(r, "нол ортиқча")
+        self.assertContains(r, "12 000 000 → 1 200 000")
+
+    def test_edit_price_moves_region_and_year(self):
+        p = self.manual("Қум", 100_000)
+        services.edit_price(p, price=D(100_000), region="xorazm", day=date(2025, 6, 1), reason="вилоят хато")
+        self.assertFalse(Stat.objects.filter(item=p.item, region="buxoro").exists())
+        self.assertEqual(self.stat(p.item, "xorazm", 2025).mid, D(100_000))
+        self.assertFalse(services.edit_price(p, price=D(100_000), region="xorazm", day=date(2025, 6, 1), reason="x"))
+
+    def test_rename_keeps_old_name_as_alias(self):
+        p = self.manual("ЦЕМЕНТ М-400", 1_000_000)
+        it = p.item
+        services.edit_item(it, name="Цемент М400", category="K", user=self.admin)
+        self.assertEqual(Alias.objects.get().item, it)
+        p2 = self.manual("цемент  м-400", 1_100_000)  # эски ном билан келди — ўша ресурсга
+        self.assertEqual(p2.item_id, it.pk)
+        other = self.manual("Цемент М500", 1_300_000).item
+        with self.assertRaises(services.Conflict):
+            services.edit_item(other, name="Цемент М-400", category="K")  # бошқа ресурснинг эски номи
+
+    def test_merge_items(self):
+        a = self.manual("Цемент М400", 1_000_000).item
+        b_price = self.manual("Цемент марки 400", 1_200_000)
+        b = b_price.item
+        self.manual("Цемент марки 400", 1_300_000)
+        self.assertIn(b, services.similar_items(a, "марки"))
+        r = self.client.post(reverse("panel:narx_item_merge", args=[a.pk]), {"source": b.pk})
+        self.assertRedirects(r, reverse("panel:narx_item", args=[a.pk]))
+        self.assertFalse(Item.all_objects.filter(pk=b.pk).exists())
+        self.assertEqual(a.prices.count(), 3)
+        st = self.stat(a)
+        self.assertEqual((st.low, st.mid, st.high, st.n), (D(1_000_000), D(1_200_000), D(1_300_000), 3))
+        self.assertEqual(self.manual("ЦЕМЕНТ МАРКИ 400", 1_250_000).item_id, a.pk)  # эски номи — шу ерга
+        m = services.price_map({"region": "buxoro", "year": 2026, "level": "mid"})
+        self.assertEqual(m[services.item_key("Цемент марки 400", "т")]["price"], m[a.key]["price"])
+        kg = self.manual("Цемент М400", 1000, unit="кг").item
+        with self.assertRaises(ValueError):
+            services.merge_items(a, kg)  # бирлиги бошқа
+
+    def test_trash_and_restore_item(self):
+        p = self.manual("Гипс", 50_000)
+        it = p.item
+        services.trash_item(it, self.admin)
+        self.assertFalse(Item.objects.filter(pk=it.pk).exists())
+        self.assertFalse(Stat.objects.filter(item=it).exists())
+        self.assertNotIn(services.item_key("Гипс", "т"), services.price_map({"region": "buxoro", "year": 2026}))
+        p2 = self.manual("ГИПС", 60_000)  # шу орада янги ресурс очилди
+        self.assertNotEqual(p2.item_id, it.pk)
+        r = self.client.post(reverse("panel:narx_trash_restore", args=["item", it.pk]))
+        self.assertRedirects(r, reverse("panel:narx_item", args=[p2.item_id]))  # янгисига қўшилди
+        self.assertEqual(self.stat(p2.item).n, 2)
+        q = self.manual("Оҳак", 70_000)
+        services.trash_item(q.item)
+        back = services.restore_item(Item.all_objects.get(pk=q.item_id))
+        self.assertEqual((back.pk, back.key), (q.item_id, services.item_key("Оҳак", "т")))
+        self.assertEqual(self.stat(back).mid, D(70_000))
+
+    def test_trash_restore_purge_batch(self):
+        job = make_job(self.admin, [row(11, "ВОДА", "М3", 760)])
+        b = services.add_batch("smeta", job, services.rows_from_jobs([job]), region="buxoro", day=date(2026, 5, 3))
+        self.client.post(reverse("panel:narx_batch_delete", args=[b.pk]))
+        self.assertFalse(Stat.objects.exists())
+        self.assertIn(("smeta", job), services.pending_works())  # яна йиғишда
+        self.assertEqual(self.client.get(reverse("panel:narx_trash")).status_code, 200)
+        self.client.post(reverse("panel:narx_trash_restore", args=["batch", b.pk]))
+        self.assertTrue(Stat.objects.exists())
+        services.trash_batch(Batch.objects.get(pk=b.pk))
+        b2 = services.add_batch("smeta", job, services.rows_from_jobs([job]), region="buxoro", day=date(2026, 5, 4))
+        with self.assertRaises(ValueError):  # шу иш қайта киритилган
+            services.restore_batch(Batch.all_objects.get(pk=b.pk))
+        self.client.post(reverse("panel:narx_trash_purge", args=["batch", b.pk]))
+        self.assertFalse(Batch.all_objects.filter(pk=b.pk).exists())
+        self.assertEqual(Price.objects.get().batch, b2)
+        self.assertTrue(Log.objects.filter(action=Log.Action.PURGE).exists())
+
+    def test_edit_batch_region(self):
+        job = make_job(self.admin, [row(11, "ВОДА", "М3", 760), row(12, "ЩЕБЕНЬ", "М3", 90_000)])
+        b = services.add_batch("smeta", job, services.rows_from_jobs([job]), region="buxoro", day=date(2026, 5, 3))
+        alone = Price.objects.get(name="ЩЕБЕНЬ")
+        services.edit_price(alone, price=D(95_000), region="navoiy", day=date(2026, 5, 3), reason="бошқа вилоят")
+        r = self.client.post(reverse("panel:narx_batch_edit", args=[b.pk]), {"region": "xorazm", "date": "2025-12-01"})
+        self.assertRedirects(r, reverse("panel:narx_batch", args=[b.pk]))
+        water = Price.objects.get(name="ВОДА")
+        self.assertEqual((water.region, water.year), ("xorazm", 2025))
+        self.assertEqual(Price.objects.get(name="ЩЕБЕНЬ").region, "navoiy")  # алоҳида тузатилгани ўзгармади
+        self.assertEqual(set(Stat.objects.values_list("region", "year")), {("xorazm", 2025), ("navoiy", 2026)})
+
+    def test_pages_render(self):
+        p = self.manual("Цемент М400", 1_000_000)
+        self.manual("Цемент марки М400", 1_200_000)
+        r = self.client.get(reverse("panel:narx_item", args=[p.item_id]))
+        self.assertContains(r, "Шу ресурсга қўшиш")  # ўхшаш ном таклиф қилинди
+        self.assertContains(r, "Нархни тузатиш")
+        self.assertEqual(self.client.get(reverse("panel:narx_batch", args=[p.batch_id])).status_code, 200)
+        self.assertEqual(self.client.get(reverse("panel:narx_trash")).status_code, 200)
+        staff = User.objects.create_user("st@test.uz", PASSWORD, first_name="S", last_name="T", is_staff=True)
+        self.client.force_login(staff)
+        self.assertNotContains(self.client.get(reverse("panel:narx_item", args=[p.item_id])), "Шу ресурсга қўшиш")
+        self.client.post(reverse("panel:narx_item_delete", args=[p.item_id]))
+        self.assertTrue(Item.objects.filter(pk=p.item_id).exists())  # кўрувчи ўчира олмайди
+
+
+# ===================== динамика, текшириш навбати, бирданига =====================
+class Stage2Tests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.admin = User.objects.create_superuser("admin@test.uz", PASSWORD, first_name="A", last_name="D")
+        self.client.force_login(self.admin)
+
+    def manual(self, name, price, unit="т", region="buxoro", day=date(2026, 3, 1), cat="K"):
+        return services.add_manual(name=name, unit=unit, category=cat, price=D(price), region=region, day=day,
+                                   user=self.admin)
+
+    def test_dynamics(self):
+        p = self.manual("Цемент М400", 1_000_000, day=date(2024, 3, 1))
+        self.manual("Цемент М400", 1_100_000, day=date(2025, 3, 1))
+        self.manual("Цемент М400", 1_210_000, day=date(2026, 3, 1))
+        self.manual("Цемент М400", 1_300_000, region="xorazm", day=date(2025, 3, 1))
+        d = services.dynamics(list(p.item.stats.all()))
+        self.assertEqual(d["years"], [2024, 2025, 2026])
+        self.assertEqual([(s.region, s.year) for s in d["latest"]], [("buxoro", 2026), ("xorazm", 2025)])
+        bux = d["rows"][0]
+        self.assertEqual([c["change"] for c in bux["cells"]], [None, 10.0, 10.0])
+        self.assertEqual(len(bux["spark"].split()), 3)
+        self.assertEqual(d["rows"][1]["spark"], "")  # битта йил — график йўқ
+        r = self.client.get(reverse("panel:narx_item", args=[p.item_id]))
+        self.assertContains(r, "Йиллар бўйича ўзгариши")
+        self.assertContains(r, "+10,0% олдинги йилга")
+
+    def test_duplicates_and_ignore(self):
+        a = self.manual("Агрегаты окрасочные высокого давления", 100).item
+        b = self.manual("Агрегаты окрасочные высокогодавления", 110).item
+        self.manual("Лист толщ 5мм", 100)
+        self.manual("Лист толщ 6мм", 100)  # рақами бошқа — икки нусха эмас
+        self.manual("Агрегаты окрасочные высокого давления", 100, unit="шт")  # бирлиги бошқа
+        self.assertEqual([(x, y) for _, x, y in services.duplicate_pairs()], [(a.pk, b.pk)])
+        r = self.client.get(reverse("panel:narx_check"))
+        self.assertContains(r, "Шу номга бирлаштириш")
+        self.client.post(reverse("panel:narx_check_ignore"), {"a": b.pk, "b": a.pk})
+        self.assertEqual(services.duplicate_pairs(), [])
+        self.assertEqual(services.review_counts()["dup"], 0)
+
+    def test_merge_from_queue_returns_back(self):
+        a = self.manual("Агрегаты окрасочные высокого давления", 100).item
+        b = self.manual("Агрегаты окрасочные высокогодавления", 110).item
+        back = reverse("panel:narx_check") + "?s=dup"
+        r = self.client.post(reverse("panel:narx_item_merge", args=[a.pk]), {"source": b.pk, "next": back})
+        self.assertRedirects(r, back)
+        self.assertEqual(a.prices.count(), 2)
+
+    def test_other_sections(self):
+        self.manual("Нимадир", 100, cat="O")
+        self.manual("Эски қум", 100, day=date(2020, 1, 1))
+        for price in (100, 105, 110, 1000):
+            self.manual("Шағал", price)
+        c = services.review_counts()
+        self.assertEqual((c["cat"], c["outlier"], c["stale"]), (1, 1, 1))
+        for sec, text in (("cat", "Нимадир"), ("stale", "Эски қум"), ("outlier", "Шағал")):
+            self.assertContains(self.client.get(reverse("panel:narx_check") + f"?s={sec}"), text)
+
+    def test_bulk(self):
+        ids = [self.manual(n, 100, cat="O").item_id for n in ("Бир", "Икки", "Уч")]
+        url = reverse("panel:narx_bulk")
+        self.client.post(url, {"ids": ids[:2], "action": "category", "category": "M"})
+        self.assertEqual(sorted(Item.objects.values_list("category", flat=True)), ["M", "M", "O"])
+        self.assertEqual(Log.objects.filter(action=Log.Action.CATEGORY).count(), 2)
+        kg = self.manual("Тўрт", 100, unit="кг").item_id
+        r = self.client.post(url, {"ids": ids + [kg], "action": "merge", "target": ids[0]})
+        self.assertRedirects(r, reverse("panel:narx_item", args=[ids[0]]), fetch_redirect_response=False)
+        self.assertEqual(Item.objects.get(pk=ids[0]).prices.count(), 3)
+        self.assertTrue(Item.objects.filter(pk=kg).exists())  # бирлиги бошқа — қўшилмади
+        self.client.post(url, {"ids": [ids[0], kg], "action": "trash"})
+        self.assertFalse(Item.objects.exists())
+        self.assertEqual(services.trash_counts()["items"], 2)
+
+    def test_list_has_bulk_bar_only_for_admin(self):
+        self.manual("Бир", 100)
+        self.assertContains(self.client.get(reverse("panel:narx")), 'id="nx-bulk"')
+        staff = User.objects.create_user("st@test.uz", PASSWORD, first_name="S", last_name="T", is_staff=True)
+        self.client.force_login(staff)
+        self.assertNotContains(self.client.get(reverse("panel:narx")), 'id="nx-bulk"')
+        self.assertEqual(self.client.get(reverse("panel:narx_check")).status_code, 200)
+        self.assertEqual(self.client.post(reverse("panel:narx_bulk"), {"ids": [1], "action": "trash"}).status_code, 403)
+
+
+# ===================== статистика =====================
+class StatsTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser("admin@test.uz", PASSWORD, first_name="A", last_name="D")
+        self.client.force_login(self.admin)
+
+    def manual(self, name, price, region, year=2026, unit="т"):
+        return services.add_manual(name=name, unit=unit, category="K", price=D(price), region=region,
+                                   day=date(year, 3, 1))
+
+    def test_price_index_and_overview(self):
+        from . import stats as S
+        for region, k in (("buxoro", 1.0), ("xorazm", 1.2), ("samarqand", 0.9)):
+            self.manual("Цемент", 1000 * k, region)
+            self.manual("Қум", 100 * k, region)
+        self.manual("Гипс", 50, "buxoro")  # битта вилоятда — солиштирилмайди
+        self.manual("Цемент", 900, "buxoro", year=2025)
+        idx, _ = S.price_index(2026)
+        self.assertEqual(idx["buxoro"], {"pct": 0.0, "n": 2})
+        self.assertEqual(idx["xorazm"]["pct"], 20.0)
+        self.assertEqual(idx["samarqand"]["pct"], -10.0)
+        ov = S.overview(2026, "index", "xorazm")
+        rank = [r["code"] for r in ov["rank"]]
+        self.assertEqual(rank, ["xorazm", "buxoro", "samarqand"])
+        reg = {r["code"]: r for r in ov["regions"]}
+        self.assertEqual(len(reg), 14)
+        self.assertEqual((reg["buxoro"]["items"], reg["xorazm"]["color"], reg["samarqand"]["color"]),
+                         (3, S.DIV_HI[3], S.DIV_LO[1]))
+        self.assertEqual(reg["navoiy"]["color"], S.EMPTY)
+        self.assertEqual(S.overview(None, "items")["covered"], 3)
+        mx = S.matrix()
+        self.assertEqual(mx["years"], [2025, 2026])
+        bux = next(r for r in mx["rows"] if r["code"] == "buxoro")
+        self.assertEqual([c["n"] for c in bux["cells"]], [1, 3])
+        d = S.region_detail("xorazm", 2026, ov["ratios"])
+        self.assertEqual([x["pct"] for x in d["dear"]], [20, 20])
+        self.assertEqual(d["cheap"], [])
+
+    def test_page(self):
+        self.manual("Цемент", 1000, "buxoro")
+        self.manual("Цемент", 1200, "xorazm")
+        url = reverse("panel:narx_stats")
+        for q in ("", "?y=2026", "?m=prices", "?m=index&r=xorazm", "?y=1999&m=bad&r=bad"):
+            r = self.client.get(url + q)
+            self.assertEqual(r.status_code, 200, q)
+        r = self.client.get(url + "?m=index&r=xorazm")
+        self.assertContains(r, "Мамлакатдан энг")
+        self.assertContains(r, "+9,1%")  # 1200 / медиана 1100
+        self.assertContains(r, "OpenStreetMap")

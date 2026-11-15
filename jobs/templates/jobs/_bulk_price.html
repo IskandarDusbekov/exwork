@@ -11,6 +11,7 @@
     <div id="bulk-top" class="flex flex-wrap items-center gap-x-3 gap-y-1 bg-rose-50 px-4 py-3">
       <span id="bulk-badge" class="rounded-md bg-rose-600 px-2 py-0.5 text-xs font-semibold text-white">Ҳамма смета</span>
       <h2 id="bulk-title" class="font-semibold text-slate-900">Нархсиз ресурслар жадвали</h2>
+      <span class="pk-i" tabindex="0" role="button" aria-label="Изоҳ">i<span class="pk-i-pop">Бир хил ресурс (номи ва бирлиги) бир марта ёзилган. Нарх у учраган <b>ҳамма сметадаги</b> нархсиз қаторларга қўйилади — қўлда нарх қўйилганларига тегилмайди. Ресурс остидаги жадвалда — қайси қатор ва сметага қўйилмасин, белгисини олинг (сметанинг сарлавҳасидаги белги — бутун смета).</span></span>
       <span id="bulk-sub" class="min-w-0 flex-1 text-sm text-slate-600">Сметалар кўриб чиқиляпти…</span>
       <button type="button" id="bulk-collapse" aria-expanded="true" class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
         <span>Йиғиш</span><svg viewBox="0 0 24 24" class="h-4 w-4 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></button>
@@ -47,10 +48,6 @@
               class="rounded-lg bg-amber-300 px-3 py-1.5 text-sm font-semibold text-amber-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40">Таклифни қабул қилиш <span id="bulk-near-n" class="num"></span></button>
       <span id="bulk-status" class="text-xs text-slate-500"></span>
     </div>
-    <p id="bulk-hint" class="hidden border-b border-slate-100 bg-slate-50 px-4 py-1.5 text-xs text-slate-500">
-      Бир хил ресурс (номи ва бирлиги) бир марта ёзилган. Нарх у учраган <b>ҳамма сметадаги</b> нархсиз қаторларга қўйилади — қўлда нарх қўйилганларига тегилмайди.
-      Ресурс остидаги жадвалда — қайси қатор ва сметага қўйилмасин, белгисини олинг (сметанинг сарлавҳасидаги белги — бутун смета).</p>
-
     <div id="bulk-list" class="max-h-[70vh] min-h-[6rem] overflow-auto"></div>
 
     <div id="bulk-foot" class="hidden flex-wrap items-center gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3">
@@ -136,7 +133,7 @@
 <script>
 (function () {
   var box = document.getElementById("bulk"), list = document.getElementById("bulk-list"),
-      chips = document.getElementById("bulk-chips"), act = document.getElementById("bulk-act"), hint = document.getElementById("bulk-hint"),
+      chips = document.getElementById("bulk-chips"), act = document.getElementById("bulk-act"),
       foot = document.getElementById("bulk-foot"), sum = document.getElementById("bulk-sum"), sub = document.getElementById("bulk-sub"),
       applyBtn = document.getElementById("bulk-apply"), q = document.getElementById("bulk-q"),
       priceForm = document.getElementById("bulk-price-form"), priceIn = document.getElementById("bulk-price-in"),
@@ -160,14 +157,14 @@
     return /^\d+(\.\d+)?$/.test(t) ? parseFloat(t) : null;
   }
   function fmt(n) { return n.toLocaleString("ru-RU", {maximumFractionDigits: 2}).replace(/[  ]/g, " "); }
-  function show(node, on) { node.classList.toggle("hidden", !on); if (node !== hint) node.classList.toggle("flex", on); }
+  function show(node, on) { node.classList.toggle("hidden", !on); node.classList.toggle("flex", on); }
   function lookUrl(job, r) { return box.dataset.jobUrl.replace("00000000-0000-0000-0000-000000000000", job) + "?view=xl_out&row=" + r + "#t-2"; }
 
   function message(text, tone) {
     list.innerHTML = "";
     list.appendChild(el("div", "px-6 py-12 text-center text-base " + (tone || "text-slate-600"), text));
   }
-  function bars(on) { [chips, act, hint, foot].forEach(function (n) { show(n, on); }); }
+  function bars(on) { [chips, act, foot].forEach(function (n) { show(n, on); }); }
 
   var collapseBtn = document.getElementById("bulk-collapse");
   function folded(on) {

@@ -37,6 +37,7 @@ from .services import (
     BASE_RES, UploadError, analyze_batch, apply_decisions, base_period_of, check_quota, pair_ready, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job,
     nf_auto_of, parse_percents, remember_base_period, remember_nf_auto, remember_percents, remembered_percents, unpriced_res,
     price_source_of, remember_price_source, base_only, batch_original, replace_batch_file, open_suggestions,
+    can_undo_file, refresh_file_jobs, undo_batch_file,
 )
 from .templatetags.narx import file_title, pct as pct_text, pct_input, readable, som
 
@@ -1002,6 +1003,22 @@ def manual_left(batch) -> int:
     return sum(1 for s in batch.sheets if not s.get("duplicate_of") and s["key"] not in roles)
 
 
+def _skipped_files(batch) -> list:
+    """Папка қисми: шу папкадаги олинмаган (керак эмас деб топилган) файллар — номи ва сабаби."""
+    if not batch.project_id:
+        return []
+    from pathlib import PurePosixPath
+    folder = batch.folder or ""
+    out = []
+    for e in batch.project.files or []:
+        if not e.get("skip") or not is_shown(e["path"]):
+            continue
+        parent = str(PurePosixPath(e["path"]).parent)
+        if ("" if parent == "." else parent) == folder:
+            out.append({"name": PurePosixPath(e["path"]).name, "reason": e["skip"]})
+    return out
+
+
 def _picker_ctx(batch, embed=False) -> dict:
     """«Файллар → жуфтлаш → усул → Бошлаш» блоки (юклаш саҳифаси ва объект саҳифаси учун бир хил):
     ҳар бир файлнинг ҳамма листлари тури билан, ҳар бир локал учун ресурс танлови."""
@@ -1048,7 +1065,8 @@ def _picker_ctx(batch, embed=False) -> dict:
     for f in files:
         for r in f["sheets"]:
             pr = pair_by.get(r["key"]) if r["show"] == "local" else None
-            r = {**r, "file_name": f["name"], "pair": pr, "title": pr["title"] if pr else r["sheet"]}
+            r = {**r, "file_name": f["name"], "pair": pr, "title": pr["title"] if pr else r["sheet"],
+                 "fi": f["i"], "undo": can_undo_file(batch, f["i"])}
             r["q"] = f'{r["title"]} {r["sheet"]} {f["name"]} {r["sub"]}'.lower()
             (skipped if r["dup"] or r["show"] == "unknown" else rows).append(r)
     rank = {"none": 0, "local": 1, "resource": 2}
@@ -1063,12 +1081,13 @@ def _picker_ctx(batch, embed=False) -> dict:
             rr = by_row.get(rs["key"]) if rs else None
             r["res"] = {"key": rs["key"], "title": sheet_title(rs), "sheet": rs["sheet"], "file_name": rs["file_name"],
                         "tag": res_tag.get(rs["key"], ""), "show": rr["show"] if rr else rs["role"],
+                        "fi": rs["file"], "undo": can_undo_file(batch, rs["file"]),
                         "same_file": rs["file"] == by_key[r["key"]]["file"]} if rs else None
     pair_rows = [r for r in rows if r["pair"]]
     # белгиланмаганлар («Қўлда»), жуфтсиз локал ва ҳеч қайси локалга танланмаган ресурслар — алоҳида
     loose = [r for r in rows if not r["pair"] and not (r["show"] == "resource" and r["key"] in used)]
     return {"batch": batch, "pk_files": files, "pk_pairs": pairs, "pk_ready": ready,
-            "pk_rows": rows, "pk_skipped": skipped, "pk_count": count,
+            "pk_rows": rows, "pk_skipped": skipped, "pk_count": count, "pk_skipped_files": _skipped_files(batch),
             "pk_pair_rows": pair_rows, "pk_loose": loose,
             "pk_unmarked": [r for r in loose if r["show"] == "none"],
             "pk_idle": [r for r in loose if r["show"] != "none"],
@@ -1252,15 +1271,52 @@ def batch_file_replace(request, batch_id, i):
         old = batch.files[i]["name"] if 0 <= i < len(batch.files) else ""
         replace_batch_file(batch, i, f)
         audit(request, Event.Kind.UPLOAD, work=batch, work_kind="object", detail=f"файл алмаштирилди: {old} → {f.name}")
-        if batch.project_id and not batch.jobs.exists():
+        messages.success(request, f"«{f.name}» юкланди ва листлари қайта ўқилди." + _after_swap(batch, i))
+    except UploadError as e:
+        messages.error(request, str(e))
+    return _back(request, reverse("batch", args=[batch.id]) + "#structure")
+
+
+@require_POST
+def batch_file_undo(request, batch_id, i):
+    """Битта файлнинг охирги алмаштиришини бекор қилиш — олдинги нусха қайтади, боғлиқ сметалар қайта ҳисобланади."""
+    batch = _get_work(request, Batch, id=batch_id)
+    try:
+        if batch.project_id and batch.stage in (Batch.Stage.QUEUED, Batch.Stage.CONVERTING, Batch.Stage.PRICING):
+            raise UploadError("Бу қисм ҳозир ишланяпти — тугагач қайтаринг")
+        cur = batch.files[i]["name"] if 0 <= i < len(batch.files) else ""
+        name = undo_batch_file(batch, i)
+        audit(request, Event.Kind.UPLOAD, work=batch, work_kind="object", detail=f"файл қайтарилди: {cur} → {name}")
+        messages.success(request, f"«{name}» — олдинги нусха қайтарилди." + _after_swap(batch, i))
+    except UploadError as e:
+        messages.error(request, str(e))
+    return _back(request, reverse("batch", args=[batch.id]) + "#structure")
+
+
+def _after_swap(batch, i) -> str:
+    """Файл алмашгач/қайтгач: нархланмаган қисм — «тайёр» ҳолатига; нархланган — фақат шу файлга боғлиқ
+    сметалар қайта ҳисобланади (бутун папка эмас). Хабарга қўшимча матн."""
+    if not batch.jobs.exists():
+        if batch.project_id:
             batch.stage, batch.message = ready_stage(batch)
             batch.save(update_fields=["stage", "message"])
             settle(batch.project)
-        messages.success(request, f"«{f.name}» юкланди ва листлари қайта ўқилди."
-                         + (" Натижани янгилаш учун «Қайта ҳисоблаш»ни босинг." if batch.jobs.exists() else ""))
-    except UploadError as e:
-        messages.error(request, str(e))
-    return redirect(reverse("batch", args=[batch.id]) + "#structure")
+        return ""
+    done, missing = refresh_file_jobs(batch, i)
+    out = f" {len(done)} та смета шу файл билан қайта ҳисобланяпти (қўлда ўзгаришлар сақланди)." if done else ""
+    if missing:
+        out += (f" {len(missing)} та сметанинг листи янги файлда йўқ — уларни қисмни очиб, жуфтликни тўғирлаб"
+                " қайта нархланг.")
+    return out
+
+
+def _back(request, fallback: str):
+    """``next`` — шу сайт ичидаги манзил бўлса ўша ерга (папка саҳифасидан босилган амаллар), акс ҳолда ``fallback``."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+    nxt = request.POST.get("next") or request.GET.get("next") or ""
+    if nxt and url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return redirect(nxt)
+    return redirect(fallback)
 
 
 @require_POST
@@ -1845,8 +1901,8 @@ def job_reprice(request, job_id):
     job.auto_cleared, job.table_checked, job.lm_accepted = False, False, []
     job.save(update_fields=["auto_cleared", "table_checked", "lm_accepted"])
     recalc.request(job, categories={}, prices={}, cleared=[], marked=[])
-    messages.success(request, "Смета бошидан нархланяпти — тугагач, саҳифа янгиланади")
-    return redirect("job", job_id=job.id)
+    messages.success(request, f"«{job.batch_label or job.local_name}» — қўлда ўзгаришлар бекор қилинди, смета бошидан нархланяпти")
+    return _back(request, reverse("job", args=[job.id]))
 
 
 @require_POST

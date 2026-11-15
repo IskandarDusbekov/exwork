@@ -40,6 +40,7 @@ urlpatterns = [
     path("object/<uuid:batch_id>/progress/", views.batch_progress, name="batch_progress"),
     path("object/<uuid:batch_id>/file/<int:i>/", views.batch_file, name="batch_file"),
     path("object/<uuid:batch_id>/file/<int:i>/replace/", views.batch_file_replace, name="batch_file_replace"),
+    path("object/<uuid:batch_id>/file/<int:i>/undo/", views.batch_file_undo, name="batch_file_undo"),
     path("object/<uuid:batch_id>/confirm/", views.batch_confirm, name="batch_confirm"),
     path("object/<uuid:batch_id>/download/", views.batch_download, name="batch_download"),
     path("job/<uuid:job_id>/run/", views.job_run, name="job_run"),

@@ -14,25 +14,58 @@
     <p class="text-xs text-slate-500">{% if b.kind != "manual" %}Смета­чи: {{ b.owner.get_full_name|default:"—" }} · {% endif %}Тасдиқлади: {{ b.added_by.get_full_name|default:"—" }}, {{ b.created|date:"d.m.Y H:i" }}{% if b.note %} · {{ b.note }}{% endif %}</p>
   </div>
   {% if can_act %}
-  <form method="post" action="{% url 'panel:narx_batch_delete' b.pk %}" data-confirm="«{{ b.title|truncatechars:60 }}» нинг {{ prices|length }} та нархи базадан ўчирилсинми? Нархлар қайта ҳисобланади." data-danger>{% csrf_token %}
-    <button class="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-50">{% icon "trash" "h-4 w-4" %} Тўпламни ўчириш</button></form>
+  <div class="flex flex-wrap gap-2">
+  <button type="button" data-modal="narx-batch-edit" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">{% icon "pencil" "h-4 w-4" %} Тузатиш</button>
+  <form method="post" action="{% url 'panel:narx_batch_delete' b.pk %}" data-confirm="«{{ b.title|truncatechars:60 }}» саватчага ташлансинми? {{ prices|length }} та нархи ҳисобдан чиқади, смета яна «Тасдиқлаб йиғиш» да кўринади. Саватчадан тиклаш мумкин." data-danger>{% csrf_token %}
+    <button class="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-50">{% icon "trash" "h-4 w-4" %} Саватчага</button></form>
+  </div>
   {% endif %}
 </section>
+{% if logs %}
+<section class="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
+  <h2 class="mb-1 font-semibold">Ўзгаришлар</h2>
+  <ul class="space-y-0.5">{% for g in logs %}<li><span class="num text-xs text-slate-400">{{ g.created|date:"d.m.Y H:i" }}</span> <b class="font-medium">{{ g.get_action_display }}</b>{% if g.detail %} — {{ g.detail }}{% endif %} <span class="text-xs text-slate-500">· {{ g.user.get_full_name|default:"—" }}</span></li>{% endfor %}</ul>
+</section>
+{% endif %}
 <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
   <div class="overflow-x-auto"><table class="w-full text-sm">
-    <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-4 py-2 font-medium">Ресурс</th><th class="px-3 py-2 font-medium">Тоифа</th><th class="px-3 py-2 text-right font-medium">Нархи</th><th class="px-3 py-2 text-right font-medium">Сони</th><th class="px-3 py-2 font-medium">Файл</th><th class="px-3 py-2 font-medium">Ҳолати</th></tr></thead>
+    <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-4 py-2 font-medium">Ресурс</th><th class="px-3 py-2 font-medium">Тоифа</th><th class="px-3 py-2 text-right font-medium" title="1 бирлик нархи">Нархи (1 бирлик)</th><th class="px-3 py-2 text-right font-medium" title="Фақат маълумот учун — нархлашда ишлатилмайди">Жами миқдори</th><th class="px-3 py-2 font-medium">Файл</th><th class="px-3 py-2 font-medium">Ҳолати</th></tr></thead>
     <tbody class="divide-y divide-slate-100">
       {% for p in prices %}
       <tr class="align-top {% if p.excluded or p.outlier %}text-slate-400{% endif %}">
         <td class="max-w-md px-4 py-2"><a href="{% url 'panel:narx_item' p.item_id %}" class="break-words hover:underline">{{ p.item.name }}</a> <span class="text-xs text-slate-400">{{ p.item.unit }}</span></td>
         <td class="px-3 py-2">{% include "panel/_narx_cat.html" with c=p.item.category label=p.item.get_category_display %}</td>
-        <td class="num whitespace-nowrap px-3 py-2 text-right font-medium">{{ p.price|som }}</td>
+        <td class="num whitespace-nowrap px-3 py-2 text-right font-medium">{{ p.price|som }}{% if p.edited %} <span class="rounded bg-sky-100 px-1 text-[10px] font-semibold text-sky-800" title="Админ тузатган">тузатилган</span>{% endif %}</td>
         <td class="num whitespace-nowrap px-3 py-2 text-right text-xs">{% if p.qty %}{{ p.qty|qty }}{% endif %}</td>
         <td class="px-3 py-2 text-xs text-slate-500">{{ p.places.0.file|truncatechars:40 }}{% if p.places|length > 1 %} +{{ p.places|length|add:"-1" }}{% endif %}</td>
-        <td class="px-3 py-2 text-xs">{% if p.excluded %}<span class="text-rose-700">истисно</span>{% elif p.outlier %}<span class="text-amber-700">четда</span>{% else %}<span class="text-emerald-700">ҳисобда</span>{% endif %}</td>
+        <td class="px-3 py-2 text-xs">{% if p.excluded %}<span class="text-rose-700">ҳисобдан чиқарилган</span>{% elif p.outlier %}<span class="text-amber-700">четда</span>{% else %}<span class="text-emerald-700">ҳисобда</span>{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table></div>
 </section>
+{% if can_act %}
+<dialog id="narx-batch-edit" class="nx-modal" aria-labelledby="narx-batch-edit-t">
+  <form method="post" action="{% url 'panel:narx_batch_edit' b.pk %}">{% csrf_token %}
+    <div class="hd">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sky-50 text-sky-600">{% icon "pencil" "h-5 w-5" %}</span>
+      <div class="min-w-0 flex-1"><h2 id="narx-batch-edit-t" class="font-semibold text-slate-900">Тўпламни тузатиш</h2>
+        <p class="text-xs text-slate-500">Масалан, вилоят ёки сана нотўғри танланган бўлса. Тўпламдаги нархлар ҳам ўзгаради (алоҳида тузатилганларидан ташқари), паст / ўрта / юқори қайта ҳисобланади.</p></div>
+      <button type="button" data-close class="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Ёпиш">{% icon "x" "h-5 w-5" %}</button>
+    </div>
+    <div class="bd space-y-3">
+      <div class="grid2">
+        <label class="block"><span>Вилоят</span><select name="region" required>{% for k, label in regions %}<option value="{{ k }}" {% if k == b.region %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        <label class="block"><span>Нархлар санаси</span><input type="date" name="date" required value="{{ b.date|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}"></label>
+      </div>
+      <label class="block"><span>Изоҳ</span><input name="note" maxlength="300" value="{{ b.note }}"></label>
+    </div>
+    <div class="ft">
+      <button type="button" data-close class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50">Бекор</button>
+      <button class="rounded-lg bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700">Сақлаш</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+{% include "panel/_narx_modals.html" with no_add=1 %}
 {% endblock %}

@@ -1,0 +1,57 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Ўқилмоқда: {{ it.title|truncatechars:50 }} — Нарх базаси{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+{% include "panel/_narx_tabs.html" %}
+{% if it.kind == "file" %}<a href="{% url 'panel:narx_uploads' %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-4 w-4" %} Юкланганлар</a>{% else %}<a href="{% url 'panel:narx_collect' %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-4 w-4" %} Ишлар рўйхати</a>{% endif %}
+
+<section class="mx-auto max-w-2xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm" id="ni-wait">
+  <h2 class="break-words text-lg font-semibold">{{ it.title }}</h2>
+
+  <div data-box="run" class="{% if it.status != 'reading' or stuck %}hidden{% endif %}">
+    <div class="mt-4 flex items-center justify-between text-sm"><b data-stage class="text-slate-900">{{ pr.stage|default:"Навбатда" }}</b><span class="num text-slate-500" data-count></span></div>
+    <div class="mt-1.5 h-2.5 overflow-hidden rounded-full bg-slate-100"><div data-bar class="h-full rounded-full bg-sky-500 transition-all duration-500" style="width:2%"></div></div>
+    <p data-file class="mt-1.5 truncate text-xs text-slate-500"></p>
+  </div>
+
+  <div data-box="stuck" class="{% if not stuck %}hidden{% endif %} mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+    Ўқиш {{ 15 }} дақиқадан бери олдинга силжимаяпти — сервер қайта ишга тушган бўлиши мумкин.
+    <form method="post" action="{% url 'panel:narx_intake_retry' it.pk %}" class="mt-2">{% csrf_token %}<button class="rounded-lg bg-amber-600 px-3 py-1.5 font-semibold text-white hover:bg-amber-700">Қайта бошлаш</button></form>
+  </div>
+
+  <div data-box="failed" class="{% if it.status != 'failed' %}hidden{% endif %} mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">
+    <b>Ўқиб бўлмади.</b> <span data-error>{{ pr.error }}</span>
+    <div class="mt-2 flex gap-2">
+      <form method="post" action="{% url 'panel:narx_intake_retry' it.pk %}">{% csrf_token %}<button class="rounded-lg border border-red-300 bg-white px-3 py-1.5 hover:bg-red-100">Қайта уриниш</button></form>
+      <a href="{% url 'panel:narx' %}" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-slate-700 hover:bg-slate-50">Бошқа файл юклаш</a>
+    </div>
+  </div>
+
+  <form method="post" action="{% url 'panel:narx_intake_cancel' it.pk %}" class="mt-5 text-right" data-confirm="Бекор қилинсинми? Базага ҳеч нарса ёзилмайди.">{% csrf_token %}
+    <button class="text-xs text-slate-500 underline hover:text-red-700">Бекор қилиш</button></form>
+</section>
+<script>
+(function () {
+  const box = document.getElementById("ni-wait"), url = "{% url 'panel:narx_intake_status' it.pk %}";
+  const $ = s => box.querySelector(s), show = (k, on) => $(`[data-box=${k}]`).classList.toggle("hidden", !on);
+  let t0 = Date.now();
+  function tick() {
+    fetch(url, {cache: "no-store"}).then(r => r.json()).then(d => {
+      if (d.status === "open" || d.status === "done") { location.reload(); return; }
+      if (d.status === "cancelled") { location.href = "{% url 'panel:narx_uploads' %}"; return; }
+      show("failed", d.status === "failed"); show("stuck", d.stuck); show("run", d.status === "reading" && !d.stuck);
+      if (d.status === "failed") { $("[data-error]").textContent = d.error || ""; return; }
+      $("[data-stage]").textContent = d.stage || "Навбатда";
+      const tot = d.total || 0, done = Math.min(d.done || 0, tot);
+      $("[data-count]").textContent = tot ? `${done} / ${tot}` : "";
+      $("[data-bar]").style.width = Math.max(3, tot ? 100 * done / tot : 3) + "%";
+      const sec = Math.round((Date.now() - t0) / 1000);
+      $("[data-file]").textContent = (d.file ? d.file + " · " : "") + `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+      setTimeout(tick, 1200);
+    }).catch(() => setTimeout(tick, 3000));
+  }
+  {% if it.status == "reading" %}tick();{% endif %}
+})();
+</script>
+{% endblock %}

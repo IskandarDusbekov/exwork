@@ -13,6 +13,7 @@
 </style>
 
 {% if can_act %}
+{% if not no_add %}
 <dialog id="narx-add" class="nx-modal" aria-labelledby="narx-add-t">
   <form method="post" action="{% url 'panel:narx_add' %}">{% csrf_token %}
     {% if it %}<input type="hidden" name="item" value="{{ it.pk }}">{% endif %}
@@ -46,9 +47,10 @@
   </form>
 </dialog>
 
-{% if not it %}
+{% endif %}
+{% if not it and not no_add %}
 <dialog id="narx-upload" class="nx-modal" aria-labelledby="narx-upload-t">
-  <form method="post" action="{% url 'panel:narx_upload' %}" enctype="multipart/form-data" data-progress>{% csrf_token %}
+  <form method="post" action="{% url 'panel:narx_upload' %}" enctype="multipart/form-data">{% csrf_token %}
     <div class="hd">
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600">{% icon "upload" "h-5 w-5" %}</span>
       <div class="min-w-0 flex-1"><h2 id="narx-upload-t" class="font-semibold text-slate-900">Файлдан ресурс қўшиш</h2>
@@ -56,8 +58,23 @@
       <button type="button" data-close class="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Ёпиш">{% icon "x" "h-5 w-5" %}</button>
     </div>
     <div class="bd space-y-3">
-      <label class="block"><span>Файл (.xls, .xlsx)</span>
-        <input type="file" name="file" required accept=".xls,.xlsx,.xlsm" class="mt-1 block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm hover:file:bg-slate-200"></label>
+      <div data-drop class="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/60 p-4 text-center transition">
+        <div class="text-sm font-semibold text-slate-700">Файл, архив ёки бутун папкани шу ерга судраб ташланг</div>
+        <div class="mt-0.5 text-xs text-slate-500">.xls, .xlsx, ZIP, RAR, 7z — бир нечтасини ҳам; папкадан фақат Excel ва архивлар олинади</div>
+        <div class="mt-2.5 flex flex-wrap justify-center gap-2">
+          <label class="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-100">Файл танлаш
+            <input type="file" multiple accept=".xls,.xlsx,.xlsm,.zip,.rar,.7z" data-up="files" class="sr-only"></label>
+          <label class="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-100">Папка танлаш
+            <input type="file" webkitdirectory multiple data-up="dir" class="sr-only"></label>
+        </div>
+        <div data-up-list class="mt-2 hidden text-left text-xs"></div>
+      </div>
+      <div data-up-bar class="hidden rounded-lg border border-sky-200 bg-sky-50 p-3">
+        <div class="flex justify-between text-sm"><b data-up-stage class="text-slate-900">Юкланмоқда…</b><span class="num text-slate-600" data-up-pct></span></div>
+        <div class="mt-1.5 h-2.5 overflow-hidden rounded-full bg-white"><div data-up-fill class="h-full rounded-full bg-sky-500 transition-all" style="width:0"></div></div>
+        <p class="mt-1 text-xs text-slate-500">Ойнани ёпманг — файл серверга тушгунча. Кейин ўқиш орқа фонда давом этади.</p>
+      </div>
+      <p class="text-xs text-slate-500" data-up-info></p>
       <fieldset class="space-y-1.5 text-sm"><legend class="mb-1 text-[13px] text-slate-600">Файл тури</legend>
         {% for k, label in file_kinds %}<label class="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 p-2.5 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50/50"><input type="radio" name="kind" value="{{ k }}" required class="mt-1" {% if forloop.first %}checked{% endif %}> <span class="text-slate-700">{{ label }}</span></label>{% endfor %}
       </fieldset>
@@ -74,6 +91,78 @@
 {% endif %}
 <script>
 (function () {
+  const up = document.querySelector("#narx-upload form");
+  if (up) {
+    const mb = n => (n / 1048576).toFixed(n > 10485760 ? 0 : 1).replace(".", ",") + " МБ";
+    const ok = f => /\.(xlsx?|xlsm|zip|rar|7z)$/i.test(f.name) && !/^~\$/.test(f.name);
+    const dir = up.querySelector("[data-up=dir]"), one = up.querySelector("[data-up=files]"), info = up.querySelector("[data-up-info]");
+    const zone = up.querySelector("[data-drop]"), list = up.querySelector("[data-up-list]");
+    let picked = [], skipped = 0;  // [{f, path}] — танланган ва судралган файллар бир рўйхатда
+    const esc = x => String(x).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+    function add(f, path) {
+      if (!ok(f)) { skipped++; return; }
+      if (!picked.some(x => x.path === path && x.f.size === f.size)) picked.push({f, path});
+    }
+    function draw() {
+      list.classList.toggle("hidden", !picked.length);
+      const size = picked.reduce((t, x) => t + x.f.size, 0);
+      list.innerHTML = picked.length ? `<div class="flex items-center justify-between gap-2 border-b border-slate-200 pb-1"><b class="text-slate-800">${picked.length} та файл · ${mb(size)}</b>
+        <button type="button" data-up-clear class="text-slate-500 underline hover:text-red-700">тозалаш</button></div>
+        <ul class="mt-1 max-h-32 overflow-auto">${picked.slice(0, 200).map(x => `<li class="truncate text-slate-600">${esc(x.path)}</li>`).join("")}${picked.length > 200 ? `<li class="text-slate-400">… яна ${picked.length - 200} та</li>` : ""}</ul>` : "";
+      info.textContent = skipped ? `${skipped} та файл олинмади (Excel ёки архив эмас).` : "";
+    }
+    list.addEventListener("click", e => { if (e.target.closest("[data-up-clear]")) { picked = []; skipped = 0; draw(); } });
+    one.addEventListener("change", () => { [...one.files].forEach(f => add(f, f.name)); one.value = ""; draw(); });
+    dir.addEventListener("change", () => { [...dir.files].forEach(f => add(f, f.webkitRelativePath || f.name)); dir.value = ""; draw(); });
+    // судраб ташлаш: файллар ҳам, папкалар ҳам (ичма-ич)
+    const readAll = r => new Promise(res => { const out = []; const go = () => r.readEntries(es => { if (!es.length) return res(out); out.push(...es); go(); }, () => res(out)); go(); });
+    async function walk(entry, path) {
+      if (entry.isFile) return new Promise(res => entry.file(f => { add(f, path + f.name); res(); }, res));
+      if (entry.isDirectory) for (const e of await readAll(entry.createReader())) await walk(e, path + entry.name + "/");
+    }
+    const hasFiles = e => [...(e.dataTransfer?.types || [])].includes("Files");
+    ["dragenter", "dragover"].forEach(t => zone.addEventListener(t, e => { if (!hasFiles(e)) return; e.preventDefault(); zone.classList.add("border-blue-500", "bg-blue-50"); }));
+    zone.addEventListener("dragleave", e => { if (!zone.contains(e.relatedTarget)) zone.classList.remove("border-blue-500", "bg-blue-50"); });
+    zone.addEventListener("drop", async e => {
+      e.preventDefault(); zone.classList.remove("border-blue-500", "bg-blue-50");
+      const items = [...(e.dataTransfer.items || [])].filter(i => i.kind === "file");
+      const entries = items.map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+      if (entries.length) { info.textContent = "Ўқилмоқда…"; for (const en of entries) await walk(en, ""); }
+      else [...e.dataTransfer.files].forEach(f => add(f, f.name));
+      if (!picked.length && !skipped) info.textContent = "Судралган нарсадан файл олиб бўлмади — «Файл танлаш» тугмаси билан танланг.";
+      else draw();
+    });
+    // саҳифанинг бошқа жойига ташланса — браузер файлни очиб юбормасин, ойна очилиб, шу ерга қўшилсин
+    const dlg = up.closest("dialog");
+    document.addEventListener("dragover", e => { if (hasFiles(e)) { e.preventDefault(); if (!dlg.open) dlg.showModal(); } });
+    document.addEventListener("drop", e => { if (hasFiles(e) && !zone.contains(e.target)) e.preventDefault(); });
+    up.addEventListener("submit", e => {
+      e.preventDefault();
+      if (!picked.length) { info.textContent = "Файл, архив ёки папка танланг (ёки шу ерга судраб ташланг)."; return; }
+      const bar = up.querySelector("[data-up-bar]"), fill = up.querySelector("[data-up-fill]"),
+            pct = up.querySelector("[data-up-pct]"), stage = up.querySelector("[data-up-stage]"), btn = up.querySelector("button:not([type=button])");
+      bar.classList.remove("hidden"); btn.disabled = true; info.textContent = "";
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", up.action);
+      xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+      xhr.upload.onprogress = ev => {
+        if (!ev.lengthComputable) return;
+        const p = Math.round(100 * ev.loaded / ev.total);
+        fill.style.width = p + "%"; pct.textContent = `${p}% · ${mb(ev.loaded)} / ${mb(ev.total)}`;
+        if (p >= 100) stage.textContent = "Сервер файлларни сақлаяпти…";
+      };
+      xhr.onload = () => {
+        let d = {}; try { d = JSON.parse(xhr.responseText); } catch (_) {}
+        if (xhr.status === 200 && d.url) { stage.textContent = "Юкланди — ўқиш бошланди…"; location.href = d.url; return; }
+        btn.disabled = false; bar.classList.add("hidden");
+        info.innerHTML = `<b class="text-red-700">${(d.error || (xhr.status === 413 ? "Файл жуда катта (сервер чегараси)." : "Юклаб бўлмади (" + xhr.status + ").")).replace(/</g, "&lt;")}</b>`;
+      };
+      xhr.onerror = () => { btn.disabled = false; bar.classList.add("hidden"); info.innerHTML = '<b class="text-red-700">Алоқа узилди — қайта уриниб кўринг.</b>'; };
+      const fd = new FormData(up);
+      picked.forEach(x => { fd.append("file", x.f, x.f.name); fd.append("paths", x.path); });
+      xhr.send(fd);
+    });
+  }
   document.querySelectorAll("[data-modal]").forEach(b => b.addEventListener("click", () => {
     const d = document.getElementById(b.dataset.modal); if (d && !d.open) d.showModal();
   }));

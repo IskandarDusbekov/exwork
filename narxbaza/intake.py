@@ -1,0 +1,504 @@
+"""Текширув навбати (ярим автомат йиғиш): ҳар қатор аввал навбатга тушади, тизим тоифани белгилайди,
+админ Excel кўринишида кўриб тасдиқлайди / тузатади / рад этади, кейин «Базага ёзиш».
+
+Хатосиз база учун қоидалар:
+* базага фақат админ «тасдиқлади» деган қатор тушади; битта ҳам кўрилмаган қатор қолса — ёзилмайди;
+* тоифа — ресурс бўйича битта: бир қаторда ўзгартирилса, навбатдаги шу ном+бирликли ҳамма қаторда ўзгаради;
+* ёзилгандан кейин ресурс «тасдиқланган» бўлади: кейин ҳеч қандай автоматика унинг тоифасини ўзгартирмайди,
+  кейинги файлларда шу ресурс ўзи белгиланиб «такрорий» рўйхатга тушади (нархи 3× фарқ қилмаса);
+* ҳар қарор дарҳол сақланади — браузер ёпилса ҳам иш йўқолмайди."""
+import logging
+from datetime import date as _date
+from decimal import Decimal
+
+from django.db import transaction
+from django.db.models import Count, Q
+from django.utils import timezone
+
+from . import services as S
+from .models import CATEGORY_LABELS, Alias, Batch, Intake, IntakeRow, Item, Log
+
+log = logging.getLogger(__name__)
+
+WORK_KINDS = ("folder", "object", "smeta")
+FAR = Decimal(3)  # базадаги нархдан шунча баробар фарқ — огоҳлантириш, «такрорий» эмас
+SKIP_STATUS = {"WORK_HEADER", "MACHINIST", "NO_PRICE", "UNIT_MISMATCH"}
+
+
+# ===================== таклиф =====================
+def _lm():
+    try:
+        from resbase.lm import load_base
+        return load_base()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def suggest(name, unit, item, src=None, lm=None) -> tuple:
+    """``(тоифа, сабаби, ишончли)``. ``src`` — манбанинг ўз белгиси ``(тоифа, сабаби, ишончли)`` (RES бўлими,
+    смета­чи танлови, файлдаги устун). Тартиб: сиз тасдиқлаган ресурс → манба → бирлиги → ускуна/кабель
+    базаси → номидаги сўз → базадаги (текширилмаган) тоифаси → материал."""
+    if item is not None and item.verified:
+        why = f"сиз тасдиқлаган ресурс: {CATEGORY_LABELS[item.category]}"
+        if src and src[0] and src[0] != item.category:
+            why += f" (манбада — {CATEGORY_LABELS.get(src[0], src[0])})"
+        return item.category, why, True
+    if src and src[0] and src[2]:
+        return src[0], src[1], True
+    u = S._unit_cat(name, unit)
+    if u:
+        return u[0], u[1], True
+    from core.classify import KIND_COLUMN, OTHER, name_hint
+    if lm is not None:
+        hit = lm.lookup(name)
+        if hit and hit.kind != OTHER:
+            return KIND_COLUMN[hit.kind], f"ускуна/кабель базаси: {hit.reason}", bool(hit.strong)
+    h = name_hint(name)
+    if h:
+        return KIND_COLUMN[h[0]], f"номида «{h[1]}…»", False
+    if src and src[0]:
+        return src[0], src[1] or "манбада шундай", False
+    if item is not None and item.category != "O":
+        return item.category, "базада шундай (ҳали текширилмаган)", False
+    return "K", "белги топилмади — материал деб олинди", False
+
+
+# ===================== навбат очиш =====================
+def _job_src(r) -> tuple:
+    if r.get("override") or r.get("manual") and r.get("category"):
+        return r.get("category"), "смета­чи ўзи танлаган", bool(r.get("override"))
+    if r.get("suggested_category"):
+        return r["suggested_category"], r.get("suggest_reason") or "нархлаш таклифи", bool(r.get("suggest_sure"))
+    if r.get("res_section"):
+        cat = r.get("category")
+        return cat, f"RES'да «{CATEGORY_LABELS.get(cat, cat)}» бўлимида", True
+    return r.get("category") or r.get("default_category"), "", False
+
+
+def _job_raw(jobs) -> tuple:
+    files, raw = [], []
+    for job in jobs:
+        fi = len(files)
+        files.append({"job": str(job.id), "file": job.local_name[:200], "sheet": job.local_sheet or ""})
+        for r in (job.result or {}).get("rows") or []:
+            if (r.get("status") or "") in SKIP_STATUS:
+                continue
+            raw.append({"fi": fi, "sheet": job.local_sheet or "", "row": int(r.get("row") or 0), "name": r.get("name"),
+                        "unit": r.get("unit"), "price": r.get("g"),
+                        "qty": r.get("qty_total") if r.get("qty_total") is not None else r.get("qty"),
+                        "status": "MANUAL" if r.get("manual") else (r.get("status") or ""), "src": _job_src(r)})
+    return files, raw
+
+
+def _clean(raw) -> list:
+    out = []
+    for r in raw:
+        name, unit = str(r["name"] or "").strip(), str(r["unit"] or "").strip()
+        price = S._dec(r["price"]) if not isinstance(r["price"], bool) else None
+        if not name or not unit or price is None or price <= 0 or not r["row"]:
+            continue
+        q = S._dec(r.get("qty"))
+        out.append({**r, "name": name[:500], "unit": unit[:40], "key": S.item_key(name, unit),
+                    "price": price.quantize(Decimal("0.0001")), "qty": q if q is not None and q > 0 else None})
+    return out
+
+
+def _item_map(keys) -> dict:
+    keys = list(keys)
+    out = {}
+    for i in range(0, len(keys), 500):
+        part = keys[i:i + 500]
+        out.update({it.key: it for it in Item.objects.filter(key__in=part)})
+        for al in Alias.objects.filter(key__in=part, item__deleted_at=None).select_related("item"):
+            out.setdefault(al.key, al.item)
+    return out
+
+
+def _other_units(keys) -> dict:
+    """{ном қисми: {бирликлар}} — базада шу ном бошқа бирликда ҳам борми."""
+    names = {k.rsplit("|", 1)[0] for k in keys}
+    out = {}
+    names = list(names)
+    for i in range(0, len(names), 200):
+        q = Q()
+        for n in names[i:i + 200]:
+            q |= Q(key__startswith=n + "|")
+        for k, u in Item.objects.filter(q).values_list("key", "unit"):
+            out.setdefault(k.rsplit("|", 1)[0], {})[k] = u
+    return out
+
+
+def _build(intake: Intake, rows: list) -> None:
+    keys = {r["key"] for r in rows}
+    items = _item_map(keys)
+    ref = S.best_stat([i.pk for i in items.values()])
+    units = _other_units(keys)
+    lm = _lm()
+    by_key = {}
+    for r in rows:
+        by_key.setdefault(r["key"], []).append(r["price"])
+    sug_cache, objs = {}, []
+    for r in rows:
+        it = items.get(r["key"])
+        if r["key"] not in sug_cache:
+            sug_cache[r["key"]] = suggest(r["name"], r["unit"], it, r.get("src"), lm)
+        cat, why, sure = sug_cache[r["key"]]
+        warn = []
+        st = ref.get(it.pk) if it is not None else None
+        base = (st.mid if st.mid is not None else st.low) if st else None
+        if base and base > 0:
+            x = r["price"] / base
+            if x >= FAR or x <= 1 / FAR:
+                times = f"{(x if x > 1 else 1 / x):.1f}".replace(".", ",")
+                warn.append(f"базадаги нархдан {times}× {'қиммат' if x > 1 else 'арзон'} (базада {S.fmt(base)})")
+        ps = by_key[r["key"]]
+        if max(ps) / min(ps) >= FAR:
+            warn.append("шу навбатда нархи 3× дан кўп фарқ қилади")
+        other = {k: u for k, u in units.get(r["key"].rsplit("|", 1)[0], {}).items() if k != r["key"]}
+        if other and (it is None or it.key not in other):
+            warn.append("базада бу ном бошқа бирликда бор: " + ", ".join(sorted(set(other.values())))[:120])
+        objs.append(IntakeRow(intake=intake, fi=r.get("fi", 0), row=r["row"], sheet=r.get("sheet", "")[:100],
+                              name=r["name"], unit=r["unit"], key=r["key"], price=r["price"], qty=r["qty"],
+                              src_status=(r.get("status") or "")[:20], suggested=cat, reason=why[:300], sure=sure,
+                              category=cat, item=it, warn="; ".join(warn)[:300],
+                              known=bool(it is not None and it.verified and cat == it.category and not warn)))
+    IntakeRow.objects.bulk_create(objs, batch_size=1000)
+
+
+def open_for_work(kind, work, user) -> Intake:
+    """Иш учун очиқ навбат (бўлса — ўшани қайтаради)."""
+    ex = Intake.objects.filter(kind=kind, work_id=work.pk, status=Intake.Status.OPEN).first()
+    if ex is not None:
+        return ex
+    jobs = S.jobs_of(kind, work)
+    region, hint = S.old.region_suggestion(kind, work)
+    with transaction.atomic():
+        files, raw = _job_raw(jobs)
+        it = Intake.objects.create(kind=kind, work_id=work.pk, title=S.title_of(kind, work)[:500],
+                                   owner_id=getattr(work, "owner_id", None), created_by=S._uid(user), files=files,
+                                   sig=S.signature(S.rows_from_jobs(jobs)), region=region or "",
+                                   region_hint=(hint or "")[:100])
+        _build(it, _clean(raw))
+    return it
+
+
+def _read_sources(sources, kind, default_category, tick=None) -> tuple:
+    """``sources`` — ``[(кўринадиган номи, .xlsx йўли, MEDIA_ROOT ичидаги нисбий йўли)]`` → ``(files, rows, bad)``.
+    Ҳар лист — алоҳида «файл»; бузуқ ёки нархсиз файл бошқаларини тўхтатмайди (``bad``)."""
+    files, rows, bad = [], [], []
+    for n, (name, xlsx, rel) in enumerate(sources):
+        if tick:
+            tick(n, name)
+        try:
+            raw = S.file_rows(xlsx, kind, default_category)
+        except Exception as e:  # noqa: BLE001
+            bad.append((name, str(e)[:120] or "ўқиб бўлмади"))
+            continue
+        got = _clean(raw)
+        if not got:
+            bad.append((name, "нархли ресурс топилмади"))
+            continue
+        sheets = []
+        for r in got:
+            if r["sheet"] not in sheets:
+                sheets.append(r["sheet"])
+        fi = {}
+        for sh in sheets:
+            fi[sh] = len(files)
+            files.append({"job": None, "file": str(name)[:200], "sheet": sh, "path": rel})
+        rows += [{**r, "fi": fi[r["sheet"]], "status": "FILE", "src": (r["category"], r["reason"], r["sure"])}
+                 for r in got]
+    return files, rows, bad
+
+
+def open_for_files(sources, *, kind, title, user, file_path="", default_category="K") -> tuple:
+    """Тайёр .xlsx файллардан дарҳол (орқа фонсиз). ``(intake, ўқилмаганлар)``; ресурс топилмаса — ``ValueError``."""
+    files, rows, bad = _read_sources(sources, kind, default_category)
+    if not rows:
+        raise ValueError("; ".join(f"{n}: {why}" for n, why in bad[:5]) or "no rows")
+    with transaction.atomic():
+        it = Intake.objects.create(kind=Batch.Kind.FILE, title=title[:500], owner=S._uid(user),
+                                   created_by=S._uid(user), file_path=file_path[:300], file_kind=kind, files=files)
+        _build(it, rows)
+    return it, bad
+
+
+# ===================== юклаш: орқа фонда ўқиш =====================
+STUCK_MINUTES = 15  # шунча вақт ҳеч ўзгармаса — сервер қайта ишга тушган, ўқиш тўхтаб қолган
+CONVERT_WORKERS = 4  # .xls ни бир вақтда ўгирадиган LibreOffice'лар
+
+
+def start_upload(*, items, root, kind, title, user, file_path="", default_category="K", inline=None) -> Intake:
+    """Сақланган файллар (``items``: ``[[кўринадиган номи, MEDIA_ROOT ичидаги нисбий йўли, архивми]]``) —
+    навбат «ўқилмоқда» ҳолатида очилади, архивни очиш, .xls ни ўгириш ва ўқиш — орқа фонда (``read_upload``).
+    Саҳифа ``progress`` ни кўрсатиб туради."""
+    from django.conf import settings
+    it = Intake.objects.create(kind=Batch.Kind.FILE, title=title[:500], owner=S._uid(user), created_by=S._uid(user),
+                               file_path=file_path[:300], file_kind=kind, status=Intake.Status.READING,
+                               progress={"stage": "Навбатда", "done": 0, "total": len(items), "src": items,
+                                         "root": root, "cat": default_category})
+    run(it.pk, inline)
+    return it
+
+
+def run(pk, inline=None):
+    from django.conf import settings
+    if inline if inline is not None else getattr(settings, "NARXBAZA_INLINE", False):
+        read_upload(pk)
+        return
+    import threading
+    transaction.on_commit(lambda: threading.Thread(target=read_upload, args=(pk,), daemon=True,
+                                                   name=f"narx-intake-{pk}").start())
+
+
+def stuck(it: Intake) -> bool:
+    return it.status == Intake.Status.READING and (timezone.now() - it.updated).total_seconds() > STUCK_MINUTES * 60
+
+
+def read_upload(pk) -> None:
+    from pathlib import Path, PurePosixPath
+
+    from django.conf import settings
+    from django.db import close_old_connections
+
+    from core import convert
+    from jobs.archives import ArchiveError, extract_excel
+    close_old_connections()
+    it = Intake.objects.get(pk=pk)
+    pr = dict(it.progress or {})
+    media = Path(settings.MEDIA_ROOT)
+    root = media / pr["root"]
+
+    def setp(**kw):
+        pr.update(kw)
+        Intake.objects.filter(pk=pk).update(progress=pr, updated=timezone.now())
+
+    try:
+        found = []
+        for n, (show, rel, arch) in enumerate(pr.get("src") or []):
+            if arch:
+                setp(stage=f"Архив очилмоқда: {PurePosixPath(show).name}", done=n, file=show)
+                try:
+                    got = extract_excel(media / rel, root / "unpack" / str(n), PurePosixPath(show).parent,
+                                        name=PurePosixPath(show).name)
+                except ArchiveError as e:
+                    raise ValueError(f"{PurePosixPath(show).name}: {e}") from e
+                found += [(str(r), p) for r, p in got]
+            else:
+                found.append((show, media / rel))
+        if not found:
+            raise ValueError("Excel файл топилмади (.xls, .xlsx, .xlsm ёки улар солинган ZIP / RAR / 7z архив).")
+        # .xls → .xlsx (LibreOffice, ҳар чақирувда алоҳида профил) — бир неча файл параллел: катта архивда
+        # вақтнинг асосий қисми шу
+        # (базага фақат шу оқим ёзади — ишчи оқимлар фақат ўгиради)
+        import os
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        total = len(found)
+        setp(stage="Файллар Excel'га тайёрланмоқда", done=0, total=total, file="")
+
+        def conv(n, show, path):
+            try:
+                x = convert.ensure_xlsx(path, root / "view" / str(n))
+                return (show, x, x.relative_to(media).as_posix()), None
+            except Exception as e:  # noqa: BLE001
+                return None, (show, str(e)[:120] or "очиб бўлмади")
+
+        got = [None] * total
+        with ThreadPoolExecutor(max_workers=max(1, min(CONVERT_WORKERS, os.cpu_count() or 1))) as ex:
+            futs = {ex.submit(conv, n, show, path): n for n, (show, path) in enumerate(found)}
+            for k, f in enumerate(as_completed(futs), 1):
+                got[futs[f]] = f.result()
+                setp(done=k, file=found[futs[f]][0])
+        sources = [s for s, _ in got if s]
+        bad = [b for _, b in got if b]
+        files, rows, bad2 = _read_sources(sources, it.file_kind, pr.get("cat") or "K",
+                                          tick=lambda n, name: setp(stage="Ресурслар ўқилмоқда", done=n,
+                                                                    total=len(sources), file=name))
+        bad += bad2
+        if not rows:
+            raise ValueError("Файлларда нархли ресурс топилмади." + (
+                " " + "; ".join(f"{n} — {w}" for n, w in bad[:5]) if bad else ""))
+        setp(stage=f"Базадаги ресурслар билан солиштирилмоқда ({len(rows)} та қатор)", done=total, total=total, file="")
+        with transaction.atomic():
+            it = Intake.objects.select_for_update().get(pk=pk)
+            if it.status != Intake.Status.READING:  # шу орада бекор қилинган
+                return
+            _build(it, rows)
+            it.files, it.status = files, Intake.Status.OPEN
+            it.progress = {"bad": [list(b) for b in bad], "root": pr.get("root")}
+            it.save(update_fields=["files", "status", "progress", "updated"])
+        log.info("narxbaza: юклаш «%s» ўқилди — %s та файл, %s та қатор", it.title, len(files), len(rows))
+    except Exception as e:  # noqa: BLE001
+        log.exception("narxbaza: юклашни ўқиб бўлмади (%s)", pk)
+        msg = str(e) if isinstance(e, ValueError) else f"Файлни ўқиб бўлмади: {e}"
+        Intake.objects.filter(pk=pk, status=Intake.Status.READING).update(
+            status=Intake.Status.FAILED, progress={**pr, "error": msg[:500]}, updated=timezone.now())
+    finally:
+        close_old_connections()
+
+
+# ===================== ҳолат =====================
+def counts(intake: Intake) -> dict:
+    agg = dict(intake.rows.values_list("state").annotate(c=Count("id")))
+    known_new = intake.rows.filter(state=IntakeRow.State.NEW, known=True).count()
+    warn_new = intake.rows.filter(state=IntakeRow.State.NEW).exclude(warn="").count()
+    total = sum(agg.values())
+    return {"total": total, "new": agg.get("new", 0), "ok": agg.get("ok", 0), "skip": agg.get("skip", 0),
+            "known_new": known_new, "warn_new": warn_new, "done_pct": round(100 * (total - agg.get("new", 0)) / total) if total else 0}
+
+
+def row_json(r: IntakeRow) -> dict:
+    return {"id": r.pk, "fi": r.fi, "row": r.row, "name": r.name, "unit": r.unit, "price": S.fmt(r.price),
+            "qty": S.fmt(r.qty) if r.qty is not None else "", "cat": r.category, "sug": r.suggested, "reason": r.reason,
+            "sure": r.sure, "warn": r.warn, "known": r.known, "state": r.state,
+            "item": r.item_id if r.item_id else None, "item_verified": bool(r.item_id and r.item.verified),
+            "item_cat": r.item.category if r.item_id else None}
+
+
+def stale(intake: Intake) -> bool:
+    """Смета навбат очилгандан кейин қайта нархланганми."""
+    if intake.kind not in WORK_KINDS or intake.status != Intake.Status.OPEN:
+        return False
+    try:
+        work = S.work_of(intake.kind, intake.work_id)
+    except Exception:  # noqa: BLE001 — иш ўчирилган
+        return True
+    return S.signature(S.rows_from_jobs(S.jobs_of(intake.kind, work))) != intake.sig
+
+
+# ===================== қарорлар =====================
+def done_fis(intake: Intake) -> set:
+    """Базага ёзилган файллар (``intake.files[i]["done"]``) — уларнинг қаторлари энди ўзгармайди."""
+    return {i for i, f in enumerate(intake.files or []) if f.get("done")}
+
+
+def _live(intake: Intake):
+    return intake.rows.exclude(fi__in=done_fis(intake))
+
+
+@transaction.atomic
+def decide(intake: Intake, ids, state=None, category=None, user=None) -> list:
+    """Белгиланган қаторлар: ҳолати (ok / skip / new) ва/ёки тоифаси. Тоифа шу ном+бирликли ҳамма қаторга
+    ўтади (базага ёзилмаган файлларда). Ўзгарган қаторлар рўйхатини қайтаради."""
+    if intake.status != Intake.Status.OPEN:
+        raise ValueError("Навбат ёпилган")
+    live = _live(intake)
+    rows = list(live.filter(pk__in=list(ids)[:5000]))
+    if not rows:
+        if ids and intake.rows.filter(pk__in=list(ids)[:5000]).exists():
+            raise ValueError("Бу файл базага ёзилган — қаторлари ўзгармайди")
+        return []
+    now, touched = timezone.now(), {r.pk for r in rows}
+    if category in CATEGORY_LABELS:
+        keys = {r.key for r in rows}
+        same = live.filter(key__in=keys)
+        same.update(category=category)
+        for r in same.select_related("item").filter(item__isnull=False):
+            k = bool(r.item.verified and r.item.category == category and not r.warn)
+            if k != r.known:
+                IntakeRow.objects.filter(pk=r.pk).update(known=k)
+        touched |= set(same.values_list("pk", flat=True))
+    if state in IntakeRow.State.values:
+        IntakeRow.objects.filter(pk__in=[r.pk for r in rows]).update(
+            state=state, decided_by=S._uid(user), decided_at=now if state != IntakeRow.State.NEW else None)
+    Intake.objects.filter(pk=intake.pk).update(updated=now)
+    return [row_json(r) for r in IntakeRow.objects.filter(pk__in=touched).select_related("item")]
+
+
+def accept_known(intake: Intake, user=None) -> int:
+    """«Такрорий»: сиз тасдиқлаган ресурс, тоифаси бир хил, нархида огоҳлантириш йўқ — бирданига тасдиқлаш."""
+    qs = _live(intake).filter(state=IntakeRow.State.NEW, known=True)
+    return qs.update(state=IntakeRow.State.OK, decided_by=S._uid(user), decided_at=timezone.now())
+
+
+@transaction.atomic
+def commit(intake: Intake, *, region, day: _date, note="", user=None, fis=None) -> Batch:
+    """Танланган файллар (``fis`` — ``intake.files`` даги тартиби; ``None`` — базага ёзилмаганларнинг ҳаммаси)
+    тасдиқланган қаторларини базага ёзади — битта тўплам. Шу файлларда кўрилмаган қатор қолса — ``ValueError``.
+    Ҳамма қатори рад этилган файл тўпламсиз «ёзилган» бўлади (``None`` қайтади). Ҳамма файл ёзилгач — навбат ёпилади."""
+    intake = Intake.objects.select_for_update().get(pk=intake.pk)
+    if intake.status != Intake.Status.OPEN:
+        raise ValueError("Бу навбат аллақачон ёпилган.")
+    files = intake.files or []
+    done = done_fis(intake)
+    fis = sorted({int(i) for i in (range(len(files)) if fis is None else fis) if 0 <= int(i) < len(files)} - done)
+    if not fis:
+        raise ValueError("Базага ёзиладиган файл танланмаган (ёки танланганлари аллақачон ёзилган).")
+    rows = intake.rows.filter(fi__in=fis)
+    left = rows.filter(state=IntakeRow.State.NEW)
+    if left.exists():
+        bad = sorted({files[i]["file"] for i in left.values_list("fi", flat=True).distinct()})
+        raise ValueError(f"{left.count()} та қатор ҳали кўрилмаган: " + ", ".join(f"«{x}»" for x in bad[:4]))
+    ok = list(rows.filter(state=IntakeRow.State.OK))
+    b = None
+    if ok:
+        cats = {r.key: r.category for r in ok}
+        grouped = S.group_rows((r.name, r.unit, r.price, r.qty, r.category, r.src_status or "FILE",
+                                {"job": files[r.fi].get("job"), "file": files[r.fi]["file"][:200],
+                                 "sheet": r.sheet[:60], "row": r.row}) for r in ok)
+        for g in grouped:
+            g["category"] = cats[g["key"]]  # «Бошқа» ҳам — админ танлагани
+        work = None
+        if intake.kind in WORK_KINDS:
+            try:
+                work = S.work_of(intake.kind, intake.work_id)
+            except Exception:  # noqa: BLE001
+                work = None
+        names = sorted({files[i]["file"] for i in fis})
+        title = names[0] if len(names) == 1 and len(files) > 1 else intake.title
+        if len(names) > 1 and len(names) < len({f["file"] for f in files}):
+            title = f"{intake.title} ({len(names)} та файл)"
+        b = S.add_batch(intake.kind, work, grouped, region=region, day=day, user=user, note=note,
+                        title=title[:500], file_path=intake.file_path if len(fis) == len(files) else "")
+        if work is None and intake.work_id:
+            Batch.objects.filter(pk=b.pk).update(work_id=intake.work_id, owner_id=intake.owner_id)
+        now = timezone.now()
+        for key, cat in cats.items():
+            it = S.owner_of_key(key)
+            if it is None:
+                continue
+            fields = []
+            if it.category != cat:
+                S._log(Log.Action.CATEGORY, user, item=it, detail=f"{CATEGORY_LABELS[it.category]} → {CATEGORY_LABELS[cat]} "
+                       f"(текширувда: «{intake.title[:80]}»)", data={"old": it.category, "new": cat})
+                it.category = cat
+                fields.append("category")
+            if not it.verified:
+                it.verified, it.verified_at, it.verified_by = True, now, S._uid(user)
+                fields += ["verified", "verified_at", "verified_by"]
+            if fields:
+                it.save(update_fields=fields + ["updated"])
+    for i in fis:
+        files[i] = {**files[i], "done": True, "batch": b.pk if b else None, "region": region, "date": day.isoformat()}
+    intake.files, intake.region = files, region
+    if b is not None:
+        intake.batch = b
+    if len(done_fis(intake)) == len(files):
+        intake.status = Intake.Status.DONE
+    intake.save(update_fields=["files", "region", "batch", "status", "updated"])
+    log.info("narxbaza: текширув «%s» — %s та файл, %s та қатор базага", intake.title, len(fis), len(ok))
+    return b
+
+
+def cancel(intake: Intake) -> None:
+    if intake.status in (Intake.Status.OPEN, Intake.Status.READING, Intake.Status.FAILED):
+        intake.status = Intake.Status.CANCELLED
+        intake.save(update_fields=["status", "updated"])
+
+
+# ===================== базадаги текширилмаганлар =====================
+@transaction.atomic
+def verify_items(pairs, user=None) -> int:
+    """``[(item, тоифа)]`` — админ кўриб тасдиқлади (тоифа ўзгарса — тарихда)."""
+    now, n = timezone.now(), 0
+    for it, cat in pairs:
+        if cat not in CATEGORY_LABELS:
+            continue
+        if it.category != cat:
+            S._log(Log.Action.CATEGORY, user, item=it, detail=f"{CATEGORY_LABELS[it.category]} → {CATEGORY_LABELS[cat]}",
+                   data={"old": it.category, "new": cat})
+            it.category = cat
+        it.verified, it.verified_at, it.verified_by, it.edited = True, now, S._uid(user), True
+        it.save(update_fields=["category", "verified", "verified_at", "verified_by", "edited", "updated"])
+        n += 1
+    return n

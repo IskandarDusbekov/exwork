@@ -63,6 +63,7 @@
       <button type="button" data-modal="narx-add" class="ui-btn">{% icon "plus" "h-4 w-4" %} Қўлда қўшиш</button>
       <button type="button" data-modal="narx-upload" class="ui-btn-o nx-btn">{% icon "upload" "h-4 w-4" %} Файлдан қўшиш</button>
       <a href="{% url 'panel:narx_collect' %}" class="ui-btn-o nx-btn">{% icon "check-circle" "h-4 w-4" %} Сметалардан йиғиш{% if n_pending %} <span class="num rounded-full bg-sky-600 px-1.5 text-[11px] font-semibold text-white">{{ n_pending }}</span>{% endif %}</a>
+      <a href="{% url 'panel:narx_backup' %}" class="ui-btn-o nx-btn">{% icon "database" "h-4 w-4" %} Захира</a>
     </div>
     {% endif %}
   </div>
@@ -84,10 +85,10 @@
         <div class="nx-bar"><i style="width: {{ cover.pct }}%"></i></div>
         <div class="s">охирги {{ cover.jobs }} смета · {{ cover.rows|som }} қатор</div></div>
     </div>
-    <div class="nx-kpi warn" title="Четда — бошқалардан 3 баробар фарқ қилади; истисно — админ олиб ташлаган. Иккаласи ҳам паст/ўрта/юқорига кирмайди">
+    <div class="nx-kpi warn" title="Четда — бошқалардан 3 баробар фарқ қилади; ҳисобдан чиқарилган — админ олиб ташлаган. Иккаласи ҳам паст/ўрта/юқорига кирмайди">
       <span class="nx-ki" style="background:#fef3c7;color:#b45309">{% icon "alert" "h-5 w-5" %}</span>
       <div class="min-w-0"><div class="l">Ҳисобга кирмаган нарх</div><div class="v">{{ counts.outliers|add:counts.excluded }}</div>
-        <div class="s">{{ counts.outliers }} четда · {{ counts.excluded }} истисно</div></div>
+        <div class="s">{{ counts.outliers }} четда · {{ counts.excluded }} ҳисобдан чиқарилган</div></div>
     </div>
   </div>
 </section>
@@ -198,5 +199,48 @@
   </div>
 </div>
 
+{% if can_act %}
+<form id="nx-bulk" method="post" action="{% url 'panel:narx_bulk' %}" hidden
+      class="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgb(15_23_42/.08)] backdrop-blur">{% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+    <span class="font-semibold text-slate-900"><span data-n>0</span> та белгиланди</span>
+    <button type="button" data-clear class="text-xs text-slate-500 hover:underline">бекор</button>
+    <span class="flex items-center gap-1.5"><select name="category" class="rounded-lg border border-slate-300 px-2 py-1 text-sm" aria-label="Тоифа">{% for k, label in categories %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select>
+      <button name="action" value="category" class="rounded-lg border border-slate-300 px-3 py-1 hover:bg-slate-50">Тоифасини ўзгартириш</button></span>
+    <span class="flex items-center gap-1.5" data-merge><select name="target" class="max-w-xs rounded-lg border border-slate-300 px-2 py-1 text-sm" aria-label="Асосий ресурс"></select>
+      <button name="action" value="merge" class="rounded-lg border border-sky-300 px-3 py-1 text-sky-800 hover:bg-sky-50"
+        data-confirm="Белгиланган ресурслар танланган асосий ресурсга бирлаштирилсинми? Уларнинг нархлари ўтади, номлари «бошқа номи» бўлиб қолади.">Шунга бирлаштириш</button></span>
+    <button name="action" value="trash" class="ml-auto rounded-lg border border-rose-200 px-3 py-1 text-rose-700 hover:bg-rose-50"
+      data-confirm="Белгиланган ресурслар саватчага ташлансинми? Нархлари ҳисобдан чиқади, саватчадан тиклаш мумкин." data-danger>Саватчага</button>
+  </div>
+</form>
+<div id="nx-bulk-pad" hidden class="h-20"></div>
+<script>
+(function () {
+  const f = document.getElementById("nx-bulk"); if (!f) return;
+  const picks = () => [...document.querySelectorAll(".nx-pick:checked")];
+  const sel = f.querySelector('[name="target"]'), mergeBox = f.querySelector("[data-merge]");
+  function sync() {
+    const p = picks(); f.hidden = !p.length; document.getElementById("nx-bulk-pad").hidden = !p.length;
+    f.querySelector("[data-n]").textContent = p.length;
+    const keep = sel.value; sel.innerHTML = "";
+    p.forEach(c => { const o = new Option("асосийси: " + c.dataset.name, c.value); sel.add(o); });
+    if (p.some(c => c.value === keep)) sel.value = keep;
+    mergeBox.hidden = p.length < 2;
+  }
+  document.querySelectorAll(".nx-pick").forEach(c => c.addEventListener("change", sync));
+  f.querySelector("[data-clear]").addEventListener("click", () => { picks().forEach(c => c.checked = false); sync(); });
+  f.addEventListener("submit", e => {  // тугманинг ўз тасдиқлаш матни (бирлаштириш, саватча)
+    const b = e.submitter; if (!b || !b.dataset.confirm || f.dataset.ok === "1") return;
+    e.preventDefault();
+    const ask = window.narxDialog ? window.narxDialog.confirm(b.dataset.confirm, {danger: b.hasAttribute("data-danger")})
+                                  : Promise.resolve(window.confirm(b.dataset.confirm));
+    ask.then(yes => { if (!yes) return; f.dataset.ok = "1"; f.requestSubmit(b); delete f.dataset.ok; });
+  });
+  sync();
+})();
+</script>
+{% endif %}
 {% include "panel/_narx_modals.html" with default_region=f.region %}
 {% endblock %}

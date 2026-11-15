@@ -17,6 +17,7 @@
 {% include "jobs/_bulk_price.html" %}
 <link rel="stylesheet" href="{% static 'css/picker.css' %}">
 <script src="{% static 'js/picker.js' %}"></script>
+<script src="{% static 'js/fileops.js' %}"></script>
 
 <style>
   .explorer { font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
@@ -41,6 +42,14 @@
   .tree-children { background: linear-gradient(#dcdcdc, #dcdcdc) no-repeat; background-size: 1px 100%;
                    background-position: calc(var(--guide) + 17px) 0; }
   .tree-file .tree-name { color: #334155; }
+  /* файл қатори: ном — ҳавола (қисмни очади), ёнида ховерда амаллар (кўриш · юклаб олиш · алмаштириш · ортга) */
+  .tree-frow { cursor: default; }
+  .tree-flink { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; color: inherit; }
+  .tree-frow .fop { display: none; margin-left: auto; gap: 1px; }
+  .tree-frow:hover .fop, .tree-frow:focus-within .fop { display: inline-flex; }
+  .tree-frow:hover .tree-deco { margin-left: 4px; }
+  .tree-frow .fop-b { width: 22px; height: 22px; border-radius: 5px; }
+  .tree-frow .fop-b:hover { background: #d1d5db; }
   .tree-result { background: #f0fdf4; }
   .tree-result:hover { background: #dcfce7; }
   .tree-row.is-active { background: #dbeafe; border-color: #93c5fd; }
@@ -428,12 +437,12 @@
   .pp-part.is-flash { animation: pk-flash 1.2s ease-out; }
   .pp-part.is-review, .pp-part.is-failed { border-color: #fcd34d; }
   .pp-part.is-empty { opacity: .7; }
-  .pp-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px 16px; }
+  .pp-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; }
   .pp-part[data-picker] .pp-head { cursor: pointer; }
-  .pp-ic { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: #fef3c7; color: #d97706; }
-  .pp-tt b { display: block; font-size: 17px; font-weight: 700; color: #0f172a; overflow-wrap: anywhere; }
+  .pp-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #fef3c7; color: #d97706; }
+  .pp-tt b { display: block; font-size: 16px; font-weight: 700; color: #0f172a; overflow-wrap: anywhere; }
   .pp-tt small { display: block; font-size: 12px; color: #94a3b8; overflow-wrap: anywhere; }
-  .pp-sum { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .pp-sum { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 6px; }
   .pp-pair, .pp-file { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 3px 10px; border-radius: 999px; background: #f1f5f9; font-size: 13px; color: #334155;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pp-pair.is-miss { background: #fff1f2; color: #9f1239; }
@@ -441,14 +450,14 @@
   .pp-pair .t-loc, .pp-pair .t-res { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; font-size: 11px; font-weight: 800; color: #fff; }
   .pp-pair .t-loc { background: #059669; } .pp-pair .t-res { background: #0284c7; }
   .pp-pair .pp-arr { color: #94a3b8; } .pp-pair .pp-ov { font-weight: 700; color: #166534; }
-  .pp-note { margin-top: 6px; font-size: 13px; color: #92400e; }
   .pp-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .pp-chips { display: flex; align-items: center; gap: 8px; }
   .pp-chip { white-space: nowrap; border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 700; }
   .tone-slate { background: #f1f5f9; color: #475569; } .tone-sky { background: #e0f2fe; color: #0369a1; } .tone-violet { background: #dcfce7; color: #166534; }
   .tone-emerald { background: #dcfce7; color: #166534; } .tone-rose { background: #ffe4e6; color: #be123c; } .tone-amber { background: #fef3c7; color: #92400e; }
   .pp-total { font-size: 16px; color: #0f172a; }
   .pp-acts { display: flex; gap: 6px; }
-  .pp-open { display: inline-flex; align-items: center; gap: 6px; height: 46px; padding: 0 18px; border-radius: 12px; background: #16a34a; color: #fff; font-size: 16px; font-weight: 700;
+  .pp-open { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px; border-radius: 12px; background: #16a34a; color: #fff; font-size: 15px; font-weight: 700;
     box-shadow: 0 4px 12px rgba(22, 163, 74, .3); transition: background .15s; }
   .pp-open:hover { background: #15803d; }
   .pp-open.is-need { background: #f59e0b; box-shadow: 0 4px 12px rgba(245, 158, 11, .35); animation: pk-beat 1.8s ease-in-out infinite; }

@@ -1,0 +1,11 @@
+{% load narx %}{# битта файл амаллари: b — Batch, i — файл рақами, name — номи, undo — олдинги нусха борми, view — «Кўриш» учун лист калити (папка саҳифаси) #}
+<span class="fop">
+  {% if view %}<button type="button" class="fop-b pv-open" data-part="{{ b.id }}" data-k="{{ view }}" title="Excel кўринишида кўриш">{% icon "eye" "h-3.5 w-3.5" %}</button>{% endif %}
+  <a href="{% url 'batch_file' b.id i %}" class="fop-b" title="Асл файлни юклаб олиш (тузатиш учун)">{% icon "download" "h-3.5 w-3.5" %}</a>
+  {% if b.owner_id == user.pk %}
+  <button type="button" class="fop-b" data-fop="replace" data-url="{% url 'batch_file_replace' b.id i %}" data-name="{{ name }}"
+          title="Тузатилган файлни шу ўрнига юклаш — фақат шу файл ўзгаради, бошқалари тегилмайди">{% icon "upload" "h-3.5 w-3.5" %}</button>
+  {% if undo %}<button type="button" class="fop-b is-undo" data-fop="undo" data-url="{% url 'batch_file_undo' b.id i %}" data-name="{{ name }}"
+          title="Охирги алмаштиришни бекор қилиш — олдинги нусха қайтади">{% icon "undo" "h-3.5 w-3.5" %}</button>{% endif %}
+  {% endif %}
+</span>

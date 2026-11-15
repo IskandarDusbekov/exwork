@@ -86,36 +86,11 @@
     </div>
   </section>
 
-  {# йўлбошчи: ҳар бир қадам — нима ва нега; тугмаси ўша жойга олиб боради #}
-  <ol class="ph-steps">
-    {% if count_review %}
-    <li class="is-now"><div><b>Ресурсни текширинг</b><span>{{ count_review }} та қисмда тизим ресурсни аниқ топа олмади ёки лист белгиланмаган.</span></div>
-      <button type="button" class="ph-go" data-part-filter="review">Шу қисмларга ўтиш ↓</button></li>
-    {% endif %}
-    <li class="{% if unpriced_rows %}{% if not count_review %}is-now{% endif %}{% else %}is-done{% endif %}"><div><b>Нархсиз ресурсларга нарх қўйинг</b>
-      {% if unpriced_rows %}<span>{{ unpriced_rows }} та қатор RES'да топилмади. Улар <b>ҳамма сметалардан битта жадвалга</b> йиғилди — нархни бир марта ёзасиз, ҳамма сметага тушади.</span>
-      {% else %}<span>Ҳамма қатор нархланган.</span>{% endif %}</div>
-      {% if unpriced_rows %}<button type="button" class="ph-go" data-go="#unpriced">Жадвалга ўтиш ↓</button>{% endif %}</li>
-    <li class="{% if not unpriced_rows and not count_review %}is-done{% endif %}"><div><b>Нархланган сметаларни кўринг</b><span>Пастда {{ nodes|length }} та қисм, {{ count_smeta }} та смета — ҳар бирининг суммаси ва «Очиш».</span></div>
-      <button type="button" class="ph-go is-light" data-go="#parts">Сметаларга ўтиш ↓</button></li>
-    <li class="{% if not unpriced_rows and not count_review %}is-now{% endif %}"><div><b>Юклаб олинг</b><span>ZIP — ҳамма натижа{% if unpriced_rows or count_review %}; ҳозир ҳам мумкин, лекин аввал юқоридаги қадамлар тавсия этилади{% endif %}.</span></div>
-      {% if can_download %}<a href="{% url 'project_download' project.id %}" class="ph-go is-light">{% icon "download" "h-4 w-4" %} ZIP</a>{% endif %}</li>
-    {% if can_download %}<li><div><b>Офёрта тузинг</b><span>Сметаларни тартиб билан битта офёртага йиғинг — ҳар бири ўз сводкаси билан.</span></div>
-      <a href="{% url 'project_ofyorta' project.id %}" class="ph-go is-of">{% icon "sheet" "h-4 w-4" %} Офёрта</a></li>{% endif %}
-  </ol>
 
   {% if unpriced_rows %}
   <section id="unpriced" class="ph-block is-fix">
-    <h2>{% icon "alert-circle" "h-5 w-5" %} Нархсиз ресурслар — ҳамма сметалар бўйича битта жадвал</h2>
-    <div class="ph-explain">
-      <p>Тизим бу ресурсларни RES файлларидан топа олмади. Улар <b>{{ unpriced_parts }} та қисмдаги ҳамма сметалардан йиғилган</b>:
-        бир хил ресурс (номи ва бирлиги) — битта қатор, қайси сметаларда учраши ёнида ёзилган.</p>
-      <ol>
-        <li><b class="t-near">Таклиф бор</b> — тизим ўхшашини топди: белгиланг ва <b>«Таклифни қабул қилиш»</b>ни босинг.</li>
-        <li><b class="t-none">Нарх йўқ</b> — нархни ўзингиз ёзинг ва <b>«Нархни қўйиш»</b>ни босинг.</li>
-        <li>Нарх у учраган <b>ҳамма сметага бирданига</b> тушади, сметалар ўзи қайта ҳисобланади.</li>
-      </ol>
-    </div>
+    <h2>{% icon "alert-circle" "h-5 w-5" %} Нархсиз ресурслар — ҳамма сметалар бўйича битта жадвал
+      <span class="pk-i is-warn" tabindex="0" role="button" aria-label="Қандай ишлайди">i<span class="pk-i-pop">Тизим бу ресурсларни RES файлларидан топа олмади — улар <b>{{ unpriced_parts }} та қисмдаги ҳамма сметалардан</b> битта жадвалга йиғилди. <b class="t-near">Таклиф бор</b>: белгиланг ва «Таклифни қабул қилиш». <b class="t-none">Нарх йўқ</b>: нархни ўзингиз ёзинг ва «Нархни қўйиш». Нарх у учраган <b>ҳамма сметага бирданига</b> тушади, сметалар ўзи қайта ҳисобланади.</span></span></h2>
     <div id="bulk-slot"></div>
   </section>
   {% elif done_view %}<div id="bulk-slot"></div>{% endif %}
@@ -147,7 +122,7 @@
   <div data-guide="parts" class="pp-list" id="parts">
     <div class="pp-list-h">
       {% if done_view %}<h2 class="is-done">{% icon "check-circle" "h-5 w-5 text-emerald-600" %} Нархланган сметалар <span class="num">{{ nodes|length }} қисм · {{ count_smeta }} смета</span>
-        <small>Ҳар бир қатор — битта ички папка. «Очиш» ёки смета номини босинг — Excel кўринишида очилади, у ерда қаторларни тўғирлаш мумкин.</small></h2>
+        <span class="pk-i" tabindex="0" role="button" aria-label="Изоҳ">i<span class="pk-i-pop">Ҳар бир қатор — битта ички папка. «Очиш» — Excel кўринишида, у ерда қаторларни тўғирлаш мумкин.<br><b>Сводка фоизлари</b> — сметани очиб, «Сводка» бўлимида ўзгартирилади, натижа дарров қайта ҳисобланади.<br><b>Хато файл</b> — чапдаги дарахтда файл устига келинг: юклаб олиш, тузатилганини юклаш ёки ортга қайтариш. Фақат шу файлга боғлиқ сметалар қайта ҳисобланади.</span></span></h2>
       {% else %}<h2>{% icon "folder" "h-5 w-5 text-amber-500" %} Қисмлар <span class="num">{{ nodes|length }}</span></h2>{% endif %}
       <div class="pp-chips" role="group" aria-label="Ҳолат бўйича">
         <button type="button" data-part-filter="" class="part-chip is-on">Ҳаммаси <span class="num">{{ nodes|length }}</span></button>
@@ -196,7 +171,7 @@
   {% elif awaiting %}
   <form method="post" action="{% url 'project_price' project.id %}" class="pp-go" data-guide="price-start">{% csrf_token %}
     <details class="pk-pct">
-      <summary>{% icon "sliders" "h-4 w-4" %} Сводка фоизлари <span class="pk-pct-s">— ҳамма смета шу фоизлар билан</span></summary>
+      <summary>{% icon "sliders" "h-4 w-4" %} Сводка фоизлари <span class="pk-pct-s">— транспорт, прочие, страхование, НДС</span><span class="pk-pct-go">Ўзгартириш {% icon "chevron-down" "h-4 w-4" "2.5" %}</span></summary>
       <div class="pk-pcts">
         {% for f in pct_form %}
         <label><span title="{{ f.text }}">{{ f.text }}</span>

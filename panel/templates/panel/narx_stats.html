@@ -1,0 +1,182 @@
+{% extends "panel/base.html" %}
+{% load narx l10n %}
+{% block title %}Статистика — Нарх базаси{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+{% include "panel/_narx_tabs.html" %}
+<style>
+  .st-card { border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; box-shadow: 0 1px 2px rgb(15 23 42 / .04); }
+  .st-chip { border: 1px solid #cbd5e1; border-radius: 9999px; padding: .25rem .8rem; font-size: .8125rem; color: #334155; background: #fff; white-space: nowrap; }
+  .st-chip:hover { background: #f8fafc; }
+  .st-chip.on { border-color: #0f172a; background: #0f172a; color: #fff; }
+  .st-kpi .v { font-size: 1.6rem; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .st-kpi .l { font-size: .8rem; color: #64748b; }
+  .st-map path { stroke: #fff; stroke-width: 1.4; stroke-linejoin: round; cursor: pointer; transition: opacity .12s; }
+  .st-map a:hover path, .st-map a:focus path { opacity: .82; }
+  .st-map a.on path { stroke: #0f172a; stroke-width: 3; }
+  .st-map a:focus { outline: none; }
+  .st-map text { pointer-events: none; font-family: inherit; paint-order: stroke; }
+  .st-bar { height: .55rem; min-width: 4px; border-radius: 9999px; background: #2a78d6; }
+  .st-heat td.c { min-width: 3.4rem; border: 2px solid #fff; border-radius: 6px; text-align: center; font-variant-numeric: tabular-nums; font-size: .8rem; padding: .35rem .3rem; }
+  .st-cols { display: flex; align-items: flex-end; gap: 10px; height: 160px; border-bottom: 1px solid #cbd5e1; }
+  .st-cols .col { flex: 1; min-width: 0; max-width: 72px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; cursor: default; }
+  .st-cols .col i { display: block; width: 100%; max-width: 44px; border-radius: 4px 4px 0 0; background: #2a78d6; min-height: 2px; }
+  .st-cols .col:hover i { background: #1c5cab; }
+  #st-tip { position: fixed; z-index: 70; pointer-events: none; max-width: 18rem; border-radius: .6rem; background: #0f172a; color: #fff; padding: .5rem .65rem; font-size: .78rem; line-height: 1.35; box-shadow: 0 10px 30px rgb(15 23 42 / .3); }
+  #st-tip b { font-weight: 600; }
+</style>
+
+{# ---- фильтр: йил ва кўрсаткич ---- #}
+<div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+  <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Йил">
+    <span class="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Йил</span>
+    {% for v, label, u in year_opts %}<a href="{{ u }}" class="st-chip {% if v == y|stringformat:'s' or not v and not y %}on{% endif %}">{{ label }}</a>{% endfor %}
+  </div>
+  <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Кўрсаткич">
+    <span class="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">Харитада</span>
+    {% for k, t, d, u in metric_opts %}<a href="{{ u }}" class="st-chip {% if k == m %}on{% endif %}" title="{{ d }}">{{ t }}</a>{% endfor %}
+  </div>
+</div>
+
+{# ---- асосий кўрсаткичлар ---- #}
+<div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+  <div class="st-card st-kpi p-4"><div class="l">Ресурслар{% if y %}, {{ y }}{% endif %}</div><div class="v">{{ kpi.items|som }}</div><div class="mt-0.5 text-xs text-slate-400">ҳисобга кирадиган нархи бор</div></div>
+  <div class="st-card st-kpi p-4"><div class="l">Нархлар{% if y %}, {{ y }}{% endif %}</div><div class="v">{{ kpi.prices|som }}</div><div class="mt-0.5 text-xs text-slate-400">{{ kpi.batches }} та тўпламдан</div></div>
+  <div class="st-card st-kpi p-4"><div class="l">Вилоятлар қамрови</div><div class="v">{{ kpi.covered }} <span class="text-base font-medium text-slate-400">/ {{ kpi.regions }}</span></div>
+    <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-[#2a78d6]" style="width: {% widthratio kpi.covered kpi.regions 100 %}%"></div></div></div>
+  <div class="st-card st-kpi p-4"><div class="l">Йиллар</div><div class="v">{{ kpi.years }}</div><div class="mt-0.5 text-xs text-slate-400">{% if by_year %}{{ by_year.0.year }}–{{ by_year|last|get_item:"year" }}{% else %}ҳали нарх йўқ{% endif %}</div></div>
+</div>
+
+{# ---- харита + рейтинг ---- #}
+<div class="mb-4 grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+  <section class="st-card min-w-0 p-4">
+    <div class="mb-2 flex flex-wrap items-baseline gap-x-2">
+      <h2 class="font-semibold text-slate-900">{{ metric.0 }} вилоятлар бўйича{% if y %}, {{ y }}{% endif %}</h2>
+      <span class="text-xs text-slate-500">— {{ metric.1 }}. Вилоятни босинг — пастда батафсил.</span>
+    </div>
+    <svg class="st-map h-auto w-full" viewBox="-6 -6 {{ ov.width|add:12 }} {{ ov.height|add:12 }}" role="img" aria-label="Ўзбекистон харитаси: {{ metric.0 }}">
+      {% for x in ov.regions %}
+      <a href="{{ x.url }}" class="{% if x.on %}on{% endif %}" aria-label="{{ x.label }}"
+         data-tip="<b>{{ x.label }}</b><br>Ресурслар: {{ x.items|som }} · нархлар: {{ x.prices|som }}{% if x.index %}<br>Нарх даражаси: {% if x.index.pct > 0 %}+{% endif %}{{ x.index.pct }}% ({{ x.index.n }} та ресурс солиштирилди){% endif %}{% if x.last %}<br>Охирги нарх: {{ x.last|date:'d.m.Y' }}{% endif %}">
+        <path d="{{ x.path }}" fill="{{ x.color }}" fill-rule="evenodd"/>
+      </a>
+      {% endfor %}
+      {% for x in ov.regions %}{% if not x.small %}
+      <text x="{{ x.cx }}" y="{{ x.cy }}" text-anchor="middle" font-size="15" font-weight="600" fill="{{ x.ink }}" stroke="{{ x.color }}" stroke-width="3">{{ x.short }}</text>
+      {% if x.value is not None %}<text x="{{ x.cx }}" y="{{ x.cy|add:18 }}" text-anchor="middle" font-size="14" fill="{{ x.ink }}" stroke="{{ x.color }}" stroke-width="3" class="num">{% if m == "index" %}{% if x.value > 0 %}+{% endif %}{{ x.value }}%{% elif x.value %}{{ x.value|som }}{% endif %}</text>{% endif %}
+      {% endif %}{% endfor %}
+    </svg>
+    <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+      {% if ov.legend %}<span class="flex flex-wrap items-center gap-1">{% for l in ov.legend %}<span class="inline-flex items-center gap-1"><i class="inline-block h-3 w-5 rounded-sm border border-black/5" style="background: {{ l.color }}"></i>{{ l.label }}</span>{% endfor %}</span>{% endif %}
+      <span class="inline-flex items-center gap-1"><i class="inline-block h-3 w-5 rounded-sm border border-slate-200" style="background: #eef1f5"></i>маълумот йўқ</span>
+      {% if m == "index" %}<span class="text-slate-500">кўк — мамлакатдан арзон, қизил — қиммат</span>{% endif %}
+    </div>
+    <p class="mt-1 text-[10px] text-slate-400">Харита: geoBoundaries, © OpenStreetMap contributors (ODbL).</p>
+  </section>
+
+  <section class="st-card min-w-0 p-4">
+    <h2 class="mb-3 font-semibold text-slate-900">Рейтинг <span class="text-sm font-normal text-slate-500">— {{ metric.0|lower }}</span></h2>
+    {% if ov.rank %}
+    <ol class="space-y-1.5 text-sm">
+      {% for x in ov.rank %}
+      <li><a href="{{ x.url }}" class="grid grid-cols-[1.4rem_7.5rem_minmax(0,1fr)_4.6rem] items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-slate-50 {% if x.on %}bg-sky-50 ring-1 ring-sky-200{% endif %}"
+             data-tip="<b>{{ x.label }}</b><br>Ресурслар: {{ x.items|som }} · нархлар: {{ x.prices|som }}{% if x.index %}<br>Нарх даражаси: {% if x.index.pct > 0 %}+{% endif %}{{ x.index.pct }}%{% endif %}">
+        <span class="num text-xs text-slate-400">{{ forloop.counter }}</span>
+        <span class="truncate text-slate-700">{{ x.short }}</span>
+        {% if m == "index" %}
+        <span class="relative h-2.5"><span class="absolute inset-y-0 left-1/2 w-px bg-slate-300"></span>
+          <span class="absolute inset-y-0 rounded-sm" style="{% if x.value >= 0 %}left: 50%; background: #e34948;{% else %}right: 50%; background: #2a78d6;{% endif %} width: {{ x.bar|unlocalize }}%"></span></span>
+        {% else %}<span class="h-2.5 rounded-full bg-slate-100"><span class="st-bar block" style="width: {{ x.bar|unlocalize }}%"></span></span>{% endif %}
+        <span class="num text-right font-medium text-slate-900">{% if m == "index" %}{% if x.value > 0 %}+{% endif %}{{ x.value }}%{% else %}{{ x.value|som }}{% endif %}</span>
+      </a></li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="text-sm text-slate-500">{% if m == "index" %}Солиштириш учун бир ресурснинг бир йилда <b>камида 2 вилоятда</b> нархи бўлиши керак — ҳозирча бундай ресурс йўқ.{% else %}Бу йил учун маълумот йўқ.{% endif %}</p>
+    {% endif %}
+  </section>
+</div>
+
+{# ---- танланган вилоят ---- #}
+{% if sel %}
+<section class="st-card mb-4 p-4">
+  <div class="mb-3 flex flex-wrap items-start gap-3">
+    <span class="mt-1 inline-block h-4 w-4 shrink-0 rounded" style="background: {{ sel.color }}"></span>
+    <div class="min-w-0 flex-1"><h2 class="text-lg font-semibold text-slate-900">{{ sel.label }}{% if y %}, {{ y }}{% endif %}</h2>
+      <p class="text-sm text-slate-500">{{ sel.items|som }} та ресурс · {{ sel.prices|som }} та нарх · {{ sel.batches }} та тўплам{% if sel.last %} · охирги нарх {{ sel.last|date:"d.m.Y" }}{% endif %}</p></div>
+    <a href="{% url 'panel:narx' %}?region={{ sel.code }}{% if y %}&year={{ y }}{% endif %}" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">Ресурслар рўйхати →</a>
+    <a href="{{ clear_region }}" class="rounded-lg px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-100" aria-label="Ёпиш">✕</a>
+  </div>
+  <div class="grid gap-4 lg:grid-cols-3">
+    <div>
+      <h3 class="mb-2 text-sm font-semibold text-slate-700">Тоифалар бўйича ресурслар</h3>
+      {% if detail.cats %}<ul class="space-y-1.5 text-sm">{% for c in detail.cats %}
+        <li class="grid grid-cols-[8.5rem_minmax(0,1fr)_3.5rem] items-center gap-2" data-tip="<b>{{ c.label }}</b>: {{ c.n }} та ресурс">
+          <span class="truncate text-slate-600">{{ c.label }}</span><span class="h-2.5 rounded-full bg-slate-100"><span class="st-bar block" style="width: {{ c.w|unlocalize }}%"></span></span><span class="num text-right font-medium">{{ c.n|som }}</span></li>
+      {% endfor %}</ul>{% else %}<p class="text-sm text-slate-500">Ресурс йўқ.</p>{% endif %}
+    </div>
+    <div>
+      <h3 class="mb-2 text-sm font-semibold text-slate-700">Мамлакатдан энг <span class="text-rose-700">қиммат</span></h3>
+      {% if detail.dear %}<ul class="space-y-1.5 text-sm">{% for d in detail.dear %}
+        <li class="flex items-baseline gap-2"><a href="{% url 'panel:narx_item' d.item %}" class="min-w-0 flex-1 truncate hover:underline" title="{{ d.name }}">{{ d.name }}</a>
+          <span class="num shrink-0 font-semibold text-rose-700" title="{{ d.year }}: {{ d.v|floatformat:0 }} сўм, медиана {{ d.med|floatformat:0 }}">+{{ d.pct }}%</span></li>
+      {% endfor %}</ul>{% elif detail.n %}<p class="text-sm text-slate-500">Йўқ — солиштирилган {{ detail.n }} та ресурснинг ҳаммаси мамлакатдагидан арзон ёки тенг.</p>{% else %}<p class="text-sm text-slate-500">Бошқа вилоятлар билан солиштирадиган ресурс йўқ.</p>{% endif %}
+    </div>
+    <div>
+      <h3 class="mb-2 text-sm font-semibold text-slate-700">Мамлакатдан энг <span class="text-sky-700">арзон</span></h3>
+      {% if detail.cheap %}<ul class="space-y-1.5 text-sm">{% for d in detail.cheap %}
+        <li class="flex items-baseline gap-2"><a href="{% url 'panel:narx_item' d.item %}" class="min-w-0 flex-1 truncate hover:underline" title="{{ d.name }}">{{ d.name }}</a>
+          <span class="num shrink-0 font-semibold text-sky-700" title="{{ d.year }}: {{ d.v|floatformat:0 }} сўм, медиана {{ d.med|floatformat:0 }}">{{ d.pct }}%</span></li>
+      {% endfor %}</ul>{% elif detail.n %}<p class="text-sm text-slate-500">Йўқ — солиштирилган {{ detail.n }} та ресурснинг ҳаммаси мамлакатдагидан қиммат ёки тенг.</p>{% else %}<p class="text-sm text-slate-500">Бошқа вилоятлар билан солиштирадиган ресурс йўқ.</p>{% endif %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<div class="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+  {# ---- вилоят × йил ---- #}
+  <section class="st-card min-w-0 p-4">
+    <h2 class="font-semibold text-slate-900">Вилоят × йил <span class="text-sm font-normal text-slate-500">— ҳар йилда нархи бор ресурслар сони</span></h2>
+    {% if mx.years %}
+    <div class="mt-3 overflow-x-auto"><table class="st-heat w-full border-separate" style="border-spacing: 0">
+      <thead><tr class="text-xs text-slate-500"><th class="py-1 pr-3 text-left font-medium">Вилоят</th>{% for yy in mx.years %}<th class="num px-1 py-1 font-medium">{{ yy }}</th>{% endfor %}<th class="num py-1 pl-3 text-right font-medium">Жами</th></tr></thead>
+      <tbody>{% for row in mx.rows %}<tr>
+        <td class="whitespace-nowrap py-0.5 pr-3 text-sm text-slate-700">{{ row.label }}</td>
+        {% for c in row.cells %}<td class="c" style="background: {{ c.color }}; color: {{ c.ink }}" data-tip="<b>{{ row.full }}</b>, {{ c.year }}: {{ c.n }} та ресурс">{% if c.n %}{{ c.n|som }}{% else %}<span class="text-slate-300">·</span>{% endif %}</td>{% endfor %}
+        <td class="num py-0.5 pl-3 text-right text-sm font-medium text-slate-900">{% if row.total %}{{ row.total|som }}{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="mt-3 text-sm text-slate-500">Ҳали маълумот йўқ.</p>{% endif %}
+  </section>
+
+  {# ---- йиллар бўйича ---- #}
+  <section class="st-card min-w-0 p-4">
+    <h2 class="font-semibold text-slate-900">Йиллар бўйича нархлар</h2>
+    {% if by_year %}
+    <div class="st-cols mt-6">
+      {% for r in by_year %}<div class="col" data-tip="<b>{{ r.year }}</b><br>{{ r.prices }} та нарх · {{ r.items }} та ресурс · {{ r.regions }} та вилоят">
+        <span class="num mb-1 text-xs font-medium text-slate-700">{{ r.prices|som }}</span><i style="height: {{ r.h|unlocalize }}%"></i></div>{% endfor %}
+    </div>
+    <div class="flex gap-[10px] pt-1">{% for r in by_year %}<span class="num flex-1 max-w-[72px] text-center text-xs text-slate-500">{{ r.year }}</span>{% endfor %}</div>
+    {% else %}<p class="mt-3 text-sm text-slate-500">Ҳали нарх йўқ.</p>{% endif %}
+  </section>
+</div>
+
+<div id="st-tip" hidden></div>
+<script>
+(function () {
+  const tip = document.getElementById("st-tip");
+  document.querySelectorAll("[data-tip]").forEach(el => {
+    el.addEventListener("mousemove", e => {
+      tip.innerHTML = el.dataset.tip; tip.hidden = false;
+      const w = tip.offsetWidth, h = tip.offsetHeight;
+      let x = e.clientX + 14, yy = e.clientY + 14;
+      if (x + w > innerWidth - 8) x = e.clientX - w - 14;
+      if (yy + h > innerHeight - 8) yy = e.clientY - h - 14;
+      tip.style.left = x + "px"; tip.style.top = yy + "px";
+    });
+    el.addEventListener("mouseleave", () => { tip.hidden = true; });
+  });
+})();
+</script>
+{% endblock %}

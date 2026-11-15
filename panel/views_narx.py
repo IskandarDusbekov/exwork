@@ -2,6 +2,8 @@
 ким киритди) ва паст / ўрта / юқори нарх. Эски «Ресурс базаси» алоҳида туради. Кўриш — ``is_staff``,
 ўзгартириш — ``is_superuser`` (журналга ёзилади)."""
 import json
+import os
+from pathlib import Path
 from datetime import date
 
 from django.contrib import messages
@@ -15,7 +17,7 @@ from django.views.decorators.http import require_POST
 
 from jobs.models import Batch as JobBatch, Job, Project
 from narxbaza import services
-from narxbaza.models import CATEGORIES, CATEGORY_LABELS, Batch, Item, Price, Stat
+from narxbaza.models import CATEGORIES, CATEGORY_LABELS, Alias, Batch, Item, Log, Price, Stat
 from resbase.regions import REGION_LABELS, REGIONS
 
 from .audit import log as audit
@@ -29,7 +31,12 @@ def _nctx(request, ntab, **kw):
     from narxbaza.models import LEVELS, Config
     from resbase.models import BaseConfig
     y = timezone.now().year
-    return _ctx(request, "narx", ntab=ntab, n_pending=len(services.pending_works()), regions=REGIONS,
+    from narxbaza.models import Intake
+    n_up = Intake.objects.filter(kind="file", status__in=(Intake.Status.OPEN, Intake.Status.READING,
+                                                          Intake.Status.FAILED)).count()
+    return _ctx(request, "narx", ntab=ntab, n_pending=len(services.pending_works()), regions=REGIONS, n_up=n_up,
+                n_trash=sum(services.trash_counts().values()),
+                n_check=sum(services.review_counts().values()),
                 categories=CATEGORIES, region_labels=REGION_LABELS, today=timezone.localdate(), ncfg=Config.get(),
                 levels=LEVELS, bcfg=BaseConfig.get(), base_years=list(range(y + 1, 2017, -1)), **kw)
 
@@ -78,6 +85,7 @@ def _url(f, **change) -> str:
     return "?" + urlencode({k: v for k, v in d.items() if v and not (k == "per" and v == 50)})
 
 
+GUTTER = {"I": "Иш ҳақи", "J": "Машина", "K": "Материал", "M": "Ускуна", "L": "Кабель", "O": "Бошқа"}  # Excel қатори ёнида
 SHORT = {"I": "Иш ҳақи", "J": "Машина-механизм", "K": "Материал", "M": "Ускуна", "L": "Кабель", "O": "Бошқа"}
 
 
@@ -93,7 +101,7 @@ def _cat_cards(f, cat_n, cover) -> list:
 def narx_list(request):
     from django.db.models import OuterRef, Subquery
     f = _list_filters(request.GET)
-    qs = Item.objects.annotate(n=Count("prices"))
+    qs = services.live_items().annotate(n=Count("prices", filter=Q(prices__batch__deleted_at=None)))
     for w in f["q"].split():
         qs = qs.filter(Q(name__icontains=w) | Q(key__icontains=services.fold_name(services.norm_name(w))))
     st = Stat.objects.filter(item=OuterRef("pk"))
@@ -109,9 +117,9 @@ def narx_list(request):
     elif f["flag"] == "single":
         qs = qs.exclude(pk__in=Stat.objects.exclude(low=models_F("high")).values("item_id"))
     elif f["flag"] == "outlier":
-        qs = qs.filter(prices__outlier=True, prices__excluded=False).distinct()
+        qs = qs.filter(pk__in=Price.objects.filter(outlier=True, excluded=False).values("item_id"))
     elif f["flag"] in ("manual", "file"):
-        qs = qs.filter(prices__batch__kind=f["flag"]).distinct()
+        qs = qs.filter(pk__in=Price.objects.filter(batch__kind=f["flag"]).values("item_id"))
     cat_n = dict(qs.order_by().values_list("category").annotate(c=Count("id", distinct=True)))
     all_n = sum(cat_n.values())
     if f["cat"]:
@@ -164,9 +172,29 @@ def narx_item(request, pk):
     it = get_object_or_404(Item, pk=pk)
     prices = list(it.prices.select_related("batch", "batch__owner", "batch__added_by").order_by("-date", "-id"))
     stats = list(it.stats.all())
-    variants = sorted({(p.name, p.unit) for p in prices if (p.name, p.unit) != (it.name, it.unit)})
+    aliases = list(it.aliases.select_related("added_by"))
+    known = {(a.name, a.unit) for a in aliases} | {(it.name, it.unit)}
+    variants = sorted({(p.name, p.unit) for p in prices if (p.name, p.unit) not in known})
+    mq = request.GET.get("mq", "").strip()[:100]
+    similar = services.similar_items(it, mq) if request.user.is_superuser else []
+    if similar:
+        counts = dict(Price.objects.filter(item__in=similar).values_list("item_id").annotate(c=Count("id")))
+        for c in similar:
+            c.n = counts.get(c.pk, 0)
+    dyn = services.dynamics(stats)
+    from narxbaza.models import LEVEL_LABELS, Config
+    lv = Config.get().level
+    for s in dyn["latest"]:  # нархлашда шу вилоят+йил учун олинадиган нарх (services.price_map билан бир хил)
+        v = getattr(s, lv)
+        s.pick = v if v is not None else (s.mid if s.mid is not None else s.low)
+        s.pick_level = lv if v is not None else ("mid" if s.mid is not None else "low")
+        s.example = s.pick * 10
+    for p in prices:
+        p.n_files = len(p.places or [])
     return render(request, "panel/narx_item.html", _nctx(
-        request, "list", it=it, prices=prices, stats=stats, variants=variants,
+        request, "list", it=it, prices=prices, stats=stats, variants=variants, aliases=aliases, mq=mq,
+        dyn=dyn, level=lv, level_label=LEVEL_LABELS[lv], compact=True, n_names=len(aliases) + len(variants),
+        similar=similar, logs=list(it.logs.select_related("user", "price")[:100]),
         n_live=sum(1 for p in prices if not p.excluded and not p.outlier),
         last_region=prices[0].region if prices else ""))
 
@@ -175,16 +203,74 @@ def narx_item(request, pk):
 @superuser_required
 def narx_item_edit(request, pk):
     it = get_object_or_404(Item, pk=pk)
-    name = request.POST.get("name", "").strip()[:500]
-    cat = request.POST.get("category", "")
-    if name:
-        it.name = name
-    if cat in CATEGORY_LABELS:
-        it.category = cat
-    it.edited = True
-    it.save()
-    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: ресурс тузатилди — {it.name} ({it.get_category_display()})")
-    messages.success(request, "Сақланди.")
+    try:
+        changed = services.edit_item(it, name=request.POST.get("name", ""), category=request.POST.get("category", ""),
+                                     user=request.user)
+    except services.Conflict as e:
+        messages.error(request, f"«{e.other.name}» ({e.other.unit}) номли ресурс базада бор. Иккаласи бир ресурс "
+                                f"бўлса — пастдаги «Бирлаштириш» бўлимидан қўшинг.")
+        return redirect(reverse("panel:narx_item", args=[pk]) + f"?mq={e.other.name[:60]}#merge")
+    if changed:
+        audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: ресурс тузатилди — {it.name} ({it.get_category_display()})")
+        messages.success(request, "Сақланди.")
+    return redirect("panel:narx_item", pk=pk)
+
+
+def _num(v):
+    return services._dec((v or "").replace(" ", "").replace("\xa0", "").replace(",", "."))
+
+
+@require_POST
+@superuser_required
+def narx_price_edit(request, pk):
+    """Нархни тузатиш (нархи, сони, вилояти, санаси) — сабаби шарт, эски қиймат тарихда қолади."""
+    p = get_object_or_404(Price.objects.select_related("item"), pk=pk)
+    P = request.POST
+    price, region, day, reason = _num(P.get("price")), _region(P.get("region")), _day(P.get("date")), \
+        P.get("reason", "").strip()[:300]
+    qty = _num(P.get("qty")) if P.get("qty", "").strip() else None
+    back = reverse("panel:narx_item", args=[p.item_id])
+    if price is None or price <= 0 or not region or not day or (qty is not None and qty < 0):
+        messages.error(request, "Нарх (0 дан катта), вилоят ва санани (бугундан кейин эмас) тўғри киритинг.")
+        return _back(request, back)
+    if not reason:
+        messages.error(request, "Нега тузатилаётганини ёзинг — тарихда сақланади.")
+        return _back(request, back)
+    old = p.price
+    if services.edit_price(p, price=price, qty=qty, region=region, day=day, reason=reason, user=request.user):
+        audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: нарх тузатилди — {p.item.name}: "
+              f"{services.fmt(old)} → {services.fmt(p.price)} ({reason})")
+        messages.success(request, "Нарх тузатилди, паст / ўрта / юқори қайта ҳисобланди.")
+    else:
+        messages.success(request, "Ҳеч нарса ўзгармади.")
+    return _back(request, back)
+
+
+@require_POST
+@superuser_required
+def narx_item_merge(request, pk):
+    """Бошқа ресурсни (``source``) шу ресурсга қўшиш."""
+    it = get_object_or_404(Item, pk=pk)
+    src = get_object_or_404(Item, pk=request.POST.get("source") if request.POST.get("source", "").isdigit() else 0)
+    title = f"{src.name} ({src.unit})"
+    try:
+        n = services.merge_items(it, src, request.user)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("panel:narx_item", pk=pk)
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: «{title}» → «{it.name}» га қўшилди, {n} та нарх")
+    messages.success(request, f"«{title}» → «{it.name}»: {n} та нарх қўшилди. Унинг номи «бошқа номи» бўлиб қолди — "
+                              f"шу ном билан келган нархлар энди шу ерга тушади.")
+    return _back(request, reverse("panel:narx_item", args=[pk]))
+
+
+@require_POST
+@superuser_required
+def narx_alias_delete(request, pk, alias):
+    al = get_object_or_404(Alias, pk=alias, item_id=pk)
+    services.remove_alias(al, request.user)
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: бошқа номи олиб ташланди — {al.name}")
+    messages.success(request, f"«{al.name}» олиб ташланди: шу ном билан келадиган янги нархлар алоҳида ресурс бўлади.")
     return redirect("panel:narx_item", pk=pk)
 
 
@@ -194,9 +280,9 @@ def narx_price(request, pk, action):
     p = get_object_or_404(Price, pk=pk)
     if action not in ("exclude", "include"):
         raise Http404
-    services.set_excluded(p, action == "exclude", request.POST.get("note", "").strip())
+    services.set_excluded(p, action == "exclude", request.POST.get("note", "").strip(), user=request.user)
     audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: {p.item.name} — {p.price} "
-          f"{'истисно қилинди' if action == 'exclude' else 'қайтарилди'}")
+          f"{'ҳисобдан чиқарилди' if action == 'exclude' else 'ҳисобга қайтарилди'}")
     return _back(request, reverse("panel:narx_item", args=[p.item_id]))
 
 
@@ -228,7 +314,17 @@ def narx_collect(request):
     for kind, w in pending:
         w.kind, w.kind_label = kind, {"folder": "Папка", "object": "Объект", "smeta": "Смета"}[kind]
         w.title = services.title_of(kind, w)
-    return render(request, "panel/narx_collect.html", _nctx(request, "collect", pending=[w for _, w in pending]))
+    from narxbaza.models import Intake
+    from narxbaza import intake as I
+    opened = list(Intake.objects.filter(status__in=(Intake.Status.OPEN, Intake.Status.READING, Intake.Status.FAILED))
+                  .select_related("owner", "created_by"))
+    by_work = {(x.kind, str(x.work_id)): x for x in opened if x.work_id}
+    for _, w in pending:
+        w.intake = by_work.get((w.kind, str(w.pk)))
+    for x in opened:
+        x.c = I.counts(x)
+    return render(request, "panel/narx_collect.html", _nctx(request, "collect", pending=[w for _, w in pending],
+                                                            opened=opened))
 
 
 def _work_or_404(kind, work_id):
@@ -244,6 +340,9 @@ def _work_or_404(kind, work_id):
 def narx_review(request, kind, work_id):
     """Смета­чи ресурсларини кўриб тасдиқлаш: аниқ нархланганлари белгиланган, тахминийлари — йўқ."""
     work = _work_or_404(kind, work_id)
+    if request.user.is_superuser:  # ҳамма қатор аввал текширув навбатига (Excel кўриниши)
+        from narxbaza import intake as I
+        return redirect("panel:narx_intake", pk=I.open_for_work(kind, work, request.user).pk)
     jobs = services.jobs_of(kind, work)
     rows = services.rows_from_jobs(jobs)
     if request.method == "POST":
@@ -282,7 +381,9 @@ def _picked(request, rows) -> list:
 
 
 def _review_ctx(request, rows, **kw) -> dict:
-    known = set(Item.objects.filter(key__in={r["key"] for r in rows}).values_list("key", flat=True))
+    keys = {r["key"] for r in rows}
+    known = set(Item.objects.filter(key__in=keys).values_list("key", flat=True)) | \
+        set(Alias.objects.filter(key__in=keys, item__deleted_at=None).values_list("key", flat=True))
     for r in rows:
         r["known"] = r["key"] in known
         r["category_label"] = CATEGORY_LABELS[r["category"]]
@@ -295,7 +396,8 @@ def _review_ctx(request, rows, **kw) -> dict:
 # ===================== киритилган тўпламлар =====================
 @staff_required
 def narx_batches(request):
-    qs = Batch.objects.select_related("owner", "added_by").annotate(n=Count("prices")).order_by("-created")
+    qs = Batch.objects.select_related("owner", "added_by").annotate(
+        n=Count("prices", filter=Q(prices__item__deleted_at=None))).order_by("-created")
     k = request.GET.get("k", "")
     if k == "manual":
         qs = qs.filter(kind=Batch.Kind.MANUAL)
@@ -309,17 +411,35 @@ def narx_batches(request):
 def narx_batch(request, pk):
     b = get_object_or_404(Batch.objects.select_related("owner", "added_by"), pk=pk)
     prices = list(b.prices.select_related("item").order_by("item__name"))
-    return render(request, "panel/narx_batch.html", _nctx(request, "batches", b=b, prices=prices))
+    return render(request, "panel/narx_batch.html", _nctx(request, "batches", b=b, prices=prices,
+                                                          logs=list(b.logs.select_related("user")[:50])))
+
+
+@require_POST
+@superuser_required
+def narx_batch_edit(request, pk):
+    b = get_object_or_404(Batch, pk=pk)
+    region, day = _region(request.POST.get("region")), _day(request.POST.get("date"))
+    if not region or not day:
+        messages.error(request, "Вилоят ва санани тўғри танланг (сана бугундан кейин бўлмасин).")
+        return redirect("panel:narx_batch", pk=pk)
+    if services.edit_batch(b, region=region, day=day, note=request.POST.get("note", "").strip(), user=request.user):
+        audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: тўплам тузатилди — «{b.title}», "
+              f"{REGION_LABELS[region]}, {day}")
+        messages.success(request, "Тўплам тузатилди, нархлар қайта ҳисобланди.")
+    return redirect("panel:narx_batch", pk=pk)
 
 
 @require_POST
 @superuser_required
 def narx_batch_delete(request, pk):
+    """Тўпламни саватчага (бутунлай ўчириш — саватчадан)."""
     b = get_object_or_404(Batch, pk=pk)
-    title, n = b.title, b.prices.count()
-    services.delete_batch(b)
-    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: тўплам ўчирилди — «{title}», {n} та нарх")
-    messages.success(request, f"«{title}» ўчирилди ({n} та нарх). Нархлар қайта ҳисобланди.")
+    n = b.prices.count()
+    services.trash_batch(b, request.user)
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: тўплам саватчага — «{b.title}», {n} та нарх")
+    messages.success(request, f"«{b.title}» саватчага ташланди ({n} та нарх ҳисобдан чиқди). Керак бўлса — "
+                              f"«Саватча» дан тиклайсиз.")
     return redirect("panel:narx_batches")
 
 
@@ -340,84 +460,91 @@ def _udir():
     return d
 
 
+MAX_UPLOAD_FILES = 400
+
+
+def _upload_reply(request, *, error=None, url=None):
+    """Модал файлларни XHR билан юборади (юкланиш фоизи кўринади) — жавоб JSON; JS'сиз — одатий redirect."""
+    from django.http import JsonResponse
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return JsonResponse({"error": error} if error else {"url": url}, status=400 if error else 200)
+    if error:
+        messages.error(request, error)
+        return redirect("panel:narx")
+    return redirect(url)
+
+
 @require_POST
 @superuser_required
 def narx_upload(request):
+    """Файл(лар) → текширув навбати (базага ҳеч нарса тушмайди): битта Excel, бир нечта Excel, бутун папка ёки
+    ZIP / RAR / 7z архив (ичма-ич ҳам). Бу ерда файллар фақат сақланади — архивни очиш, .xls ни ўгириш ва ўқиш
+    орқа фонда (``intake.read_upload``), саҳифа жараённи кўрсатиб туради."""
+    import shutil
     import uuid
+    from pathlib import PurePosixPath
+    from jobs.archives import EXCEL_EXT, is_archive, safe_part
     from jobs.services import UploadError, _check_upload, _save
-    f, kind = request.FILES.get("file"), request.POST.get("kind", "")
-    if not f or kind not in dict(services.FILE_KINDS):
-        messages.error(request, "Файл ва унинг турини танланг.")
-        return redirect("panel:narx")
+    from narxbaza import intake as I
+    from panel import conf
+    files, kind = request.FILES.getlist("file"), request.POST.get("kind", "")
+    paths = request.POST.getlist("paths")
+    if not files or kind not in dict(services.FILE_KINDS):
+        return _upload_reply(request, error="Файл ва унинг турини танланг.")
+    root = _udir() / f"up_{uuid.uuid4().hex}"
+    rel = lambda p: p.relative_to(_udir().parent).as_posix()  # noqa: E731
+    items = []
     try:
-        ext = _check_upload(f, f.name)
+        for n, f in enumerate(files[:MAX_UPLOAD_FILES]):
+            name = (paths[n] if n < len(paths) and paths[n] else f.name).replace("\\", "/")
+            show = "/".join(safe_part(x) for x in name.split("/") if x and x not in (".", "..")) or f.name
+            ext = PurePosixPath(f.name).suffix.lower()
+            if is_archive(f.name):
+                if f.size > conf.get("max_archive_mb"):
+                    raise UploadError(f"{f.name}: архив жуда катта ({f.size // (1024 * 1024)} МБ)")
+            elif ext in EXCEL_EXT:
+                _check_upload(f, f.name)
+            else:
+                continue
+            saved = root / "src" / f"{n}{ext}"
+            _save(f, saved)
+            items.append([show, rel(saved), is_archive(f.name)])
+        if not items:
+            raise UploadError("Excel файл топилмади (.xls, .xlsx, .xlsm ёки улар солинган ZIP / RAR / 7z архив).")
     except UploadError as e:
-        messages.error(request, str(e))
-        return redirect("panel:narx")
-    token = uuid.uuid4().hex
-    path = _udir() / f"{token}{ext}"
-    _save(f, path)
-    try:
-        rows = services.parse_file(path, kind, f.name, request.POST.get("category", "K"))
-    except Exception as e:  # noqa: BLE001 — бузуқ файл
-        path.unlink(missing_ok=True)
-        messages.error(request, f"Файлни ўқиб бўлмади: {e}")
-        return redirect("panel:narx")
-    if not rows:
-        path.unlink(missing_ok=True)
-        messages.error(request, "Файлда нархли ресурс топилмади." + (
-            " Оддий Excel'да сарлавҳа қатори бўлсин: «Наименование» (номи), «Ед. изм.» (бирлиги), «Цена» (нархи)."
-            if kind == "excel" else " RES файлда нархли ресурс жадвали бўлиши керак."))
-        return redirect("panel:narx")
-    data = {"file": f.name, "kind": kind, "path": f"{UPLOAD_DIR}/{path.name}",
-            "rows": [{**r, "price": str(r["price"]), "qty": str(r["qty"])} for r in rows]}
-    (_udir() / f"{token}.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    return redirect("panel:narx_upload_review", token=token)
-
-
-def _pending_upload(token):
-    if not token.isalnum():
-        raise Http404
-    p = _udir() / f"{token}.json"
-    if not p.is_file():
-        raise Http404("Юклаш топилмади ёки эскирган — файлни қайта юкланг")
-    data = json.loads(p.read_text(encoding="utf-8"))
-    from decimal import Decimal
-    for r in data["rows"]:
-        r["price"], r["qty"] = Decimal(r["price"]), Decimal(r["qty"])
-    return p, data
+        shutil.rmtree(root, ignore_errors=True)
+        return _upload_reply(request, error=str(e))
+    single = files[0] if len(files) == 1 else None
+    title = single.name if single else (PurePosixPath(items[0][0]).parts[0] if "/" in items[0][0] else f"{len(items)} та файл")
+    it = I.start_upload(items=items, root=rel(root), kind=kind, title=title, user=request.user,
+                        file_path=items[0][1] if single else "", default_category=request.POST.get("category", "K"))
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: файл текширувга — «{it.title}», {len(items)} та файл")
+    return _upload_reply(request, url=reverse("panel:narx_intake", args=[it.pk]))
 
 
 @superuser_required
-def narx_upload_review(request, token):
-    from django.conf import settings
-    from pathlib import Path
-    p, data = _pending_upload(token)
-    rows = data["rows"]
-    if request.method == "POST":
-        if request.POST.get("action") == "cancel":
-            (Path(settings.MEDIA_ROOT) / data["path"]).unlink(missing_ok=True)
-            p.unlink(missing_ok=True)
-            messages.success(request, "Бекор қилинди — ҳеч нарса қўшилмади.")
-            return redirect("panel:narx")
-        region, day = _region(request.POST.get("region")), _day(request.POST.get("date"))
-        if not region or not day:
-            messages.error(request, "Вилоят ва санани танланг (сана бугундан кейин бўлмасин).")
-            return redirect(request.path)
-        chosen = _picked(request, rows)
-        if not chosen:
-            messages.error(request, "Битта ҳам нарх белгиланмади.")
-            return redirect(request.path)
-        b = services.add_batch(Batch.Kind.FILE, None, chosen, region=region, day=day, user=request.user,
-                               note=request.POST.get("note", "").strip()[:300], title=data["file"], file_path=data["path"])
-        p.unlink(missing_ok=True)
-        audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: файл «{b.title}» — {len(chosen)} та нарх, "
-              f"{REGION_LABELS[region]}, {day}")
-        messages.success(request, f"«{b.title}» киритилди: {len(chosen)} та нарх, {b.stats.get('new', 0)} та янги ресурс.")
-        return redirect("panel:narx_batch", pk=b.pk)
-    return render(request, "panel/narx_review.html", _review_ctx(
-        request, rows, title=data["file"], subtitle=dict(services.FILE_KINDS)[data["kind"]].split(":")[0],
-        owner=request.user, region="", hint="", already=None, upload=True))
+def narx_intake_status(request, pk):
+    from django.http import JsonResponse
+    from narxbaza.models import Intake
+    from narxbaza import intake as I
+    it = get_object_or_404(Intake, pk=pk)
+    pr = {k: v for k, v in (it.progress or {}).items() if k in ("stage", "done", "total", "file", "error")}
+    return JsonResponse({"status": it.status, "stuck": I.stuck(it), **pr})
+
+
+@require_POST
+@superuser_required
+def narx_intake_retry(request, pk):
+    """Тўхтаб қолган / хато берган ўқишни қайта бошлаш (сақланган файллардан)."""
+    from narxbaza.models import Intake
+    from narxbaza import intake as I
+    it = get_object_or_404(Intake, pk=pk, kind="file")
+    if it.status == Intake.Status.FAILED or I.stuck(it):
+        pr = {k: v for k, v in (it.progress or {}).items() if k in ("src", "root", "cat")}
+        it.status, it.progress = Intake.Status.READING, {**pr, "stage": "Қайта бошланди", "done": 0}
+        it.save(update_fields=["status", "progress", "updated"])
+        I.run(it.pk)
+    return redirect("panel:narx_intake", pk=pk)
 
 
 @staff_required
@@ -425,7 +552,7 @@ def narx_batch_file(request, pk):
     from django.conf import settings
     from django.http import FileResponse
     from pathlib import Path
-    b = get_object_or_404(Batch, pk=pk)
+    b = get_object_or_404(Batch.all_objects, pk=pk)
     path = (Path(settings.MEDIA_ROOT) / b.file_path) if b.file_path else None
     if not path or not path.is_file():
         raise Http404("Файл сақланмаган")
@@ -435,12 +562,83 @@ def narx_batch_file(request, pk):
 @require_POST
 @superuser_required
 def narx_item_delete(request, pk):
+    """Ресурсни саватчага (бутунлай ўчириш — саватчадан)."""
     it = get_object_or_404(Item, pk=pk)
     name, n = it.name, it.prices.count()
-    services.delete_item(it)
-    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: ресурс ўчирилди — {name} ({n} та нарх)")
-    messages.success(request, f"«{name}» ва унинг {n} та нархи ўчирилди.")
+    services.trash_item(it, request.user)
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: ресурс саватчага — {name} ({n} та нарх)")
+    messages.success(request, f"«{name}» саватчага ташланди ({n} та нарх ҳисобдан чиқди). Керак бўлса — "
+                              f"«Саватча» дан тиклайсиз.")
     return redirect("panel:narx")
+
+
+# ===================== саватча =====================
+@staff_required
+def narx_trash(request):
+    items = list(Item.all_objects.exclude(deleted_at=None).select_related("deleted_by")
+                 .annotate(n=Count("prices")).order_by("-deleted_at"))
+    batches = list(Batch.all_objects.exclude(deleted_at=None).select_related("deleted_by", "owner")
+                   .annotate(n=Count("prices")).order_by("-deleted_at"))
+    for b in batches:
+        b.blocked = bool(b.work_id) and Batch.objects.filter(kind=b.kind, work_id=b.work_id).exists()
+    return render(request, "panel/narx_trash.html", _nctx(request, "trash", items=items, batches=batches,
+                                                          purged=Log.objects.filter(action=Log.Action.PURGE)
+                                                          .select_related("user")[:30]))
+
+
+def _trashed(kind, pk):
+    if kind == "item":
+        return get_object_or_404(Item.all_objects.exclude(deleted_at=None), pk=pk)
+    if kind == "batch":
+        return get_object_or_404(Batch.all_objects.exclude(deleted_at=None), pk=pk)
+    raise Http404
+
+
+@require_POST
+@superuser_required
+def narx_trash_restore(request, kind, pk):
+    obj = _trashed(kind, pk)
+    try:
+        if kind == "item":
+            it = services.restore_item(obj, request.user)
+            merged = it.pk != obj.pk
+        else:
+            services.restore_batch(obj, request.user)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("panel:narx_trash")
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: саватчадан тикланди — {obj}")
+    if kind == "item":
+        messages.success(request, f"«{it.name}» тикланди" + (" — шу номдаги ресурс бор эди, унга қўшилди." if merged else "."))
+        return redirect("panel:narx_item", pk=it.pk)
+    messages.success(request, f"«{obj.title}» тикланди, нархлар яна ҳисобда.")
+    return redirect("panel:narx_batch", pk=obj.pk)
+
+
+@require_POST
+@superuser_required
+def narx_trash_purge(request, kind, pk):
+    obj = _trashed(kind, pk)
+    title = str(obj)
+    (services.purge_item if kind == "item" else services.purge_batch)(obj, request.user)
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: бутунлай ўчирилди — {title}")
+    messages.success(request, f"«{title}» бутунлай ўчирилди.")
+    return redirect("panel:narx_trash")
+
+
+@require_POST
+@superuser_required
+def narx_trash_empty(request):
+    n = 0
+    for b in Batch.all_objects.exclude(deleted_at=None):
+        services.purge_batch(b, request.user)
+        n += 1
+    for it in Item.all_objects.exclude(deleted_at=None):
+        services.purge_item(it, request.user)
+        n += 1
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: саватча бўшатилди — {n} та")
+    messages.success(request, f"Саватча бўшатилди: {n} та бутунлай ўчирилди.")
+    return redirect("panel:narx_trash")
 
 
 @require_POST
@@ -473,3 +671,472 @@ def narx_config(request):
     audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси сукути: {label}, {LEVEL_LABELS[cfg.level].lower()}")
     messages.success(request, f"Сақланди: смета­чи танламаса — {label}, {LEVEL_LABELS[cfg.level].lower()}.")
     return _back(request, reverse("panel:narx"))
+
+
+# ===================== текшириш навбати =====================
+CHECKS = [("unver", "Текширилмаган", "Сиз ҳали кўрмаган ресурслар — тоифасини текшириб тасдиқланг"),
+          ("dup", "Эҳтимол икки нусха", "Номи деярли бир хил, бирлиги ва номидаги рақамлари бир хил ресурслар"),
+          ("outlier", "Четда нархлар", "Шу вилоят ва йилдаги бошқа нархлардан 3 баробар фарқ — ҳисобга кирмаяпти"),
+          ("cat", "Тоифаси йўқ", "«Бошқа» тоифасидаги ресурслар — тоифасини белгиланг"),
+          ("stale", "Эскирган", f"{services.STALE_DAYS} кундан бери янги нарх келмаган")]
+
+
+@staff_required
+def narx_check(request):
+    counts = services.review_counts()
+    sec = request.GET.get("s", "")
+    if sec not in dict((k, 1) for k, *_ in CHECKS):
+        sec = next((k for k, *_ in CHECKS if counts[k]), "dup")
+    ctx = {}
+    if sec == "dup":
+        page = Paginator(services.duplicate_pairs(), 25).get_page(request.GET.get("page"))
+        ids = {i for _, a, b in page for i in (a, b)}
+        items = {i.pk: i for i in Item.objects.filter(pk__in=ids)}
+        n = dict(Price.objects.filter(item_id__in=ids).values_list("item_id").annotate(c=Count("id")))
+        best = services.best_stat(list(ids))
+        for i in items.values():
+            i.n, i.st = n.get(i.pk, 0), best.get(i.pk)
+        ctx["pairs"] = [(r, items[a], items[b], ((items[a], items[b]), (items[b], items[a])))
+                        for r, a, b in page if a in items and b in items]
+    elif sec == "outlier":
+        page = Paginator(Price.objects.filter(outlier=True, excluded=False).select_related("item", "batch")
+                         .order_by("item__name", "-date"), 30).get_page(request.GET.get("page"))
+        st = {(x.item_id, x.region, x.year): x for x in Stat.objects.filter(item_id__in={p.item_id for p in page})}
+        for pr in page:
+            pr.st = st.get((pr.item_id, pr.region, pr.year))
+            pr.times = round(float(max(pr.price, pr.st.mid or pr.st.low) / min(pr.price, pr.st.mid or pr.st.low)), 1) \
+                if pr.st and pr.price and (pr.st.mid or pr.st.low) else None
+    elif sec == "unver":
+        qs = services.live_items().filter(verified=False).annotate(n=Count("prices"))
+        ucat = request.GET.get("c", "") if request.GET.get("c", "") in CATEGORY_LABELS else ""
+        uq = request.GET.get("q", "").strip()[:100]
+        if ucat:
+            qs = qs.filter(category=ucat)
+        for w in uq.split():
+            qs = qs.filter(name__icontains=w)
+        page = Paginator(qs.order_by("category", "name"), 50).get_page(request.GET.get("page"))
+        best = services.best_stat([i.pk for i in page])
+        for i in page:
+            i.st = best.get(i.pk)
+        ctx.update(ucat=ucat, uq=uq, ucats=dict(services.live_items().filter(verified=False).order_by()
+                                                .values_list("category").annotate(c=Count("id"))))
+    elif sec == "cat":
+        page = Paginator(services.live_items().filter(category="O").annotate(n=Count("prices")).order_by("name"),
+                         50).get_page(request.GET.get("page"))
+    else:
+        page = Paginator(services.stale_items(), 50).get_page(request.GET.get("page"))
+    return render(request, "panel/narx_check.html", _nctx(
+        request, "check", sec=sec, page=page, checks=[(k, t, d, counts[k]) for k, t, d in CHECKS], **ctx))
+
+
+@require_POST
+@superuser_required
+def narx_check_ignore(request):
+    a, b = request.POST.get("a", ""), request.POST.get("b", "")
+    if a.isdigit() and b.isdigit():
+        services.ignore_pair(int(a), int(b), request.user)
+        messages.success(request, "Белгиланди: булар бошқа-бошқа ресурс — навбатда қайта кўрсатилмайди.")
+    return _back(request, reverse("panel:narx_check"))
+
+
+# ===================== бирданига ўзгартириш =====================
+@require_POST
+@superuser_required
+def narx_bulk(request):
+    """Рўйхатда белгиланганлар: тоифасини ўзгартириш, саватчага, битта ресурсга бирлаштириш."""
+    ids = [int(i) for i in request.POST.getlist("ids") if i.isdigit()][:500]
+    items = list(Item.objects.filter(pk__in=ids))
+    action = request.POST.get("action", "")
+    back = reverse("panel:narx")
+    if not items:
+        messages.error(request, "Битта ҳам ресурс белгиланмади.")
+        return _back(request, back)
+    if action == "category":
+        cat = request.POST.get("category", "")
+        if cat not in CATEGORY_LABELS:
+            messages.error(request, "Тоифани танланг.")
+            return _back(request, back)
+        n = services.bulk_category(items, cat, request.user)
+        audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: {n} та ресурс тоифаси → {CATEGORY_LABELS[cat]}")
+        messages.success(request, f"{n} та ресурснинг тоифаси «{CATEGORY_LABELS[cat]}» бўлди.")
+    elif action == "trash":
+        n = services.bulk_trash(items, request.user)
+        audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: {n} та ресурс саватчага")
+        messages.success(request, f"{n} та ресурс саватчага ташланди. Керак бўлса — «Саватча» дан тиклайсиз.")
+    elif action == "merge":
+        target = next((i for i in items if str(i.pk) == request.POST.get("target", "")), None)
+        if target is None or len(items) < 2:
+            messages.error(request, "Бирлаштириш учун камида 2 та ресурс белгиланг ва асосийсини танланг.")
+            return _back(request, back)
+        done, moved, skipped = services.bulk_merge(target, items, request.user)
+        audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: {done} та ресурс «{target.name}» га қўшилди, {moved} та нарх")
+        messages.success(request, f"{done} та ресурс «{target.name}» га қўшилди ({moved} та нарх).")
+        if skipped:
+            messages.error(request, "Бирлиги бошқа бўлгани учун қўшилмади: " + ", ".join(f"«{i.name}» ({i.unit})" for i in skipped[:5]))
+        return redirect("panel:narx_item", pk=target.pk)
+    else:
+        raise Http404
+    return _back(request, back)
+
+
+# ===================== статистика =====================
+@staff_required
+def narx_stats(request):
+    """Вилоятлар ва йиллар бўйича: харита, рейтинг, вилоят × йил жадвали, йиллар бўйича нархлар."""
+    from narxbaza import stats as S
+    ys = S.years()
+    y = int(request.GET["y"]) if request.GET.get("y", "").isdigit() and int(request.GET["y"]) in ys else None
+    m = request.GET.get("m", "") if request.GET.get("m", "") in dict((k, 1) for k, *_ in S.METRICS) else "items"
+    r = _region(request.GET.get("r", ""))
+    ov = S.overview(y, m, r)
+    sel = next((x for x in ov["regions"] if x["code"] == r), None)
+    from django.utils.http import urlencode
+
+    def url(**ch):
+        d = {"y": y or "", "m": m if m != "items" else "", "r": r, **ch}
+        return "?" + urlencode({k: v for k, v in d.items() if v})
+    for x in ov["regions"]:
+        x["url"] = url(r="" if x["code"] == r else x["code"])
+    pr = Price.objects.filter(year=y) if y else Price.objects.all()
+    kpi = {"items": services.live_items().filter(stats__year=y).distinct().count() if y else services.live_items().count(),
+           "prices": pr.count(), "covered": ov["covered"], "regions": len(ov["regions"]), "years": len(ys),
+           "batches": (Batch.objects.filter(date__year=y) if y else Batch.objects.all()).count()}
+    return render(request, "panel/narx_stats.html", _nctx(
+        request, "stats", ov=ov, kpi=kpi, y=y, m=m, sel=sel, metric=dict((k, (t, d)) for k, t, d in S.METRICS)[m],
+        detail=S.region_detail(r, y, ov["ratios"]) if sel else None,
+        year_opts=[("", "Ҳамма йиллар", url(y="", r=r))] + [(str(v), str(v), url(y=v)) for v in ys],
+        metric_opts=[(k, t, d, url(m=k if k != "items" else "")) for k, t, d in S.METRICS],
+        mx=S.matrix(), by_year=S.by_year(), clear_region=url(r="")))
+
+
+# ===================== текширув навбати (Excel кўриниши) =====================
+def _intake_or_404(pk):
+    from narxbaza.models import Intake
+    return get_object_or_404(Intake.objects.select_related("owner", "created_by", "batch"), pk=pk)
+
+
+@superuser_required
+def narx_intake(request, pk):
+    """Тизим белгилаган тоифалар Excel кўринишида: админ кўриб тасдиқлайди, тузатади ёки рад этади."""
+    from narxbaza import intake as I
+    it = _intake_or_404(pk)
+    if it.status in (it.Status.READING, it.Status.FAILED):
+        return render(request, "panel/narx_intake_wait.html", _nctx(request, "uploads" if it.kind == "file" else "collect", it=it, pr=it.progress or {},
+                                                                     stuck=I.stuck(it)))
+    rows = [I.row_json(r) for r in it.rows.select_related("item")]
+    files = []
+    for i, f in enumerate(it.files or []):
+        n = sum(1 for r in rows if r["fi"] == i)
+        files.append({**f, "i": i, "n": n, "left": sum(1 for r in rows if r["fi"] == i and r["state"] == "new"),
+                      "region_label": REGION_LABELS.get(f.get("region", ""), "")})
+    bad = (it.progress or {}).get("bad") or []
+    return render(request, "panel/narx_intake.html", _nctx(
+        request, "uploads" if it.kind == "file" else "collect", it=it, files=files, c=I.counts(it), stale=I.stale(it), bad=bad,
+        file_names=[f["file"] + (f" — {f['sheet']}" if it.kind == "file" and f.get("sheet") else "") for f in files],
+        file_done=[bool(f.get("done")) for f in files],
+        rows_json=rows, cats_json=[[k, label, GUTTER[k]] for k, label in CATEGORIES]))
+
+
+@superuser_required
+def narx_intake_sheet(request, pk, fi):
+    """Битта файл / листнинг Excel кўриниши (HTML) — кешдан."""
+    from django.conf import settings
+    from django.http import JsonResponse
+    from pathlib import Path
+    from jobs import preview, xlview
+    it = _intake_or_404(pk)
+    files = it.files or []
+    if fi >= len(files):
+        raise Http404
+    f = files[fi]
+    try:
+        if f.get("job"):
+            job = get_object_or_404(Job, pk=f["job"])
+            data = preview.sheet_data(job, "out", f.get("sheet") or None)
+        else:
+            path = Path(settings.MEDIA_ROOT) / (f.get("path") or it.view_path or it.file_path)
+            if not path.is_file():
+                raise Http404("Файл топилмади")
+            data = xlview.cached(_udir() / "preview", f"{it.pk}|{fi}|{f.get('sheet')}", path,
+                                 lambda: xlview.render(path, f.get("sheet") or None))
+    except preview.NotAvailable as e:
+        raise Http404(str(e))
+    return JsonResponse({"html": data["html"], "sheet": data.get("sheet"), "truncated": data.get("truncated")})
+
+
+def _json_body(request) -> dict:
+    try:
+        return json.loads(request.body or b"{}")
+    except ValueError:
+        return {}
+
+
+@require_POST
+@superuser_required
+def narx_intake_decide(request, pk):
+    from django.http import JsonResponse
+    from narxbaza import intake as I
+    it = _intake_or_404(pk)
+    d = _json_body(request)
+    ids = [int(i) for i in d.get("ids") or [] if str(i).isdigit()]
+    state = d.get("state") if d.get("state") in ("ok", "skip", "new") else None
+    cat = d.get("cat") if d.get("cat") in CATEGORY_LABELS else None
+    try:
+        rows = I.decide(it, ids, state=state, category=cat, user=request.user)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=409)
+    return JsonResponse({"rows": rows, "c": I.counts(it)})
+
+
+@require_POST
+@superuser_required
+def narx_intake_known(request, pk):
+    from narxbaza import intake as I
+    it = _intake_or_404(pk)
+    n = I.accept_known(it, request.user)
+    messages.success(request, f"{n} та такрорий қатор тасдиқланди (сиз илгари тасдиқлаган ресурслар).")
+    return redirect("panel:narx_intake", pk=pk)
+
+
+@require_POST
+@superuser_required
+def narx_intake_commit(request, pk):
+    from narxbaza import intake as I
+    it = _intake_or_404(pk)
+    region, day = _region(request.POST.get("region")), _day(request.POST.get("date"))
+    if not region or not day:
+        messages.error(request, "Вилоят ва санани танланг (сана бугундан кейин бўлмасин).")
+        return redirect("panel:narx_intake", pk=pk)
+    fis = [int(x) for x in request.POST.getlist("fi") if x.isdigit()]
+    if not fis:
+        messages.error(request, "Базага ёзиладиган файлларни белгиланг.")
+        return redirect("panel:narx_intake", pk=pk)
+    try:
+        b = I.commit(it, region=region, day=day, note=request.POST.get("note", "").strip()[:300], user=request.user,
+                     fis=fis)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("panel:narx_intake", pk=pk)
+    it.refresh_from_db()
+    if b is None:
+        messages.success(request, f"{len(fis)} та файл ёпилди — ҳамма қатори рад этилган, базага ҳеч нарса ёзилмади.")
+    else:
+        audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: текширувдан «{b.title}» — {b.stats.get('prices', 0)} та нарх, "
+              f"{REGION_LABELS[region]}, {day}")
+        messages.success(request, f"«{b.title}» базага ёзилди: {b.stats.get('prices', 0)} та нарх, "
+                                  f"{b.stats.get('new', 0)} та янги ресурс ({REGION_LABELS[region]}, {day:%d.%m.%Y}).")
+    if it.status == it.Status.DONE and b is not None:
+        return redirect("panel:narx_batch", pk=b.pk)
+    return redirect("panel:narx_intake", pk=pk)
+
+
+UPLOAD_FILTERS = {"active": "Текширилаётганлар", "done": "Базага ёзилганлар", "cancelled": "Бекор қилинганлар"}
+
+
+@superuser_required
+def narx_uploads(request):
+    """Юкланган файллар (архив, папка, Excel) — ҳаммаси: ўқилаётган, текширилаётган, базага ёзилган, бекор қилинган."""
+    from narxbaza.models import Intake
+    from narxbaza import intake as I
+    s = request.GET.get("s", "")
+    qs = Intake.objects.filter(kind="file").select_related("created_by").order_by("-created")
+    tot = dict(qs.values_list("status").annotate(c=Count("id")))
+    act = (Intake.Status.OPEN, Intake.Status.READING, Intake.Status.FAILED)
+    if s == "active":
+        qs = qs.filter(status__in=act)
+    elif s == "done":
+        qs = qs.filter(status=Intake.Status.DONE)
+    elif s == "cancelled":
+        qs = qs.filter(status=Intake.Status.CANCELLED)
+    page = Paginator(qs, 40).get_page(request.GET.get("page"))
+    for x in page:
+        files = x.files or []
+        x.c = I.counts(x)
+        x.n_files, x.n_done = len(files), sum(1 for f in files if f.get("done"))
+        x.batches = sorted({f["batch"] for f in files if f.get("batch")})
+        x.bad = len((x.progress or {}).get("bad") or [])
+        x.can_reopen = x.status == Intake.Status.CANCELLED and x.c["total"] > 0
+    n = {"": sum(tot.values()), "active": sum(tot.get(k, 0) for k in act), "done": tot.get("done", 0),
+         "cancelled": tot.get("cancelled", 0)}
+    tabs = [("", "Ҳаммаси", n[""])] + [(k, label, n[k]) for k, label in UPLOAD_FILTERS.items()]
+    return render(request, "panel/narx_uploads.html", _nctx(request, "uploads", page=page, s=s, tabs=tabs,
+                                                            file_kinds=services.FILE_KINDS))
+
+
+@require_POST
+@superuser_required
+def narx_intake_reopen(request, pk):
+    """Бекор қилинган юклашни қайта очиш (қарорлар сақланган — қолган жойидан давом этилади)."""
+    from narxbaza.models import Intake
+    it = get_object_or_404(Intake, pk=pk, kind="file", status=Intake.Status.CANCELLED)
+    files = it.files or []
+    it.status = Intake.Status.DONE if files and all(f.get("done") for f in files) else Intake.Status.OPEN
+    it.save(update_fields=["status", "updated"])
+    messages.success(request, f"«{it.title}» қайта очилди.")
+    return redirect("panel:narx_intake", pk=pk)
+
+
+@require_POST
+@superuser_required
+def narx_intake_cancel(request, pk):
+    from narxbaza import intake as I
+    it = _intake_or_404(pk)
+    I.cancel(it)
+    messages.success(request, "Текширув бекор қилинди — базага ҳеч нарса ёзилмади.")
+    if request.POST.get("reopen") and it.work_id:
+        return redirect("panel:narx_review", kind=it.kind, work_id=it.work_id)
+    return redirect("panel:narx_uploads" if it.kind == "file" else "panel:narx_collect")
+
+
+# ===================== базадаги текширилмаган ресурслар =====================
+@require_POST
+@superuser_required
+def narx_verify(request):
+    """Текширилмаган ресурслар: ҳар бирининг тоифаси (``c<id>``) — белгиланганлари (``ids``) тасдиқланади."""
+    from narxbaza import intake as I
+    ids = [int(i) for i in request.POST.getlist("ids") if i.isdigit()][:500]
+    items = list(Item.objects.filter(pk__in=ids))
+    n = I.verify_items([(i, request.POST.get(f"c{i.pk}", i.category)) for i in items], request.user)
+    if n:
+        audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: {n} та ресурс текширилди")
+    messages.success(request, f"{n} та ресурс тасдиқланди.")
+    return _back(request, reverse("panel:narx_check") + "?s=unver")
+
+
+# ===================== захира нусха =====================
+@superuser_required
+def narx_backup(request):
+    from narxbaza import backup as B
+    return render(request, "panel/narx_backup.html", _nctx(request, "list", counts=B.counts(), saved=B.saved()[:20],
+                                                           rules=B.MERGE_RULES, compact=1))
+
+
+@superuser_required
+def narx_backup_download(request):
+    """Тўлиқ нусха (.zip) — ҳозирги ҳолат."""
+    import tempfile
+    import time
+    from django.http import FileResponse
+    from narxbaza import backup as B
+    tmp = B.backups_dir() / "tmp"
+    tmp.mkdir(parents=True, exist_ok=True)
+    for old in tmp.glob("*.zip"):  # олдинги юклаб олинганлар
+        if time.time() - old.stat().st_mtime > 3600:
+            old.unlink(missing_ok=True)
+    stamp = timezone.localtime().strftime("%Y-%m-%d_%H-%M")
+    fd, name = tempfile.mkstemp(suffix=".zip", dir=tmp)
+    os.close(fd)
+    B.export(Path(name))
+    audit(request, Event.Kind.ADMIN_BASE, detail="нарх базаси: тўлиқ нусха юклаб олинди")
+    return FileResponse(open(name, "rb"), as_attachment=True, filename=f"narx-bazasi_{stamp}.zip")
+
+
+@superuser_required
+def narx_backup_saved(request, name):
+    """Серверда сақланган нусха (тиклашдан олдин автоматик олинган)."""
+    from django.http import FileResponse, Http404
+    from narxbaza import backup as B
+    p = B.backups_dir() / name
+    if "/" in name or "\\" in name or not name.endswith(".zip") or not p.is_file():
+        raise Http404
+    return FileResponse(open(p, "rb"), as_attachment=True, filename=name)
+
+
+@require_POST
+@superuser_required
+def narx_backup_restore(request):
+    """Нусхадан тиклаш: базадаги ҳамма нарх базаси маълумоти нусхадагиси билан алмашади."""
+    import tempfile
+    from narxbaza import backup as B
+    f = request.FILES.get("file")
+    if not f or not f.name.lower().endswith(".zip"):
+        messages.error(request, "Нусха файлини (.zip) танланг.")
+        return redirect("panel:narx_backup")
+    fd, name = tempfile.mkstemp(suffix=".zip")
+    try:
+        with os.fdopen(fd, "wb") as out:
+            for chunk in f.chunks():
+                out.write(chunk)
+        m = B.restore(Path(name), user=request.user)
+    except B.BackupError as e:
+        messages.error(request, str(e))
+        return redirect("panel:narx_backup")
+    finally:
+        Path(name).unlink(missing_ok=True)
+    c = m.get("counts") or {}
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: нусхадан тикланди — «{f.name}», {c.get('item', 0)} та ресурс, "
+          f"{c.get('price', 0)} та нарх")
+    messages.success(request, f"Тикланди: {c.get('item', 0)} та ресурс, {c.get('price', 0)} та нарх. "
+                              f"Олдинги ҳолат «{m['safety']}» номи билан сақланди.")
+    return redirect("panel:narx_backup")
+
+
+def _merge_tmp(token):
+    from narxbaza import backup as B
+    if not token or not token.isalnum() or len(token) != 32:
+        return None
+    p = B.backups_dir() / "tmp" / f"merge_{token}.zip"
+    return p if p.is_file() else None
+
+
+@require_POST
+@superuser_required
+def narx_backup_merge(request):
+    """Нусхани қўшиш — 1-қадам: файл сақланади ва синаб кўрилади (базага ҳеч нарса ёзилмайди), натижа кўрсатилади."""
+    import uuid
+    from narxbaza import backup as B
+    f = request.FILES.get("file")
+    if not f or not f.name.lower().endswith(".zip"):
+        messages.error(request, "Нусха файлини (.zip) танланг.")
+        return redirect("panel:narx_backup")
+    token = uuid.uuid4().hex
+    tmp = B.backups_dir() / "tmp"
+    tmp.mkdir(parents=True, exist_ok=True)
+    p = tmp / f"merge_{token}.zip"
+    with open(p, "wb") as out:
+        for chunk in f.chunks():
+            out.write(chunk)
+    try:
+        rep = B.merge(p, user=request.user, dry_run=True)
+    except B.BackupError as e:
+        p.unlink(missing_ok=True)
+        messages.error(request, str(e))
+        return redirect("panel:narx_backup")
+    from django.utils.dateparse import parse_datetime
+    created = parse_datetime(str(rep["manifest"].get("created") or ""))
+    return render(request, "panel/narx_backup_merge.html", _nctx(request, "list", rep=rep, token=token, fname=f.name,
+                                                                 created=timezone.localtime(created) if created else None,
+                                                                 rules=B.MERGE_RULES, compact=1))
+
+
+@require_POST
+@superuser_required
+def narx_backup_merge_go(request):
+    """Нусхани қўшиш — 2-қадам: тасдиқлангандан кейин ростдан қўшилади."""
+    from narxbaza import backup as B
+    p = _merge_tmp(request.POST.get("token", ""))
+    if p is None:
+        messages.error(request, "Нусха файли топилмади — қайта юкланг.")
+        return redirect("panel:narx_backup")
+    try:
+        rep = B.merge(p, user=request.user)
+    except B.BackupError as e:
+        messages.error(request, str(e))
+        return redirect("panel:narx_backup")
+    finally:
+        p.unlink(missing_ok=True)
+    name = request.POST.get("fname", "")[:120]
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: нусха қўшилди — «{name}»: {rep.get('items_new', 0)} та янги "
+          f"ресурс, {rep.get('prices_new', 0)} та нарх, {rep.get('prices_dup', 0)} та такрор ўтказилди")
+    messages.success(request, f"Қўшилди: {rep.get('items_new', 0)} та янги ресурс, {rep.get('prices_new', 0)} та нарх "
+                              f"({rep.get('batches_new', 0)} та тўплам). Такрор нархлар ёзилмади: {rep.get('prices_dup', 0)} та.")
+    return redirect("panel:narx_backup")
+
+
+@require_POST
+@superuser_required
+def narx_backup_merge_cancel(request):
+    p = _merge_tmp(request.POST.get("token", ""))
+    if p is not None:
+        p.unlink(missing_ok=True)
+    return redirect("panel:narx_backup")

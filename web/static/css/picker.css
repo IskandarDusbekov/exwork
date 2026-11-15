@@ -1,14 +1,29 @@
 /* Юклаш → листлар → жуфтлаш → усул → Бошлаш (jobs/_picker.html, static/js/picker.js).
    Қоида: ҳозирги қадам ялтирайди, тасдиқлаш тугмалари доим яшил, кейинги қадам олдингиси тугагач очилади. */
 .pk, .pp-go, .pp-mode, .pp-hint { --g: #16a34a; --g-d: #15803d; --g-l: #dcfce7; --loc: #059669; --res: #0284c7; --off: #94a3b8; color: #0f172a; }
-.pk-form { display: grid; gap: 18px; }
+.pk-form { display: grid; gap: 16px; }
+
+/* ---- «i» белги: керакли изоҳ босганда/устига келганда очилади (ортиқча матнсиз, тоза) ---- */
+.pk-i { position: relative; display: inline-grid; place-items: center; width: 18px; height: 18px; flex-shrink: 0; border-radius: 999px;
+  border: 0; background: #e2e8f0; color: #475569; font-size: 11px; font-weight: 800; font-style: normal; line-height: 1; vertical-align: middle; cursor: pointer; }
+.pk-i:hover { background: #cbd5e1; color: #0f172a; }
+.pk-i.is-warn { background: #fde68a; color: #92400e; } .pk-i.is-warn:hover { background: #fcd34d; }
+.pk-i-pop { position: absolute; z-index: 60; top: calc(100% + 7px); left: 0; display: none; width: max-content; max-width: min(320px, 76vw);
+  padding: 9px 12px; border-radius: 12px; border: 1px solid #e2e8f0; background: #fff; box-shadow: 0 12px 30px rgba(15, 23, 42, .16);
+  font-size: 13px; font-weight: 400; font-style: normal; line-height: 1.5; letter-spacing: normal; text-transform: none; text-align: left; white-space: normal; color: #334155; }
+.pk-i-pop.is-right { left: auto; right: 0; }
+.pk-i:focus { outline: none; }
+.pk-i:hover .pk-i-pop, .pk-i:focus .pk-i-pop, .pk-i:focus-within .pk-i-pop { display: block; }
+.pk-i-pop b { color: #0f172a; } .pk-i-pop .t-loc { color: var(--loc); } .pk-i-pop .t-res { color: var(--res); }
+.pk-i-pop .t-near { color: #b45309; } .pk-i-pop .t-none { color: #be123c; }
 
 /* ---- қадам ---- */
-.pk-step { border: 2px solid #e2e8f0; border-radius: 20px; background: #fff; padding: 18px 18px 16px; transition: border-color .3s, box-shadow .3s, opacity .3s; }
-.pk-h { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px; }
+.pk-step { border: 2px solid #e2e8f0; border-radius: 18px; background: #fff; padding: 14px 14px 12px; transition: border-color .3s, box-shadow .3s, opacity .3s; }
+.pk-h { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
 .pk-num { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 999px; background: #e2e8f0; color: #475569; font-size: 18px; font-weight: 800; transition: background .3s, color .3s; }
-.pk-ht h2 { font-size: 19px; font-weight: 700; line-height: 1.25; }
+.pk-ht h2 { display: flex; align-items: center; gap: 7px; font-size: 18px; font-weight: 700; line-height: 1.25; }
 .pk-ht p { margin-top: 3px; font-size: 14px; color: #64748b; line-height: 1.45; }
+.pk-ht > .pk-left { display: inline-block; margin-top: 5px; }
 .pk-step.is-done .pk-num { background: var(--g); color: #fff; font-size: 0; }
 .pk-step.is-done .pk-num::after { content: "✓"; font-size: 20px; }
 .pk-step.is-now { border-color: #22c55e; animation: pk-glow 1.8s ease-in-out infinite; }
@@ -100,8 +115,16 @@
 .pk-mode small b { display: inline; font-size: inherit; color: #0f172a; }
 .pk-mode.is-on { border-color: var(--g); background: #f0fdf4; box-shadow: 0 0 0 3px rgba(22, 163, 74, .15); }
 .pk-mode.is-on .pk-mode-ic { background: var(--g); color: #fff; }
-.pk-pct { margin-top: 12px; border-radius: 12px; background: #f8fafc; padding: 10px 14px; font-size: 14px; }
-.pk-pct summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; color: #334155; list-style: none; }
+.pk-pct { margin-top: 12px; border-radius: 12px; border: 1px solid #fde68a; background: #fffdf5; padding: 10px 14px; font-size: 14px; }
+.pk-pct summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; color: #78350f; list-style: none; }
+.pk-pct-go { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 8px; background: #fde68a; color: #78350f; font-size: 13px; font-weight: 700; }
+.pk-pct summary:hover .pk-pct-go { background: #fcd34d; }
+.pk-pct[open] .pk-pct-go svg { transform: rotate(180deg); }
+/* олинмаган файллар рўйхати («Керак эмас деб топилганлар» ичида) */
+.pk-sfiles { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.pk-sfiles li { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 10px; border-radius: 8px; background: #fafafa; color: #64748b; font-size: 13px; }
+.pk-sfiles .pk-sf-n { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #334155; }
+.pk-sfiles i { flex-shrink: 0; font-style: normal; font-size: 12px; color: #94a3b8; }
 .pk-pct summary::-webkit-details-marker { display: none; }
 .pk-pct-s { font-weight: 400; color: #94a3b8; }
 .pk-pcts { margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
@@ -206,6 +229,26 @@
 .is-none .pk-hint { color: #b45309; font-weight: 600; }
 .pk-nores { padding: 16px; text-align: center; font-size: 14px; color: #64748b; }
 .pk-skip { margin-top: 12px; }
+/* «Керак эмас деб топилганлар» — аниқ тугма: белги, сони, «Кўрсатиш / Яшириш» */
+.pk .pk-skip > summary.pk-skip-btn { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1.5px dashed #cbd5e1; border-radius: 12px;
+  background: #f8fafc; color: #334155; }
+.pk .pk-skip > summary.pk-skip-btn:hover { border-color: #94a3b8; background: #f1f5f9; }
+.pk .pk-skip[open] > summary.pk-skip-btn { border-style: solid; border-radius: 12px 12px 0 0; }
+.pk-skip-ic { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; background: #e2e8f0; color: #64748b; }
+.pk-skip-t { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.pk-skip-t b { font-size: 14px; color: #0f172a; }
+.pk .pk-skip summary .pk-skip-t small { font-size: 12px; color: #64748b; }
+.pk .pk-skip summary .pk-skip-go { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 9px; background: #fff;
+  border: 1px solid #cbd5e1; font-size: 13px; font-weight: 700; color: #0f172a; }
+.pk-skip-btn:hover .pk-skip-go { border-color: #0f172a; }
+.pk .pk-skip summary .pk-skip-go span { color: inherit; }
+.pk .pk-skip[open] summary .pk-skip-ic svg { transform: none; }
+.pk-skip-go .is-hide, .pk-skip[open] .pk-skip-go .is-show { display: none; }
+.pk-skip[open] .pk-skip-go .is-hide { display: inline; }
+.pk-skip[open] > summary .pk-skip-go svg { transform: rotate(180deg); }
+.pk-skip[open] > .pk-table, .pk-skip[open] > .pk-sfiles { margin-top: 0; padding: 8px; border: 1.5px solid #cbd5e1; border-top: 0; }
+.pk-skip[open] > .pk-table + .pk-sfiles { border-top: 1px dashed #e2e8f0; }
+.pk-skip[open] > :last-child { border-radius: 0 0 12px 12px; }
 .pk-skip summary { display: flex; align-items: center; gap: 6px; padding: 8px 4px; cursor: pointer; list-style: none; font-size: 14px; color: #334155; }
 .pk-skip summary::-webkit-details-marker { display: none; }
 .pk-skip summary span { color: #94a3b8; }
@@ -231,8 +274,8 @@
 @media (max-width: 640px) { .pk-h { flex-wrap: wrap; } }
 
 /* ===== ёнма-ён жуфтлик: чапда локал, ўнгда унинг ресурси (ҳар бири ўз номи билан) ===== */
-.pk-group { margin-top: 16px; }
-.pk-group > h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 10px; font-size: 16px; font-weight: 800; }
+.pk-group { margin-top: 12px; }
+.pk-group > h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-bottom: 8px; font-size: 15px; font-weight: 800; }
 .pk-group > h3 > i { font-style: normal; border-radius: 999px; padding: 1px 9px; font-size: 13px; background: #e2e8f0; color: #334155; }
 .pk-group > h3 > small { flex-basis: 100%; font-size: 13px; font-weight: 400; line-height: 1.45; color: #64748b; }
 .pk-group > h3 .t-loc { color: var(--loc); } .pk-group > h3 .t-res { color: var(--res); }
@@ -242,8 +285,8 @@
 .pk-group.is-idle > h3 { color: #64748b; font-size: 14px; }
 .pk-group [hidden] { display: none !important; }
 
-.pk-duos { display: grid; gap: 10px; container-type: inline-size; }
-.pk .pk-duo { display: grid; grid-template-columns: auto minmax(0, 1fr) 132px minmax(0, 1fr); align-items: stretch; gap: 10px; margin: 0; padding: 10px; border: 2px solid #e2e8f0; border-radius: 18px; background: #fff; }
+.pk-duos { display: grid; gap: 8px; container-type: inline-size; }
+.pk .pk-duo { display: grid; grid-template-columns: auto minmax(0, 1fr) 108px minmax(0, 1fr); align-items: stretch; gap: 8px; margin: 0; padding: 8px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; }
 .pk .pk-duo + .pk-duo { margin-top: 0; }
 .pk .pk-duo.is-ok { border-color: #bbf7d0; background: #fbfefc; }
 .pk .pk-duo.is-need { border-color: #fca5a5; background: #fff7f7; animation: pk-glow-r 1.8s ease-in-out infinite; }
@@ -251,26 +294,105 @@
 .pk .pk-duo.is-off { opacity: .55; }
 .pk .pk-duo.is-flash { animation: pk-flash 1.2s ease-out; }
 .pk-duo .pk-inc { align-self: center; }
-.pk .pk-side { display: flex; flex-direction: column; justify-content: center; align-items: stretch; text-align: left; gap: 3px; min-width: 0; padding: 10px 12px; border: 0; border-top: 4px solid var(--off); border-radius: 12px; background: #f8fafc; }
-.pk .pk-side.is-local { border-top-color: var(--loc); background: #f0fdf4; }
-.pk .pk-side.is-resource { border-top-color: var(--res); background: #f0f9ff; }
-.pk .pk-side.is-empty { border-top-color: #f43f5e; background: #fff1f2; border: 2px dashed #fda4af; border-top: 4px solid #f43f5e; }
-.pk-side .pk-cap { display: flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0; font-size: 12px; color: #64748b; }
+/* ҳар бир тараф — файл «плиткаси»: файл белгиси (Л / Р), файл номи, ости — лист ва мазмуни; пастда амаллар */
+/* иккита алоҳида карта: тепада рангли сарлавҳа тасмаси (1 ЛОКАЛ — яшил, 2 РЕСУРС — кўк), танаси оч рангда */
+.pk .pk-side { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; text-align: left; gap: 8px; min-width: 0;
+  padding: 0 0 10px; border: 1.5px solid #e2e8f0; border-radius: 12px; background: #fff; overflow: visible; }
+.pk .pk-side > .pk-ftile, .pk .pk-side > .pk-sact { padding: 0 12px; }
+.pk .pk-side.is-local { border-color: #86efac; background: #f6fef9; }
+.pk .pk-side.is-resource { border-color: #7dd3fc; background: #f5fbff; }
+.pk .pk-side.is-empty { background: #fff1f2; border: 2px dashed #fda4af; }
+.pk-band { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px 12px; border-radius: 10px 10px 0 0; font-size: 13px; color: #fff; background: var(--off); }
+.pk-band b { font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.pk-band > span:not(.pk-band-n):not(.pk-tag) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .9; }
+.pk-band-n { display: grid; place-items: center; flex-shrink: 0; width: 20px; height: 20px; border-radius: 999px; background: rgba(255, 255, 255, .25); font-size: 12px; font-weight: 800; }
+.pk-band .pk-tag { margin-left: auto; background: rgba(255, 255, 255, .22) !important; color: #fff; }
+.is-local > .pk-band { background: var(--loc); }
+.is-resource > .pk-band { background: var(--res); }
+.is-empty > .pk-band { background: #f43f5e; }
+.pk-ftile { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+.pk-fic { position: relative; flex-shrink: 0; display: grid; place-items: center; width: 38px; height: 44px; border-radius: 4px 12px 4px 4px;
+  background: #f1f5f9; color: #94a3b8; }
+.pk-fic i { position: absolute; right: -5px; bottom: -4px; display: grid; place-items: center; width: 19px; height: 19px; border-radius: 6px;
+  font-size: 11px; font-weight: 800; font-style: normal; color: #fff; background: var(--off); box-shadow: 0 0 0 2px #fff; }
+.is-local > .pk-ftile .pk-fic { background: #ecfdf5; color: var(--loc); } .is-local > .pk-ftile .pk-fic i { background: var(--loc); }
+.is-resource > .pk-ftile .pk-fic { background: #f0f9ff; color: var(--res); } .is-resource > .pk-ftile .pk-fic i { background: var(--res); }
+.is-empty > .pk-ftile .pk-fic { background: #ffe4e6; color: #f43f5e; } .is-empty > .pk-ftile .pk-fic i { background: #f43f5e; }
+.pk-fmeta { min-width: 0; flex: 1; display: grid; gap: 1px; }
+.pk-side .pk-cap { display: flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; color: #64748b; }
 .pk-side.is-local .pk-cap { color: var(--loc); } .pk-side.is-resource .pk-cap { color: var(--res); } .pk-side.is-empty .pk-cap { color: #be123c; }
 .pk-side .pk-cap i { font-style: normal; color: #94a3b8; font-weight: 500; }
-.pk-side .pk-pname { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 15px; line-height: 1.3; }
-.pk-side .pk-pname:hover { color: inherit; text-decoration: none; }
-.pk-pname.is-miss { color: #be123c; }
-.pk-sact { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
-.pk-sact .pk-view, .pk-sact .pk-compare { height: 36px; padding: 0 10px; font-size: 13px; }
-.pk-sact .pk-select { flex: 1 1 160px; min-width: 0; width: auto; height: 36px; font-size: 13px; border-width: 1px; }
+.pk-side .pk-tag { padding: 0 6px; font-size: 11px; }
+.pk-fname { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 700; color: #0f172a; }
+.pk-fname.is-miss { color: #be123c; }
+.pk-side .pk-psub { font-size: 12px; color: #64748b; }
+/* ресурс танлаш рўйхати (асл <select> яширин, формада қолади) */
+.pk-sel-hid { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0; pointer-events: none; }
+.pk-dd { position: relative; flex: 1 1 180px; min-width: 0; }
+.pk-dd-btn { display: flex; align-items: center; gap: 8px; width: 100%; height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid #7dd3fc;
+  background: #fff; color: #0369a1; font-size: 13px; font-weight: 700; }
+.pk-dd-btn > span { min-width: 0; flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-dd-btn:hover, .pk-dd.is-open .pk-dd-btn { border-color: var(--res); background: #f0f9ff; }
+.pk-dd.is-open .pk-dd-btn svg { transform: rotate(180deg); }
+.pk-dd-btn.is-main { border: 0; background: var(--res); color: #fff; animation: pk-pulse 1.6s ease-in-out infinite; }
+.pk-dd-n { font-style: normal; font-weight: 600; font-size: 12px; opacity: .7; }
+.pk-dd-pop { position: absolute; z-index: 70; top: calc(100% + 6px); right: 0; width: min(580px, 92vw); max-height: min(440px, 70vh); display: flex; flex-direction: column;
+  border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; box-shadow: 0 18px 40px rgba(15, 23, 42, .2); overflow: hidden; }
+.pk-dd-pop[hidden] { display: none; }
+.pk-dd-h { display: grid; gap: 2px; padding: 12px 14px 8px; border-bottom: 1px solid #f1f5f9; }
+.pk-dd-h b { font-size: 14px; color: #0f172a; } .pk-dd-h small { font-size: 12px; color: #64748b; line-height: 1.4; }
+.pk-dd-q { margin: 8px 14px 4px; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; }
+.pk-dd-q:focus { outline: none; border-color: var(--res); }
+.pk-dd-list { overflow: auto; padding: 4px 6px 8px; }
+.pk-dd-g { padding: 8px 8px 4px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; }
+.pk-dd-i { display: grid; grid-template-columns: auto minmax(0, 1fr) 96px; align-items: center; gap: 10px; width: 100%; padding: 8px; border-radius: 10px;
+  border: 1px solid transparent; background: transparent; text-align: left; cursor: pointer; }
+.pk-dd-i:hover { background: #f8fafc; border-color: #e2e8f0; }
+.pk-dd-i.is-on { background: #f0f9ff; border-color: #7dd3fc; }
+.pk-dd-i.is-np { opacity: .75; } .pk-dd-i.is-np:hover { background: #fff1f2; border-color: #fecdd3; }
+.pk-dd-i[hidden], .pk-dd-g[hidden], .pk-dd-none[hidden] { display: none; }
+.pk-dd-ic { position: relative; display: grid; place-items: center; width: 34px; height: 38px; border-radius: 4px 10px 4px 4px; background: #f0f9ff; color: var(--res); }
+.pk-dd-ic i { position: absolute; right: -6px; bottom: -4px; padding: 0 4px; border-radius: 5px; background: var(--res); color: #fff; font-size: 10px; font-weight: 800; font-style: normal; box-shadow: 0 0 0 2px #fff; }
+.pk-dd-ic.is-base { background: #f1f5f9; color: #475569; font-weight: 800; }
+.pk-dd-t { display: grid; gap: 1px; min-width: 0; }
+.pk-dd-t b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: #0f172a; }
+.pk-dd-t small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #64748b; }
+.pk-dd-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.pk-dd-tags em { font-style: normal; font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 999px; background: #f1f5f9; color: #475569; }
+.pk-dd-tags em.is-best { background: #dcfce7; color: #166534; } .pk-dd-tags em.is-np { background: #ffe4e6; color: #9f1239; }
+.pk-dd-tags em.is-on { background: #e0f2fe; color: #0369a1; }
+.pk-dd-m { display: grid; gap: 2px; justify-items: end; }
+.pk-dd-m b { font-size: 15px; font-weight: 800; }
+.pk-dd-m i { display: block; width: 100%; height: 5px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }
+.pk-dd-m s { display: block; height: 100%; border-radius: inherit; background: currentColor; }
+.pk-dd-m small { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+.pk-dd-m.t-good { color: #16a34a; } .pk-dd-m.t-mid { color: #d97706; } .pk-dd-m.t-low { color: #e11d48; } .pk-dd-m.t-none { color: #94a3b8; }
+.pk-dd-none { padding: 14px; text-align: center; font-size: 13px; color: #94a3b8; }
+/* оддий тилдаги ҳолат сатри — жуфтлик остида */
+.pk-say { grid-column: 2 / -1; margin-top: -2px; padding: 5px 10px; border-radius: 8px; font-size: 13px; line-height: 1.4; }
+.pk-say:empty { display: none; }
+.pk-say::before { margin-right: 6px; font-weight: 800; }
+.pk-say.t-ok { background: #f0fdf4; color: #166534; } .pk-say.t-ok::before { content: "✓"; }
+.pk-say.t-mid { background: #fffbeb; color: #92400e; } .pk-say.t-mid::before { content: "!"; }
+.pk-say.t-low, .pk-say.t-bad { background: #fff1f2; color: #9f1239; } .pk-say.t-low::before, .pk-say.t-bad::before { content: "!"; }
+.pk-say.t-off { background: #f8fafc; color: #64748b; }
+/* файл амаллари (юклаб олиш · алмаштириш · ортга) — плиткада, дарахтда ва объект саҳифасида бир хил */
+.fop { display: inline-flex; flex-shrink: 0; align-items: center; gap: 2px; }
+.fop-b { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; border: 1px solid transparent; background: transparent;
+  color: #64748b; cursor: pointer; }
+.fop-b:hover { background: #f1f5f9; border-color: #cbd5e1; color: #0f172a; }
+.fop-b.is-undo { color: #b45309; }
+.fop-b.is-undo:hover { background: #fef3c7; border-color: #fcd34d; color: #78350f; }
+.pk-sact { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.pk-sact .pk-view, .pk-sact .pk-compare { height: 32px; padding: 0 10px; font-size: 13px; }
+.pk-sact .pk-select { flex: 1 1 160px; min-width: 0; width: auto; height: 32px; font-size: 13px; border-width: 1px; }
 .pk-seg.is-mini { margin-left: auto; padding: 3px; gap: 2px; border-radius: 10px; background: #fff; }
 .pk-seg.is-mini button { min-width: 0; height: 30px; padding: 0 9px; font-size: 12px; border-radius: 8px; }
 .pk .pk-compare.is-main { height: 40px; padding: 0 14px; border: 0; background: var(--g); color: #fff; font-size: 14px; font-weight: 700; box-shadow: 0 4px 12px rgba(22, 163, 74, .3); animation: pk-pulse 1.6s ease-in-out infinite; }
 .pk .pk-compare.is-main:hover { background: var(--g-d); }
 .is-need .pk-sact .pk-select { animation: none; border-color: #fda4af; }
 .pk .pk-duo .pk-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #94a3b8; text-align: center; }
-.pk .pk-duo .pk-mid .pk-compare { flex-direction: column; justify-content: center; gap: 2px; width: 100%; height: auto; min-height: 50px; padding: 6px 4px; border-radius: 12px;
+.pk .pk-duo .pk-mid .pk-compare { flex-direction: column; justify-content: center; gap: 2px; width: 100%; height: auto; min-height: 44px; padding: 5px 4px; border-radius: 10px;
   white-space: normal; line-height: 1.15; font-size: 12px; color: #0f172a; }
 .pk .pk-duo .pk-mid .pk-compare.is-main { color: #fff; font-size: 13px; }
 .pk .pk-duo.is-ok .pk-mid { color: var(--g); }
@@ -281,6 +403,7 @@
   .pk .pk-duo .pk-mid .pk-compare { flex-direction: row; width: auto; min-height: 38px; padding: 0 12px; }
   .pk .pk-duo .pk-mid svg { transform: rotate(90deg); width: 20px; height: 20px; }
   .pk .pk-duo .pk-res { grid-column: 2; }
+  .pk-say { grid-column: 2; }
   .pk-seg.is-mini { margin-left: 0; }
 }
 
@@ -320,11 +443,10 @@ button.rs-chip { cursor: pointer; transition: filter .15s; } button.rs-chip:hove
 /* ===== папка: нархлагандан кейинги йўлбошчи ===== */
 .ph-sec2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
 .ph-steps { display: grid; gap: 8px; counter-reset: ph; }
-.ph-steps li { counter-increment: ph; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; border: 1px solid #e2e8f0; background: #fff; }
-.ph-steps li::before { content: counter(ph); display: grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; background: #e2e8f0; color: #475569; font-weight: 800; }
-.ph-steps li b { display: block; font-size: 15px; color: #0f172a; }
-.ph-steps li span { display: block; margin-top: 1px; font-size: 13px; line-height: 1.45; color: #64748b; }
-.ph-steps li span b { display: inline; font-size: inherit; }
+.ph-steps li { counter-increment: ph; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; border: 1px solid #e2e8f0; background: #fff; }
+.ph-steps li::before { content: counter(ph); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: #e2e8f0; color: #475569; font-weight: 800; }
+.ph-steps li .ph-tt { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.ph-steps li b { font-size: 15px; color: #0f172a; }
 .ph-steps li.is-done { opacity: .8; }
 .ph-steps li.is-done::before { content: "✓"; background: #16a34a; color: #fff; }
 .ph-steps li.is-now { border: 2px solid #22c55e; background: #f0fdf4; animation: pk-glow 1.8s ease-in-out infinite; }
@@ -334,8 +456,8 @@ button.rs-chip { cursor: pointer; transition: filter .15s; } button.rs-chip:hove
 .ph-go.is-light { background: #fff; color: #0f172a; border: 1px solid #cbd5e1; }
 .ph-go.is-light:hover { border-color: #0f172a; background: #f8fafc; }
 .ph-steps li:not(.is-now) .ph-go:not(.is-light) { background: #fff; color: #0f172a; border: 1px solid #cbd5e1; }
-.ph-block { scroll-margin-top: 16px; border-radius: 20px; border: 2px solid #fda4af; background: #fff; padding: 16px; }
-.ph-block > h2 { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 800; color: #be123c; }
+.ph-block { scroll-margin-top: 16px; border-radius: 18px; border: 2px solid #fda4af; background: #fff; padding: 14px; }
+.ph-block > h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; color: #be123c; }
 .ph-explain { margin: 8px 0 12px; display: grid; gap: 6px; font-size: 14px; line-height: 1.5; color: #334155; }
 .ph-explain ol { display: grid; gap: 4px; padding-left: 20px; list-style: decimal; }
 .ph-explain .t-near { color: #b45309; } .ph-explain .t-none { color: #be123c; }

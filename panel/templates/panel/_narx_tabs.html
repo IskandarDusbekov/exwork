@@ -1,18 +1,19 @@
 {% load narx %}{# «Нарх базаси (янги)»: сарлавҳа, бўлимлар, хабарлар #}
-<div class="mb-4 flex flex-wrap items-end gap-3">
-  <div class="min-w-0 flex-1">
-    <h1 class="text-xl font-semibold text-slate-900">Нарх базаси {% if ncfg.enabled %}<span class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-emerald-800">● нархлашда ишлаяпти</span>{% else %}<span class="ml-1 rounded bg-slate-200 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-slate-600">○ нархлаш ўчирилган</span>{% endif %}</h1>
-    <p class="text-sm text-slate-500">Миллий кодсиз — ресурс <b>номи ва бирлиги</b> бўйича. Ҳар ресурсда вилоят ва йил бўйича
-      <b>паст / ўрта / юқори</b> нарх, ҳар нархнинг паспорти: қайси файлдан, ким, қачон.</p>
-  </div>
-  <nav class="inline-flex overflow-hidden rounded-lg border border-slate-300 bg-white text-sm" aria-label="Нарх базаси бўлимлари">
+<div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+  <h1 class="text-xl font-semibold text-slate-900">Нарх базаси {% if ncfg.enabled %}<span class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-emerald-800">● нархлашда ишлаяпти</span>{% else %}<span class="ml-1 rounded bg-slate-200 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-slate-600">○ нархлаш ўчирилган</span>{% endif %}</h1>
+  <nav class="inline-flex max-w-full overflow-x-auto whitespace-nowrap rounded-lg border border-slate-300 bg-white text-sm" aria-label="Нарх базаси бўлимлари">
     <a href="{% url 'panel:narx' %}" class="px-3 py-1.5 {% if ntab == 'list' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}">Ресурслар</a>
+    <a href="{% url 'panel:narx_stats' %}" class="border-l border-slate-300 px-3 py-1.5 {% if ntab == 'stats' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}" title="Вилоятлар ва йиллар бўйича — харита ва графиклар">Статистика</a>
     <a href="{% url 'panel:narx_collect' %}" class="border-l border-slate-300 px-3 py-1.5 {% if ntab == 'collect' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}" title="Нархланган сметалардан ресурсларни кўриб, тасдиқлаб киритиш">Тасдиқлаб йиғиш{% if n_pending %} <span class="num ml-0.5 rounded-full bg-sky-600 px-1.5 text-[11px] font-semibold text-white">{{ n_pending }}</span>{% endif %}</a>
+    {% if request.user.is_superuser %}<a href="{% url 'panel:narx_uploads' %}" class="border-l border-slate-300 px-3 py-1.5 {% if ntab == 'uploads' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}" title="Юкланган файл, архив ва папкалар — текширилаётган, базага ёзилган, бекор қилинган">Юкланганлар{% if n_up %} <span class="num ml-0.5 rounded-full bg-sky-600 px-1.5 text-[11px] font-semibold text-white">{{ n_up }}</span>{% endif %}</a>{% endif %}
     <a href="{% url 'panel:narx_batches' %}" class="border-l border-slate-300 px-3 py-1.5 {% if ntab == 'batches' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}" title="Ҳар бир тасдиқлаб киритилган тўплам ва қўлда киритилганлар">Киритилганлар</a>
+    <a href="{% url 'panel:narx_check' %}" class="border-l border-slate-300 px-3 py-1.5 {% if ntab == 'check' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}" title="Икки нусхалар, четдаги нархлар, тоифасизлар, эскирганлар">Текшириш{% if n_check %} <span class="num ml-0.5 rounded-full bg-amber-500 px-1.5 text-[11px] font-semibold text-white">{{ n_check }}</span>{% endif %}</a>
+    <a href="{% url 'panel:narx_trash' %}" class="border-l border-slate-300 px-3 py-1.5 {% if ntab == 'trash' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}" title="Ўчирилган ресурслар ва тўпламлар — тиклаш ёки бутунлай ўчириш">Саватча{% if n_trash %} <span class="num ml-0.5 rounded-full bg-slate-500 px-1.5 text-[11px] font-semibold text-white">{{ n_trash }}</span>{% endif %}</a>
     <a href="{% url 'panel:narx_how' %}" class="border-l border-slate-300 px-3 py-1.5 {% if ntab == 'how' %}bg-slate-900 font-medium text-white{% else %}hover:bg-slate-50{% endif %}">Қандай ҳисобланади</a>
   </nav>
+  {% if ntab == "uploads" and can_act and not it %}<button type="button" data-modal="narx-upload" class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-slate-700">{% icon "upload" "h-4 w-4" %} Файл юклаш</button>{% endif %}
 </div>
-{% if can_act %}
+{% if can_act and ntab == "list" and not compact %}
 <form method="post" action="{% url 'panel:narx_config' %}" class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-sm {% if ncfg.enabled %}border-emerald-200 bg-emerald-50/60{% else %}border-slate-300 bg-slate-50{% endif %}">{% csrf_token %}
   <input type="hidden" name="next" value="{{ request.get_full_path }}">
   <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg {% if ncfg.enabled %}bg-emerald-100 text-emerald-700{% else %}bg-slate-200 text-slate-500{% endif %}">{% icon "calculator" "h-5 w-5" %}</span>

@@ -1,0 +1,47 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Нусхани қўшиш — Нарх базаси{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+{% include "panel/_narx_tabs.html" %}
+<section class="mx-auto max-w-3xl rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+  <h2 class="font-semibold">Нусхани қўшиш: <span class="break-words">{{ fname }}</span></h2>
+  <p class="text-xs text-slate-500">Нусха олинган: {{ created|date:"d.m.Y H:i"|default:"—" }} · текширилди, базага ҳали ҳеч нарса ёзилмади</p>
+
+  <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div class="rounded-lg bg-emerald-50 p-3"><div class="num text-2xl font-semibold text-emerald-700">{{ rep.items_new|default:0 }}</div><div class="text-xs text-slate-600">янги ресурс</div></div>
+    <div class="rounded-lg bg-sky-50 p-3"><div class="num text-2xl font-semibold text-sky-700">{{ rep.items_matched|default:0 }}</div><div class="text-xs text-slate-600">сизда бор ресурс</div></div>
+    <div class="rounded-lg bg-emerald-50 p-3"><div class="num text-2xl font-semibold text-emerald-700">{{ rep.prices_new|default:0 }}</div><div class="text-xs text-slate-600">янги нарх · {{ rep.batches_new|default:0 }} тўплам</div></div>
+    <div class="rounded-lg bg-slate-50 p-3"><div class="num text-2xl font-semibold text-slate-600">{{ rep.prices_dup|default:0 }}</div><div class="text-xs text-slate-600">такрор нарх — ёзилмайди</div></div>
+  </div>
+
+  <ul class="mt-4 space-y-1 text-sm text-slate-700">
+    {% if rep.batches_same %}<li>• <b class="num">{{ rep.batches_same }}</b> та тўплам аввал қўшилган — ўтказилади</li>{% endif %}
+    {% if rep.items_cat %}<li>• <b class="num">{{ rep.items_cat }}</b> та ресурснинг тоифаси нусхадан олинади (сизда тасдиқланмаган эди)</li>{% endif %}
+    {% if rep.aliases_new %}<li>• <b class="num">{{ rep.aliases_new }}</b> та бошқа ном қўшилади</li>{% endif %}
+    {% if rep.groups %}<li>• <b class="num">{{ rep.groups }}</b> та «ресурс · вилоят · йил» нархи қайта ҳисобланади</li>{% endif %}
+    {% if rep.deleted_skipped %}<li class="text-slate-500">• нусхадаги саватчадагилар олинмайди: <b class="num">{{ rep.deleted_skipped }}</b></li>{% endif %}
+    {% if rep.intakes_skipped %}<li class="text-slate-500">• текширувлар олинмайди: <b class="num">{{ rep.intakes_skipped }}</b></li>{% endif %}
+  </ul>
+
+  {% if rep.cat_conflicts %}<details class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" open>
+    <summary class="cursor-pointer"><b class="num">{{ rep.cat_conflicts|length }}</b> та ресурсда тоифа бошқача — сизники қолади</summary>
+    <ul class="mt-1 max-h-48 list-disc overflow-auto pl-5 text-xs">{% for x in rep.cat_conflicts|slice:":200" %}<li>{{ x }}</li>{% endfor %}</ul></details>{% endif %}
+  {% if rep.trash_items %}<details class="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+    <summary class="cursor-pointer"><b class="num">{{ rep.trash_items|length }}</b> та ресурс сизнинг саватчангизда — олинмайди</summary>
+    <ul class="mt-1 max-h-48 list-disc overflow-auto pl-5 text-xs">{% for x in rep.trash_items|slice:":200" %}<li>{{ x }}</li>{% endfor %}</ul></details>{% endif %}
+  {% if rep.alias_conflicts %}<details class="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+    <summary class="cursor-pointer"><b class="num">{{ rep.alias_conflicts|length }}</b> та бошқа ном сизда бошқа ресурсники — сизники қолади</summary>
+    <ul class="mt-1 max-h-48 list-disc overflow-auto pl-5 text-xs">{% for x in rep.alias_conflicts|slice:":200" %}<li>{{ x }}</li>{% endfor %}</ul></details>{% endif %}
+
+  <details class="mt-3 text-sm"><summary class="cursor-pointer font-medium text-slate-700">Қоидалар</summary>
+    <ol class="mt-2 list-decimal space-y-1 pl-5 text-xs text-slate-600">{% for r in rules %}<li>{{ r }}</li>{% endfor %}</ol></details>
+
+  <div class="mt-5 flex flex-wrap justify-end gap-2">
+    <form method="post" action="{% url 'panel:narx_backup_merge_cancel' %}">{% csrf_token %}<input type="hidden" name="token" value="{{ token }}">
+      <button class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50">Бекор</button></form>
+    <form method="post" action="{% url 'panel:narx_backup_merge_go' %}">{% csrf_token %}<input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="fname" value="{{ fname }}">
+      <button class="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300" {% if not rep.prices_new and not rep.items_new and not rep.aliases_new and not rep.items_cat %}disabled title="Қўшиладиган нарса йўқ"{% endif %}>Базага қўшиш</button></form>
+  </div>
+</section>
+{% endblock %}

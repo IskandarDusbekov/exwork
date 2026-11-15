@@ -420,7 +420,8 @@ def _dedupe(out: ResFile):
     out.rows = rows
 
 
-def parse(path, soffice: Optional[str] = None) -> ResFile:
+def parse(path, soffice: Optional[str] = None, dedupe: bool = True) -> ResFile:
+    """``dedupe=False`` — ҳар қатор (такрор ва бир кодда ҳар хил ресурс ҳам): нарх базаси ҳар қаторни алоҳида кўрсатади."""
     path = Path(path)
     out = ResFile()
     with tempfile.TemporaryDirectory(prefix="resfile_") as tmp:
@@ -432,7 +433,8 @@ def parse(path, soffice: Optional[str] = None) -> ResFile:
                     _parse_sheet(ws, out)
         finally:
             wb.close()
-    _dedupe(out)
+    if dedupe:
+        _dedupe(out)
     if not out.rows and not out.works:
         out.warnings.append("Файлда нархли ресурс ҳам, норма шифрли иш ҳам топилмади")
     return out

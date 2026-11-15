@@ -1,12 +1,12 @@
 """Янги нарх базаси: смета­чилар ресурсларидан тасдиқлаб йиғиш, қўлда киритиш ва паст / ўрта / юқори нарх.
 
-Қандай ҳисобланади (ресурс × вилоят × йил, истисно қилинмаганлар):
+Қандай ҳисобланади (ресурс × вилоят × йил, ҳисобдан чиқарилмаганлар):
 * учала нарх ҳар доим ҳақиқатда келган нархлардан бири — ҳеч қачон ўртачаси ҳисобланмайди;
-* ҳамма нарх бир хил — битта нарх (паст = ўрта = юқори);
-* 2 та нарх — паст ва юқори; ўртаси — сметаларда кўп учрагани, тенг бўлса арзони;
-* 3 та ва кўп — арзонидан қимматига саралаб, 25%, 50% ва 75% ўриндаги нарх («яқин ранг»): 3 тада — энг арзони,
-  ўртадагиси, энг қиммати; 25 тада — 7-, 13- ва 19-нарх. Янги нарх келса учаласи қайта танланади;
-* 3 тадан кўп нарх бўлса, ўртадагидан 3 баробар қиммат ёки арзон нарх — «четда»: паспортда кўринади, ҳисобга кирмайди.
+* 0,1% гача фарқли нархлар (36 030,00 / 36 030,10) — бир нарх: энг кўп учрагани олинади;
+* ҳар нархнинг вазни — неча файлда учрагани (бир файл икки тўпламда бўлса ҳам бир марта);
+* паст — энг арзон ҳақиқий нарх, юқори — энг қиммат ҳақиқий нарх;
+* ўрта — файлларнинг ярми шу нархда ёки арзонроқда (вазнли медиана): кўп файлда учраган нарх ўрта бўлади;
+* 3 тадан кўп нарх бўлса, ўртадан 3 баробар қиммат ёки арзон нарх — «четда»: паспортда кўринади, ҳисобга кирмайди.
 Нарх — бирлик нархи (1 шт, 1 м3 …); сони фақат маълумот учун."""
 import hashlib
 import logging
@@ -14,16 +14,15 @@ import re
 from collections import OrderedDict
 from datetime import date as _date
 from decimal import Decimal, InvalidOperation
-from fractions import Fraction
-from statistics import median
 
 from django.db import transaction
+from django.utils import timezone
 
 from core.normalize import fold_name, name_unit_key, norm_name, unit_key
 from jobs.models import Batch as JobBatch, Job, Project
 from resbase import services as old
 
-from .models import CATEGORY_LABELS, Batch, Item, Price, Stat
+from .models import CATEGORY_LABELS, Alias, Batch, Item, Log, Price, Stat
 
 log = logging.getLogger(__name__)
 
@@ -142,9 +141,9 @@ def rows_from_jobs(jobs) -> list:
 # ===================== файлдан =====================
 FILE_KINDS = [("excel", "Оддий Excel: номи, бирлиги, нархи устунлари (сони, тоифаси — ихтиёрий)"),
               ("res", "RES файл: тоифа бўлимлари бўйича (иш ҳақи, машина, материал, ускуна, кабель)")]
-_H = {"name": re.compile(r"наименован|^номи|ресурс\s*номи|^название|^ресурс$", re.I),
-      "unit": re.compile(r"^(ед|бирлиг|изм|ўлчов|олчов)", re.I),
-      "price": re.compile(r"цена|нарх|стоимость\s*ед|^price", re.I),
+_H = {"name": re.compile(r"наименован|^номи|ресурс\s*номи|^название|^ресурс$|иш\s*ва\s*ресурс|ресурслар\s*номи", re.I),
+      "unit": re.compile(r"^(ед|бирл|изм|ўлчов|олчов|ўл\.|ўлч)", re.I),
+      "price": re.compile(r"цена|нарх|стоимость\s*ед|^price|^баҳо|^бахо", re.I),
       "qty": re.compile(r"^(кол|сони|миқдор|микдор|qty)", re.I),
       "cat": re.compile(r"^(тоифа|тури|тип|категор)", re.I)}
 _CAT_WORDS = [("I", r"иш\s*ҳақ|иш\s*хак|труд|мехнат|меҳнат"), ("J", r"машин|механизм"), ("M", r"ускуна|оборуд"),
@@ -174,42 +173,108 @@ def _header(row):
     return cols if {"name", "unit", "price"} <= cols.keys() else None
 
 
-def _excel_items(path, file_name, default_category, soffice=None):
-    import tempfile
-    from pathlib import Path
-    from openpyxl import load_workbook
-    from core import convert
-    with tempfile.TemporaryDirectory(prefix="narx_xl_") as tmp:
-        xlsx = convert.ensure_xlsx(Path(path), Path(tmp), soffice=soffice)
-        wb = load_workbook(xlsx, read_only=True, data_only=True)
-        try:
-            for ws in wb.worksheets:
-                head = None
-                for n, row in enumerate(ws.iter_rows(values_only=True), start=1):
-                    row = list(row)
-                    if head is None:
-                        if n <= 40:
-                            head = _header(row)
-                        continue
+def _unit_cat(name, unit):
+    """Бирлиги / номидан аниқ белги: чел.-ч — иш ҳақи, маш.-ч — машина. Бўлмаса None."""
+    from core.classify import MACHINES, WORKERS, row_kind
+    k = row_kind(name, unit)
+    if k == WORKERS:
+        return "I", "бирлиги «чел.-ч» — иш ҳақи"
+    if k == MACHINES:
+        return "J", "бирлиги «маш.-ч» — машина-механизм"
+    return None
 
-                    def cell(k):
-                        return row[head[k]] if k in head and head[k] < len(row) else None
-                    yield (cell("name"), cell("unit"), cell("price"), cell("qty"),
-                           _cat_word(cell("cat"), default_category), "FILE",
-                           {"file": file_name[:200], "sheet": ws.title[:60], "row": n})
-        finally:
-            wb.close()
+
+def _smeta_sheet(ws):
+    """Нархли локал смета листи (смета­лар ўқиладиган усулда): ``(қатор, номи, бирлиги, нархи, сони)``.
+    Ish sarlavhalari (остида ресурслари бор иш) ва нархсиз қаторлар ўтказиб юборилади. Смета эмас — бўш."""
+    from core.columns import detect_local_columns, num
+    from core.detect import cell_value
+    from core.pipeline import _work_headers
+    from core.tender import money_columns
+    try:
+        cols = detect_local_columns(ws)
+    except Exception:  # noqa: BLE001 — смета кўринишида эмас
+        return []
+    if cols is None:
+        return []
+    price_col, _amount = money_columns(ws, cols)
+    if price_col is None:
+        return []
+    heads = _work_headers(ws, cols.data_start, cols.data_stop, cols.name, cols.unit)
+    out = []
+    for r in range(cols.data_start, cols.data_stop):
+        if r in heads:
+            continue
+        name, unit = cell_value(ws, r, cols.name), cell_value(ws, r, cols.unit)
+        price = num(cell_value(ws, r, price_col))
+        if not name or not unit or not price or price <= 0 or num(name) is not None:
+            continue
+        out.append((r, name, unit, price, cell_value(ws, r, cols.qty_total) if cols.qty_total else None))
+    return out
+
+
+def file_rows(xlsx, kind, default_category="K") -> list:
+    """Юкланган файлнинг ҳар ресурс қатори (гуруҳланмаган): ``{sheet, row, name, unit, price, qty, category,
+    reason, sure}``. ``kind``: "res" — RES файл (тоифа — бўлими), "excel" — нархли локал смета ёки оддий жадвал
+    (номи / бирлиги / нархи устунлари)."""
+    from pathlib import Path
+    default_category = category_of(default_category) if default_category != "O" else "O"
+    out = []
+    if kind == "res":
+        from resbase.resfile import parse
+        for r in parse(Path(xlsx), dedupe=False).rows:  # такрор қаторлар ҳам — ҳар бири Excel'да белгиланади
+            out.append({"sheet": r.sheet[:100], "row": r.row, "name": r.name, "unit": r.unit, "price": r.price,
+                        "qty": r.qty, "category": category_of(r.category),
+                        "reason": f"RES файлда «{CATEGORY_LABELS.get(category_of(r.category), '')}» бўлимида",
+                        "sure": category_of(r.category) != "O"})
+        return out
+    from openpyxl import load_workbook
+    wb = load_workbook(xlsx, data_only=True)
+    try:
+        for ws in wb.worksheets:
+            if ws.sheet_state != "visible" or ws.title.upper().startswith("LOG"):
+                continue  # LOG — нархлаш журнали (дастур ёзган), смета эмас
+            # «тоифа» устуни бор оддий жадвал — сарлавҳа бўйича; бўлмаса аввал нархли смета деб ўқилади
+            has_cat = any("cat" in (_header(list(r)) or {}) for r in ws.iter_rows(max_row=40, values_only=True))
+            got = [] if has_cat else _smeta_sheet(ws)
+            if got:
+                for r, name, unit, price, qty in got:
+                    out.append({"sheet": ws.title[:100], "row": r, "name": name, "unit": unit, "price": price,
+                                "qty": qty, "category": None, "reason": "", "sure": False})
+                continue
+            head = None
+            for n, row in enumerate(ws.iter_rows(values_only=True), start=1):
+                row = list(row)
+                if head is None:
+                    if n <= 40:
+                        head = _header(row)
+                    continue
+
+                def cell(k):
+                    return row[head[k]] if k in head and head[k] < len(row) else None
+                cat = _cat_word(cell("cat"), None) if "cat" in head else None
+                out.append({"sheet": ws.title[:100], "row": n, "name": cell("name"), "unit": cell("unit"),
+                            "price": cell("price"), "qty": cell("qty"), "category": cat,
+                            "reason": "файлдаги «тоифа» устунида" if cat else "", "sure": bool(cat)})
+    finally:
+        wb.close()
+    for r in out:
+        if r["category"] is None:
+            u = _unit_cat(r["name"], r["unit"])
+            r["category"], r["reason"], r["sure"] = (u[0], u[1], True) if u else (default_category, "", False)
+    return out
 
 
 def parse_file(path, kind, file_name, default_category="K", soffice=None) -> list:
     """Юкланган файлдан қаторлар (``group_rows`` натижаси). ``kind``: "res" ёки "excel"."""
-    if kind == "res":
-        from pathlib import Path
-        from resbase.resfile import parse
-        rf = parse(Path(path), soffice=soffice)
-        return group_rows((r.name, r.unit, r.price, r.qty, r.category, "FILE",
-                           {"file": file_name[:200], "sheet": r.sheet[:60], "row": r.row}) for r in rf.rows)
-    return group_rows(list(_excel_items(path, file_name, category_of(default_category), soffice)))
+    import tempfile
+    from pathlib import Path
+    from core import convert
+    with tempfile.TemporaryDirectory(prefix="narx_xl_") as tmp:
+        xlsx = convert.ensure_xlsx(Path(path), Path(tmp), soffice=soffice) if kind == "excel" else Path(path)
+        raw = file_rows(xlsx, kind, default_category)
+    return group_rows((r["name"], r["unit"], r["price"], r["qty"], r["category"], "FILE",
+                       {"file": file_name[:200], "sheet": r["sheet"][:60], "row": r["row"]}) for r in raw)
 
 
 def signature(rows) -> str:
@@ -224,6 +289,11 @@ def signature(rows) -> str:
 def _item_for(key, name, unit, category, cache):
     it = cache.get(key)
     if it is None:
+        al = Alias.objects.filter(key=key, item__deleted_at=None).select_related("item").first()
+        if al is not None:  # бирлаштирилган / эски номи — асосий ресурсга
+            it = cache[key] = al.item
+            it.is_new = False
+            return it
         it, created = Item.objects.get_or_create(key=key, defaults={"name": name, "unit": unit, "category": category})
         if not created and not it.edited and it.category == "O" and category != "O":
             it.category = category
@@ -258,6 +328,9 @@ def add_manual(*, name, unit, category, price, region, day: _date, qty=None, not
     """Қўлда битта нарх: мавжуд ресурсга ёки янги ресурс (номи + бирлиги)."""
     if item is None:
         item = _item_for(item_key(name, unit), name.strip()[:500], unit.strip()[:40], category_of(category), {})
+        if item.is_new and not item.verified:  # админ ўзи номи ва тоифасини ёзди
+            item.verified, item.verified_at, item.verified_by = True, timezone.now(), _uid(user)
+            item.save(update_fields=["verified", "verified_at", "verified_by"])
     b = Batch.objects.create(kind=Batch.Kind.MANUAL, title=f"Қўлда: {item.name}"[:500], owner=user, added_by=user,
                              region=region, date=day, note=note[:300], stats={"prices": 1, "items": 1})
     p = Price.objects.create(item=item, batch=b, price=Decimal(price).quantize(Decimal("0.0001")), qty=qty, region=region,
@@ -266,46 +339,377 @@ def add_manual(*, name, unit, category, price, region, day: _date, qty=None, not
     return p
 
 
-def set_excluded(price: Price, excluded: bool, note=""):
+def set_excluded(price: Price, excluded: bool, note="", user=None):
+    if price.excluded == excluded:
+        return
     price.excluded = excluded
     if note:
         price.note = note[:300]
     price.save(update_fields=["excluded", "note"])
     recalc({(price.item_id, price.region, price.year)})
+    _log(Log.Action.EXCLUDE if excluded else Log.Action.INCLUDE, user, item=price.item, price=price,
+         detail=f"{fmt(price.price)} сўм, {price.get_region_display()}, {price.date:%d.%m.%Y}" + (f" — {note}" if note else ""))
+
+
+# ===================== тарих =====================
+def fmt(v) -> str:
+    """1200000.5000 → «1 200 000,5»."""
+    if v is None:
+        return "—"
+    d = Decimal(str(v)).normalize()
+    whole, _, frac = f"{d:f}".partition(".")
+    sign = "-" if whole.startswith("-") else ""
+    return sign + f"{int(whole.lstrip('-') or 0):,}".replace(",", " ") + ("," + frac if frac else "")
+
+
+def _uid(user):
+    return user if getattr(user, "pk", None) else None
+
+
+def _log(action, user, *, item=None, batch=None, price=None, title="", detail="", data=None) -> Log:
+    return Log.objects.create(action=action, user=_uid(user), item=item, batch=batch, price=price,
+                              title=(title or str(item or batch or ""))[:500], detail=detail[:500], data=data or {})
+
+
+class Conflict(Exception):
+    """Шу ном + бирлик бошқа ресурсда бор — бирлаштириш керак."""
+
+    def __init__(self, other: Item):
+        super().__init__(f"«{other.name}» ({other.unit}) базада бор")
+        self.other = other
+
+
+REGION_NAMES = dict(Price._meta.get_field("region").choices)
+
+
+# ===================== нархни тузатиш =====================
+@transaction.atomic
+def edit_price(p: Price, *, price, region, day: _date, qty=None, reason, user=None) -> bool:
+    """Нархни тузатади — эски қиймат ва сабаби тарихда қолади. Ҳеч нарса ўзгармаса — False."""
+    price = Decimal(price).quantize(Decimal("0.0001"))
+    qty = Decimal(qty).quantize(Decimal("0.000001")) if qty is not None else None
+    old_qty = Decimal(p.qty) if p.qty is not None else None
+    parts = []
+    if Decimal(p.price) != price:
+        parts.append(f"нарх {fmt(p.price)} → {fmt(price)}")
+    if p.region != region:
+        parts.append(f"вилоят {REGION_NAMES[p.region]} → {REGION_NAMES[region]}")
+    if p.date != day:
+        parts.append(f"сана {p.date:%d.%m.%Y} → {day:%d.%m.%Y}")
+    if old_qty != qty:
+        parts.append(f"сони {fmt(old_qty)} → {fmt(qty)}")
+    if not parts:
+        return False
+    old = {"price": str(p.price), "qty": str(p.qty) if p.qty is not None else None, "region": p.region,
+           "date": p.date.isoformat()}
+    touched = {(p.item_id, p.region, p.year), (p.item_id, region, day.year)}
+    p.price, p.qty, p.region, p.date, p.year, p.edited = price, qty, region, day, day.year, True
+    p.save(update_fields=["price", "qty", "region", "date", "year", "edited"])
+    recalc(touched)
+    _log(Log.Action.PRICE_EDIT, user, item=p.item, price=p, detail="; ".join(parts) + f". Сабаби: {reason}",
+         data={"old": old, "new": {"price": str(price), "qty": str(qty) if qty is not None else None,
+                                   "region": region, "date": day.isoformat()}, "reason": reason[:300]})
+    return True
 
 
 @transaction.atomic
-def delete_batch(b: Batch):
-    touched = set(b.prices.values_list("item_id", "region", "year"))
+def edit_batch(b: Batch, *, region, day: _date, note="", user=None) -> bool:
+    """Тўпламнинг вилояти / санаси / изоҳи. Тўпламдаги нархлардан алоҳида тузатилмаганлари (вилояти ва санаси
+    тўпламники билан бир хил) ҳам ўзгаради."""
+    note = (note or "")[:300]
+    parts = []
+    if b.region != region:
+        parts.append(f"вилоят {REGION_NAMES[b.region]} → {REGION_NAMES[region]}")
+    if b.date != day:
+        parts.append(f"сана {b.date:%d.%m.%Y} → {day:%d.%m.%Y}")
+    if b.note != note:
+        parts.append("изоҳ ўзгарди")
+    if not parts:
+        return False
+    qs = Price.all_objects.filter(batch=b)
+    touched = _groups(qs)
+    n = qs.filter(region=b.region, date=b.date).update(region=region, date=day, year=day.year)
+    old = {"region": b.region, "date": b.date.isoformat(), "note": b.note}
+    b.region, b.date, b.note = region, day, note
+    b.save(update_fields=["region", "date", "note"])
+    if b.deleted_at is None:
+        recalc(touched | _groups(qs))
+    _log(Log.Action.BATCH_EDIT, user, batch=b, detail="; ".join(parts) + f" ({n} та нарх)",
+         data={"old": old, "new": {"region": region, "date": day.isoformat(), "note": note}})
+    return True
+
+
+# ===================== номи, бирлаштириш =====================
+def owner_of_key(key, exclude=None):
+    """Шу калит қайси (саватчада бўлмаган) ресурсники — ўз калити ёки бошқа номи сифатида."""
+    qs = Item.objects.filter(key=key)
+    aq = Alias.objects.filter(key=key, item__deleted_at=None)
+    if exclude is not None:
+        qs, aq = qs.exclude(pk=exclude.pk), aq.exclude(item=exclude)
+    return qs.first() or getattr(aq.select_related("item").first(), "item", None)
+
+
+@transaction.atomic
+def edit_item(it: Item, *, name, category, user=None) -> bool:
+    """Номи / тоифаси. Номи ўзгарса калит янгиланади, эски номи «бошқа номи» бўлиб қолади (шу ном билан келган
+    қаторлар шу ресурсга тушаверади). Янги ном бошқа ресурсники бўлса — ``Conflict`` (бирлаштириш керак)."""
+    name = (name or "").strip()[:500] or it.name
+    changed = False
+    if name != it.name:
+        new_key = item_key(name, it.unit)
+        if new_key != it.key:
+            other = owner_of_key(new_key, exclude=it)
+            if other is not None:
+                raise Conflict(other)
+            Alias.objects.filter(key=new_key, item=it).delete()
+            Alias.objects.get_or_create(key=it.key, defaults={"item": it, "name": it.name, "unit": it.unit,
+                                                              "added_by": _uid(user)})
+            it.key = new_key
+        _log(Log.Action.RENAME, user, item=it, detail=f"«{it.name}» → «{name}»", data={"old": it.name, "new": name})
+        it.name, changed = name, True
+    if category in CATEGORY_LABELS and category != it.category:
+        _log(Log.Action.CATEGORY, user, item=it, detail=f"{CATEGORY_LABELS[it.category]} → {CATEGORY_LABELS[category]}",
+             data={"old": it.category, "new": category})
+        it.category, changed = category, True
+    if category in CATEGORY_LABELS and not it.verified:  # админ ўзи тоифасини кўрди — тасдиқланган
+        it.verified, it.verified_at, it.verified_by, changed = True, timezone.now(), _uid(user), True
+    if changed:
+        it.edited = True
+        it.save()
+    return changed
+
+
+def _name_part(key) -> str:
+    return key.rsplit("|", 1)[0]
+
+
+def similar_items(it: Item, q="", limit=8) -> list:
+    """Бирлаштириш учун номзодлар: шу бирликдаги ресурслар, энг ўхшаши олдин. ``q`` бўлса — шу сўзлар бўйича
+    қидирув, бўлмаса — номидаги узун сўзлар бўйича ва ўхшашлиги 50% дан юқорилари."""
+    from difflib import SequenceMatcher
+
+    from django.db.models import Q
+    qs = Item.objects.exclude(pk=it.pk).filter(key__endswith="|" + it.unit_key)
+    me = _name_part(it.key_before or it.key)
+    if q:
+        for w in q.split():
+            qs = qs.filter(Q(key__icontains=fold_name(norm_name(w))) | Q(name__icontains=w))
+        cands = list(qs[:200])
+    else:
+        words = sorted({w for w in re.split(r"\W+", me) if len(w) >= 3}, key=len, reverse=True)[:2]
+        if not words:
+            return []
+        cond = Q()
+        for w in words:
+            cond |= Q(key__contains=w)
+        cands = list(qs.filter(cond)[:300])
+    scored = [(SequenceMatcher(None, me, _name_part(c.key)).ratio(), c) for c in cands]
+    scored = [(r, c) for r, c in scored if q or r >= 0.5]
+    scored.sort(key=lambda t: (-t[0], t[1].name))
+    out, digits = [], set(re.findall(r"\d+", me))
+    for r, c in scored[:limit]:
+        c.similarity = round(100 * r)
+        c.digits_differ = set(re.findall(r"\d+", _name_part(c.key))) != digits  # 5ММ ва 6ММ — бошқа ресурс
+        out.append(c)
+    return out
+
+
+@transaction.atomic
+def merge_items(target: Item, source: Item, user=None) -> int:
+    """``source`` ни ``target`` га қўшади: нархлари, бошқа номлари ва тарихи ўтади, ``source`` номи «бошқа номи»
+    бўлиб қолади, ``source`` ўчади. Бирлиги бир хил бўлиши шарт. Ўтган нархлар сонини қайтаради."""
+    if target.pk == source.pk:
+        raise ValueError("Ресурсни ўзига қўшиб бўлмайди.")
+    if target.deleted_at is not None:
+        raise ValueError("Саватчадаги ресурсга қўшиб бўлмайди.")
+    if target.unit_key != source.unit_key:
+        raise ValueError(f"Бирлиги бошқа: «{target.unit}» ва «{source.unit}» — бирлаштириб бўлмайди.")
+    src_key = source.key_before or source.key
+    prices = Price.all_objects.filter(item=source)
+    touched = {(target.pk, r, y) for r, y in prices.values_list("region", "year")}
+    n = prices.update(item=target)
+    Alias.objects.filter(item=source).update(item=target)
+    if src_key != target.key:
+        Alias.objects.update_or_create(key=src_key, defaults={"item": target, "name": source.name,
+                                                               "unit": source.unit, "added_by": _uid(user)})
+    Log.objects.filter(item=source).update(item=target)
+    if target.category == "O" and source.category != "O":
+        target.category = source.category
+        target.save(update_fields=["category", "updated"])
+    title = f"{source.name} ({source.unit})"
+    source.delete()
+    recalc(touched)
+    _log(Log.Action.MERGE, user, item=target, detail=f"«{title}» шу ресурсга қўшилди: {n} та нарх",
+         data={"from": {"name": source.name, "unit": source.unit, "key": src_key}, "prices": n})
+    return n
+
+
+@transaction.atomic
+def remove_alias(al: Alias, user=None):
+    """Бошқа номни олиб ташлайди: шу ном билан келадиган янги қаторлар энди алоҳида ресурс бўлади
+    (аввал қўшилган нархлар жойида қолади)."""
+    _log(Log.Action.ALIAS_DEL, user, item=al.item, detail=f"«{al.name}» ({al.unit})")
+    al.delete()
+
+
+# ===================== саватча =====================
+def _groups(qs) -> set:
+    return set(qs.values_list("item_id", "region", "year"))
+
+
+@transaction.atomic
+def trash_item(it: Item, user=None):
+    """Саватчага: рўйхатда кўринмайди, нархлари ҳисобга кирмайди, шу ном билан келган янги қатор — янги ресурс.
+    ``restore_item`` қайтаради."""
+    touched = _groups(Price.all_objects.filter(item=it))
+    it.key_before, it.key = it.key, f"~trash~{it.pk}"
+    it.deleted_at, it.deleted_by = timezone.now(), _uid(user)
+    it.save()
+    recalc(touched)
+    _log(Log.Action.TRASH, user, item=it, title=f"{it.name} ({it.unit})",
+         detail=f"{Price.all_objects.filter(item=it).count()} та нарх")
+
+
+@transaction.atomic
+def restore_item(it: Item, user=None) -> Item:
+    """Саватчадан қайтаради. Шу орада шу ном билан янги ресурс очилган бўлса — ўшанга қўшилади. Қайтган
+    (ёки қўшилган) ресурсни қайтаради."""
+    key = it.key_before
+    live = owner_of_key(key)
+    if live is not None:
+        merge_items(live, it, user)
+        _log(Log.Action.RESTORE, user, item=live, detail="саватчадан қайтди ва шу номдаги ресурсга қўшилди")
+        return live
+    it.key, it.key_before, it.deleted_at, it.deleted_by = key, "", None, None
+    it.save()
+    recalc(_groups(Price.all_objects.filter(item=it)))
+    _log(Log.Action.RESTORE, user, item=it)
+    return it
+
+
+@transaction.atomic
+def trash_batch(b: Batch, user=None):
+    """Тўпламни саватчага: нархлари ҳисобдан чиқади, смета яна «Тасдиқлаб йиғиш» да кўринади."""
+    b.deleted_at, b.deleted_by = timezone.now(), _uid(user)
+    b.save(update_fields=["deleted_at", "deleted_by"])
+    qs = Price.all_objects.filter(batch=b)
+    recalc(_groups(qs))
+    _log(Log.Action.TRASH, user, batch=b, detail=f"тўплам, {qs.count()} та нарх")
+
+
+@transaction.atomic
+def restore_batch(b: Batch, user=None):
+    if b.work_id and Batch.objects.filter(kind=b.kind, work_id=b.work_id).exists():
+        raise ValueError("Шу иш базага қайта киритилган — аввал янгисини саватчага ташланг.")
+    b.deleted_at = b.deleted_by = None
+    b.save(update_fields=["deleted_at", "deleted_by"])
+    recalc(_groups(Price.all_objects.filter(batch=b)))
+    _log(Log.Action.RESTORE, user, batch=b)
+
+
+@transaction.atomic
+def purge_batch(b: Batch, user=None):
+    """Саватчадан бутунлай: нархлари ўчади, нархи қолмаган ресурслар ҳам кетади, юкланган файл нусхаси ҳам."""
+    from pathlib import Path
+
+    from django.conf import settings
+    qs = Price.all_objects.filter(batch=b)
+    items, touched = set(qs.values_list("item_id", flat=True)), _groups(qs)
+    _log(Log.Action.PURGE, user, title=b.title, detail=f"тўплам, {REGION_NAMES[b.region]}, {b.date:%d.%m.%Y}, "
+                                                       f"{qs.count()} та нарх")
+    path = b.file_path
     b.delete()
     recalc(touched)
-    Item.objects.filter(prices__isnull=True).delete()
+    Item.all_objects.filter(pk__in=items, prices__isnull=True).delete()
+    if path and not Batch.all_objects.filter(file_path=path).exists():
+        (Path(settings.MEDIA_ROOT) / path).unlink(missing_ok=True)
+
+
+@transaction.atomic
+def purge_item(it: Item, user=None):
+    """Ресурсни ва ҳамма нархларини бутунлай ўчиради; бўшаб қолган қўлда киритилган тўпламлар ҳам кетади."""
+    batches = set(Price.all_objects.filter(item=it).values_list("batch_id", flat=True))
+    _log(Log.Action.PURGE, user, title=f"{it.name} ({it.unit})",
+         detail=f"ресурс, {Price.all_objects.filter(item=it).count()} та нарх")
+    it.delete()
+    Batch.all_objects.filter(pk__in=batches, kind=Batch.Kind.MANUAL, prices__isnull=True).delete()
+
+
+def trash_counts() -> dict:
+    return {"items": Item.all_objects.exclude(deleted_at=None).count(),
+            "batches": Batch.all_objects.exclude(deleted_at=None).count()}
+
+
+def live_items():
+    """Ҳисобга кирадиган (саватчада бўлмаган) нархи бор ресурслар."""
+    return Item.objects.filter(pk__in=Price.objects.values("item_id"))
 
 
 # ===================== паст / ўрта / юқори =====================
-def three(prices, seen=None) -> tuple:
-    """(паст, ўрта, юқори, четдагилар тўплами) — модуль бошидаги қоида бўйича. ``seen`` — ҳар нарх неча марта
-    учрагани (``prices`` билан бир тартибда): иккита нархда кўп учрагани ўрта бўлади."""
-    weight = {}
-    for i, p in enumerate(prices):
-        weight[p] = weight.get(p, 0) + (seen[i] if seen else 1)
-    ps = sorted(prices)
-    if not ps:
-        return None, None, None, set()
-    out = set()
-    if len(ps) > 3:
-        med = median(ps)
-        out = {p for p in ps if p > med * OUTLIER or p * OUTLIER < med}
-        ps = [p for p in ps if p not in out] or ps
-    n = len(ps)
-    if n == 1 or ps[0] == ps[-1]:
-        return ps[0], ps[0], ps[0], out
-    if n == 2:  # иккита нарх — ўртачаси эмас: кўп учрагани, тенг бўлса арзони
-        return ps[0], (ps[1] if weight[ps[1]] > weight[ps[0]] else ps[0]), ps[1], out
+SAME = Decimal("0.001")  # 0,1% гача фарқ — бир нарх (36 030,00 / 36 030,10 / 36 030,12 — яхлитлаш фарқи)
 
-    def rank(p):  # «яқин ранг» усули: ҳар доим ҳақиқатда келган нархлардан бири
-        return ps[max(1, -(-n * p // 1)) - 1]
-    return rank(Fraction(1, 4)), rank(Fraction(1, 2)), rank(Fraction(3, 4)), out
+
+def _levels(prices, seen=None) -> list:
+    """Нархларни «бир хил нарх» гуруҳларига йиғади: [(вакил нарх, вазни, {гуруҳдаги нархлар})], арзонидан.
+    ``seen[i]`` — сон ёки манбалар тўплами (файл/смета): тўпламлар бирлашади — бир файл икки марта саналмайди.
+    Вакил — гуруҳда энг кўп учрагани (тенг бўлса арзони)."""
+    rows = sorted(zip(prices, seen if seen is not None else [1] * len(prices)), key=lambda r: r[0])
+    groups = []
+    for p, w in rows:
+        if not groups or p > groups[-1][0][0] * (1 + SAME):
+            groups.append([])
+        groups[-1].append((p, w))
+
+    def weight(ws):
+        n, src = 0, set()
+        for w in ws:
+            if isinstance(w, (set, frozenset)):
+                src |= w
+            else:
+                n += w
+        return n + len(src)
+
+    out = []
+    for g in groups:
+        by_price = {}
+        for p, w in g:
+            by_price.setdefault(p, []).append(w)
+        rep = max(by_price, key=lambda p: (weight(by_price[p]), -p))
+        out.append((rep, weight([w for _, w in g]), set(by_price)))
+    return out
+
+
+def _wmedian(levels):
+    """Вазнли медиана: файлларнинг ярми шу нархда ёки арзонроқда (тенг бўлса арзони)."""
+    total, cum = sum(w for _, w, _ in levels), 0
+    for rep, w, _ in levels:
+        cum += w
+        if cum * 2 >= total:
+            return rep
+    return levels[-1][0]
+
+
+def three(prices, seen=None) -> tuple:
+    """(паст, ўрта, юқори, четдагилар тўплами) — модуль бошидаги қоида бўйича.
+    ``seen`` — ҳар нарх неча файлда учрагани (сон ёки манбалар тўплами), ``prices`` билан бир тартибда."""
+    if not prices:
+        return None, None, None, set()
+    lv = _levels(prices, seen)
+    out = set()
+    if len(prices) > 3:
+        med = _wmedian(lv)
+        bad = [x for x in lv if x[0] > med * OUTLIER or x[0] * OUTLIER < med]
+        if len(bad) < len(lv):
+            out = set().union(*(x[2] for x in bad)) if bad else set()
+            lv = [x for x in lv if x not in bad]
+    return lv[0][0], _wmedian(lv), lv[-1][0], out
+
+
+def _sources(pk, places, seen):
+    """Нарх қайси файлларда учрагани — вазн учун (бир файл икки тўпламда бўлса ҳам бир марта)."""
+    src = {str(pl.get("job") or pl.get("file") or "") for pl in (places or []) if isinstance(pl, dict)}
+    src.discard("")
+    return frozenset(src) if src else frozenset({f"p{pk}"})
 
 
 def _money(v) -> Decimal:
@@ -316,9 +720,9 @@ def recalc(keys):
     """keys — {(item_id, region, year)}: шу гуруҳларнинг нархи қайта ҳисобланади, «четда» белгиси янгиланади."""
     for item_id, region, year in keys:
         qs = Price.objects.filter(item_id=item_id, region=region, year=year)
-        rows = list(qs.filter(excluded=False).values_list("id", "price", "date", "seen"))
-        live = [(i, p, d) for i, p, d, _ in rows]
-        low, mid, high, out = three([p for _, p, _ in live], [s for *_, s in rows])
+        rows = list(qs.filter(excluded=False).values_list("id", "price", "date", "places", "seen"))
+        live = [(i, p, d) for i, p, d, _, _ in rows]
+        low, mid, high, out = three([p for _, p, _ in live], [_sources(i, pl, sn) for i, _, _, pl, sn in rows])
         qs.exclude(outlier=False).update(outlier=False)
         if out:
             qs.filter(id__in=[i for i, p, _ in live if p in out]).update(outlier=True)
@@ -349,7 +753,7 @@ def best_stat(item_ids, region="", year=None) -> dict:
 
 
 def counts() -> dict:
-    return {"items": Item.objects.count(), "prices": Price.objects.count(),
+    return {"items": live_items().count(), "prices": Price.objects.count(),
             "batches": Batch.objects.count(), "excluded": Price.objects.filter(excluded=True).count(),
             "outliers": Price.objects.filter(outlier=True, excluded=False).count()}
 
@@ -358,7 +762,7 @@ def counts() -> dict:
 def category_stats() -> list:
     """[(тоифа, номи, ресурслар, нархлар)]."""
     from django.db.models import Count
-    items = dict(Item.objects.values_list("category").annotate(c=Count("id")))
+    items = dict(live_items().values_list("category").annotate(c=Count("id")))
     prices = dict(Price.objects.values_list("item__category").annotate(c=Count("id")))
     return [(k, label, items.get(k, 0), prices.get(k, 0)) for k, label in CATEGORY_LABELS.items()]
 
@@ -372,7 +776,9 @@ def coverage(limit=COVER_JOBS) -> dict:
     from django.core.cache import cache
     last = Price.objects.order_by("-id").values_list("id", flat=True).first() or 0
     njobs = Job.objects.filter(status=Job.Status.DONE).count()
-    ck = f"narxbaza:cover3:{last}:{Price.objects.count()}:{njobs}:{limit}"
+    from django.db.models import Max
+    stamp = f'{Log.objects.aggregate(m=Max("id"))["m"] or 0}:{Alias.objects.count()}'  # тузатиш / бирлаштириш
+    ck = f"narxbaza:cover4:{last}:{Price.objects.count()}:{njobs}:{limit}:{stamp}"
     got = cache.get(ck)
     if got is not None:
         return got
@@ -380,6 +786,9 @@ def coverage(limit=COVER_JOBS) -> dict:
     src, job_batches = {}, {}
     for key, bid in Price.objects.filter(excluded=False).values_list("item__key", "batch_id"):
         src.setdefault(key, set()).add(bid)
+    for akey, ikey in Alias.objects.filter(item__deleted_at=None).values_list("key", "item__key"):
+        if ikey in src:
+            src[akey] = src[ikey]
     for b in Batch.objects.exclude(kind__in=(Batch.Kind.MANUAL, Batch.Kind.FILE)).exclude(work_id=None):
         jq = {"folder": {"batch__project_id": b.work_id}, "object": {"batch_id": b.work_id}, "smeta": {"pk": b.work_id}}[b.kind]
         for jid in Job.objects.filter(**jq).values_list("id", flat=True):
@@ -411,14 +820,6 @@ def coverage(limit=COVER_JOBS) -> dict:
     return out
 
 
-@transaction.atomic
-def delete_item(item: Item):
-    """Ресурсни ва ҳамма нархларини ўчиради; бўшаб қолган қўлда киритилган тўпламлар ҳам кетади."""
-    batches = set(item.prices.values_list("batch_id", flat=True))
-    item.delete()
-    Batch.objects.filter(pk__in=batches, kind=Batch.Kind.MANUAL, prices__isnull=True).delete()
-
-
 # ===================== нархлаш учун =====================
 def enabled() -> bool:
     """Базадан нархлаш ёқилганми (панелда ёқилади / ўчирилади). Эски «Ресурс базаси» ҳеч қачон ишлатилмайди."""
@@ -440,8 +841,11 @@ def price_map(period) -> dict:
         return {}
     lv = level_of(period)
     word = LEVEL_LABELS[lv].split()[0].lower()
-    out = {}
-    for s in Stat.objects.filter(region=period["region"], year=int(period["year"])).select_related("item"):
+    out, aliases = {}, {}
+    for akey, iid in Alias.objects.filter(item__deleted_at=None).values_list("key", "item_id"):
+        aliases.setdefault(iid, []).append(akey)
+    for s in Stat.objects.filter(region=period["region"], year=int(period["year"]),
+                                 item__deleted_at=None).select_related("item"):
         price = getattr(s, lv)
         if price is None:
             price = s.mid if s.mid is not None else s.low
@@ -449,4 +853,151 @@ def price_map(period) -> dict:
         out[it.key] = {"price": float(price), "n": s.n, "unit_key": it.key.rsplit("|", 1)[-1], "unit": it.unit,
                        "category": it.category if it.category in ("I", "J", "K", "L", "M") else "",
                        "note": f"{word} нарх, {s.n} та нархдан"}
+        for akey in aliases.get(it.pk, ()):  # эски / бирлаштирилган номи билан келган қатор ҳам
+            out.setdefault(akey, {**out[it.key], "unit_key": akey.rsplit("|", 1)[-1]})
     return out
+
+
+# ===================== нарх динамикаси =====================
+def _val(s):
+    return s.mid if s.mid is not None else s.low
+
+
+def dynamics(stats) -> dict:
+    """Паспорт учун: ``latest`` — ҳар вилоятнинг охирги йил нархи; ``years`` ва ``rows`` — вилоят × йил жадвали
+    (ўрта нарх, олдинги йилга нисбатан ўзгариш %, кичик график нуқталари). Бир йил бўлса — жадвал йўқ."""
+    from resbase.regions import REGIONS
+    order = {k: i for i, (k, _) in enumerate(REGIONS)}
+    by_region = {}
+    for s in stats:
+        by_region.setdefault(s.region, {})[s.year] = s
+    regions = sorted(by_region, key=lambda r: order.get(r, 99))
+    latest = [by_region[r][max(by_region[r])] for r in regions]
+    for s in latest:  # паспорт карточкасида: ўрта нарх паст…юқори оралиғининг қаерида (%)
+        mid = s.mid if s.mid is not None else s.low
+        s.mid_pos = round(float((mid - s.low) / (s.high - s.low) * 100), 1) if s.high > s.low else 50.0
+    years = sorted({s.year for s in stats})
+    rows = []
+    if len(years) > 1:
+        for r in regions:
+            cells, prev, pts = [], None, []
+            for y in years:
+                s = by_region[r].get(y)
+                change = None
+                if s is not None:
+                    v = _val(s)
+                    if prev is not None and prev > 0:
+                        change = round(float((v - prev) / prev * 100), 1)
+                    prev = v
+                    pts.append((y, float(v)))
+                cells.append({"year": y, "s": s, "change": change})
+            rows.append({"region": r, "label": REGION_NAMES.get(r, r), "cells": cells, "spark": _spark(pts, years)})
+    return {"latest": latest, "years": years, "rows": rows}
+
+
+def _spark(pts, years, w=96, h=24) -> str:
+    """SVG polyline нуқталари: x — йил, y — нарх (шу вилоятнинг энг арзонидан энг қимматигача)."""
+    if len(pts) < 2:
+        return ""
+    lo, hi = min(v for _, v in pts), max(v for _, v in pts)
+    y0, y1 = years[0], years[-1]
+    span = (hi - lo) or 1
+    return " ".join(f"{(y - y0) / (y1 - y0) * (w - 4) + 2:.1f},{h - 2 - (v - lo) / span * (h - 4):.1f}" for y, v in pts)
+
+
+# ===================== текшириш навбати =====================
+STALE_DAYS = 365
+DUP_MIN = 0.86  # номлари шунчалик ўхшаш ва рақамлари бир хил бўлса — эҳтимол икки нусха
+
+
+def _digits(s) -> tuple:
+    return tuple(sorted(re.findall(r"\d+", s)))
+
+
+def duplicate_pairs() -> list:
+    """Эҳтимол бир ресурснинг икки нусхаси: бирлиги бир хил, номи ≥86% ўхшаш, номидаги рақамлар бир хил,
+    «бошқа-бошқа» деб белгиланмаган. [(ўхшашлик %, a, b)] — энг ўхшаши олдин. 1 соат кешланади."""
+    from difflib import SequenceMatcher
+
+    from django.core.cache import cache
+    from django.db.models import Max
+
+    from .models import DupIgnore
+    live = live_items()
+    stamp = (live.count(), live.aggregate(m=Max("updated"))["m"], Log.objects.aggregate(m=Max("id"))["m"],
+             DupIgnore.objects.count())
+    ck = "narxbaza:dups:" + hashlib.md5(repr(stamp).encode()).hexdigest()
+    got = cache.get(ck)
+    if got is None:
+        groups = {}
+        for pk, key in live.values_list("pk", "key"):
+            name, _, unit = key.rpartition("|")
+            words = [w for w in re.split(r"\W+", name) if len(w) >= 3 and not w.isdigit()]
+            if words:
+                groups.setdefault((unit, words[0]), []).append((pk, name, _digits(name)))
+        ignored = set(DupIgnore.objects.values_list("a_id", "b_id"))
+        got = []
+        for g in groups.values():
+            for i in range(len(g)):
+                for j in range(i + 1, len(g)):
+                    (pa, na, da), (pb, nb, db) = g[i], g[j]
+                    if da != db or (min(pa, pb), max(pa, pb)) in ignored:
+                        continue
+                    sm = SequenceMatcher(None, na, nb)
+                    if sm.quick_ratio() >= DUP_MIN and (r := sm.ratio()) >= DUP_MIN:
+                        got.append((round(100 * r), min(pa, pb), max(pa, pb)))
+        got.sort(key=lambda t: -t[0])
+        cache.set(ck, got, 3600)
+    return got
+
+
+def ignore_pair(a_id, b_id, user=None):
+    from .models import DupIgnore
+    a, b = min(a_id, b_id), max(a_id, b_id)
+    DupIgnore.objects.get_or_create(a_id=a, b_id=b, defaults={"added_by": _uid(user)})
+
+
+def stale_items():
+    """1 йилдан бери янги нарх келмаган ресурслар (охирги нарх санаси бўйича, эскиси олдин)."""
+    from datetime import timedelta
+
+    from django.db.models import Max
+    cutoff = timezone.localdate() - timedelta(days=STALE_DAYS)
+    return live_items().annotate(last=Max("prices__date")).filter(last__lt=cutoff).order_by("last")
+
+
+def review_counts() -> dict:
+    return {"unver": live_items().filter(verified=False).count(), "cat": live_items().filter(category="O").count(),
+            "outlier": Price.objects.filter(outlier=True, excluded=False).count(),
+            "dup": len(duplicate_pairs()), "stale": stale_items().count()}
+
+
+# ===================== бирданига =====================
+@transaction.atomic
+def bulk_category(items, category, user=None) -> int:
+    return sum(1 for it in items if edit_item(it, name=it.name, category=category, user=user))
+
+
+@transaction.atomic
+def bulk_trash(items, user=None) -> int:
+    n = 0
+    for it in items:
+        trash_item(it, user)
+        n += 1
+    return n
+
+
+@transaction.atomic
+def bulk_merge(target, items, user=None) -> tuple:
+    """Белгиланганларни ``target`` га: (қўшилган ресурслар, ўтган нархлар); бирлиги бошқалари — ўтказиб юборилади."""
+    done = moved = 0
+    skipped = []
+    for it in items:
+        if it.pk == target.pk:
+            continue
+        if it.unit_key != target.unit_key:
+            skipped.append(it)
+            continue
+        moved += merge_items(target, it, user)
+        done += 1
+    return done, moved, skipped

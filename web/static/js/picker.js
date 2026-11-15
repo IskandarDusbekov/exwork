@@ -35,6 +35,21 @@
 
     // ---------- ҳолат: қайси қадам тайёр, қайсиниси ҳозир ----------
     function pairs() { return Array.prototype.slice.call(root.querySelectorAll(".pk-pair")); }
+    // жуфтлик остидаги битта сатр — оддий тилда: тўғрими, нима қилиш керак
+    function say(row, on, val, opt, v) {
+      var el = row.querySelector(".pk-say");
+      if (!el) return;
+      var t, c;
+      if (!on) { t = "Бу локал нархланмайди. Нархлаш керак бўлса — чапдаги белгини қўйинг."; c = "t-off"; }
+      else if (!val) { t = "Ресурс файли танланмаган — ўнгдаги рўйхатдан танланг ёки «Ресурсни танлаш»ни босиб ёнма-ён кўринг."; c = "t-bad"; }
+      else if (opt && opt.dataset.np) { t = "Танланган ресурсда нарх йўқ — бошқа ресурс файлини танланг, акс ҳолда нархланмай қолади."; c = "t-bad"; }
+      else if (opt && opt.dataset.base) { t = "Нархлар ресурс базасидан олинади — тайёр, ҳеч нарса қилиш шарт эмас."; c = "t-ok"; }
+      else if (v == null || v >= 0.7) { t = "Тўғри жуфтланган — ҳеч нарса қилиш шарт эмас."; c = "t-ok"; }
+      else if (v >= 0.4) { t = "Мослик ўртача — «Ёнма-ён кўриш» билан текшириб кўринг; нотўғри бўлса бошқасини танланг."; c = "t-mid"; }
+      else { t = "Мослик паст — бу ресурс бошқа объектники бўлиши мумкин. «Ёнма-ён кўриш» билан текширинг."; c = "t-low"; }
+      el.textContent = t;
+      el.className = "pk-say " + c;
+    }
     function update() {
       var hasLocal = !!root.querySelector(".pk-sheet.is-local:not(.is-dup)");
       var hasRes = !!root.querySelector(".pk-sheet.is-resource:not(.is-dup)") || !!root.querySelector("option[data-base]");
@@ -49,6 +64,7 @@
         else if (!sel.value) { ov.textContent = "?"; ov.className = "pk-ov t-low"; }
         else { ov.textContent = v == null ? "—" : Math.round(v * 100) + "%"; ov.className = "pk-ov " + tone(v); }
         ov.title = "Локалдаги ресурсларнинг неча фоизи шу RES листида аниқ бор";
+        say(row, inc.checked, sel.value, opt, v);
         if (inc.checked && sel.value) ready++;
         if (inc.checked && !sel.value) need++;
         if (inc.checked && sel.value) (used[sel.value] = used[sel.value] || []).push(row.dataset.tag || row.dataset.title);
@@ -94,11 +110,10 @@
             "локал ва ресурслар ёнма-ён очилади, тўғрисини кўриб <b>«Шуни танлаш»</b>ни босасиз.";
         go = {text: "Ўша қаторга ўтиш ↓", el: root.querySelector(".pk-pair.is-need")};
       } else {
-        tone = "ok";
-        t = "<b>Ҳаммаси тайёр:</b> " + ready + " та смета нархланади. Жуфтликлар тўғрими — бир қараб чиқинг" +
-            (D.embed === "1" || root.classList.contains("is-embed") ? ", кейин пастдаги <b>«Ҳаммасини бошлаш»</b>ни босинг." : ", кейин <b>«Бошлаш»</b>ни босинг.");
-        var g = root.querySelector(".pk-go");
-        if (g) go = {text: "«Бошлаш»га ўтиш ↓", el: g};
+        // ҳаммаси тайёр — ортиқча матн кўрсатмаймиз, пастдаги яшил «Бошлаш» тугмасининг ўзи кифоя
+        box.hidden = true;
+        box.className = "pk-now";
+        return;
       }
       box.hidden = false;
       box.className = "pk-now is-" + tone;
@@ -182,8 +197,95 @@
         })
         .catch(function (e) { toast(e.message); });
     }
+    // ---------- ресурс танлаш рўйхати: <select> ўрнига тушунарли рўйхат (файл, лист, мослик, огоҳлантириш) ----------
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]; }); }
+    var ICO_SHEET = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="h-5 w-5"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>';
+    var ICO_DOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="h-4 w-4"><path d="M6 9l6 6 6-6"/></svg>';
+    function word(v) { return v == null ? "мослик номаълум" : v >= 0.7 ? "жуда мос" : v >= 0.4 ? "ўртача мос" : v > 0 ? "кам мос" : "мос эмас"; }
+    function ddItem(o, chosen) {
+      var v = ovOf(o), d = o.dataset, tags = [];
+      if (d.best) tags.push('<em class="is-best">★ энг мос</em>');
+      if (d.same) tags.push('<em>локалнинг ўз файлида</em>');
+      if (d.np) tags.push('<em class="is-np">нархи йўқ — танламанг</em>');
+      if (chosen) tags.push('<em class="is-on">✓ ҳозир танланган</em>');
+      if (d.base) {
+        return '<button type="button" class="pk-dd-i' + (chosen ? " is-on" : "") + '" data-v="' + esc(o.value) + '">' +
+          '<span class="pk-dd-ic is-base">Б</span><span class="pk-dd-t"><b>Ресурс базасидан</b><small>RES файлсиз — нархлар тизимдаги базадан олинади</small>' +
+          (tags.length ? '<span class="pk-dd-tags">' + tags.join("") + "</span>" : "") + "</span><span></span></button>";
+      }
+      var pc = v == null ? "—" : Math.round(v * 100) + "%";
+      return '<button type="button" class="pk-dd-i' + (chosen ? " is-on" : "") + (d.np ? " is-np" : "") + '" data-v="' + esc(o.value) + '" data-q="' +
+          esc((d.file + " " + d.title + " " + d.sheet + " " + d.tag).toLowerCase()) + '">' +
+        '<span class="pk-dd-ic">' + ICO_SHEET + "<i>" + esc(d.tag || "Р") + "</i></span>" +
+        '<span class="pk-dd-t"><b>' + esc(d.file) + "</b><small>" + esc(d.title) + " · лист «" + esc(d.sheet) + "»" + (d.rows && d.rows !== "0" ? " · " + esc(d.rows) + " қатор" : "") + "</small>" +
+          (tags.length ? '<span class="pk-dd-tags">' + tags.join("") + "</span>" : "") + "</span>" +
+        '<span class="pk-dd-m ' + tone(v) + '"><b>' + pc + '</b><i><s style="width:' + (v == null ? 0 : Math.round(v * 100)) + '%"></s></i><small>' + word(v) + "</small></span></button>";
+    }
+    function buildDD(row) {
+      var sel = row.querySelector(".pk-select");
+      if (!sel || sel.dataset.dd) return;
+      sel.dataset.dd = "1";
+      sel.classList.add("pk-sel-hid");
+      sel.tabIndex = -1;
+      var opts = Array.prototype.filter.call(sel.options, function (o) { return o.value; });
+      var wrap = document.createElement("div"), btn = document.createElement("button"), pop = document.createElement("div");
+      wrap.className = "pk-dd";
+      btn.type = "button"; btn.className = "pk-dd-btn" + (sel.value ? "" : " is-main");
+      btn.innerHTML = "<span>" + (sel.value ? "Ресурсни алмаштириш" : "Ресурс файлини танлаш") + '</span><i class="pk-dd-n">' + opts.length + " та</i>" + ICO_DOWN;
+      btn.title = "Бу локал учун нархлар олинадиган файлни танлаш";
+      pop.className = "pk-dd-pop"; pop.hidden = true;
+      wrap.appendChild(btn); wrap.appendChild(pop);
+      sel.parentNode.insertBefore(wrap, sel.nextSibling);
+      function draw() {
+        var real = opts.filter(function (o) { return !o.dataset.base; }), base = opts.filter(function (o) { return o.dataset.base; });
+        var top = real.filter(function (o) { return o.dataset.best || o.dataset.same; });
+        var rest = real.filter(function (o) { return top.indexOf(o) < 0; }).sort(function (a, b) {
+          return (!!a.dataset.np - !!b.dataset.np) || ((ovOf(b) || 0) - (ovOf(a) || 0));
+        });
+        var h = '<div class="pk-dd-h"><b>Бу локалнинг нархлари қайси файлда?</b>' +
+                '<small>Фоиз — локалдаги ресурсларнинг неча фоизи шу файлда бор. Қанча юқори бўлса, шунча тўғри.</small></div>';
+        if (real.length > 6) h += '<input type="search" class="pk-dd-q" placeholder="Файл ёки бўлим номи бўйича қидириш…">';
+        h += '<div class="pk-dd-list">';
+        if (top.length) h += '<div class="pk-dd-g">Тавсия этилади</div>' + top.map(function (o) { return ddItem(o, o.value === sel.value); }).join("");
+        if (rest.length) h += '<div class="pk-dd-g">Бошқа ресурс файллари</div>' + rest.map(function (o) { return ddItem(o, o.value === sel.value); }).join("");
+        if (base.length) h += '<div class="pk-dd-g">Файлсиз</div>' + base.map(function (o) { return ddItem(o, o.value === sel.value); }).join("");
+        h += '<div class="pk-dd-none" hidden>Топилмади</div></div>';
+        pop.innerHTML = h;
+        var q = pop.querySelector(".pk-dd-q");
+        if (q) {
+          q.addEventListener("input", function () {
+            var t = q.value.trim().toLowerCase(), any = false;
+            pop.querySelectorAll(".pk-dd-i[data-q]").forEach(function (b) { var ok = !t || b.dataset.q.indexOf(t) >= 0; b.hidden = !ok; any = any || ok; });
+            pop.querySelectorAll(".pk-dd-g").forEach(function (g) { g.hidden = !!t; });
+            pop.querySelector(".pk-dd-none").hidden = any || !t;
+          });
+          setTimeout(function () { q.focus(); }, 0);
+        }
+      }
+      function close() { pop.hidden = true; wrap.classList.remove("is-open"); }
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (!pop.hidden) { close(); return; }
+        document.querySelectorAll(".pk-dd.is-open").forEach(function (w) { w.classList.remove("is-open"); w.querySelector(".pk-dd-pop").hidden = true; });
+        draw(); pop.hidden = false; wrap.classList.add("is-open");
+      });
+      pop.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var it = e.target.closest(".pk-dd-i");
+        if (!it) return;
+        close();
+        if (it.dataset.v === sel.value) return;
+        if (it.classList.contains("is-np") && !confirm("Бу ресурс листида нарх йўқ — бу локал нархланмай қолади. Барибир танлансинми?")) return;
+        sel.value = it.dataset.v;
+        sel.dispatchEvent(new Event("change"));
+      });
+      document.addEventListener("click", function () { if (!pop.hidden) close(); });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !pop.hidden) close(); });
+    }
+
     pairs().forEach(function (row) {
       var sel = row.querySelector(".pk-select"), inc = row.querySelector("input[type=checkbox]");
+      buildDD(row);
       sel.addEventListener("change", function () { if (sel.value) inc.checked = true; update(); savePair(row, true); });
       inc.addEventListener("change", function () { update(); savePair(row); });
       row.querySelector(".pk-compare").addEventListener("click", function () { compare(row); });

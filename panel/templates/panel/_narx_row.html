@@ -1,5 +1,6 @@
 {% load narx %}{# «Нарх базаси» рўйхатида битта ресурс (i): номи, белгилари, қаердан, паст / ўрта / юқори #}
 <div class="ui-row">
+  {% if can_act %}<input type="checkbox" name="ids" value="{{ i.pk }}" form="nx-bulk" data-name="{{ i.name|truncatechars:70 }} ({{ i.unit }})" class="nx-pick h-4 w-4 shrink-0" aria-label="Белгилаш">{% endif %}
   <div class="main">
     <a href="{% url 'panel:narx_item' i.pk %}" class="title font-medium hover:text-blue-700 hover:underline">{{ i.name }}</a>
     <div class="ui-tags">

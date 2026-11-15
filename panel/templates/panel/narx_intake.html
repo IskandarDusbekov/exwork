@@ -1,0 +1,464 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Текширув: {{ it.title|truncatechars:50 }} — Нарх базаси{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+{% include "panel/_narx_tabs.html" with compact=1 %}
+<style>
+  {% include "jobs/_xs_css.html" %}
+  .ni-c-I { --c: #0284c7; --t: rgb(2 132 199 / .16); --s: rgb(2 132 199 / .32); }
+  .ni-c-J { --c: #7c3aed; --t: rgb(124 58 237 / .14); --s: rgb(124 58 237 / .30); }
+  .ni-c-K { --c: #059669; --t: rgb(5 150 105 / .13); --s: rgb(5 150 105 / .28); }
+  .ni-c-M { --c: #ea580c; --t: rgb(234 88 12 / .16); --s: rgb(234 88 12 / .34); }
+  .ni-c-L { --c: #dc2626; --t: rgb(220 38 38 / .14); --s: rgb(220 38 38 / .30); }
+  .ni-c-O { --c: #475569; --t: rgb(71 85 105 / .14); --s: rgb(71 85 105 / .28); }
+  #ni-grid { user-select: none; -webkit-user-select: none; }
+  .xs tr.ni-r > td { box-shadow: inset 0 0 0 9999px var(--t); cursor: pointer; }
+  .xs tr.ni-r.ni-ok > td { box-shadow: inset 0 0 0 9999px var(--s); }
+  .xs tr.ni-r.ni-skip > td { opacity: .4; text-decoration: line-through; box-shadow: inset 0 0 0 9999px rgb(100 116 139 / .08); }
+  .xs tr.ni-r.ni-sel > td { box-shadow: inset 0 0 0 9999px rgb(37 99 235 / .22); }
+  .xs tbody tr.ni-r.ni-sel > th { outline: 2px solid #2563eb; outline-offset: -2px; }
+  .xs tr.ni-r.ni-cur > td { box-shadow: inset 0 0 0 9999px var(--s); border-top: 2px solid #1d4ed8 !important; border-bottom: 2px solid #1d4ed8 !important; }
+  .xs tbody tr.ni-r > th { white-space: nowrap; text-align: left; padding-left: 3px; background: #fff; border-left: 5px solid var(--c); }
+  .xs tbody tr.ni-r.ni-ok > th { background: var(--c); color: #fff; }
+  .xs tbody tr.ni-r.ni-skip > th { border-left-color: #cbd5e1; }
+  .ni-b { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; border-radius: 4px; padding: 0 5px; font: 700 11px/16px "Segoe UI", Arial; color: var(--c); background: #fff; box-shadow: inset 0 0 0 1.5px var(--c); }
+  .ni-chip { display: inline-flex; align-items: center; gap: .3rem; border-radius: .375rem; padding: .1rem .5rem; font-size: 12px; font-weight: 600; color: #fff; background: var(--c); }
+  .ni-key { display: inline-grid; min-width: 1.15rem; place-items: center; border-radius: .25rem; border: 1px solid #cbd5e1; background: #fff; padding: 0 .2rem; font: 600 10px/1rem ui-monospace, monospace; color: #475569; }
+  .ni-cat { display: inline-flex; align-items: center; gap: .35rem; border-radius: .5rem; border: 2px solid var(--c); padding: .3rem .65rem; font-size: .8125rem; font-weight: 700; color: var(--c); background: #fff; }
+  .ni-cat.is-on { background: var(--c); color: #fff; }
+  .ni-cat.is-on .ni-key { border-color: rgb(255 255 255 / .6); background: transparent; color: #fff; }
+  body.ni-full { overflow: hidden; }
+</style>
+
+{% if it.kind == "file" %}<a href="{% url 'panel:narx_uploads' %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-4 w-4" %} Юкланганлар</a>{% else %}<a href="{% url 'panel:narx_collect' %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-4 w-4" %} Ишлар рўйхати</a>{% endif %}
+
+<section class="mb-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <div class="flex flex-wrap items-start gap-4">
+    <div class="min-w-0 flex-1">
+      <h2 class="break-words text-lg font-semibold">{{ it.title }}</h2>
+      <p class="text-sm text-slate-600">{% if it.kind == "file" %}Юклади{% else %}Смета­чи{% endif %}: <b>{{ it.owner.get_full_name|default:"—" }}</b> · {{ files|length }} та файл · {{ c.total }} та ресурс қатори</p>
+    </div>
+    <div class="w-full max-w-sm">
+      <div class="flex justify-between text-xs text-slate-500"><span>Кўрилди</span><span class="num" data-c="pct">{{ c.done_pct }}%</span></div>
+      <div class="mt-1 h-2 overflow-hidden rounded-full bg-slate-100"><div class="h-full bg-emerald-500 transition-all" data-c="bar" style="width:{{ c.done_pct }}%"></div></div>
+      <div class="mt-1.5 flex flex-wrap gap-x-3 text-xs">
+        <span class="text-amber-700">кўрилмаган <b class="num" data-c="new">{{ c.new }}</b></span>
+        <span class="text-emerald-700">тасдиқланди <b class="num" data-c="ok">{{ c.ok }}</b></span>
+        <span class="text-slate-500">рад этилди <b class="num" data-c="skip">{{ c.skip }}</b></span>
+      </div>
+    </div>
+  </div>
+  {% if stale %}<p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Смета текширув очилгандан кейин қайта нархланган — бу ердаги нархлар эски бўлиши мумкин.
+    <form method="post" action="{% url 'panel:narx_intake_cancel' it.pk %}" class="inline">{% csrf_token %}<input type="hidden" name="reopen" value="1"><button class="font-semibold underline">Янгидан очиш</button></form> (қарорлар йўқолади).</p>{% endif %}
+  {% if it.status == "done" %}<p class="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Базага ёзилган: <a class="font-semibold underline" href="{% url 'panel:narx_batch' it.batch_id %}">тўплам</a>.</p>{% endif %}
+</section>
+
+{% if bad %}
+<details class="mb-3 rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-2.5 text-sm text-amber-900">
+  <summary class="cursor-pointer"><b class="num">{{ bad|length }}</b> та файл олинмади (бузуқ ёки нархли ресурси йўқ) — рўйхат</summary>
+  <ul class="mt-1.5 list-disc pl-5 text-xs">{% for n, why in bad %}<li><b>{{ n }}</b> — {{ why }}</li>{% endfor %}</ul>
+</details>
+{% endif %}
+{% if it.status == "open" and c.known_new %}
+<section class="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm">
+  <span class="min-w-0 flex-1"><b class="num">{{ c.known_new }}</b> та қатор — сиз илгари тасдиқлаган ресурслар: тоифаси бир хил, нархи базадагидан 3× фарқ қилмайди.</span>
+  <form method="post" action="{% url 'panel:narx_intake_known' it.pk %}">{% csrf_token %}<button class="rounded-lg bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700">Ҳаммасини тасдиқлаш</button></form>
+</section>
+{% endif %}
+
+<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2.5">
+    <h3 class="font-semibold">Файллар</h3>
+    <span class="ml-auto flex flex-wrap gap-1">{% for k, label in categories %}<span class="ni-chip ni-c-{{ k }}">{{ label }}</span>{% endfor %}</span>
+  </div>
+  <div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="w-10 px-3 py-2">{% if it.status == "open" %}<input type="checkbox" data-allready class="h-4 w-4" title="Ҳамма қатори кўрилган файлларни белгилаш" aria-label="Тайёрларини белгилаш">{% endif %}</th><th class="px-2 py-2 font-medium">Файл</th><th class="px-3 py-2 text-right font-medium">Ресурслар</th>
+      <th class="px-3 py-2 font-medium">Тоифалар</th><th class="w-48 px-3 py-2 font-medium">Кўрилди</th><th class="px-3 py-2"></th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for f in files %}
+      <tr class="cursor-pointer hover:bg-sky-50/60 {% if f.done %}bg-emerald-50/50{% endif %}" data-open="{{ f.i }}">
+        <td class="px-3 py-2.5" data-nopen>{% if it.status == "open" and not f.done %}<input type="checkbox" name="fi" value="{{ f.i }}" form="ni-commit-form" data-fpick="{{ f.i }}" class="h-4 w-4" aria-label="Базага ёзишга белгилаш">{% elif f.done %}<span class="text-emerald-600" title="Базага ёзилган">✓</span>{% endif %}</td>
+        <td class="max-w-lg px-2 py-2.5"><span class="break-words font-medium text-slate-900">{{ f.file }}</span>{% if f.sheet and it.kind == "file" %} <span class="text-xs text-slate-500">· лист «{{ f.sheet }}»</span>{% endif %}
+          {% if f.done %}<div class="text-xs text-emerald-700">✓ базага ёзилган · {{ f.region_label }} · {{ f.date }}{% if f.batch %} · <a href="{% url 'panel:narx_batch' f.batch %}" class="underline" data-nopen>тўплам</a>{% else %} · ҳаммаси рад этилган{% endif %}</div>{% endif %}</td>
+        <td class="num px-3 py-2.5 text-right">{{ f.n }}</td>
+        <td class="px-3 py-2.5"><span class="flex flex-wrap gap-1" data-cats="{{ f.i }}"></span></td>
+        <td class="px-3 py-2.5"><span class="flex items-center gap-2"><span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100"><span class="block h-full bg-emerald-500" data-fbar="{{ f.i }}"></span></span><span class="num w-24 text-xs" data-left="{{ f.i }}"></span></span></td>
+        <td class="whitespace-nowrap px-3 py-2.5 text-right">
+          <button type="button" class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700">Очиш</button>
+          {% if it.status == "open" and not f.done %}<button type="button" data-okfile="{{ f.i }}" class="ml-1 rounded-lg bg-emerald-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700" title="Кўрилмаган қаторлар тизим белгилаган тоифа билан тасдиқланади">✓ Ҳаммасини тасдиқлаш</button><button type="button" data-skipfile="{{ f.i }}" class="ml-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs text-slate-600 hover:bg-red-50 hover:text-red-700" title="Масалан, нархлар бошқа файлда бор — икки марта қўшилмасин">✗ Ҳаммасини рад этиш</button>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+
+{% if it.status == "open" %}
+<form method="post" id="ni-commit-form" action="{% url 'panel:narx_intake_commit' it.pk %}" class="sticky bottom-0 z-10 mt-4 rounded-xl border border-slate-300 bg-white p-4 shadow-lg">{% csrf_token %}
+  <h3 class="font-semibold">Белгиланган файлларни базага ёзиш</h3>
+  <div class="mt-3 flex flex-wrap items-end gap-2">
+    <label class="text-xs text-slate-500">Вилоят{% if it.region_hint %} <span class="text-slate-400">(«{{ it.region_hint|truncatechars:24 }}»)</span>{% endif %}
+      <select name="region" required class="mt-0.5 block rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900"><option value=""></option>
+        {% for k, label in regions %}<option value="{{ k }}" {% if it.region == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label class="text-xs text-slate-500">Сана (нархлар шу кунники)
+      <input type="date" name="date" required value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" class="mt-0.5 block rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900"></label>
+    <label class="text-xs text-slate-500">Изоҳ<input name="note" maxlength="300" class="mt-0.5 block w-56 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900"></label>
+    <button id="ni-commit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300" disabled>
+      Базага ёзиш — <span class="num" data-pickn>0</span> та файл, <span class="num" data-pickok>0</span> та нарх</button>
+    <span id="ni-pickmsg" class="text-xs text-amber-700"></span>
+  </div>
+</form>
+<form method="post" action="{% url 'panel:narx_intake_cancel' it.pk %}" class="mt-2 text-right" data-confirm="Текширув бекор қилинсинми? Қарорлар сақланмайди, базага ҳеч нарса ёзилмайди.">{% csrf_token %}
+  <button class="text-xs text-slate-500 underline hover:text-red-700">Текширувни бекор қилиш</button></form>
+{% endif %}
+
+{# ===== бутун экран: Excel кўриниши ===== #}
+<div id="ni-view" class="fixed inset-0 z-[70] hidden flex-col bg-white">
+  <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-1.5">
+    <button type="button" data-close class="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-sm hover:bg-slate-100" title="Рўйхатга (Esc)">{% icon "arrow-left" "h-4 w-4" %} Рўйхат <span class="ni-key">Esc</span></button>
+    <button type="button" data-step="-1" class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm hover:bg-slate-100" title="Олдинги файл">◀</button>
+    <button type="button" data-step="1" class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm hover:bg-slate-100" title="Кейинги файл">▶</button>
+    <b id="ni-fname" class="min-w-0 max-w-[40vw] truncate text-sm text-slate-900"></b>
+    <span id="ni-fleft" class="text-xs"></span>
+    {% if it.status == "open" %}<button type="button" id="ni-fokall" class="hidden rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700">✓ Қолганини тасдиқлаш</button><button type="button" id="ni-fcommit" class="hidden rounded-lg bg-slate-900 px-3 py-1 text-xs font-semibold text-white hover:bg-slate-700">Шу файлни базага ёзиш →</button>{% endif %}
+    <span class="ml-auto inline-flex items-center overflow-hidden rounded-lg border border-slate-300 bg-white text-sm" title="Жадвал ўлчами (+ / − тугмалари)">
+      <button type="button" data-zoom="-1" class="px-2.5 py-1 hover:bg-slate-100" aria-label="Кичрайтириш">−</button>
+      <button type="button" data-zoom="0" id="ni-zoom" class="num min-w-[4.5rem] border-x border-slate-300 px-2 py-1 text-xs hover:bg-slate-100" title="Экран кенглигига мослаш">Мослаш</button>
+      <button type="button" data-zoom="1" class="px-2.5 py-1 hover:bg-slate-100" aria-label="Катталаштириш">+</button></span>
+    <span class="flex flex-wrap items-center gap-1">{% for k, label in categories %}<span class="ni-chip ni-c-{{ k }}">{{ forloop.counter }} {{ label }}</span>{% endfor %}</span>
+  </div>
+  <div id="ni-grid" class="xs-wrap min-h-0 flex-1 overflow-auto"></div>
+  {% if it.status == "open" %}
+  <div class="border-t-2 border-slate-300 bg-white px-3 py-2 shadow-[0_-4px_12px_rgb(15_23_42/.08)]">
+    <div id="ni-info" class="min-h-[2.75rem] text-sm text-slate-500"></div>
+    <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+      {% for k, label in categories %}<button type="button" class="ni-cat ni-c-{{ k }}" data-cat="{{ k }}"><span class="ni-key">{{ forloop.counter }}</span>{{ label }}</button>{% endfor %}
+      <span class="mx-1 h-6 w-px bg-slate-200"></span>
+      <button type="button" data-act="skip" class="rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"><span class="ni-key">←</span> ✗ Рад этиш</button>
+      <button type="button" data-act="ok" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700">✓ Тасдиқлаш <span class="ni-key">→</span></button>
+      <button type="button" data-act="new" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">↺ Қайтариш <span class="ni-key">U</span></button>
+      <span class="ml-auto text-xs text-slate-500"><span class="ni-key">↑</span><span class="ni-key">↓</span> қатор · <span class="ni-key">Shift</span>+<span class="ni-key">↑</span><span class="ni-key">↓</span> ёки сичқонча билан судраш — бир нечта · <span class="ni-key">Ctrl</span>+босиш — қўшиш · <span class="ni-key">N</span> кейинги кўрилмаган · <span class="ni-key">+</span><span class="ni-key">−</span> ўлчам</span>
+    </div>
+    <p id="ni-err" class="mt-1 hidden text-sm text-red-700"></p>
+  </div>
+  {% else %}<div id="ni-info" class="border-t px-3 py-2 text-sm text-slate-500"></div>{% endif %}
+</div>
+
+{{ rows_json|json_script:"ni-rows" }}{{ cats_json|json_script:"ni-cats" }}{{ file_names|json_script:"ni-files" }}{{ file_done|json_script:"ni-fdone" }}
+<script>
+(function () {
+  const ROWS = JSON.parse(document.getElementById("ni-rows").textContent);
+  const CATS = JSON.parse(document.getElementById("ni-cats").textContent);
+  const FILES = JSON.parse(document.getElementById("ni-files").textContent);
+  const FDONE = JSON.parse(document.getElementById("ni-fdone").textContent);
+  const LABEL = Object.fromEntries(CATS.map(c => [c[0], c[1]])), GUT = Object.fromEntries(CATS.map(c => [c[0], c[2]])), ORDER = CATS.map(c => c[0]);
+  const OPEN = "{{ it.status }}" === "open";
+  const sheetUrl = fi => "{% url 'panel:narx_intake_sheet' it.pk 0 %}".replace(/0\/$/, fi + "/");
+  const decideUrl = "{% url 'panel:narx_intake_decide' it.pk %}";
+  const csrf = (document.querySelector("[name=csrfmiddlewaretoken]") || {}).value || "";
+  const byId = new Map(ROWS.map(r => [r.id, r]));
+  const view = document.getElementById("ni-view"), grid = document.getElementById("ni-grid");
+  const info = document.getElementById("ni-info"), err = document.getElementById("ni-err");
+  let fi = -1, trs = [], cur = null, anchor = null, sel = new Set(), drag = false;  // dragY/dragLast — пастда
+  const editable = () => OPEN && fi >= 0 && !FDONE[fi];
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  const leftOf = i => ROWS.filter(r => r.fi === i && r.state === "new").length;
+
+  // ---------- рўйхат ----------
+  function listStats() {
+    FILES.forEach((_, i) => {
+      const rs = ROWS.filter(r => r.fi === i), left = leftOf(i);
+      const bar = document.querySelector(`[data-fbar="${i}"]`); if (bar) bar.style.width = (rs.length ? 100 * (rs.length - left) / rs.length : 100) + "%";
+      const l = document.querySelector(`[data-left="${i}"]`);
+      if (l) { l.textContent = left ? left + " та қолди" : "✓ кўрилди"; l.className = "num w-24 text-xs " + (left ? "text-amber-700" : "text-emerald-700"); }
+      const c = document.querySelector(`[data-cats="${i}"]`);
+      if (c) c.innerHTML = ORDER.map(k => [k, rs.filter(r => r.cat === k && r.state !== "skip").length]).filter(x => x[1])
+        .map(([k, n]) => `<span class="ni-chip ni-c-${k}" title="${esc(LABEL[k])}">${esc(LABEL[k])} ${n}</span>`).join("");
+      const b = document.querySelector(`[data-fpick="${i}"]`);
+      if (b) b.title = left ? `${left} та кўрилмаган қатор — ёзишда тизим белгилагани билан тасдиқланади` : "Базага ёзишга белгилаш";
+      const okb = document.querySelector(`[data-okfile="${i}"]`); if (okb) okb.classList.toggle("hidden", !left);
+    });
+    pickStats();
+  }
+  function pickStats() {
+    const picked = [...document.querySelectorAll("[data-fpick]:checked")].map(b => +b.value);
+    const ok = ROWS.filter(r => picked.includes(r.fi) && r.state !== "skip").length;
+    document.querySelectorAll("[data-pickn]").forEach(e => e.textContent = picked.length);
+    document.querySelectorAll("[data-pickok]").forEach(e => e.textContent = ok);
+    const btn = document.getElementById("ni-commit"); if (btn) btn.disabled = !picked.length;
+    const msg = document.getElementById("ni-pickmsg");
+    const left = ROWS.filter(r => picked.includes(r.fi) && r.state === "new").length;
+    if (msg) msg.textContent = !picked.length ? "рўйхатда файл белгиланг" : !ok ? "ҳамма қатор рад этилган — базага ҳеч нарса ёзилмайди"
+      : left ? `${left} та кўрилмаган қатор ҳам тасдиқланади` : "";
+  }
+  document.addEventListener("change", e => { if (e.target.matches("[data-fpick]")) pickStats(); });
+  const all = document.querySelector("[data-allready]");
+  all && all.addEventListener("change", () => { document.querySelectorAll("[data-fpick]").forEach(b => { b.checked = all.checked; }); pickStats(); });
+  // ёзишда кўрилмаган қаторлар бўлса — аввал тасдиқланади (тизим белгилаган тоифа билан), кейин ёзилади
+  const cform = document.getElementById("ni-commit-form");
+  cform && cform.addEventListener("submit", e => {
+    if (cform.dataset.go) return;
+    const picked = [...document.querySelectorAll("[data-fpick]:checked")].map(b => +b.value);
+    const rest = ROWS.filter(r => picked.includes(r.fi) && r.state === "new");
+    if (!rest.length) return;
+    e.preventDefault();
+    const w = rest.filter(r => r.warn).length;
+    if (!confirm(`${rest.length} та қатор ҳали кўрилмаган. Улар тизим белгилаган тоифа билан тасдиқланиб, базага ёзилсинми?` + (w ? `
+
+⚠ Шундан ${w} тасида огоҳлантириш бор (нарх 3× фарқ ва ҳ.к.).` : ""))) return;
+    send(rest.map(r => r.id), {state: "ok"}, false, () => { cform.dataset.go = "1"; cform.requestSubmit(); });
+  });
+  document.querySelectorAll("[data-open]").forEach(tr => tr.addEventListener("click", e => {
+    if (e.target.closest("[data-nopen], a, input")) return;
+    const o = e.target.closest("[data-okfile]");
+    if (o) {
+      const rs = ROWS.filter(r => r.fi === +o.dataset.okfile && r.state === "new"), w = rs.filter(r => r.warn).length;
+      if (rs.length && confirm(`«${FILES[+o.dataset.okfile]}» даги ${rs.length} та кўрилмаган қатор тизим белгилаган тоифа билан тасдиқлансинми?` + (w ? `
+
+⚠ Шундан ${w} тасида огоҳлантириш бор.` : ""))) send(rs.map(r => r.id), {state: "ok"}, false);
+      return;
+    }
+    const s = e.target.closest("[data-skipfile]");
+    if (s) {
+      const ids = ROWS.filter(r => r.fi === +s.dataset.skipfile && r.state === "new").map(r => r.id);
+      if (ids.length && confirm(`«${FILES[+s.dataset.skipfile]}» даги ${ids.length} та кўрилмаган қатор рад этилсинми?`)) send(ids, {state: "skip"}, false);
+      return;
+    }
+    open(+tr.dataset.open);
+  }));
+
+  // ---------- бутун экран ----------
+  function open(n) {
+    fi = n; cur = null; anchor = null; sel.clear();
+    view.classList.remove("hidden"); view.classList.add("flex"); document.body.classList.add("ni-full");
+    history.replaceState(null, "", "#f" + n);
+    document.getElementById("ni-fname").textContent = FILES[n] || "";
+    fileLeft();
+    grid.innerHTML = '<div class="px-4 py-16 text-center text-sm text-slate-500">Юкланмоқда…</div>';
+    fetch(sheetUrl(n)).then(r => r.ok ? r.json() : Promise.reject(r.status)).then(d => {
+      if (fi !== n) return;
+      grid.innerHTML = d.html;
+      const col = grid.querySelector("colgroup col"), tbl = grid.querySelector("table.xs");
+      if (col && tbl) { col.style.width = "128px"; tbl.style.width = (parseInt(tbl.style.width) + 82) + "px"; }
+      zoom();
+      const map = new Map(ROWS.filter(r => r.fi === n).map(r => [r.row, r]));
+      trs = [];
+      grid.querySelectorAll("tbody tr").forEach(tr => {
+        const th = tr.querySelector("th"); const r = th && map.get(+th.textContent);
+        if (r) { r._tr = tr; r._i = trs.length; tr.dataset.id = r.id; trs.push(r); paint(r); }
+      });
+      if (!trs.length) { info.textContent = "Бу файлда ресурс қатори йўқ."; return; }
+      focus(trs.find(r => r.state === "new") || trs[0]);
+    }).catch(() => { grid.innerHTML = '<div class="px-4 py-16 text-center text-sm text-red-700">Excel кўринишини очиб бўлмади.</div>'; });
+  }
+  // жадвал ўлчами: «Мослаш» — экран кенглигига (энг ками 100%, энг кўпи 220%), ёки қўлда 60–300%
+  const ZS = [0.6, 0.75, 0.9, 1, 1.15, 1.3, 1.5, 1.75, 2, 2.5, 3];
+  let Z = 0; try { Z = +localStorage.getItem("ni-zoom") || 0; } catch (_) {}
+  function zoom() {
+    const tbl = grid.querySelector("table.xs"); if (!tbl) return;
+    const w = parseInt(tbl.style.width) || tbl.offsetWidth;
+    const z = Z || Math.max(1, Math.min(2.2, (grid.clientWidth - 24) / w));
+    tbl.style.zoom = z;
+    document.getElementById("ni-zoom").textContent = Z ? Math.round(z * 100) + "%" : "Мослаш " + Math.round(z * 100) + "%";
+  }
+  function zoomBy(d) {
+    const tbl = grid.querySelector("table.xs"), now = Z || +(tbl && tbl.style.zoom) || 1;
+    if (d === 0) Z = 0;
+    else Z = d > 0 ? (ZS.find(x => x > now + 0.01) || ZS[ZS.length - 1]) : ([...ZS].reverse().find(x => x < now - 0.01) || ZS[0]);
+    try { localStorage.setItem("ni-zoom", Z); } catch (_) {}
+    zoom(); const r = byId.get(cur); if (r && r._tr) scrollTo(r);
+  }
+  view.querySelectorAll("[data-zoom]").forEach(b => b.addEventListener("click", () => zoomBy(+b.dataset.zoom)));
+  window.addEventListener("resize", () => { if (fi >= 0 && !Z) zoom(); });
+
+  function close() {
+    view.classList.add("hidden"); view.classList.remove("flex"); document.body.classList.remove("ni-full");
+    history.replaceState(null, "", location.pathname); fi = -1; listStats();
+  }
+  view.querySelector("[data-close]").addEventListener("click", close);
+  view.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", () => {
+    const n = fi + +b.dataset.step; if (n >= 0 && n < FILES.length) open(n);
+  }));
+  const fc = document.getElementById("ni-fcommit");
+  fc && fc.addEventListener("click", () => {
+    const n = fi; close();
+    const b = document.querySelector(`[data-fpick="${n}"]`); if (b && !b.disabled) { b.checked = true; pickStats(); }
+    const f = document.getElementById("ni-commit-form"); f.scrollIntoView({behavior: "smooth", block: "end"}); f.elements.region.focus();
+  });
+  const fa0 = document.getElementById("ni-fokall");
+  fa0 && fa0.addEventListener("click", () => {
+    const rs = ROWS.filter(r => r.fi === fi && r.state === "new"), w = rs.filter(r => r.warn).length;
+    if (rs.length && confirm(`${rs.length} та кўрилмаган қатор тизим белгилаган тоифа билан тасдиқлансинми?` + (w ? `
+
+⚠ Шундан ${w} тасида огоҳлантириш бор.` : ""))) send(rs.map(r => r.id), {state: "ok"}, false);
+  });
+  function fileLeft() {
+    const left = leftOf(fi), el = document.getElementById("ni-fleft");
+    el.innerHTML = FDONE[fi] ? '<span class="rounded-full bg-emerald-600 px-2 py-0.5 font-semibold text-white">✓ базага ёзилган — фақат кўриш</span>'
+      : left ? `<span class="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">${left} та кўрилмаган</span>` : '<span class="rounded-full bg-emerald-100 px-2 py-0.5 font-semibold text-emerald-800">✓ ҳаммаси кўрилди</span>';
+    el.innerHTML += ` <span class="text-slate-500">${fi + 1} / ${FILES.length} файл</span>`;
+    if (fc) fc.classList.toggle("hidden", !!(left || FDONE[fi]));
+    const fa = document.getElementById("ni-fokall"); if (fa) fa.classList.toggle("hidden", !left || !!FDONE[fi]);
+  }
+
+  function paint(r) {
+    const tr = r._tr; if (!tr || !tr.isConnected) return;
+    tr.className = tr.className.replace(/\bni-\S+/g, "").trim();
+    tr.classList.add("ni-r", "ni-c-" + r.cat, "ni-" + r.state);
+    if (sel.has(r.id)) tr.classList.add("ni-sel");
+    if (cur === r.id) tr.classList.add("ni-cur");
+    const th = tr.querySelector("th");
+    const st = r.state === "ok" ? "✓" : r.state === "skip" ? "✗" : (r.warn ? "⚠" : "");
+    th.innerHTML = r.row + `<span class="ni-b">${esc(GUT[r.cat])}${st ? " " + st : ""}</span>`;
+    th.title = (r.state === "new" ? "кўрилмаган" : r.state === "ok" ? "тасдиқланди" : "рад этилди") + " · " + LABEL[r.cat] + (r.warn ? " · ⚠ " + r.warn : "");
+  }
+  function show() {
+    const r = byId.get(cur), ids = [...sel];
+    view.querySelectorAll("[data-cat]").forEach(b => b.classList.toggle("is-on", ids.length > 0 && ids.every(i => byId.get(i).cat === b.dataset.cat)));
+    if (!r) { info.innerHTML = ""; return; }
+    if (ids.length > 1) {
+      const rs = ids.map(i => byId.get(i));
+      const by = ORDER.map(k => [k, rs.filter(x => x.cat === k).length]).filter(x => x[1]);
+      const nNew = rs.filter(x => x.state === "new").length, nWarn = rs.filter(x => x.warn).length;
+      info.innerHTML = `<div class="flex flex-wrap items-center gap-2"><b class="text-slate-900">${ids.length} та қатор белгиланган</b>
+        ${by.map(([k, n]) => `<span class="ni-chip ni-c-${k}">${esc(LABEL[k])} ${n}</span>`).join("")}
+        <span class="text-xs text-amber-700">${nNew} таси кўрилмаган</span>${nWarn ? `<span class="text-xs font-semibold text-red-700">⚠ ${nWarn} тасида огоҳлантириш</span>` : ""}</div>
+        <div class="mt-0.5 text-xs text-slate-600">Тугма ёки <span class="ni-key">→</span> <span class="ni-key">←</span> <span class="ni-key">1–6</span> — ҳаммасига қўлланади.</div>`;
+      return;
+    }
+    const base = r.item ? `<a class="underline" target="_blank" href="/panel/narx/i/${r.item}/">базада бор</a>${r.item_verified ? " · <b class='text-emerald-700'>сиз тасдиқлагансиз</b>" : " · текширилмаган"}` : "<span class='text-sky-700'>янги ресурс</span>";
+    const st = r.state === "ok" ? "<b class='text-emerald-700'>✓ тасдиқланди</b>" : r.state === "skip" ? "<b class='text-slate-500'>✗ рад этилди</b>" : "<b class='text-amber-700'>кўрилмаган</b>";
+    info.innerHTML = `<div class="flex flex-wrap items-baseline gap-x-3"><span class="ni-chip ni-c-${r.cat}">${esc(LABEL[r.cat])}</span><b class="break-words text-slate-900">${esc(r.name)}</b><span class="text-slate-600">${esc(r.unit)}</span>
+      <span class="num font-semibold text-slate-900">${esc(r.price)} сўм</span>${r.qty ? `<span class="num text-xs text-slate-500">сони ${esc(r.qty)}</span>` : ""}<span class="text-xs">${st}</span><span class="text-xs text-slate-500">${base}</span></div>
+      <div class="mt-0.5 text-xs text-slate-600">Тизим: <b>${esc(LABEL[r.sug])}</b>${r.reason ? " — " + esc(r.reason) : ""}${r.sure ? "" : " <span class='font-semibold text-amber-700'>(ишончсиз — диққат қилинг)</span>"}${r.cat !== r.sug ? ` · сиз: <b>${esc(LABEL[r.cat])}</b>` : ""}${r.warn ? ` · <b class="text-red-700">⚠ ${esc(r.warn)}</b>` : ""}</div>`;
+  }
+  function setSel(list, keepAnchor) {
+    const old = [...sel]; sel = new Set(list.map(r => r.id));
+    old.forEach(i => { if (!sel.has(i)) paint(byId.get(i)); });
+    list.forEach(paint);
+    if (!keepAnchor) anchor = list.length ? list[0]._i : null;
+  }
+  function scrollTo(r) {
+    const gb = grid.getBoundingClientRect(), b = r._tr.getBoundingClientRect();
+    if (b.top < gb.top + 26 || b.bottom > gb.bottom - 8) grid.scrollTop += b.top - gb.top - gb.height / 3;
+  }
+  function focus(r) {  // битта қатор
+    if (!r) return;
+    const prev = cur; cur = r.id;
+    setSel([r]);
+    if (prev && prev !== r.id) paint(byId.get(prev));
+    paint(r); show(); scrollTo(r);
+  }
+  function range(toIdx) {  // anchor дан toIdx гача
+    if (anchor === null) anchor = trs.findIndex(x => x.id === cur);
+    const a = Math.min(anchor, toIdx), b = Math.max(anchor, toIdx);
+    const prev = cur; cur = trs[toIdx].id;
+    setSel(trs.slice(a, b + 1), true);
+    if (prev) paint(byId.get(prev));
+    paint(trs[toIdx]); show();
+  }
+  function next(afterIdx) {
+    const i = afterIdx ?? trs.findIndex(r => r.id === cur);
+    const r = trs.slice(i + 1).find(r => r.state === "new") || trs.find(r => r.state === "new");
+    if (r) return focus(r);
+    if (trs[i + 1]) focus(trs[i + 1]);
+    fileLeft();
+    const other = ROWS.find(r => r.state === "new" && !FDONE[r.fi]);
+    info.innerHTML = other ? "<b class='text-emerald-700'>Бу файлда ҳаммаси кўрилди.</b> Тепадаги «Шу файлни базага ёзиш» ёки <span class='ni-key'>▶</span> — кейинги файл."
+      : "<b class='text-emerald-700'>Ҳамма қатор кўрилди.</b> Тепадаги «Шу файлни базага ёзиш» ёки <span class='ni-key'>Esc</span> — рўйхатда файлларни белгилаб ёзасиз.";
+  }
+  function step(d, extend) {
+    const i = trs.findIndex(r => r.id === cur), j = Math.max(0, Math.min(trs.length - 1, i + d));
+    if (!trs[j]) return;
+    if (extend) { range(j); scrollTo(trs[j]); } else focus(trs[j]);
+  }
+
+  function counts(c) {
+    document.querySelectorAll("[data-c]").forEach(e => {
+      const k = e.dataset.c;
+      if (k === "bar") e.style.width = c.done_pct + "%"; else if (k === "pct") e.textContent = c.done_pct + "%"; else e.textContent = c[k];
+    });
+    if (fi >= 0) fileLeft(); else listStats();
+  }
+  let busy = false;
+  function send(ids, body, advance, then) {
+    if (!ids.length || busy) return;
+    busy = true; err && err.classList.add("hidden");
+    const last = Math.max(...ids.map(i => byId.get(i)._i ?? -1));
+    fetch(decideUrl, {method: "POST", headers: {"Content-Type": "application/json", "X-CSRFToken": csrf}, body: JSON.stringify({ids, ...body})})
+      .then(r => r.json().then(d => r.ok ? d : Promise.reject(d.error || "Хато")))
+      .then(d => {
+        d.rows.forEach(n => { const r = byId.get(n.id); if (r) { Object.assign(r, n); paint(r); } });
+        counts(d.c); show();
+        if (advance && fi >= 0) next(last);
+        if (then) then();
+      })
+      .catch(e => { if (err) { err.textContent = "Сақланмади: " + e; err.classList.remove("hidden"); } else alert("Сақланмади: " + e); })
+      .finally(() => { busy = false; });
+  }
+  const act = (body, advance = true) => editable() && sel.size && send([...sel], body, advance);
+
+  // сичқонча: босиш — битта, Shift — оралиқ, Ctrl — қўшиш/олиш, судраш — оралиқ
+  const rowOf = e => { const tr = e.target.closest("tr[data-id]"); return tr ? byId.get(+tr.dataset.id) : null; };
+  grid.addEventListener("mousedown", e => {
+    const r = rowOf(e); if (!r || e.button !== 0) return;
+    e.preventDefault(); grid.focus({preventScroll: true});
+    if (e.shiftKey && cur) return range(r._i);
+    if (e.ctrlKey || e.metaKey) {
+      if (sel.has(r.id) && sel.size > 1) { sel.delete(r.id); cur = [...sel].pop(); }
+      else { sel.add(r.id); cur = r.id; }
+      trs.forEach(x => { if (x._tr.classList.contains("ni-sel") !== sel.has(x.id) || x.id === cur) paint(x); });
+      return show();
+    }
+    focus(r); anchor = r._i; drag = true; dragY = e.clientY; dragLoop();
+  });
+  // судраш: сичқонча остидаги (ёки ундан юқоридаги энг яқин) ресурс қаторигача; жадвал четига етса — ўзи айланади
+  let dragY = 0, dragLast = -1;
+  function rowAtY(y) {
+    let best = null;
+    for (const r of trs) { const b = r._tr.getBoundingClientRect(); if (b.top <= y) best = r; else break; }
+    return best || trs[0];
+  }
+  function dragLoop() {
+    if (!drag) { dragLast = -1; return; }
+    const gb = grid.getBoundingClientRect(), edge = 48;
+    if (dragY > gb.bottom - edge) grid.scrollTop += Math.min(40, 4 + (dragY - (gb.bottom - edge)) / 2);
+    else if (dragY < gb.top + edge) grid.scrollTop -= Math.min(40, 4 + ((gb.top + edge) - dragY) / 2);
+    const r = rowAtY(Math.max(gb.top + 30, Math.min(gb.bottom - 4, dragY)));
+    if (r && r._i !== dragLast) { dragLast = r._i; range(r._i); }
+    requestAnimationFrame(dragLoop);
+  }
+  document.addEventListener("mousemove", e => { if (drag) dragY = e.clientY; });
+  document.addEventListener("mouseup", () => { drag = false; });
+
+  if (OPEN) {
+    view.querySelectorAll("[data-cat]").forEach(b => b.addEventListener("click", () => act({cat: b.dataset.cat, state: "ok"})));
+    view.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", () => act({state: b.dataset.act}, b.dataset.act !== "new")));
+  }
+  document.addEventListener("keydown", e => {
+    if (fi < 0 || e.target.closest("input, select, textarea") || e.altKey || e.metaKey) return;
+    const k = e.key;
+    if (e.ctrlKey) {
+      if (k === "a" || k === "ф") { e.preventDefault(); if (trs.length) { anchor = 0; range(trs.length - 1); } }
+      return;
+    }
+    if (k === "Escape") { e.preventDefault(); close(); }
+    else if (k === "ArrowDown") { e.preventDefault(); step(1, e.shiftKey); }
+    else if (k === "ArrowUp") { e.preventDefault(); step(-1, e.shiftKey); }
+    else if (k === "n" || k === "N" || k === "т" || k === "Т") { e.preventDefault(); next(); }
+    else if (k === "+" || k === "=") { e.preventDefault(); zoomBy(1); }
+    else if (k === "-" || k === "_") { e.preventDefault(); zoomBy(-1); }
+    else if (k === "0") { e.preventDefault(); zoomBy(0); }
+    else if (!editable() || !cur) return;
+    else if (k === "ArrowRight" || k === "Enter" || k === " ") { e.preventDefault(); act({state: "ok"}); }
+    else if (k === "ArrowLeft" || k === "x" || k === "X" || k === "Delete" || k === "ч" || k === "Ч") { e.preventDefault(); act({state: "skip"}); }
+    else if (k === "u" || k === "U" || k === "Backspace" || k === "г" || k === "Г") { e.preventDefault(); act({state: "new"}, false); }
+    else if (/^(Digit|Numpad)[1-6]$/.test(e.code)) { e.preventDefault(); act({cat: ORDER[+e.code.slice(-1) - 1], state: "ok"}); }
+  });
+  listStats();
+  const m = /^#f(\d+)$/.exec(location.hash);
+  if (m && +m[1] < FILES.length) open(+m[1]);
+})();
+</script>
+{% endblock %}

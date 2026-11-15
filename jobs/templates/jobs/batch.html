@@ -155,8 +155,10 @@
 {% endif %}
 <script>
 (function () {
-  var DL = "{% url 'batch_file' batch.id 0 %}", UP = "{% url 'batch_file_replace' batch.id 0 %}";
+  var DL = "{% url 'batch_file' batch.id 0 %}", UP = "{% url 'batch_file_replace' batch.id 0 %}", UNDO_URL = "{% url 'batch_file_undo' batch.id 0 %}";
   var NAMES = [{% for f in batch.files %}"{{ f.name|escapejs }}"{% if not forloop.last %}, {% endif %}{% endfor %}];
+  var UNDO = [{% for f in batch.files %}{% if f.history %}1{% else %}0{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}];
+  var ICON_UNDO = '<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>';
   var form = document.getElementById("file-replace");
   function at(url, i) { return url.replace(/\/file\/0\//, "/file/" + i + "/"); }
   var ICON_DL = '<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>';
@@ -180,6 +182,8 @@
       return '<span class="file-acts">' +
         '<a href="' + at(DL, i) + '" class="file-act" title="Асл файлни юклаб олиш (тузатиш учун)">' + ICON_DL + (labels ? "юклаб олиш" : "") + "</a>" +
         (form ? '<button type="button" class="file-act" data-replace="' + i + '" title="Тузатилган файлни шу ўрнига юклаш — фақат шу файл ўзгаради">' + ICON_UP + (labels ? "қайта юклаш" : "") + "</button>" : "") +
+        (form && UNDO[i] ? '<button type="button" class="file-act" data-fop="undo" data-url="' + at(UNDO_URL, i) + '" data-name="' + (NAMES[i] || "").replace(/"/g, "&quot;") +
+          '" title="Охирги алмаштиришни бекор қилиш — олдинги нусха қайтади" style="color:#b45309">' + ICON_UNDO + (labels ? "ортга" : "") + "</button>" : "") +
         "</span>";
     },
   };
@@ -636,6 +640,7 @@
 })();
 </script>
 <script src="{% static 'js/picker.js' %}"></script>
+<script src="{% static 'js/fileops.js' %}"></script>
 <script>
   document.querySelectorAll("[data-pk]").forEach(function (el) { window.narxPicker.mount(el); });
   // «Жуфтликларни ўзгартириш» / «Устунларни тузатиш» ҳаволаси — йиғиқ бўлимни очади

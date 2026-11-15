@@ -644,6 +644,11 @@ def build_tree(project: Project, parts):
             if i is None:
                 continue
             r = roles.get(i, set())
+            f["i"] = i  # дарахтдан шу файлни юклаб олиш / алмаштириш / ортга қайтариш учун
+            f["undo"] = bool(p.files[i].get("history"))
+            mine = [s for s in p.sheets if s["file"] == i]
+            best = [s for s in mine if s["role"] in ("local", "resource")] or mine
+            f["k"] = best[0]["key"] if best else ""  # «Кўриш» — шу файлнинг асосий листидан очилади
             f["role"] = "local" if "local" in r else "resource" if "resource" in r else ("unknown" if p.sheets else "")
             f["jobs"] = [j for j in jobs if j.batch_file == i]
         node["results"] = [{"name": n, "job": j} for n, j in _result_names(p, jobs)]

@@ -1,107 +1,392 @@
 {% extends "panel/base.html" %}
-{% load narx %}
+{% load narx l10n %}
 {% block title %}{{ it.name|truncatechars:60 }} — Нарх базаси{% endblock %}
 {% block page_head %}{% endblock %}
 {% block panel %}
-{% include "panel/_narx_tabs.html" %}
-<a href="{% url 'panel:narx' %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-4 w-4" %} Ресурслар</a>
+{% include "panel/_narx_tabs.html" with compact=1 %}
+<style>
+  /* паспорт: бир хил тугмалар */
+  .pb { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; height: 2.25rem; padding: 0 .9rem; border-radius: .6rem;
+        border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: .875rem; font-weight: 500; white-space: nowrap; transition: background .12s, border-color .12s; }
+  .pb:hover { background: #f8fafc; border-color: #94a3b8; }
+  .pb:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+  .pb.primary { border-color: #059669; background: #059669; color: #fff; font-weight: 600; }
+  .pb.primary:hover { background: #047857; border-color: #047857; }
+  .pb.danger { border-color: #fecdd3; color: #be123c; }
+  .pb.danger:hover { background: #fff1f2; border-color: #fda4af; }
+  .pb.sm { height: 1.85rem; padding: 0 .6rem; font-size: .78rem; border-radius: .5rem; gap: .3rem; }
+  .pb.sm svg { width: .85rem; height: .85rem; }
+  .pp-card { border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; box-shadow: 0 1px 2px rgb(15 23 42 / .04); }
+  .pp-chip { display: inline-flex; align-items: center; gap: .3rem; border-radius: 9999px; background: #f1f5f9; padding: .15rem .6rem; font-size: .75rem; color: #475569; }
+  .pp-badge { display: inline-flex; align-items: center; gap: .3rem; border-radius: 9999px; padding: .1rem .55rem; font-size: .72rem; font-weight: 600; white-space: nowrap; }
+  .pp-badge::before { content: ""; width: .4rem; height: .4rem; border-radius: 9999px; background: currentColor; }
+  .pp-badge.ok { background: #ecfdf5; color: #047857; }
+  .pp-badge.warn { background: #fffbeb; color: #b45309; }
+  .pp-badge.off { background: #f1f5f9; color: #64748b; }
+  .pp-range { position: relative; height: .4rem; border-radius: 9999px; background: linear-gradient(90deg, #a7f3d0, #e2e8f0 50%, #fecdd3); }
+  .pp-range i { position: absolute; top: 50%; width: .8rem; height: .8rem; border-radius: 9999px; background: #0f172a; border: 2px solid #fff; box-shadow: 0 0 0 1px #0f172a; transform: translate(-50%, -50%); }
+  .pp-row.dim td { color: #94a3b8; }
+  .pp-row.dim .pp-price { text-decoration: line-through; }
+  .pp-tl li { position: relative; padding-left: 1.4rem; }
+  .pp-tl li::before { content: ""; position: absolute; left: .3rem; top: .45rem; width: .5rem; height: .5rem; border-radius: 9999px; background: #94a3b8; }
+  .pp-tl li::after { content: ""; position: absolute; left: .52rem; top: 1.1rem; bottom: -.6rem; width: 1px; background: #e2e8f0; }
+  .pp-tl li:last-child::after { display: none; }
+  .pp-tl li.a-price_edit::before, .pp-tl li.a-batch_edit::before { background: #0284c7; }
+  .pp-tl li.a-exclude::before, .pp-tl li.a-trash::before, .pp-tl li.a-purge::before { background: #e11d48; }
+  .pp-tl li.a-include::before, .pp-tl li.a-restore::before { background: #059669; }
+  .pp-tl li.a-merge::before, .pp-tl li.a-rename::before, .pp-tl li.a-category::before { background: #7c3aed; }
+</style>
 
-{# ---- паспорт сарлавҳаси ---- #}
-<section class="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-  <div class="flex flex-wrap items-start gap-3">
-    <div class="min-w-0 flex-1">
-      <div class="text-xs font-medium uppercase tracking-wide text-slate-400">Ресурс паспорти</div>
-      <h2 class="mt-0.5 break-words text-lg font-semibold text-slate-900">{{ it.name }}</h2>
-      <div class="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-        <span>Бирлиги: <b>{{ it.unit }}</b></span>
+<style>
+  .pp-step { display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 9999px; background: #0f172a; color: #fff; font-size: .8rem; font-weight: 700; flex-shrink: 0; }
+  .pp-h { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+  .pp-h h2 { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+  .pp-h p { flex-basis: 100%; margin-left: 2.2rem; font-size: .85rem; color: #64748b; }
+  .pp-answer { border: 1px solid #a7f3d0; background: linear-gradient(180deg, #f0fdf4, #fff); border-radius: .9rem; padding: 1rem 1.1rem; }
+  .pp-big { font-size: 2rem; line-height: 1.1; font-weight: 700; color: #0f172a; letter-spacing: -.01em; }
+  .pp-lv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; }
+  .pp-lv div { border: 1px solid #e2e8f0; border-radius: .6rem; padding: .45rem .6rem; background: #fff; }
+  .pp-lv div.on { border-color: #059669; box-shadow: 0 0 0 1px #059669; background: #ecfdf5; }
+  .pp-lv small { display: block; font-size: .7rem; color: #64748b; }
+  .pp-lv b { font-size: .95rem; color: #0f172a; }
+  .pp-ex { border-radius: .6rem; background: #f8fafc; padding: .55rem .75rem; font-size: .82rem; color: #475569; }
+  .pp-src { border: 1px solid #e2e8f0; border-radius: .9rem; padding: .9rem 1rem; background: #fff; }
+  .pp-src.dim { background: #f8fafc; }
+  .pp-src.dim .pp-srcprice { color: #94a3b8; text-decoration: line-through; }
+  .pp-srcprice { font-size: 1.35rem; font-weight: 700; color: #0f172a; line-height: 1.15; }
+  .pp-meta { display: flex; flex-wrap: wrap; gap: .35rem .9rem; font-size: .8rem; color: #475569; }
+  .pp-meta span { display: inline-flex; align-items: center; gap: .3rem; }
+  .pp-meta svg { width: .9rem; height: .9rem; color: #94a3b8; }
+  .pp-state { border-radius: .6rem; padding: .45rem .7rem; font-size: .8rem; }
+  .pp-state.ok { background: #ecfdf5; color: #065f46; }
+  .pp-state.warn { background: #fffbeb; color: #92400e; }
+  .pp-state.off { background: #f1f5f9; color: #475569; }
+  .pp-more > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: .6rem; padding: .85rem 1.1rem; }
+  .pp-more > summary::-webkit-details-marker { display: none; }
+  .pp-more[open] > summary .pp-chev { transform: rotate(180deg); }
+  .pp-chev { margin-left: auto; transition: transform .15s; color: #94a3b8; }
+  .pp-count { border-radius: 9999px; background: #f1f5f9; padding: 0 .5rem; font-size: .75rem; font-weight: 600; color: #475569; }
+</style>
+
+<a href="{% url 'panel:narx' %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-4 w-4" %} Ресурслар рўйхати</a>
+
+{# ================= сарлавҳа ================= #}
+<section class="pp-card mb-4 p-5">
+  <div class="flex flex-wrap items-start gap-4">
+    <div class="min-w-0 flex-1" style="flex-basis:22rem">
+      <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Ресурс паспорти</div>
+      <h2 class="mt-1 break-words text-xl font-semibold leading-snug text-slate-900">{{ it.name }}</h2>
+      <div class="mt-2 flex flex-wrap items-center gap-1.5">
+        <span class="pp-chip">Бирлиги: <b class="text-slate-800">{{ it.unit }}</b></span>
         {% include "panel/_narx_cat.html" with c=it.category label=it.get_category_display %}
-        {% if it.edited %}<span class="text-xs text-emerald-700">✓ админ тузатган</span>{% endif %}
-        <span class="text-xs text-slate-400">· базада {{ it.created|date:"d.m.Y" }} дан · {{ prices|length }} та нарх, {{ n_live }} таси ҳисобда</span>
+        {% if it.edited %}<span class="pp-chip" style="background:#ecfdf5;color:#047857">✓ админ тузатган</span>{% endif %}
       </div>
-      {% if variants %}<details class="mt-2 text-xs text-slate-500"><summary class="cursor-pointer">Файлларда бошқача ёзилган: {{ variants|length }} та</summary>
-        <ul class="mt-1 list-disc pl-5">{% for n, u in variants %}<li>{{ n }} <span class="text-slate-400">({{ u }})</span></li>{% endfor %}</ul></details>{% endif %}
     </div>
     {% if can_act %}
-    <form method="post" action="{% url 'panel:narx_item_edit' it.pk %}" class="flex flex-wrap items-end gap-2">{% csrf_token %}
-      <label class="text-xs text-slate-500">Номи<input name="name" value="{{ it.name }}" maxlength="500" class="mt-0.5 block w-64 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900"></label>
-      <label class="text-xs text-slate-500">Тоифаси<select name="category" class="mt-0.5 block rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900">{% for k, label in categories %}<option value="{{ k }}" {% if it.category == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-      <button class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">Сақлаш</button>
-    </form>
-    <form method="post" action="{% url 'panel:narx_item_delete' it.pk %}" class="self-end" data-confirm="«{{ it.name|truncatechars:60 }}» ва унинг {{ prices|length }} та нархи базадан бутунлай ўчирилсинми? Буни қайтариб бўлмайди." data-danger>{% csrf_token %}
-      <button class="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-50" title="Ресурсни ва ҳамма нархларини ўчириш">{% icon "trash" "h-4 w-4" %} Ўчириш</button></form>
+    <div class="flex flex-wrap items-center gap-2">
+      <button type="button" class="pb" data-modal="narx-edit-item" title="Номи ва тоифасини ўзгартириш">{% icon "pencil" "h-4 w-4" %} Таҳрирлаш</button>
+      <button type="button" class="pb primary" data-modal="narx-add" title="Қўлда янги нарх киритиш">{% icon "plus" "h-4 w-4" %} Нарх қўшиш</button>
+      <form method="post" action="{% url 'panel:narx_item_delete' it.pk %}" data-confirm="«{{ it.name|truncatechars:60 }}» саватчага ташлансинми? Унинг {{ prices|length }} та нархи ҳисобдан чиқади. Саватчадан қайта тиклаш мумкин." data-danger>{% csrf_token %}
+        <button class="pb danger" title="Саватчага — кейин тиклаш мумкин">{% icon "trash" "h-4 w-4" %} Саватчага</button></form>
+    </div>
     {% endif %}
   </div>
+</section>
 
-  {# ---- вилоят × йил: 3 нарх ---- #}
-  {% if stats %}
-  <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-    {% for s in stats %}
-    <div class="rounded-lg border border-slate-200 p-3">
-      <div class="flex items-baseline justify-between gap-2 text-sm"><b class="text-slate-800">{{ region_labels|get_item:s.region }}</b><span class="num text-slate-500">{{ s.year }}</span></div>
-      {% if s.single %}
-      <div class="mt-2 text-center"><div class="text-[11px] text-slate-500">битта нарх</div><div class="num text-lg font-semibold">{{ s.mid|som }}</div></div>
-      {% else %}
-      <div class="mt-2 grid grid-cols-3 text-center">
-        <div><div class="text-[11px] text-emerald-700">паст</div><div class="num font-medium text-emerald-800">{{ s.low|som }}</div></div>
-        <div class="border-x border-slate-100"><div class="text-[11px] text-slate-500">ўрта</div><div class="num text-lg font-semibold">{% if s.mid is not None %}{{ s.mid|som }}{% else %}<span class="text-slate-400" title="Иккита нарх — ўртаси йўқ">—</span>{% endif %}</div></div>
-        <div><div class="text-[11px] text-rose-700">юқори</div><div class="num font-medium text-rose-800">{{ s.high|som }}</div></div>
+{# ================= 1. нархлашда қайси нарх олинади ================= #}
+<section class="pp-card mb-4 p-5">
+  <div class="pp-h"><span class="pp-step">1</span><h2>Сметада шу нарх олинади</h2>
+    <p>Нарх — <b>1 {{ it.unit }}</b> учун. Смета нархланганда шу нарх сметадаги миқдорга кўпайтирилади.</p></div>
+
+  {% if dyn.latest %}
+  <div class="mt-4 grid gap-3 lg:grid-cols-2">
+    {% for s in dyn.latest %}
+    <div class="pp-answer">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <span class="text-sm text-slate-600">Смета <b class="text-slate-900">{{ region_labels|get_item:s.region }}</b>, <b class="text-slate-900">{{ s.year }}</b> йил бўлса:</span>
       </div>
+      <div class="mt-2 flex flex-wrap items-baseline gap-x-2">
+        <span class="pp-big num">{{ s.pick|som }}</span><span class="text-sm text-slate-500">сўм / 1 {{ it.unit }}</span>
+      </div>
+
+      {% if s.single %}
+      <div class="mt-3 text-sm text-slate-600">Ҳозирча <b>битта нарх</b> бор — паст, ўрта ва юқори бир хил.</div>
+      {% else %}
+      <div class="pp-lv mt-3">
+        <div class="{% if s.pick_level == 'low' %}on{% endif %}"><small>Паст (энг арзони)</small><b class="num">{{ s.low|som }}</b></div>
+        <div class="{% if s.pick_level == 'mid' %}on{% endif %}"><small>Ўрта (энг кўп учрагани)</small><b class="num">{% if s.mid is not None %}{{ s.mid|som }}{% else %}—{% endif %}</b></div>
+        <div class="{% if s.pick_level == 'high' %}on{% endif %}"><small>Юқори (энг қиммати)</small><b class="num">{{ s.high|som }}</b></div>
+      </div>
+      <div class="mt-1.5 text-xs text-slate-500">Яшил — смета­чи танламаса олинадигани ({{ level_label|lower }}). Смета­чи юклашда бошқасини танлаши мумкин.</div>
       {% endif %}
-      <div class="mt-2 text-[11px] text-slate-400">{{ s.n }} та нархдан · охиргиси {{ s.last_date|date:"d.m.Y" }}</div>
+
+      <div class="pp-ex mt-3">Мисол: сметада <b>10 {{ it.unit }}</b> бўлса → 10 × {{ s.pick|som }} = <b class="num text-slate-900">{{ s.example|som }} сўм</b></div>
+      <div class="mt-2 text-xs text-slate-500">{{ s.n }} та нархдан ҳисобланди · 0,1% гача фарқли нархлар бир нарх саналади · охиргиси {{ s.last_date|date:"d.m.Y" }}</div>
     </div>
     {% endfor %}
   </div>
-  {% else %}<p class="mt-4 text-sm text-slate-500">Ҳисобга кирадиган нарх йўқ.</p>{% endif %}
+  {% else %}
+  <div class="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">Ҳисобга кирадиган нарх йўқ — сметада бу ресурс <b>базадан нархланмайди</b>.{% if prices %} Пастдаги нархлар ҳаммаси ҳисобдан чиқарилган ёки четда.{% endif %}</div>
+  {% endif %}
+
+  {% if dyn.rows %}
+  <details class="mt-4 rounded-xl border border-slate-200">
+    <summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-slate-700">Йиллар бўйича ўзгариши</summary>
+    <div class="overflow-x-auto border-t border-slate-100"><table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-3 py-2 text-left font-medium">Вилоят</th>{% for y in dyn.years %}<th class="num px-3 py-2 text-right font-medium">{{ y }}</th>{% endfor %}<th class="px-3 py-2 font-medium"><span class="sr-only">график</span></th></tr></thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for r in dyn.rows %}
+        <tr>
+          <td class="whitespace-nowrap px-3 py-2 text-slate-700">{{ r.label }}</td>
+          {% for c in r.cells %}
+          <td class="num whitespace-nowrap px-3 py-2 text-right" {% if c.s %}title="паст {{ c.s.low|som }} · юқори {{ c.s.high|som }} · {{ c.s.n }} та нархдан"{% endif %}>
+            {% if c.s %}<span class="font-medium text-slate-900">{% if c.s.mid is not None %}{{ c.s.mid|som }}{% else %}{{ c.s.low|som }}{% endif %}</span>
+              {% if c.change is not None %}<div class="text-[11px] {% if c.change > 0 %}text-rose-700{% elif c.change < 0 %}text-emerald-700{% else %}text-slate-400{% endif %}">{% if c.change > 0 %}+{% endif %}{{ c.change }}% олдинги йилга</div>{% endif %}
+            {% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+          {% endfor %}
+          <td class="px-3 py-2">{% if r.spark %}<svg width="96" height="24" viewBox="0 0 96 24" aria-hidden="true"><polyline points="{{ r.spark }}" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </details>
+  {% endif %}
 </section>
 
-<div>
-{# ---- тарих ---- #}
-<section class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-  <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
-    <h2 class="mr-auto font-semibold">Нархлар тарихи <span class="text-sm font-normal text-slate-500">— ҳар бири қаердан келган</span></h2>
-    {% if can_act %}<button type="button" data-modal="narx-add" class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700">{% icon "plus" "h-4 w-4" %} Қўлда нарх қўшиш</button>{% endif %}
-  </div>
-  <div class="overflow-x-auto"><table class="w-full text-sm">
-    <thead class="bg-slate-50 text-left text-xs text-slate-500">
-      <tr><th class="px-4 py-2 font-medium">Сана</th><th class="px-3 py-2 text-right font-medium" title="1 бирлик нархи">Бирлик нархи, сўм / {{ it.unit }}</th><th class="px-3 py-2 text-right font-medium" title="Ўша сметада шу ресурс қанча бўлган — фақат маълумот учун">Сони (ўша сметада)</th>
-        <th class="px-3 py-2 font-medium">Вилоят</th><th class="px-3 py-2 font-medium">Қаердан</th><th class="px-3 py-2 font-medium">Ҳолати</th></tr>
-    </thead>
-    <tbody class="divide-y divide-slate-100">
-      {% for p in prices %}
-      <tr class="align-top {% if p.excluded or p.outlier %}bg-slate-50 text-slate-400{% endif %}">
-        <td class="num whitespace-nowrap px-4 py-2.5">{{ p.date|date:"d.m.Y" }}</td>
-        <td class="num whitespace-nowrap px-3 py-2.5 text-right font-semibold {% if p.excluded or p.outlier %}line-through{% else %}text-slate-900{% endif %}">{{ p.price|som }}</td>
-        <td class="num whitespace-nowrap px-3 py-2.5 text-right">{% if p.qty %}{{ p.qty|qty }}{% else %}—{% endif %}</td>
-        <td class="whitespace-nowrap px-3 py-2.5 text-xs">{{ p.get_region_display }}</td>
-        <td class="max-w-sm px-3 py-2.5 text-xs">
-          {% if p.batch.kind == "manual" %}
-            <span class="rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-800">қўлда киритилган</span>
-            <span class="text-slate-600">{{ p.batch.added_by.get_full_name|default:"—" }}</span>{% if p.note %}<div class="mt-0.5 text-slate-500">{{ p.note }}</div>{% endif %}
+{# ================= 2. нарх қаердан келган ================= #}
+<section class="pp-card mb-4 p-5">
+  <div class="pp-h"><span class="pp-step">2</span><h2>Бу нарх қаердан олинган</h2><span class="pp-count">{{ prices|length }} та</span>
+    <p>Базага тушган ҳар бир нарх. Юқоридаги нарх фақат <b>«ҳисобга киради»</b> деганларидан ҳисобланади.</p></div>
+
+  <ul class="mt-4 space-y-3">
+    {% for p in prices %}
+    <li class="pp-src {% if p.excluded or p.outlier %}dim{% endif %}">
+      <div class="flex flex-wrap items-start gap-3">
+        <div class="min-w-0 flex-1" style="flex-basis:16rem">
+          <div class="flex flex-wrap items-baseline gap-x-2">
+            <span class="pp-srcprice num">{{ p.price|som }}</span><span class="text-sm text-slate-500">сўм / 1 {{ it.unit }}</span>
+            {% if p.excluded or p.outlier %}<span class="pp-badge off">ҳисобга кирмайди</span>{% else %}<span class="pp-badge ok">ҳисобга киради</span>{% endif %}
+            {% if p.edited %}<span class="rounded bg-sky-100 px-1.5 text-[11px] font-semibold text-sky-800" title="Админ тузатган — пастда «Ўзгаришлар тарихи»">тузатилган</span>{% endif %}
+          </div>
+          <div class="pp-meta mt-2">
+            <span title="Нарх санаси">{% icon "clock" %} {{ p.date|date:"d.m.Y" }}</span>
+            <span title="Вилоят">{% icon "building" %} {{ p.get_region_display }}</span>
+            {% if p.batch.kind == "manual" %}
+              <span>{% icon "user" %} қўлда киритди: {{ p.batch.added_by.get_full_name|default:"—" }}</span>
+            {% else %}
+              <span>{% icon "user" %} {% if p.batch.kind == "file" %}юклади{% else %}смета­чи{% endif %}: {{ p.batch.owner.get_full_name|default:"—" }}</span>
+            {% endif %}
+          </div>
+        </div>
+        {% if can_act %}
+        <div class="flex flex-wrap gap-1.5">
+          <button type="button" class="pb sm" data-edit-price title="Нарх, миқдори, вилоят ёки санани тузатиш"
+            data-url="{% url 'panel:narx_price_edit' p.pk %}" data-price="{{ p.price|stringformat:'s' }}" data-qty="{% if p.qty is not None %}{{ p.qty|stringformat:'s' }}{% endif %}"
+            data-region="{{ p.region }}" data-date="{{ p.date|date:'Y-m-d' }}" data-label="{{ p.date|date:'d.m.Y' }}, {{ p.get_region_display }}, {{ p.price|som }} сўм">{% icon "pencil" %} Тузатиш</button>
+          {% if p.excluded %}
+          <form method="post" action="{% url 'panel:narx_price' p.pk 'include' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="pb sm" title="Нарх яна паст / ўрта / юқорига киради">{% icon "undo" %} Ҳисобга қайтариш</button></form>
           {% else %}
-            <a href="{% url 'panel:narx_batch' p.batch_id %}" class="font-medium text-sky-700 hover:underline">{{ p.batch.get_kind_display }}: {{ p.batch.title|truncatechars:60 }}</a>
-            {% for pl in p.places|slice:":3" %}<div class="mt-0.5 text-slate-500">{% icon "file" "inline h-3 w-3" %} {{ pl.file|truncatechars:50 }}{% if pl.sheet %} · «{{ pl.sheet|truncatechars:20 }}» листи{% endif %}{% if pl.row %}, {{ pl.row }}-қатор{% endif %}</div>{% endfor %}
-            {% if p.places|length > 3 %}<div class="text-slate-400">ва яна {{ p.places|length|add:"-3" }} та файл</div>{% endif %}
-            {% if p.batch.file_path %}<a href="{% url 'panel:narx_batch_file' p.batch_id %}" class="mt-0.5 inline-flex items-center gap-1 text-sky-700 hover:underline">{% icon "download" "h-3 w-3" %} асл файл</a>{% endif %}
-            <div class="mt-0.5 text-slate-400">{% if p.batch.kind == "file" %}юклади{% else %}смета­чи{% endif %}: {{ p.batch.owner.get_full_name|default:"—" }} · тасдиқлади: {{ p.batch.added_by.get_full_name|default:"—" }}</div>
-            {% if p.name != it.name %}<div class="mt-0.5 text-slate-400">файлда: «{{ p.name|truncatechars:70 }}»</div>{% endif %}
+          <button type="button" class="pb sm danger" data-exclude-price data-url="{% url 'panel:narx_price' p.pk 'exclude' %}" data-label="{{ p.date|date:'d.m.Y' }}, {{ p.get_region_display }}, {{ p.price|som }} сўм"
+            title="Нарх паспортда қолади, лекин паст / ўрта / юқорига кирмайди">{% icon "minus" %} Ҳисобдан чиқариш</button>
           {% endif %}
-        </td>
-        <td class="whitespace-nowrap px-3 py-2.5 text-xs">
-          {% if p.excluded %}<span class="text-rose-700">истисно</span>{% if p.note and p.batch.kind != "manual" %}<div class="text-slate-500">{{ p.note }}</div>{% endif %}
-          {% elif p.outlier %}<span class="text-amber-700" title="Шу вилоят ва йилдаги бошқа нархлардан 3 баробар фарқ қилади">четда</span>
-          {% else %}<span class="text-emerald-700">ҳисобда</span>{% endif %}
-          {% if can_act %}
-          <form method="post" action="{% url 'panel:narx_price' p.pk p.excluded|yesno:'include,exclude' %}" class="mt-1">{% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <button class="rounded border border-slate-300 px-1.5 py-0.5 text-[11px] text-slate-600 hover:bg-slate-100">{% if p.excluded %}қайтариш{% else %}истисно қилиш{% endif %}</button></form>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if p.excluded %}<div class="pp-state off mt-3"><b>Ҳисобга кирмайди</b> — админ ҳисобдан чиқарган.{% if p.note and p.batch.kind != "manual" %} Сабаби: {{ p.note }}{% endif %}</div>
+      {% elif p.outlier %}<div class="pp-state warn mt-3"><b>Ҳисобга кирмайди</b> — шу вилоят ва йилдаги бошқа нархлардан 3 баробардан кўп фарқ қилади. Тўғри бўлса — «Тузатиш» эмас, бошқа нархлар хато бўлиши мумкин.</div>
+      {% endif %}
+
+      <div class="mt-3 border-t border-slate-100 pt-3 text-sm">
+        {% if p.batch.kind == "manual" %}
+          <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800">қўлда киритилган</span>
+          {% if p.note %}<span class="ml-1 text-slate-600">{{ p.note }}</span>{% endif %}
+        {% else %}
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <a href="{% url 'panel:narx_batch' p.batch_id %}" class="inline-flex items-center gap-1 font-medium text-sky-700 hover:underline">{% icon "folder" "h-4 w-4" %} {{ p.batch.get_kind_display }}: {{ p.batch.title|truncatechars:70 }}</a>
+            {% if p.batch.file_path %}<a href="{% url 'panel:narx_batch_file' p.batch_id %}" class="inline-flex items-center gap-1 text-xs text-sky-700 hover:underline">{% icon "download" "h-3.5 w-3.5" %} асл файл</a>{% endif %}
+          </div>
+          {% if p.qty %}<div class="mt-1 text-xs text-slate-500">Шу сметаларда жами <b class="num text-slate-700">{{ p.qty|qty }} {{ it.unit }}</b> ишлатилган — маълумот учун, нархга таъсир қилмайди.</div>{% endif %}
+          {% if p.name != it.name %}<div class="mt-1 text-xs text-slate-500">Файлда шундай ёзилган: «{{ p.name|truncatechars:90 }}»</div>{% endif %}
+          {% if p.places %}
+          <details class="mt-1.5 text-xs text-slate-500">
+            <summary class="cursor-pointer hover:text-slate-700">{{ p.n_files }} та файлда учради — кўриш</summary>
+            <ul class="mt-1.5 space-y-0.5 pl-1">
+              {% for pl in p.places %}<li class="flex items-start gap-1">{% icon "file" "mt-0.5 h-3 w-3 shrink-0" %}<span>{{ pl.file|truncatechars:70 }}{% if pl.sheet %} · «{{ pl.sheet|truncatechars:20 }}» листи{% endif %}{% if pl.row %}, {{ pl.row }}-қатор{% endif %}</span></li>{% endfor %}
+            </ul>
+            <div class="mt-1 text-slate-400">Тасдиқлади: {{ p.batch.added_by.get_full_name|default:"—" }}</div>
+          </details>
           {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table></div>
+        {% endif %}
+      </div>
+    </li>
+    {% empty %}
+    <li class="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">Ҳали нарх йўқ.</li>
+    {% endfor %}
+  </ul>
 </section>
 
-</div>
+{# ================= 3. қўшимча ================= #}
+<div class="mb-2 mt-6 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Қўшимча</div>
+
+{% if aliases or variants %}
+<details class="pp-card pp-more mb-3">
+  <summary><span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-600">{% icon "tag" "h-4 w-4" %}</span>
+    <span class="font-semibold text-slate-900">Бошқа номлари</span><span class="pp-count">{{ n_names }}</span>
+    <span class="hidden text-sm text-slate-500 sm:inline">— шу номлар билан келган нарх ҳам шу ресурсга тушади</span>
+    {% icon "chevron-down" "pp-chev h-5 w-5" %}</summary>
+  <div class="space-y-3 border-t border-slate-100 px-5 py-3 text-sm">
+    {% if aliases %}
+    <div class="flex flex-wrap items-center gap-1.5">
+      {% for a in aliases %}<span class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 py-0.5 pl-2.5 pr-1 text-xs text-slate-700">{{ a.name|truncatechars:70 }} <span class="text-slate-400">({{ a.unit }})</span>
+        {% if can_act %}<form method="post" action="{% url 'panel:narx_alias_delete' it.pk a.pk %}" class="inline" data-confirm="«{{ a.name|truncatechars:60 }}» бошқа номлардан олиб ташлансинми? Шу ном билан келадиган янги нархлар алоҳида ресурс бўлади; аввал қўшилганлари шу ерда қолади.">{% csrf_token %}<button class="grid h-5 w-5 place-items-center rounded-full text-slate-400 hover:bg-rose-100 hover:text-rose-700" title="Олиб ташлаш" aria-label="Олиб ташлаш">{% icon "x" "h-3 w-3" %}</button></form>{% endif %}</span>{% endfor %}
+    </div>
+    {% endif %}
+    {% if variants %}<div class="text-xs text-slate-500"><div class="mb-1">Файлларда бошқача ёзилган (ҳарфлари фарқли):</div>
+      <ul class="list-disc pl-5">{% for n, u in variants %}<li>{{ n }} <span class="text-slate-400">({{ u }})</span></li>{% endfor %}</ul></div>{% endif %}
+  </div>
+</details>
+{% endif %}
+
+{% if can_act %}
+<details id="merge" class="pp-card pp-more mb-3" {% if mq %}open{% endif %}>
+  <summary><span class="grid h-8 w-8 place-items-center rounded-lg bg-violet-50 text-violet-600">{% icon "layers" "h-4 w-4" %}</span>
+    <span class="font-semibold text-slate-900">Бирлаштириш</span>
+    {% if similar and not mq %}<span class="rounded-full bg-violet-100 px-2 text-xs font-semibold text-violet-800">{{ similar|length }} та ўхшаш</span>{% endif %}
+    <span class="hidden text-sm text-slate-500 sm:inline">— бир ресурс икки хил ёзилган бўлса</span>
+    {% icon "chevron-down" "pp-chev h-5 w-5" %}</summary>
+  <div class="border-t border-slate-100 px-5 py-3">
+    <p class="text-xs text-slate-500">Танланган ресурснинг ҳамма нархлари шу ресурсга ўтади, унинг номи «бошқа номи» бўлиб қолади. Фақат бирлиги бир хил (<b>{{ it.unit }}</b>) ресурслар.</p>
+    <form method="get" action="#merge" class="mt-2 flex flex-wrap gap-2">
+      <label class="relative block w-80 max-w-full">{% icon "search" "pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" %}
+        <input name="mq" value="{{ mq }}" placeholder="Номи бўйича қидириш…" class="h-9 w-full rounded-lg border border-slate-300 pl-8 pr-2 text-sm"></label>
+      <button class="pb">Қидириш</button>
+      {% if mq %}<a href="?#merge" class="self-center text-sm text-slate-500 hover:underline">ўхшашларини кўрсатиш</a>{% endif %}
+    </form>
+  </div>
+  {% if similar %}
+  <ul class="divide-y divide-slate-100 border-t border-slate-100">
+    {% for c in similar %}
+    <li class="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
+      <div class="min-w-0 flex-1"><a href="{% url 'panel:narx_item' c.pk %}" class="break-words font-medium text-slate-900 hover:underline">{{ c.name }}</a> <span class="text-xs text-slate-400">({{ c.unit }})</span>
+        <div class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">{% include "panel/_narx_cat.html" with c=c.category label=c.get_category_display %} <span>{{ c.n }} та нарх</span>{% if not mq %}<span class="rounded bg-slate-100 px-1.5 font-medium text-slate-600">{{ c.similarity }}% ўхшаш</span>{% endif %}</div>
+        {% if c.digits_differ %}<div class="mt-1 text-xs text-amber-700">⚠ Номидаги рақамлар фарқ қилади (ўлчами, маркаси…) — бошқа ресурс бўлиши мумкин</div>{% endif %}</div>
+      <form method="post" action="{% url 'panel:narx_item_merge' it.pk %}" data-confirm="«{{ c.name|truncatechars:60 }}» нинг {{ c.n }} та нархи «{{ it.name|truncatechars:60 }}» га ўтсинми? «{{ c.name|truncatechars:60 }}» алоҳида ресурс бўлиб қолмайди — номи шу ресурснинг «бошқа номи» бўлади.">{% csrf_token %}
+        <input type="hidden" name="source" value="{{ c.pk }}">
+        <button class="pb sm">{% icon "layers" %} Шу ресурсга қўшиш</button></form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="border-t border-slate-100 px-5 py-3 text-sm text-slate-500">{% if mq %}«{{ mq }}» бўйича шу бирликда ресурс топилмади.{% else %}Ўхшаш номли ресурс топилмади — номи бўйича қидириб кўринг.{% endif %}</p>{% endif %}
+</details>
+{% endif %}
+
+<details class="pp-card pp-more mb-3">
+  <summary><span class="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-600">{% icon "clock" "h-4 w-4" %}</span>
+    <span class="font-semibold text-slate-900">Ўзгаришлар тарихи</span><span class="pp-count">{{ logs|length }}</span>
+    <span class="hidden text-sm text-slate-500 sm:inline">— ким, қачон, нимани ўзгартирди</span>
+    {% icon "chevron-down" "pp-chev h-5 w-5" %}</summary>
+  {% if logs %}
+  <ol class="pp-tl space-y-3 border-t border-slate-100 px-5 py-4 text-sm">
+    {% for g in logs %}
+    <li class="a-{{ g.action }}">
+      <div class="flex flex-wrap items-baseline gap-x-2"><b class="font-medium text-slate-900">{{ g.get_action_display }}</b>
+        <span class="text-xs text-slate-400">{{ g.created|date:"d.m.Y H:i" }} · {{ g.user.get_full_name|default:"—" }}</span></div>
+      {% if g.detail %}<div class="mt-0.5 text-slate-600">{{ g.detail }}</div>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}<p class="border-t border-slate-100 px-5 py-4 text-sm text-slate-500">Ҳали ўзгартирилмаган. Ресурснинг номи, нархи ёки ҳолати ўзгарса, шу ерда ёзилади.</p>{% endif %}
+  <div class="border-t border-slate-100 px-5 py-2.5 text-xs text-slate-400">Базага {{ it.created|date:"d.m.Y" }} да қўшилган.</div>
+</details>
+
+{% if can_act %}
+{# ---- ойналар: ресурсни таҳрирлаш, нархни тузатиш, ҳисобдан чиқариш ---- #}
+<dialog id="narx-edit-item" class="nx-modal" aria-labelledby="narx-edit-item-t">
+  <form method="post" action="{% url 'panel:narx_item_edit' it.pk %}">{% csrf_token %}
+    <div class="hd">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">{% icon "pencil" "h-5 w-5" %}</span>
+      <div class="min-w-0 flex-1"><h2 id="narx-edit-item-t" class="font-semibold text-slate-900">Ресурсни таҳрирлаш</h2>
+        <p class="text-xs text-slate-500">Номи ўзгарса, эски номи «бошқа номи» бўлиб қолади — шу ном билан келадиган нархлар ҳам шу ресурсга тушади.</p></div>
+      <button type="button" data-close class="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Ёпиш">{% icon "x" "h-5 w-5" %}</button>
+    </div>
+    <div class="bd space-y-3">
+      <label class="block"><span>Номи</span><input name="name" value="{{ it.name }}" required maxlength="500"></label>
+      <div class="grid2">
+        <label class="block"><span>Тоифаси</span><select name="category">{% for k, label in categories %}<option value="{{ k }}" {% if it.category == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        <label class="block"><span>Бирлиги <small class="text-slate-400">(ўзгармайди)</small></span><input value="{{ it.unit }}" disabled class="bg-slate-50 text-slate-500"></label>
+      </div>
+    </div>
+    <div class="ft">
+      <button type="button" data-close class="pb">Бекор</button>
+      <button class="pb primary">Сақлаш</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="narx-edit-price" class="nx-modal" aria-labelledby="narx-edit-price-t">
+  <form method="post" action="">{% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <div class="hd">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sky-50 text-sky-600">{% icon "pencil" "h-5 w-5" %}</span>
+      <div class="min-w-0 flex-1"><h2 id="narx-edit-price-t" class="font-semibold text-slate-900">Нархни тузатиш</h2>
+        <p class="text-xs text-slate-500"><span data-f="label"></span> · Эски қиймат ва сабаби «Ўзгаришлар тарихи» да сақланади, паст / ўрта / юқори қайта ҳисобланади.</p></div>
+      <button type="button" data-close class="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Ёпиш">{% icon "x" "h-5 w-5" %}</button>
+    </div>
+    <div class="bd space-y-3">
+      <div class="grid2">
+        <label class="block"><span>Бирлик нархи, сўм / {{ it.unit }}</span><input name="price" required inputmode="decimal" class="num"></label>
+        <label class="block"><span>Жами миқдори <small class="text-slate-400">(маълумот учун, нархга таъсир қилмайди)</small></span><input name="qty" inputmode="decimal" class="num"></label>
+        <label class="block"><span>Вилоят</span><select name="region" required>{% for k, label in regions %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></label>
+        <label class="block"><span>Сана</span><input type="date" name="date" required max="{{ today|date:'Y-m-d' }}"></label>
+      </div>
+      <label class="block"><span>Нега тузатилмоқда <small class="text-rose-600">*</small></span><input name="reason" required maxlength="300" placeholder="масалан: битта нол ортиқча ёзилган"></label>
+    </div>
+    <div class="ft">
+      <button type="button" data-close class="pb">Бекор</button>
+      <button class="pb primary">Сақлаш</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="narx-exclude" class="nx-modal" aria-labelledby="narx-exclude-t">
+  <form method="post" action="">{% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <div class="hd">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-600">{% icon "minus" "h-5 w-5" %}</span>
+      <div class="min-w-0 flex-1"><h2 id="narx-exclude-t" class="font-semibold text-slate-900">Нархни ҳисобдан чиқариш</h2>
+        <p class="text-xs text-slate-500"><span data-f="label"></span> · Нарх ўчмайди — паспортда қолади, лекин паст / ўрта / юқорига кирмайди. Кейин «Ҳисобга қайтариш» мумкин.</p></div>
+      <button type="button" data-close class="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Ёпиш">{% icon "x" "h-5 w-5" %}</button>
+    </div>
+    <div class="bd">
+      <label class="block"><span>Сабаби <small class="text-slate-400">(ихтиёрий — тарихда кўринади)</small></span><input name="note" maxlength="300" placeholder="масалан: бошқа маркадаги материал нархи"></label>
+    </div>
+    <div class="ft">
+      <button type="button" data-close class="pb">Бекор</button>
+      <button class="pb danger">{% icon "minus" "h-4 w-4" %} Ҳисобдан чиқариш</button>
+    </div>
+  </form>
+</dialog>
+<script>
+(function () {
+  const n = v => { const x = parseFloat(v); return isNaN(x) ? "" : String(+x.toFixed(6)); };
+  const ed = document.getElementById("narx-edit-price"), ef = ed.querySelector("form");
+  document.querySelectorAll("[data-edit-price]").forEach(b => b.addEventListener("click", () => {
+    ef.action = b.dataset.url;
+    ef.elements.price.value = n(b.dataset.price); ef.elements.qty.value = n(b.dataset.qty);
+    ef.elements.region.value = b.dataset.region; ef.elements.date.value = b.dataset.date; ef.elements.reason.value = "";
+    ed.querySelector('[data-f="label"]').textContent = b.dataset.label;
+    ed.showModal(); ef.elements.price.focus(); ef.elements.price.select();
+  }));
+  const xd = document.getElementById("narx-exclude"), xf = xd.querySelector("form");
+  document.querySelectorAll("[data-exclude-price]").forEach(b => b.addEventListener("click", () => {
+    xf.action = b.dataset.url; xf.elements.note.value = "";
+    xd.querySelector('[data-f="label"]').textContent = b.dataset.label;
+    xd.showModal(); xf.elements.note.focus();
+  }));
+})();
+</script>
+{% endif %}
 {% include "panel/_narx_modals.html" with default_region=last_region %}
 {% endblock %}

@@ -1,0 +1,63 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Саватча — Нарх базаси{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+{% include "panel/_narx_tabs.html" %}
+<section class="mb-4 flex flex-wrap items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">{% icon "trash" "h-5 w-5" %}</span>
+  <div class="min-w-0 flex-1">
+    <h2 class="font-semibold text-slate-900">Саватча</h2>
+    <p class="text-sm text-slate-500">Ўчирилган ресурслар ва тўпламлар шу ерда туради: уларнинг нархлари ҳисобга кирмайди ва нархлашда ишлатилмайди.
+      <b>Тиклаш</b> — ҳаммаси жойига қайтади. <b>Бутунлай ўчириш</b>ни қайтариб бўлмайди.</p>
+  </div>
+  {% if can_act and items or can_act and batches %}
+  <form method="post" action="{% url 'panel:narx_trash_empty' %}" data-confirm="Саватчадаги {{ items|length }} та ресурс ва {{ batches|length }} та тўплам бутунлай ўчирилсинми? Буни қайтариб бўлмайди." data-danger>{% csrf_token %}
+    <button class="rounded-lg border border-rose-200 px-3 py-1.5 text-sm text-rose-700 hover:bg-rose-50">Саватчани бўшатиш</button></form>
+  {% endif %}
+</section>
+
+<section class="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <h3 class="border-b border-slate-100 px-4 py-3 font-semibold">Ресурслар <span class="text-sm font-normal text-slate-500">{{ items|length }} та</span></h3>
+  {% if items %}
+  <ul class="divide-y divide-slate-100 text-sm">
+    {% for it in items %}
+    <li class="flex flex-wrap items-center gap-3 px-4 py-2.5">
+      <div class="min-w-0 flex-1"><span class="break-words font-medium text-slate-900">{{ it.name }}</span> <span class="text-xs text-slate-400">({{ it.unit }})</span>
+        <div class="text-xs text-slate-500">{% include "panel/_narx_cat.html" with c=it.category label=it.get_category_display %} · {{ it.n }} та нарх · ташлади: {{ it.deleted_by.get_full_name|default:"—" }}, {{ it.deleted_at|date:"d.m.Y H:i" }}</div></div>
+      {% if can_act %}
+      <form method="post" action="{% url 'panel:narx_trash_restore' 'item' it.pk %}">{% csrf_token %}<button class="rounded-lg border border-emerald-300 px-3 py-1 text-sm text-emerald-800 hover:bg-emerald-50">Тиклаш</button></form>
+      <form method="post" action="{% url 'panel:narx_trash_purge' 'item' it.pk %}" data-confirm="«{{ it.name|truncatechars:60 }}» ва унинг {{ it.n }} та нархи бутунлай ўчирилсинми? Буни қайтариб бўлмайди." data-danger>{% csrf_token %}<button class="rounded-lg border border-rose-200 px-3 py-1 text-sm text-rose-700 hover:bg-rose-50">Бутунлай ўчириш</button></form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="px-4 py-4 text-sm text-slate-500">Бўш.</p>{% endif %}
+</section>
+
+<section class="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  <h3 class="border-b border-slate-100 px-4 py-3 font-semibold">Тўпламлар <span class="text-sm font-normal text-slate-500">{{ batches|length }} та</span></h3>
+  {% if batches %}
+  <ul class="divide-y divide-slate-100 text-sm">
+    {% for b in batches %}
+    <li class="flex flex-wrap items-center gap-3 px-4 py-2.5">
+      <div class="min-w-0 flex-1"><span class="break-words font-medium text-slate-900">{{ b.title }}</span>
+        <div class="text-xs text-slate-500">{{ b.get_kind_display }} · {{ b.get_region_display }}, {{ b.date|date:"d.m.Y" }} · {{ b.n }} та нарх · ташлади: {{ b.deleted_by.get_full_name|default:"—" }}, {{ b.deleted_at|date:"d.m.Y H:i" }}</div>
+        {% if b.blocked %}<div class="text-xs text-amber-700">Шу иш базага қайта киритилган — тиклаш учун аввал янгисини саватчага ташланг.</div>{% endif %}</div>
+      {% if can_act %}
+      {% if not b.blocked %}<form method="post" action="{% url 'panel:narx_trash_restore' 'batch' b.pk %}">{% csrf_token %}<button class="rounded-lg border border-emerald-300 px-3 py-1 text-sm text-emerald-800 hover:bg-emerald-50">Тиклаш</button></form>{% endif %}
+      <form method="post" action="{% url 'panel:narx_trash_purge' 'batch' b.pk %}" data-confirm="«{{ b.title|truncatechars:60 }}» нинг {{ b.n }} та нархи бутунлай ўчирилсинми? Нархи қолмаган ресурслар ҳам кетади. Буни қайтариб бўлмайди." data-danger>{% csrf_token %}<button class="rounded-lg border border-rose-200 px-3 py-1 text-sm text-rose-700 hover:bg-rose-50">Бутунлай ўчириш</button></form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="px-4 py-4 text-sm text-slate-500">Бўш.</p>{% endif %}
+</section>
+
+{% if purged %}
+<details class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm">
+  <summary class="cursor-pointer font-semibold">Бутунлай ўчирилганлар <span class="font-normal text-slate-500">(охирги {{ purged|length }} та)</span></summary>
+  <ul class="mt-2 space-y-0.5">{% for g in purged %}<li><span class="num text-xs text-slate-400">{{ g.created|date:"d.m.Y H:i" }}</span> {{ g.title }} <span class="text-xs text-slate-500">— {{ g.detail }} · {{ g.user.get_full_name|default:"—" }}</span></li>{% endfor %}</ul>
+</details>
+{% endif %}
+{% endblock %}

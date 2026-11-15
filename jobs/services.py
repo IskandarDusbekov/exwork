@@ -547,13 +547,17 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
             continue
         t = time.monotonic()
         wb = load_workbook(batch.abs(f["path"]), keep_links=False)
+        # нарх устуни кўпинча формула (масалан =VLOOKUP(...RES...)) — формула эмас, ҳисобланган
+        # қийматни ўқиш керак, акс ҳолда «нархи йўқ» деб нотўғри белгиланади (data_only)
+        wbd = load_workbook(batch.abs(f["path"]), keep_links=False, data_only=True)
         try:
             found = inspect_workbook(wb, i, f["name"], batch.roles, batch.columns)
             for info in found:
-                prices[info.key] = count_prices(wb[info.sheet], info.columns or {})
+                prices[info.key] = count_prices(wbd[info.sheet], info.columns or {})
             infos += found
         finally:
             wb.close()
+            wbd.close()
             if timings is not None:
                 timings[i] = time.monotonic() - t
     apply_roles(infos, batch.roles or {})
@@ -616,9 +620,21 @@ def replace_batch_file(batch: "Batch", i: int, upload) -> "Batch":
         raise UploadError(f"Файлни очиб бўлмади: {e}") from e
     finally:
         save_timings(clock, batch.owner_id, project_id=batch.project_id, batch=batch)
+    new = dict(batch.files[i], name=name, path=str(xlsx.relative_to(batch.dir)), sheets=sheets,
+               orig=str(orig.relative_to(batch.dir)))
+    return _swap_file(batch, i, new, push=True)
+
+
+def _swap_file(batch: "Batch", i: int, new: dict, push: bool) -> "Batch":
+    """``i``-файл ўрнига ``new`` қўйилади ва листлар қайта таҳлил қилинади. ``push`` — эскисини тарихга
+    ёзиш («Ортга қайтариш» учун; эски очилган нусха дискда қолади, қайта очиш шарт эмас)."""
+    cur = batch.files[i]
+    if push:
+        history = list(cur.get("history") or []) + [{k: v for k, v in cur.items() if k != "history"}]
+    else:
+        history = list(new.get("history") or [])
     old = list(batch.files)
-    old[i] = dict(old[i], name=name, path=str(xlsx.relative_to(batch.dir)), sheets=sheets,
-                  orig=str(orig.relative_to(batch.dir)))
+    old[i] = dict(new, history=history[-10:])
     batch.files = old
     prefix = f"{i}:"
     keep = {p["local"]: p for p in batch.pairs if not p["local"].startswith(prefix)}
@@ -639,6 +655,64 @@ def replace_batch_file(batch: "Batch", i: int, upload) -> "Batch":
     batch.status = Batch.Status.REVIEW
     batch.save()
     return batch
+
+
+def can_undo_file(batch: "Batch", i: int) -> bool:
+    return 0 <= i < len(batch.files) and bool(batch.files[i].get("history"))
+
+
+def undo_batch_file(batch: "Batch", i: int) -> str:
+    """Охирги алмаштиришни бекор қилади: файлнинг олдинги нусхаси қайтади. Қайтган файл номи."""
+    if not can_undo_file(batch, i):
+        raise UploadError("Бу файл алмаштирилмаган — қайтариладиган олдинги нусха йўқ")
+    history = list(batch.files[i]["history"])
+    prev = history.pop()
+    if not prev.get("path") or not batch.abs(prev["path"]).is_file():
+        raise UploadError("Олдинги нусха дискда топилмади")
+    prev["history"] = history
+    try:
+        _swap_file(batch, i, prev, push=False)
+    except Exception as e:
+        raise UploadError(f"Файлни қайтариб бўлмади: {e}") from e
+    return prev.get("name", "")
+
+
+def file_jobs(batch: "Batch", i: int) -> list:
+    """``i``-файлдан фойдаланган сметалар: локали шу файл ёки ресурси шу файл."""
+    res_tail = f"conv/{i}.xlsx"
+    return [j for j in batch.jobs.all()
+            if j.batch_file == i or (j.res_path or "").replace("\\", "/").endswith(res_tail)]
+
+
+def refresh_file_jobs(batch: "Batch", i: int):
+    """Файл алмашгач (ёки қайтгач) — фақат шу файлга боғлиқ сметалар янги файл билан қайта ҳисобланади.
+    Смета­чининг қўлда ўзгаришлари (нарх, таклиф, L/M, фоиз) сақланади. ``(янгиланди, лист_йўқ)``."""
+    from . import recalc
+    f = batch.files[i]
+    src = batch.abs(f["path"])
+    names = set(f.get("sheets") or [])
+    done, missing = [], []
+    for job in file_jobs(batch, i):
+        local_here = job.batch_file == i
+        sheet = job.local_sheet if local_here else job.res_sheet
+        if names and sheet not in names:
+            missing.append(job)
+            continue
+        dst = job.abs(f"conv/{i}.xlsx")
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        fields = []
+        if local_here:
+            job.local_path, job.local_sheets = str(dst.relative_to(job.dir)), f.get("sheets") or job.local_sheets
+            fields += ["local_path", "local_sheets"]
+        if not local_here or (job.res_path or "").replace("\\", "/").endswith(f"conv/{i}.xlsx"):
+            job.res_path, job.res_sheets = str(dst.relative_to(job.dir)), f.get("sheets") or job.res_sheets
+            job.res_name = f'{f["name"]} · {job.res_sheet}'
+            fields += ["res_path", "res_sheets", "res_name"]
+        job.save(update_fields=fields)
+        recalc.request(job)
+        done.append(job)
+    return done, missing
 
 
 def count_prices(ws, columns: dict):
