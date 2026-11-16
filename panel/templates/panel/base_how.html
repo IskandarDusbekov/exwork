@@ -10,24 +10,24 @@
   @media (max-width: 1023.98px) { .hw { grid-template-columns: minmax(0, 1fr); } }
   .hw-nav { border: 1px solid var(--ui-line); border-radius: 1rem; background: #fff; padding: .6rem; }
   @media (min-width: 1024px) { .hw-nav { position: sticky; top: 1rem; } }
-  .hw-nav button { display: flex; width: 100%; align-items: center; gap: .65rem; border-radius: .7rem; padding: .55rem .6rem; text-align: left; font-size: .875rem; color: #334155; }
+  .hw-nav button { display: flex; width: 100%; align-items: center; gap: .65rem; border-radius: .7rem; padding: .55rem .6rem; text-align: left; font-size: .875rem; color: rgb(var(--ink-700)); }
   .hw-nav button:hover { background: var(--ui-soft); }
-  .hw-nav button i { display: grid; place-items: center; width: 1.6rem; height: 1.6rem; flex-shrink: 0; border-radius: 9999px; background: #f1f5f9; font-style: normal; font-size: .75rem; font-weight: 700; color: #64748b; }
+  .hw-nav button i { display: grid; place-items: center; width: 1.6rem; height: 1.6rem; flex-shrink: 0; border-radius: 9999px; background: rgb(var(--ink-100)); font-style: normal; font-size: .75rem; font-weight: 700; color: rgb(var(--ink-500)); }
   .hw-nav button.on { background: var(--ui-blue-50); color: var(--ui-blue-d); font-weight: 600; }
   .hw-nav button.on i { background: var(--ui-blue); color: #fff; }
-  .hw-nav button.done i { background: #dcfce7; color: #15803d; }
+  .hw-nav button.done i { background: rgb(var(--ok-100)); color: rgb(var(--ok-700)); }
 
   .hw-card { overflow: hidden; border: 1px solid var(--ui-line); border-radius: 1rem; background: #fff; }
-  .hw-head { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; border-bottom: 1px solid #f1f5f9; padding: 1rem 1.25rem; }
+  .hw-head { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; border-bottom: 1px solid rgb(var(--ink-100)); padding: 1rem 1.25rem; }
   .hw-head h2 { font-size: 1.2rem; font-weight: 700; color: var(--ui-ink); }
   .hw-head .num { border-radius: .5rem; background: var(--ui-blue-50); padding: .1rem .55rem; font-size: .8rem; font-weight: 600; color: var(--ui-blue-d); }
-  .hw-bar { height: 3px; background: #f1f5f9; } .hw-bar span { display: block; height: 100%; background: var(--ui-blue); transition: width .4s; }
-  .hw-stage { position: relative; min-height: 22rem; overflow: hidden; background: linear-gradient(180deg, #f8fafc, #fff); padding: 1.5rem 1.25rem; }
-  .hw-text { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; padding: 1rem 1.25rem; }
+  .hw-bar { height: 3px; background: rgb(var(--ink-100)); } .hw-bar span { display: block; height: 100%; background: var(--ui-blue); transition: width .4s; }
+  .hw-stage { position: relative; min-height: 22rem; overflow: hidden; background: linear-gradient(180deg, rgb(var(--ink-50)), #fff); padding: 1.5rem 1.25rem; }
+  .hw-text { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; border-top: 1px solid rgb(var(--ink-100)); padding: 1rem 1.25rem; }
   @media (max-width: 767.98px) { .hw-text { grid-template-columns: 1fr; } }
   .hw-text h3 { margin-bottom: .3rem; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ui-muted); }
-  .hw-text p { font-size: .9rem; line-height: 1.5; color: #1e293b; }
-  .hw-foot { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; border-top: 1px solid #f1f5f9; padding: .75rem 1.25rem; }
+  .hw-text p { font-size: .9rem; line-height: 1.5; color: rgb(var(--ink-800)); }
+  .hw-foot { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; border-top: 1px solid rgb(var(--ink-100)); padding: .75rem 1.25rem; }
 
   .step { display: none; } .step.on { display: block; }
   /* анимация фақат «.play» бўлганда — қадам очилганда ёки «Қайта кўрсатиш» босилганда */
@@ -42,8 +42,8 @@
   .play .mark-skip { animation: mkSkip .5s forwards; animation-delay: calc(var(--m, 0) * 1s); }
   .play .mark-warn { animation: mkWarn .5s forwards; animation-delay: calc(var(--m, 0) * 1s); }
   .play .mark-work { animation: mkWork .5s forwards; animation-delay: calc(var(--m, 0) * 1s); }
-  @keyframes mkOk { to { background: #dcfce7; } } @keyframes mkWarn { to { background: #fef3c7; } } @keyframes mkWork { to { background: #dbeafe; } }
-  @keyframes mkSkip { to { background: #f8fafc; color: #94a3b8; text-decoration: line-through; } }
+  @keyframes mkOk { to { background: rgb(var(--ok-100)); } } @keyframes mkWarn { to { background: rgb(var(--warn-100)); } } @keyframes mkWork { to { background: rgb(var(--brand-100)); } }
+  @keyframes mkSkip { to { background: rgb(var(--ink-50)); color: rgb(var(--ink-400)); text-decoration: line-through; } }
   /* пайдо бўлиш + ранг — иккала анимация бирга (бири иккинчисини алмаштирмасин) */
   .play .a.mark-ok, .play .a.mark-skip, .play .a.mark-warn, .play .a.mark-work {
     animation-duration: .5s, .5s; animation-fill-mode: forwards, forwards; animation-timing-function: ease, ease;
@@ -55,7 +55,7 @@
   .g2 { display: grid; gap: 1.25rem; } .g3 { display: grid; gap: .75rem; } .gl { display: grid; gap: 1.25rem; } .gm { display: grid; gap: .75rem; }
   @media (min-width: 768px) { .g2 { grid-template-columns: 1fr 1fr; } .g3 { grid-template-columns: repeat(3, 1fr); } }
   @media (min-width: 1024px) { .gl { grid-template-columns: minmax(0, 1.3fr) auto minmax(0, 1fr); } .gm { grid-template-columns: auto auto minmax(0, 1fr); align-items: center; } }
-  .ic-blue { color: var(--ui-blue); } .ic-green { color: #059669; }
+  .ic-blue { color: var(--ui-blue); } .ic-green { color: rgb(var(--ok-600)); }
   .gl > table.xl, .hw-stage > table.xl { display: block; overflow-x: auto; }  /* тор экранда жадвал сиғмаса — суриш */
   .play .shake { animation: hwShake .5s; animation-delay: calc(var(--d, 0) * 1s); }
   @keyframes hwShake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
@@ -65,14 +65,14 @@
 
   /* саҳна элементлари */
   .xl { width: 100%; border-collapse: collapse; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .78rem; background: #fff; }
-  .xl td, .xl th { border: 1px solid #e2e8f0; padding: .35rem .5rem; white-space: nowrap; }
-  .xl th { background: #f1f5f9; font-weight: 600; color: #475569; text-align: left; }
+  .xl td, .xl th { border: 1px solid rgb(var(--ink-200)); padding: .35rem .5rem; white-space: nowrap; }
+  .xl th { background: rgb(var(--ink-100)); font-weight: 600; color: rgb(var(--ink-600)); text-align: left; }
   .why { display: inline-block; margin-left: .4rem; border-radius: .4rem; padding: .05rem .45rem; font-family: ui-sans-serif, system-ui, sans-serif; font-size: .7rem; font-weight: 600; text-decoration: none; }
-  .why.ok { background: #16a34a; color: #fff; } .why.no { background: #94a3b8; color: #fff; } .why.warn { background: #d97706; color: #fff; } .why.work { background: #2563eb; color: #fff; }
+  .why.ok { background: rgb(var(--ok-600)); color: #fff; } .why.no { background: rgb(var(--ink-400)); color: #fff; } .why.warn { background: rgb(var(--warn-600)); color: #fff; } .why.work { background: rgb(var(--brand-600)); color: #fff; }
   .chip { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid var(--ui-line); border-radius: .7rem; background: #fff; padding: .45rem .7rem; font-size: .85rem; box-shadow: 0 1px 2px rgb(15 23 42 / .05); }
   .chip b { font-variant-numeric: tabular-nums; }
-  .box { border: 2px dashed #cbd5e1; border-radius: 1rem; background: #fff; padding: 1rem; }
-  .arrow { display: grid; place-items: center; font-size: 1.6rem; color: #94a3b8; }
+  .box { border: 2px dashed rgb(var(--ink-300)); border-radius: 1rem; background: #fff; padding: 1rem; }
+  .arrow { display: grid; place-items: center; font-size: 1.6rem; color: rgb(var(--ink-400)); }
   .big { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ui-ink); }
   .flow { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .9rem; }
   .lbl { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--ui-muted); }
@@ -106,7 +106,7 @@
             </div>
           </div>
           <div class="arrow a fade" style="--d:3.4">→</div>
-          <div class="box a pop glow" style="--d:3.7;border-style:solid;border-color:#93c5fd;background:#eff6ff;text-align:center">
+          <div class="box a pop glow" style="--d:3.7;border-style:solid;border-color:rgb(var(--brand-300));background:rgb(var(--brand-50));text-align:center">
             <span class="ic-blue" style="display:inline-block">{% icon "database" "h-8 w-8" %}</span><div class="mt-1 font-semibold">Ресурс базаси</div>
             <div class="text-xs text-slate-500">файл шу давр билан сақланади</div>
           </div>
@@ -180,7 +180,7 @@
             <div class="mt-2 grid gap-1 text-xs">
               <span class="chip a" style="--d:5.6">1 · Затраты труда — <b>5,86</b> чел.-ч / 1000 м3</span>
               <span class="chip a" style="--d:6">258 · Бульдозер — <b>3,92</b> маш.-ч / 1000 м3</span>
-              <span class="chip a" style="--d:6.4;background:#fffbeb">+ Песчано-гравийная смесь — 88,2 м3</span>
+              <span class="chip a" style="--d:6.4;background:rgb(var(--warn-50))">+ Песчано-гравийная смесь — 88,2 м3</span>
             </div>
           </div>
         </div>
@@ -197,19 +197,19 @@
         <div class="lbl a" style="--d:.1">Бир код (258) — 5 та файлдан нарх, ҳаммаси Тошкент ш. · 2025-2</div>
         <div class="mt-2 flex flex-wrap gap-2">
           <span class="chip a" style="--d:.4">000258 · <b>207 913</b></span><span class="chip a" style="--d:.7">258 · <b>203 442</b></span>
-          <span class="chip a" style="--d:1">258 С · <b style="color:#be123c">1 500 000</b></span><span class="chip a" style="--d:1.3">258 · <b>205 000</b></span>
+          <span class="chip a" style="--d:1">258 С · <b style="color:rgb(var(--bad-700))">1 500 000</b></span><span class="chip a" style="--d:1.3">258 · <b>205 000</b></span>
           <span class="chip a" style="--d:1.6">258 · <b>204 100</b></span>
         </div>
         <div class="a fade mt-2 text-xs text-slate-500" style="--d:2">000258 = 258 = «258 С» — битта ресурс (код бир хиллаштирилади)</div>
         <div class="lbl a mt-5" style="--d:2.6">Тартибланади (арзонидан қимматига)</div>
         <div class="mt-2 flex flex-wrap items-end gap-2">
           <span class="chip a" style="--d:3">203 442</span><span class="chip a" style="--d:3.2">204 100</span>
-          <span class="chip a pop glow" style="--d:3.6;border-color:#2563eb;background:#eff6ff;font-size:1rem"><b>205 000</b> ← ўртадагиси</span>
-          <span class="chip a" style="--d:3.4">207 913</span><span class="chip a" style="--d:3.5;color:#be123c">1 500 000</span>
+          <span class="chip a pop glow" style="--d:3.6;border-color:rgb(var(--brand-600));background:rgb(var(--brand-50));font-size:1rem"><b>205 000</b> ← ўртадагиси</span>
+          <span class="chip a" style="--d:3.4">207 913</span><span class="chip a" style="--d:3.5;color:rgb(var(--bad-700))">1 500 000</span>
         </div>
         <div class="g2 mt-5" style="gap:.75rem">
-          <div class="box a pop" style="--d:4.6;border-style:solid;border-color:#86efac;background:#f0fdf4"><div class="lbl" style="color:#15803d">Ўрта нарх — смета шу билан нархланади</div><div class="big">205 000</div></div>
-          <div class="box a pop" style="--d:5.4;border-style:solid"><div class="lbl">Оддий ўртача бўлганда</div><div class="big" style="color:#be123c">464 091</div><div class="text-xs text-slate-500">битта хато нарх (1 500 000) ҳаммасини бузарди</div></div>
+          <div class="box a pop" style="--d:4.6;border-style:solid;border-color:rgb(var(--ok-300));background:rgb(var(--ok-50))"><div class="lbl" style="color:rgb(var(--ok-700))">Ўрта нарх — смета шу билан нархланади</div><div class="big">205 000</div></div>
+          <div class="box a pop" style="--d:5.4;border-style:solid"><div class="lbl">Оддий ўртача бўлганда</div><div class="big" style="color:rgb(var(--bad-700))">464 091</div><div class="text-xs text-slate-500">битта хато нарх (1 500 000) ҳаммасини бузарди</div></div>
         </div>
         <div class="a fade mt-3 text-sm" style="--d:6.2">⚠️ 1 500 000 ўртадан 3 баравардан кўп фарқ қилади → <b>«Текширув»</b>га тушади, админ қабул ёки рад қилади.</div>
       </div>
@@ -226,7 +226,7 @@
           <div class="box a pop" style="--d:.2;border-style:solid;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:1.4rem">
             <span class="mark-work" style="--m:1;border-radius:.3rem;padding:0 .15rem">Е01</span><span>01-197-02</span></div>
           <div class="arrow a fade" style="--d:1.5">→</div>
-          <div class="box a pop" style="--d:1.9;border-style:solid;border-color:#93c5fd;background:#eff6ff">
+          <div class="box a pop" style="--d:1.9;border-style:solid;border-color:rgb(var(--brand-300));background:rgb(var(--brand-50))">
             <div class="lbl">Иш тури (тўплам)</div><div class="text-lg font-bold" style="color:var(--ui-blue-d)">Е01 · {{ e01 }}</div>
             <div class="text-xs text-slate-500">номини админ «Нормалар → номлари ✎» да ўзгартира олади</div></div>
         </div>
@@ -235,7 +235,7 @@
           <div class="grid gap-1.5">
             <span class="chip a" style="--d:3.4">bv1010.xls · Затраты труда <b>5,86</b></span>
             <span class="chip a" style="--d:3.8">bv2000.xls · Затраты труда <b>5,86</b></span>
-            <span class="chip a" style="--d:4.2">Смета «КЖ» · Затраты труда <b style="color:#b45309">6,10</b></span>
+            <span class="chip a" style="--d:4.2">Смета «КЖ» · Затраты труда <b style="color:rgb(var(--warn-700))">6,10</b></span>
           </div>
           <div class="arrow a fade" style="--d:4.8">→</div>
           <div class="box a pop" style="--d:5.2;border-style:solid">
@@ -261,7 +261,7 @@
             <div class="lbl">Базада бор</div>
             <div class="chip mt-1">bp1010.xls · 2025-2 · 204 нарх</div>
             <div class="a pop mt-3" style="--d:2.3"><span class="why warn" style="font-size:.85rem;padding:.25rem .6rem">Такрор — сақланмади</span></div>
-            <div class="a mt-2 flex gap-2" style="--d:3"><span class="chip">Ўтказиб юбориш</span><span class="chip" style="background:#d97706;color:#fff;border-color:#d97706">Алмаштириш</span></div>
+            <div class="a mt-2 flex gap-2" style="--d:3"><span class="chip">Ўтказиб юбориш</span><span class="chip" style="background:rgb(var(--warn-600));color:#fff;border-color:rgb(var(--warn-600))">Алмаштириш</span></div>
           </div>
         </div>
         <div class="a fade text-center text-sm text-slate-600" style="--d:3.8">Бошқа даврга юкланса — сақланади, лекин «бу файл 2025-3 га ҳам юкланган» деб эслатилади.</div>
@@ -295,7 +295,7 @@
     </section>
 
     <div class="hw-foot">
-      <button type="button" class="ui-btn-o" style="color:#334155" id="hw-prev">← Олдинги</button>
+      <button type="button" class="ui-btn-o" style="color:rgb(var(--ink-700))" id="hw-prev">← Олдинги</button>
       <button type="button" class="ui-btn-o" id="hw-replay">↻ Қайта кўрсатиш</button>
       <button type="button" class="ui-btn ml-auto" id="hw-next">Кейинги →</button>
     </div>

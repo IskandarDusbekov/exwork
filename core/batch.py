@@ -31,8 +31,8 @@ UNKNOWN = "unknown"
 ROLES = (LOCAL, RESOURCE, UNKNOWN)
 
 TITLE_SCAN_ROWS = 14
-_PRICE_WORDS = ("цена", "стоимост", "базис")
-_QTY_WORDS = ("колич", "кол-во", "кол.", "объем", "объём")
+_PRICE_WORDS = ("цена", "стоимост", "базис", "нарх", "баҳо", "бахо", "narx", "baho")
+_QTY_WORDS = ("колич", "кол-во", "кол.", "объем", "объём", "потреб", "миқдор", "микдор")
 DOTTED_SHARE = 0.3  # 1-ustunda «1.1, 2.3» ulushi shundan ko'p — ish + resurslari (ЛРВ), resurs ro'yxati emas
 DOTTED_SCAN = 300
 
@@ -79,6 +79,12 @@ class SheetInfo:
     columns: dict = field(default_factory=dict)
     manual: bool = False
     headers: dict = field(default_factory=dict)  # ustun -> sarlavha matni / namuna (qo'lda tanlash ro'yxati uchun)
+    # тузилма изи (номларга боғлиқ эмас, ``sheet_fingerprint``): смета­чи созламасини эслаб қолиш ва қўллаш учун
+    fp: str = ""      # аниқ: устун кенгликлари + тепадаги бирлашган катаклар
+    fpl: str = ""     # кенг: фақат устун кенгликлари
+    anchor: int = 0   # «1 2 3 4…» рақамлаш қатори (0 — йўқ): эслаб қолинган биринчи қатор шунга нисбатан
+    memo: str = ""    # эслаб қолинган созлама қўлланди: "fp" (аниқ) / "fpl" (кенг); "" — йўқ
+    recall: dict = field(default_factory=dict)  # шу эслатмадан олинган устунлар (нархлашга ҳам шулар узатилади)
     names: frozenset = field(default_factory=frozenset, repr=False)
 
     @property
@@ -291,11 +297,105 @@ def inspect_sheet(ws, file: int = 0, file_name: str = "", role: Optional[str] = 
 
 
 def inspect_workbook(wb, file: int = 0, file_name: str = "", roles: Optional[dict] = None,
-                     columns: Optional[dict] = None) -> List[SheetInfo]:
-    """``roles`` / ``columns`` — smetachining qo'lda tuzatishlari, kaliti «fayl:list» (``SheetInfo.key``)."""
+                     columns: Optional[dict] = None, recall=None) -> List[SheetInfo]:
+    """``roles`` / ``columns`` — smetachining qo'lda tuzatishlari, kaliti «fayl:list» (``SheetInfo.key``).
+    ``recall(fp, fpl)`` — смета­чи аввал шундай тузилмали листда кўрсатгани: ``(эслатма, "fp" | "fpl")`` ёки ``None``
+    (эслатма: ``{"role": …, "columns": {…}}``, ``memo_payload`` қайтаргани)."""
     roles, columns = roles or {}, columns or {}
-    return [inspect_sheet(ws, file, file_name, roles.get(f"{file}:{ws.title}"), columns.get(f"{file}:{ws.title}"))
-            for ws in wb.worksheets]
+    out = []
+    for ws in wb.worksheets:
+        key = f"{file}:{ws.title}"
+        fp, fpl = sheet_fingerprint(ws)
+        anchor = numbering_anchor(ws)
+        role, cols = roles.get(key), columns.get(key)
+        info = None
+        hit = recall(fp, fpl) if recall and role is None and not cols and (fp or fpl) else None
+        if hit:
+            memo, how = hit
+            auto = inspect_sheet(ws, file, file_name)
+            # кенг из (фақат кенгликлар) бошқа шаблонга ҳам тўғри келиши мумкин — фақат тизим ўзи эплолмаганда
+            if how == "fp" or needs_help(auto):
+                info = _recalled(ws, file, file_name, memo, anchor)
+                info.memo = how
+            else:
+                info = auto
+        if info is None:
+            info = inspect_sheet(ws, file, file_name, role, cols)
+        info.fp, info.fpl, info.anchor = fp, fpl, anchor
+        out.append(info)
+    return out
+
+
+# ===================== смета­чи созламасини эслаб қолиш (номларга эмас — тузилмага боғланади) =====================
+FP_COLS = 16    # A..P устунлар кенглиги
+FP_ROWS = 25    # тепадаги бирлашган катаклар (сарлавҳа, «шапка»)
+ANCHOR_ROWS = 40
+
+
+def sheet_fingerprint(ws) -> Tuple[str, str]:
+    """Листнинг «шаблон» изи: бир дастурдан чиққан листларда устун кенгликлари ва шапкадаги бирлашган катаклар
+    бир хил, матн (ном, объект, хатолар) эса ҳар хил. ``(аниқ, кенг)``; кенгликлар йўқ бўлса — ``("", "")``.
+    2626 та ҳақиқий файлда: аниқ изда бир изга икки хил тузилма тушмади, кенг изда — 443 листдан 5 таси."""
+    from openpyxl.utils import get_column_letter
+    widths = []
+    for c in range(1, FP_COLS + 1):
+        dim = ws.column_dimensions.get(get_column_letter(c))
+        widths.append(int(round(dim.width)) if dim is not None and dim.width else 0)
+    if not any(widths):
+        return "", ""
+    merges = sorted(str(m) for m in ws.merged_cells.ranges if m.min_row <= FP_ROWS)
+    loose = hashlib.sha1(repr(widths).encode()).hexdigest()[:20]
+    strict = hashlib.sha1(repr((widths, merges)).encode()).hexdigest()[:20]
+    return strict, loose
+
+
+def numbering_anchor(ws) -> int:
+    """«1 2 3 4…» рақамлаш қатори (тепадан ``ANCHOR_ROWS`` қаторда); йўқ — 0."""
+    from .detect import _is_numbering_row
+    return next((r for r in range(1, min(ws.max_row, ANCHOR_ROWS) + 1) if _is_numbering_row(ws, r)), 0)
+
+
+def needs_help(info: SheetInfo) -> bool:
+    """Тизим листни ўзи тўлиқ тушунмади: жадвал топилмади, керакли устун йўқ ёки маълумот қатори йўқ."""
+    if info.role == UNKNOWN:
+        return not info.kind  # «жадвал топилмади» (сводка, бўш лист, каталог — тушунилган)
+    cols = info.columns or {}
+    need = ("name", "unit", "price") if info.role == RESOURCE else ("name", "unit", "qty_total")
+    return any(not cols.get(k) for k in need) or not info.rows
+
+
+def memo_payload(role: str, cols: Optional[dict], anchor: int) -> dict:
+    """Нимани эслаб қоламиз: тури ва устунлар; биринчи қатор — рақамлаш қаторига нисбатан (бошқа файлда шапка
+    узунроқ бўлса ҳам тўғри тушади). Охирги қатор эслаб қолинмайди — у ҳар файлда бошқа («Итого» ўзи топилади)."""
+    from .detect import COLUMN_FIELDS
+    cols = cols or {}
+    out = {k: int(cols[k]) for k in COLUMN_FIELDS if cols.get(k)}
+    if cols.get("start"):
+        if anchor and cols["start"] > anchor:
+            out["start_off"] = int(cols["start"]) - anchor
+        else:
+            out["start"] = int(cols["start"])
+    return {"role": role if role in ROLES else "", "columns": out}
+
+
+def _recalled(ws, file: int, file_name: str, memo: dict, anchor: int) -> SheetInfo:
+    from .detect import COLUMN_FIELDS
+    saved = memo.get("columns") or {}
+    cols = {k: v for k, v in saved.items() if k in COLUMN_FIELDS and v}
+    if saved.get("start_off") and anchor:
+        cols["start"] = anchor + saved["start_off"]
+    elif saved.get("start"):
+        cols["start"] = saved["start"]
+    role = memo.get("role") or None
+    if role == UNKNOWN:
+        info = inspect_sheet(ws, file, file_name)
+        info.role, info.reason = UNKNOWN, "ўтказилди — аввалги созламангиз бўйича"
+        return info
+    info = inspect_sheet(ws, file, file_name, role, cols or None)
+    info.reason = info.reason.replace("қўлда белгиланди · ", "") + " · аввалги созламангиз қўлланди"
+    info.recall = cols
+    info.manual = False  # смета­чи бу листда ўзи кўрсатмаган — «қўлда» эмас, «эслаб қолинган»
+    return info
 
 
 # ===================== nusxalar va juftlash =====================
@@ -347,6 +447,14 @@ def pair_score(loc: SheetInfo, res: SheetInfo) -> Tuple[float, float, List[str]]
     return score, overlap, reasons
 
 
+STRUCT_SCORE = 5.0  # номсиз жуфтлаш: лист номи (+3) ва смета рақами (+2) бир хил бўлиши шарт
+
+
+def _structural(loc: SheetInfo, res: SheetInfo, struct: float, conflict: bool) -> bool:
+    """Номлар мослигисиз ҳам ишончли жуфт: битта файлда, рақамлари зид эмас, лист номи ва рақами бир хил."""
+    return loc.file == res.file and not conflict and struct >= STRUCT_SCORE
+
+
 def pair_label(loc: SheetInfo, file_stem: str = "") -> str:
     """``file_stem`` — faylda yagona lokal bo'lsa uning nomi («2. ЭО»): «ЛОКАЛЬНО-РЕСУРСНАЯ ВЕДОМОСТЬ»dan aniqroq."""
     base = loc.part or loc.obj or file_stem or loc.title or loc.sheet
@@ -362,9 +470,15 @@ def plan_pairs(infos: List[SheetInfo]) -> Tuple[List[Pair], List[SheetInfo]]:
     for li, loc in enumerate(locals_):
         for res in resources:
             score, overlap, reasons = pair_score(loc, res)
+            conflict = bool(loc.number and res.number and loc.number != res.number)
             if overlap >= MIN_OVERLAP and score >= MIN_SCORE:
-                conflict = bool(loc.number and res.number and loc.number != res.number)
                 cands.append((score, li, res, overlap, reasons, conflict))
+            elif _structural(loc, res, score - overlap * 10, conflict):
+                # ресурс номлари кам мос (смета­чи RES'да номни ўзгартирган: «инвертор 4 квт» → «20 квт»), лекин
+                # тузилма аниқ кўрсатади: битта файл, лист номи ва смета рақами бир хил — номга боғланмаймиз
+                cands.append((score, li, res, overlap,
+                              reasons + ["номлар кам мос — файл, лист ва смета рақами бўйича жуфтланди, текширинг"],
+                              conflict))
     cands.sort(key=lambda c: -c[0])
 
     chosen: Dict[int, Pair] = {}
@@ -396,8 +510,11 @@ def pair_options(loc: SheetInfo, resources: List[SheetInfo]) -> List[dict]:
     out = []
     for res in resources:
         score, overlap, reasons = pair_score(loc, res)
+        conflict = bool(loc.number and res.number and loc.number != res.number)
         out.append({"res": res.key, "score": round(score, 2), "overlap": round(overlap, 4),
-                    "same_file": res.file == loc.file, "reasons": reasons[:3]})
+                    "same_file": res.file == loc.file, "reasons": reasons[:3],
+                    # номлар кам мос, лекин тузилма аниқ: битта файл, лист номи ва смета рақами бир хил
+                    "struct": overlap < MIN_OVERLAP and _structural(loc, res, score - overlap * 10, conflict)})
     out.sort(key=lambda o: (-o["score"], -o["overlap"]))
     return out
 

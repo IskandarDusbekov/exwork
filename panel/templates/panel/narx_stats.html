@@ -5,24 +5,24 @@
 {% block panel %}
 {% include "panel/_narx_tabs.html" %}
 <style>
-  .st-card { border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; box-shadow: 0 1px 2px rgb(15 23 42 / .04); }
-  .st-chip { border: 1px solid #cbd5e1; border-radius: 9999px; padding: .25rem .8rem; font-size: .8125rem; color: #334155; background: #fff; white-space: nowrap; }
-  .st-chip:hover { background: #f8fafc; }
-  .st-chip.on { border-color: #0f172a; background: #0f172a; color: #fff; }
-  .st-kpi .v { font-size: 1.6rem; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; line-height: 1.15; }
-  .st-kpi .l { font-size: .8rem; color: #64748b; }
+  .st-card { border: 1px solid rgb(var(--ink-200)); border-radius: 1rem; background: #fff; box-shadow: 0 1px 2px rgb(15 23 42 / .04); }
+  .st-chip { border: 1px solid rgb(var(--ink-300)); border-radius: 9999px; padding: .25rem .8rem; font-size: .8125rem; color: rgb(var(--ink-700)); background: #fff; white-space: nowrap; }
+  .st-chip:hover { background: rgb(var(--ink-50)); }
+  .st-chip.on { border-color: rgb(var(--ink-900)); background: rgb(var(--ink-900)); color: #fff; }
+  .st-kpi .v { font-size: 1.6rem; font-weight: 700; color: rgb(var(--ink-900)); font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .st-kpi .l { font-size: .8rem; color: rgb(var(--ink-500)); }
   .st-map path { stroke: #fff; stroke-width: 1.4; stroke-linejoin: round; cursor: pointer; transition: opacity .12s; }
   .st-map a:hover path, .st-map a:focus path { opacity: .82; }
-  .st-map a.on path { stroke: #0f172a; stroke-width: 3; }
+  .st-map a.on path { stroke: rgb(var(--ink-900)); stroke-width: 3; }
   .st-map a:focus { outline: none; }
   .st-map text { pointer-events: none; font-family: inherit; paint-order: stroke; }
   .st-bar { height: .55rem; min-width: 4px; border-radius: 9999px; background: #2a78d6; }
   .st-heat td.c { min-width: 3.4rem; border: 2px solid #fff; border-radius: 6px; text-align: center; font-variant-numeric: tabular-nums; font-size: .8rem; padding: .35rem .3rem; }
-  .st-cols { display: flex; align-items: flex-end; gap: 10px; height: 160px; border-bottom: 1px solid #cbd5e1; }
+  .st-cols { display: flex; align-items: flex-end; gap: 10px; height: 160px; border-bottom: 1px solid rgb(var(--ink-300)); }
   .st-cols .col { flex: 1; min-width: 0; max-width: 72px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; cursor: default; }
   .st-cols .col i { display: block; width: 100%; max-width: 44px; border-radius: 4px 4px 0 0; background: #2a78d6; min-height: 2px; }
   .st-cols .col:hover i { background: #1c5cab; }
-  #st-tip { position: fixed; z-index: 70; pointer-events: none; max-width: 18rem; border-radius: .6rem; background: #0f172a; color: #fff; padding: .5rem .65rem; font-size: .78rem; line-height: 1.35; box-shadow: 0 10px 30px rgb(15 23 42 / .3); }
+  #st-tip { position: fixed; z-index: 70; pointer-events: none; max-width: 18rem; border-radius: .6rem; background: rgb(var(--ink-900)); color: #fff; padding: .5rem .65rem; font-size: .78rem; line-height: 1.35; box-shadow: 0 10px 30px rgb(15 23 42 / .3); }
   #st-tip b { font-weight: 600; }
 </style>
 
@@ -68,7 +68,7 @@
     </svg>
     <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
       {% if ov.legend %}<span class="flex flex-wrap items-center gap-1">{% for l in ov.legend %}<span class="inline-flex items-center gap-1"><i class="inline-block h-3 w-5 rounded-sm border border-black/5" style="background: {{ l.color }}"></i>{{ l.label }}</span>{% endfor %}</span>{% endif %}
-      <span class="inline-flex items-center gap-1"><i class="inline-block h-3 w-5 rounded-sm border border-slate-200" style="background: #eef1f5"></i>маълумот йўқ</span>
+      <span class="inline-flex items-center gap-1"><i class="inline-block h-3 w-5 rounded-sm border border-slate-200" style="background: rgb(var(--ink-100))"></i>маълумот йўқ</span>
       {% if m == "index" %}<span class="text-slate-500">кўк — мамлакатдан арзон, қизил — қиммат</span>{% endif %}
     </div>
     <p class="mt-1 text-[10px] text-slate-400">Харита: geoBoundaries, © OpenStreetMap contributors (ODbL).</p>

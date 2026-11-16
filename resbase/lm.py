@@ -35,7 +35,7 @@ from .resfile import res_code
 log = logging.getLogger(__name__)
 
 USER_WEIGHT = 2
-USER_OWNERS_MIN = 2  # RES далилисиз — шунча ҳар хил смета­чи бир хил деса
+USER_OWNERS_MIN = 2  # стандарт; амалдагиси — панелдан (conf "lm_owners_min" / "lm_strong_votes") — RES далилисиз — шунча ҳар хил смета­чи бир хил деса
 STRONG_VOTES = 3  # шунча (ва ундан кўп) бир хил овоз, қарама-қаршиси йўқ — ишончли
 LM = ("L", "M")
 LABELS = {"M": "ускуна", "L": "кабель", "K": "ускуна эмас"}
@@ -120,7 +120,8 @@ def _decide(votes: dict) -> str:
     if not score:
         return ""
     has_res = any(not k.startswith("user_") for k in votes)
-    if not has_res and max(votes.values()) < USER_OWNERS_MIN:
+    from panel import conf
+    if not has_res and max(votes.values()) < conf.get("lm_owners_min"):
         return ""  # битта смета­чининг танлови — админ тасдиқлагунча таклиф қилинмайди
     (lead, a), *rest = score.most_common()
     return "" if rest and rest[0][1] == a else lead
@@ -243,7 +244,8 @@ def _strong(e: LMEntry) -> bool:
     v = e.votes or {}
     same = v.get(e.category, 0) + v.get("user_" + e.category, 0)
     other = sum(n for k, n in v.items() if k[-1] != e.category)
-    return same >= STRONG_VOTES and not other
+    from panel import conf
+    return same >= conf.get("lm_strong_votes") and not other
 
 
 def load_base() -> Optional[LMBase]:

@@ -25,14 +25,16 @@
     </select>
     <button type="button" class="pk-compare" title="Локал ва ресурсни ёнма-ён кўриш">{% icon "columns" "h-4 w-4" %}<span>Ёнма-ён кўриш</span></button>
     <input type="hidden" name="label_{{ p.n }}" value="{{ p.label }}">
+    {% elif r.verdict.tone == "ask" %}
+    {% include "jobs/_mark_btn.html" with k=r.key big=1 %}<span class="pk-hint is-ask">тизим жадвални тополмади — сиз кўрсатинг</span>
     {% elif r.show == "resource" %}
-    <span class="pk-used" data-res="{{ r.key }}">нарх манбаи</span>
+    <span class="pk-used" data-res="{{ r.key }}">нарх манбаи</span>{% include "jobs/_mark_btn.html" with k=r.key %}
     {% elif r.show == "none" %}
-    <span class="pk-hint">← аввал турини белгиланг</span>
+    <span class="pk-hint">← аввал турини белгиланг</span>{% include "jobs/_mark_btn.html" with k=r.key %}
     {% elif r.show == "local" %}
     <span class="pk-hint">жуфтлик тузилмади — саҳифани янгиланг</span>
     {% else %}
-    <span class="pk-hint">нархланмайди</span>
+    <span class="pk-hint">нархланмайди</span>{% include "jobs/_mark_btn.html" with k=r.key %}
     {% endif %}
   </div>
 </div>

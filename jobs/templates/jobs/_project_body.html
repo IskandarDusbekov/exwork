@@ -50,17 +50,32 @@
 
   {# ---- текшириш: 1 усул → 2 ҳар бир қисмни очиб текшириш → «Ҳаммасини бошлаш» (ҳисоблаш смета­чи босгандагина) ---- #}
   {% if awaiting %}
-  <div class="pp-mode" data-guide="awaiting">
-    <form id="pp-mode" class="pk-modebar">{% csrf_token %}
-      <label class="pk-mode{% if nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="auto" {% if nf_auto %}checked{% endif %}>Автоматик</label>
-      <label class="pk-mode{% if not nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="manual" {% if not nf_auto %}checked{% endif %}>Қўлда</label>
-    </form>
-    <span>{% if nf_auto %}Тизим локал ва ресурсни <b>ўзи ажратди</b>; нархлагач ишончли таклифларни (90%+) қабул қилади, кабель/ускунани L/M га ўтказади. Сиз текширасиз.{% else %}Листларни, нарх таклифларини ва кабель/ускунани <b>ўзингиз</b> ҳал қиласиз. Белгиланмаган қисм нархланмайди.{% endif %}</span>
-  </div>
-  <div class="pp-hint">
-    {% icon "help" "h-5 w-5 shrink-0 text-emerald-600" %}
-    <div>Ҳар бир қатор — битта ички папка (ичма-ичлари ҳам). <b>«Очиш»</b> — ичидаги ҳамма лист битта жадвалда: тури ва қайси ресурс билан нархланиши.
-      Чапдаги дарахтдан папка ёки файлни боссангиз ҳам шу қисм очилади.</div>
+  {# 4-босқич: ҳозир нима қилиш керак — икки қадам; усул ва изоҳ йиғиқ «Созламалар»да #}
+  <div class="pp-todo" data-guide="awaiting">
+    {% with need=count_mark|add:count_check %}
+    <div class="pp-todo-s{% if not need %} is-ok{% endif %}">
+      <span class="pp-todo-n">{% if need %}1{% else %}{% icon "check" "h-4 w-4" "3" %}{% endif %}</span>
+      <div class="min-w-0 flex-1"><b>Қисмларни текширинг</b>
+        <small>{% if need %}{% if count_mark %}<b class="t-warn">{{ count_mark }}</b> тасида листларни белгиланг{% endif %}{% if count_mark and count_check %} · {% endif %}{% if count_check %}<b class="t-warn">{{ count_check }}</b> тасида ресурсни танланг{% endif %}{% else %}Тизим ҳаммасини ажратди — хоҳласангиз «Очиш» билан қараб чиқинг{% endif %}</small></div>
+      {% if need %}<button type="button" class="pp-todo-b" data-first-need>Биринчисини очиш {% icon "chevron-down" "h-4 w-4" "2.5" %}</button>{% endif %}
+    </div>
+    <div class="pp-todo-s">
+      <span class="pp-todo-n">2</span>
+      <div class="min-w-0 flex-1"><b>Пастдаги «Ҳаммасини бошлаш»ни босинг</b><small><span id="pp-ready-top">{{ count_ready }}</span> та қисм нархланади · сводка фоизлари ҳам шу ерда</small></div>
+    </div>
+    {% endwith %}
+    <details class="pp-set">
+      <summary>{% icon "sliders" "h-4 w-4" %} Созламалар <span class="pp-set-s">· Усул: {% if nf_auto %}Автоматик{% else %}Қўлда{% endif %}</span><span class="pp-set-go">Ўзгартириш {% icon "chevron-down" "h-4 w-4" "2.5" %}</span></summary>
+      <div class="pp-set-b">
+        <form id="pp-mode" class="pk-modebar">{% csrf_token %}
+          <label class="pk-mode{% if nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="auto" {% if nf_auto %}checked{% endif %}>Автоматик</label>
+          <label class="pk-mode{% if not nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="manual" {% if not nf_auto %}checked{% endif %}>Қўлда</label>
+        </form>
+        <p>{% if nf_auto %}Тизим локал ва ресурсни <b>ўзи ажратди</b>; нархлагач ишончли таклифларни (90%+) қабул қилади, кабель/ускунани L/M га ўтказади. Сиз текширасиз.{% else %}Листларни, нарх таклифларини ва кабель/ускунани <b>ўзингиз</b> ҳал қиласиз. Белгиланмаган қисм нархланмайди.{% endif %}</p>
+        <p>Ҳар бир қатор — битта ички папка (ичма-ичлари ҳам). <b>«Очиш»</b> — ичидаги ҳамма лист битта жадвалда: тури ва қайси ресурс билан нархланиши.
+          Чапдаги дарахтдан папка ёки файлни боссангиз ҳам шу қисм очилади.</p>
+      </div>
+    </details>
   </div>
   {% endif %}
 

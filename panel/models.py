@@ -62,6 +62,25 @@ class Event(models.Model):
         return self.kind in (self.Kind.LOGIN_FAILED, self.Kind.BLOCKED_IP, self.Kind.TWOFA_FAILED)
 
 
+class Track(models.Model):
+    """Фойдаланувчи йўли (``panel.track``): смета юклашдан натижагача қайси қадамга етди, қаерда тўхтади, қайтиб
+    келдими. Хавфсизлик журнали (``Event``) эмас — фақат маъноли қадамлар; ташқи хизматсиз, ўзимизда."""
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                             related_name="+")
+    step = models.CharField(max_length=32, db_index=True)  # panel.track.STEPS калити
+    work_id = models.UUIDField(null=True, blank=True, db_index=True)  # папка / объект / смета
+    detail = models.CharField(max_length=200, blank=True)  # масалан юклаш хатоси ёки белгиланган устун
+
+    class Meta:
+        ordering = ["-created"]
+        indexes = [models.Index(fields=["step", "created"], name="panel_track_step_cr_idx"),
+                   models.Index(fields=["user", "created"], name="panel_track_user_cr_idx")]
+
+    def __str__(self):
+        return f"{self.created:%d.%m %H:%M} {self.step}"
+
+
 class LoginSession(models.Model):
     """Ҳар бир кириш (сессия): қайси IP ва қурилмадан, қачон охирги марта фаол бўлган.
     Админ уни тугатса — фойдаланувчи дарҳол тизимдан чиқади."""

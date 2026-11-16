@@ -10,7 +10,7 @@
     t.className = "pk-toast" + (ok ? " is-ok" : "");
     t.textContent = text;
     document.body.appendChild(t);
-    setTimeout(function () { t.remove(); }, ok ? 1600 : 4500);
+    setTimeout(function () { t.remove(); }, !ok ? 4500 : text.length > 60 ? 6000 : 1600);  // узун хабар — ўқишга улгурсин
   }
   function post(url, form, data) {
     var fd = new FormData();
@@ -44,6 +44,12 @@
       else if (!val) { t = "Ресурс файли танланмаган — ўнгдаги рўйхатдан танланг ёки «Ресурсни танлаш»ни босиб ёнма-ён кўринг."; c = "t-bad"; }
       else if (opt && opt.dataset.np) { t = "Танланган ресурсда нарх йўқ — бошқа ресурс файлини танланг, акс ҳолда нархланмай қолади."; c = "t-bad"; }
       else if (opt && opt.dataset.base) { t = "Нархлар ресурс базасидан олинади — тайёр, ҳеч нарса қилиш шарт эмас."; c = "t-ok"; }
+      else if (opt && opt.dataset.struct) {
+        // номлар мос эмас (смета­чи RES'да тавсифни ўзгартирган), лекин битта файл, лист номи ва смета рақами бир хил
+        t = "Номлар ресурсда бошқача ёзилган, лекин бу локалнинг ўзиники: битта файлда, лист номи ва смета рақами бир хил. " +
+            "Нархлар шифр бўйича таклиф қилинади — нархлангандан кейин «ТЕКШИРИНГ» қаторларини тасдиқланг.";
+        c = "t-mid";
+      }
       else if (v == null || v >= 0.7) { t = "Тўғри жуфтланган — ҳеч нарса қилиш шарт эмас."; c = "t-ok"; }
       else if (v >= 0.4) { t = "Мослик ўртача — «Ёнма-ён кўриш» билан текшириб кўринг; нотўғри бўлса бошқасини танланг."; c = "t-mid"; }
       else { t = "Мослик паст — бу ресурс бошқа объектники бўлиши мумкин. «Ёнма-ён кўриш» билан текширинг."; c = "t-low"; }
@@ -62,8 +68,11 @@
         row.classList.toggle("is-need", inc.checked && !sel.value && hasRes);
         if (opt && opt.dataset.base) { ov.textContent = "база"; ov.className = "pk-ov t-none"; }
         else if (!sel.value) { ov.textContent = "?"; ov.className = "pk-ov t-low"; }
+        else if (opt && opt.dataset.struct) { ov.textContent = "№ мос"; ov.className = "pk-ov t-mid"; }
         else { ov.textContent = v == null ? "—" : Math.round(v * 100) + "%"; ov.className = "pk-ov " + tone(v); }
-        ov.title = "Локалдаги ресурсларнинг неча фоизи шу RES листида аниқ бор";
+        ov.title = opt && opt.dataset.struct
+          ? "Номлар мослиги " + Math.round((v || 0) * 100) + "% — лекин файл, лист номи ва смета рақами бир хил"
+          : "Локалдаги ресурсларнинг неча фоизи шу RES листида аниқ бор";
         say(row, inc.checked, sel.value, opt, v);
         if (inc.checked && sel.value) ready++;
         if (inc.checked && !sel.value) need++;
@@ -178,9 +187,11 @@
         if (!mine) { toast("Бу иш сизники эмас — фақат кўриш мумкин"); return; }
         var row = b.closest(".pk-sheet"), k = row.dataset.k;
         row.classList.add("is-busy");
+        var saved = "";
         post(D.pick, form, {what: "role", key: k, role: b.dataset.role})
-          .then(function (d) { if (opts.onSaved) opts.onSaved(d); return reload({flash: k}); })
-          .then(function () { toast("✓ Сақланди — жуфтликлар янгиланди", true); })
+          .then(function (d) { saved = d.remembered || ""; if (opts.onSaved) opts.onSaved(d); return reload({flash: k}); })
+          // тизим шу листнинг тузилишини эслаб қолди — смета­чига айтамиз (кейин қайта кўрсатиши шарт эмас)
+          .then(function () { toast(saved ? "✓ " + saved : "✓ Сақланди — жуфтликлар янгиланди", true); })
           .catch(function (e) { row.classList.remove("is-busy"); toast(e.message); });
       });
     });
@@ -206,6 +217,7 @@
       var v = ovOf(o), d = o.dataset, tags = [];
       if (d.best) tags.push('<em class="is-best">★ энг мос</em>');
       if (d.same) tags.push('<em>локалнинг ўз файлида</em>');
+      if (d.struct) tags.push('<em class="is-best">лист номи ва № бир хил</em>');
       if (d.np) tags.push('<em class="is-np">нархи йўқ — танламанг</em>');
       if (chosen) tags.push('<em class="is-on">✓ ҳозир танланган</em>');
       if (d.base) {
@@ -425,4 +437,44 @@
   }
 
   window.narxPicker = {mount: mount};
+})();
+
+/* «Бошлаш»дан олдин сводка фоизлари бир марта кўрсатилади (транспорт, прочие, страхование, НДС):
+   улар йиғиқ турганда кўринмай қолмасин. «Тўғри, бошлаш» — нархлаш бошланади; «Ўзгартириш» — фоизлар очилади,
+   тўғрилаб яна «Бошлаш» босилса — энди сўралмайди (шу форма учун бир марта). Листлар (_picker.html) ва папка
+   («Ҳаммасини бошлаш») — иккаласида ҳам. */
+(function () {
+  if (window.narxPctCheck) return;
+  window.narxPctCheck = true;
+  function rows(box) {
+    return Array.prototype.map.call(box.querySelectorAll("label"), function (l) {
+      var name = l.querySelector("span[title]"), inp = l.querySelector("input");
+      if (!name || !inp) return null;
+      var def = (inp.title || "").replace(/^Стандарт:\s*/, "");
+      var changed = inp.classList.contains("is-changed");
+      return "• " + name.textContent.trim() + " — " + (inp.value.trim() || "0") + "%" + (changed ? "   (стандарт: " + def + ")" : "");
+    }).filter(Boolean);
+  }
+  document.addEventListener("submit", function (e) {
+    var form = e.target, box = form.querySelector && form.querySelector(".pk-pct");
+    if (!box || form.dataset.pctOk === "1" || !window.narxDialog) return;
+    var list = rows(box);
+    if (!list.length) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    var btn = e.submitter;
+    window.narxDialog.confirm(list.join("\n") + "\n\nНархлашда сводка шу фоизлар билан ҳисобланади. Кейин смета саҳифасида ҳам ўзгартириш мумкин.",
+                              {title: "Сводка фоизлари тўғрими?", ok: "Тўғри, бошлаш", cancel: "Ўзгартириш"}).then(function (yes) {
+      form.dataset.pctOk = "1";  // шу формада бир марта сўралади
+      if (yes) {
+        if (form.requestSubmit) form.requestSubmit(btn || undefined); else form.submit();
+        return;
+      }
+      box.open = true;
+      box.scrollIntoView({behavior: "smooth", block: "center"});
+      var first = box.querySelector("input");
+      if (first) setTimeout(function () { first.focus(); first.select(); }, 250);
+      box.classList.remove("is-flash"); void box.offsetWidth; box.classList.add("is-flash");
+    });
+  }, true);
 })();

@@ -1,0 +1,102 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Фойдаланувчи йўли — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<style>
+  .tr-bar { position: relative; height: 34px; border-radius: 10px; background: rgb(var(--ink-100)); overflow: hidden; }
+  .tr-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 10px; background: linear-gradient(90deg, rgb(var(--brand-600)), rgb(var(--brand-400))); }
+  .tr-bar.is-mark i { background: linear-gradient(90deg, rgb(var(--brand-600)), rgb(var(--brand-400))); }
+  .tr-bar span { position: relative; display: flex; height: 100%; align-items: center; gap: 8px; padding: 0 12px; font-size: 13px; font-weight: 700; color: rgb(var(--ink-900)); }
+  .tr-drop { font-size: 12px; font-weight: 600; color: rgb(var(--bad-700)); }
+</style>
+<div class="mb-4 flex flex-wrap items-end gap-3">
+  <div class="min-w-0 flex-1">
+    <h1 class="text-xl font-semibold text-slate-900">Фойдаланувчи йўли</h1>
+    <p class="mt-0.5 max-w-3xl text-sm text-slate-600">Смета юклашдан натижагача одамлар қайси қадамга етди, <b>қаерда тўхтаб қолди</b> ва иш давом эттириш учун <b>қайтиб келдими</b>.
+      Ҳар бир қадам бир одамдан бир марта саналади. Ўзимизнинг журнал — ташқи хизмат йўқ.</p>
+  </div>
+  <form method="get" class="flex flex-wrap items-center gap-2 text-sm">
+    <input type="hidden" name="days" value="{{ days }}">{# тугма босилса — унинг қиймати кейин келади ва устун туради #}
+    {% for d, label in periods %}<button name="days" value="{{ d }}" class="rounded-lg border px-3 py-1.5 {% if days == d %}border-slate-900 bg-slate-900 text-white{% else %}border-slate-300 bg-white hover:bg-slate-50{% endif %}">{{ label }}</button>{% endfor %}
+    <label class="ml-2 inline-flex items-center gap-1.5 text-slate-600"><input type="checkbox" name="staff" value="1" {% if staff %}checked{% endif %} onchange="this.form.submit()"> админлар ҳам</label>
+  </form>
+</div>
+
+<div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+  <div class="rounded-xl border border-slate-200 bg-white px-3 py-2.5"><div class="text-xs text-slate-500">Фаол одамлар</div><div class="num text-xl font-semibold">{{ rep.people }}</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white px-3 py-2.5"><div class="text-xs text-slate-500">Қадамлар</div><div class="num text-xl font-semibold">{{ rep.events }}</div></div>
+  <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5" title="Битта объект ёки папкани бошқа кунда яна очган — ишни давом эттириш учун қайтган">
+    <div class="text-xs text-emerald-800">Ишга қайтиб келганлар</div><div class="num text-xl font-semibold text-emerald-800">{{ rep.returned_users }} <span class="text-sm font-normal">одам · {{ rep.returned_works }} иш</span></div></div>
+  <div class="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5" title="Даврда бир неча кун кирганлар"><div class="text-xs text-sky-800">Бир неча кун кирганлар</div><div class="num text-xl font-semibold text-sky-800">{{ rep.multi_day }}</div></div>
+</div>
+
+<div class="grid gap-4 xl:grid-cols-2">
+  <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <h2 class="font-semibold">Асосий йўл: юклашдан натижагача</h2>
+    <p class="mb-3 text-xs text-slate-500">Нечта одам шу қадамга етди. Қизил — олдинги қадамдан кейин тўхтаганлар.</p>
+    <div class="space-y-2">
+      {% for s in rep.funnel %}
+      <div title="{{ s.hint }} · {{ s.events }} марта">
+        <div class="tr-bar"><i style="width:{{ s.pct }}%"></i><span>{{ forloop.counter }}. {{ s.label }} <span class="num font-semibold text-slate-600">· {{ s.users }} одам ({{ s.pct }}%)</span></span></div>
+        {% if s.drop %}<div class="tr-drop mt-0.5 pl-2">↓ {{ s.drop }} одам ({{ s.drop_pct }}%) бу қадамга ўтмади</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <h2 class="font-semibold">Листни белгилаш: қадам-бақадам</h2>
+    <p class="mb-3 text-xs text-slate-500">Тизим тушунмаган листни смета­чи қаергача белгилади. Кўп одам тушиб қолган қадам — тушунарсиз жой.</p>
+    <div class="space-y-2">
+      {% for s in rep.mark %}
+      <div title="{{ s.hint }} · {{ s.events }} марта">
+        <div class="tr-bar is-mark"><i style="width:{{ s.pct }}%"></i><span>{{ forloop.counter }}. {{ s.label }} <span class="num font-semibold text-slate-600">· {{ s.users }} одам</span></span></div>
+        {% if s.drop %}<div class="tr-drop mt-0.5 pl-2">↓ {{ s.drop }} одам ({{ s.drop_pct }}%) шу ерда тўхтади</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+<section class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+  <h2 class="font-semibold">Қаерда тўхтаб қолишди</h2>
+  <p class="mb-3 text-xs text-slate-500">Ҳар бир одамнинг даврдаги энг узоқ қадами. Масалан «Текширишга ўтди»да тўхтаганлар — листларни кўрди, лекин нархлашни бошламади.</p>
+  <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+    {% for s in rep.stopped %}
+    <div class="rounded-lg border {% if s.n %}border-amber-200 bg-amber-50/50{% else %}border-slate-200{% endif %} p-3">
+      <div class="text-xs text-slate-500">{{ s.label }} — <b>кейин</b> «{{ s.next }}» йўқ</div>
+      <div class="num text-2xl font-semibold {% if s.n %}text-amber-700{% else %}text-slate-300{% endif %}">{{ s.n }}</div>
+      {% if s.people %}<ul class="mt-1 space-y-0.5 text-xs">{% for u in s.people %}<li class="truncate"><a href="{% url 'panel:user' u.pk %}" class="text-slate-700 hover:underline">{{ u.get_full_name|default:u.email }}</a></li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<div class="mt-4 grid gap-4 xl:grid-cols-2">
+  <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <h2 class="font-semibold">Бошқа ҳаракатлар</h2>
+    <table class="mt-2 w-full text-sm">
+      {% for s in rep.other %}<tr class="border-t border-slate-100"><td class="py-1.5" title="{{ s.hint }}">{{ s.label }}</td>
+        <td class="num py-1.5 text-right text-slate-600">{{ s.users }} одам</td><td class="num py-1.5 text-right text-slate-400">{{ s.events }} марта</td></tr>{% endfor %}
+    </table>
+    {% if rep.errors %}
+    <h3 class="mt-4 text-sm font-semibold text-rose-700">Юклаш хатолари (охиргилари)</h3>
+    <ul class="mt-1 space-y-1 text-xs">{% for e in rep.errors %}
+      <li><span class="text-slate-400">{{ e.when|date:"d.m H:i" }}</span> · {% if e.user %}<a href="{% url 'panel:user' e.user.pk %}" class="hover:underline">{{ e.user.email }}</a>{% endif %} — <span class="text-rose-700">{{ e.detail|default:"сабаби ёзилмаган" }}</span></li>{% endfor %}</ul>
+    {% endif %}
+  </section>
+
+  <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <h2 class="font-semibold">Охирги қадамлар</h2>
+    <ul class="mt-2 divide-y divide-slate-100 text-sm">
+      {% for r in recent %}
+      <li class="flex items-center gap-2 py-1.5"><span class="num w-20 shrink-0 text-xs text-slate-400">{{ r.t.created|date:"d.m H:i" }}</span>
+        <span class="min-w-0 flex-1 truncate">{% if r.t.user %}<a href="{% url 'panel:user' r.t.user_id %}" class="text-slate-700 hover:underline">{{ r.t.user.email }}</a>{% else %}—{% endif %}</span>
+        <span class="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">{{ r.label }}</span>
+        {% if r.t.detail %}<span class="max-w-[10rem] truncate text-xs text-slate-400" title="{{ r.t.detail }}">{{ r.t.detail }}</span>{% endif %}</li>
+      {% empty %}<li class="py-6 text-center text-slate-400">Ҳали қадам ёзилмаган — фойдаланувчилар ишлаганда пайдо бўлади.</li>{% endfor %}
+    </ul>
+  </section>
+</div>
+{% endblock %}

@@ -34,7 +34,7 @@ from .folders import (
 )
 from .models import Batch, Job, Project
 from .services import (
-    BASE_RES, UploadError, analyze_batch, apply_decisions, base_period_of, check_quota, pair_ready, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job,
+    BASE_RES, UploadError, analyze_batch, forget_sheet, remember_sheets, apply_decisions, base_period_of, check_quota, pair_ready, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job,
     nf_auto_of, parse_percents, remember_base_period, remember_nf_auto, remember_percents, remembered_percents, unpriced_res,
     price_source_of, remember_price_source, base_only, batch_original, replace_batch_file, open_suggestions,
     can_undo_file, refresh_file_jobs, undo_batch_file,
@@ -134,11 +134,13 @@ def index(request):
                 # ZIP/RAR — ичида папкалар бўлади: папка каби очилади (ҳисоблаш смета­чи босгандагина)
                 kind = "folder"
                 project = create_project(request.user, files, [f.name for f in files])
+                request.track_work = project.pk  # фойдаланувчи йўли (panel.track)
                 audit(request, Event.Kind.UPLOAD, work=project, work_kind="folder", detail=project.name)
                 return _went(xhr, reverse("project", args=[project.id]), _upload_timing(request, kind, t0, project))
             if files:
                 # Universal yuklash: bitta obyekt fayli yoki bir nechta fayl — tizim o'zi ajratadi
                 batch = create_batch(request.user, files)
+                request.track_work = batch.pk
                 audit(request, Event.Kind.UPLOAD, work=batch, work_kind="object", detail=batch.name)
                 timing = _upload_timing(request, kind, t0, batch)
                 if xhr:  # юклаш саҳифаси листлар ва жуфтликларни шу ернинг ўзида кўрсатади (_picker.html)
@@ -149,12 +151,14 @@ def index(request):
                 return _went(xhr, reverse("batch", args=[batch.id]), timing)
             if local:
                 job = create_job(request.user, local, request.FILES.get("res"))  # eski ikki maydonli usul
+                request.track_work = job.pk
                 audit(request, Event.Kind.UPLOAD, work=job, work_kind="smeta", detail=job.local_name)
                 _upload_timing(request, "smeta", t0, job)
                 return redirect("job", job_id=job.id)
             error = "Файлни танланг."
         except UploadError as e:
             error = str(e)
+            request.track_detail = error[:200]
             if request.FILES:
                 _upload_timing(request, kind, t0, error=error)
         if xhr:
@@ -816,11 +820,15 @@ def _column_view(s, manual=None):
             "missing": any(not p["value"] for p in parts)}
 
 
-def _sheet_verdict(s, cv, by_key) -> dict:
-    """Лист бир қарашда: ранг (tone), қисқа хулоса ва — керак бўлса — нима қилиш кераклиги."""
+def _sheet_verdict(s, cv, by_key, chosen=False) -> dict:
+    """Лист бир қарашда: ранг (tone), қисқа хулоса ва — керак бўлса — нима қилиш кераклиги.
+    ``chosen`` — турини смета­чи ўзи танлаган (тизим тушунмади деб сўралмайди)."""
     if s.get("duplicate_of"):
         twin = by_key.get(s["duplicate_of"], {})
         return {"tone": "off", "text": "Нусха", "hint": f'«{twin.get("sheet", "")}» билан бир хил — ўтказилди'}
+    if s["role"] == "unknown" and not s.get("kind") and not chosen:
+        # свод / акт / бўш эмас — тизим жадвални умуман тополмади: йиғиқ рўйхатга эмас, кўринадиган жойга
+        return {"tone": "ask", "text": "Тизим тушунмади", "hint": "Жадвал топилмади — «Белгилаш»ни босиб кўрсатинг"}
     if s["role"] == "unknown":
         kind = KIND_LABELS.get(s.get("kind", ""), "")
         hint = "Қайта нархлаш керак бўлса — турини «Локал» қилинг" if s.get("kind") == "priced" else (
@@ -853,7 +861,7 @@ def _sheet_groups(batch) -> list:
         for i, s in enumerate(batch.sheets):
             if s["file"] == fi:
                 cv = _column_view(s, (batch.columns or {}).get(s["key"]))
-                rows.append((i, s, cv, _sheet_verdict(s, cv, by_key)))
+                rows.append((i, s, cv, _sheet_verdict(s, cv, by_key, s["key"] in (batch.roles or {}))))
         if rows:
             groups.append({"name": f["name"], "rows": rows})
     return groups
@@ -897,7 +905,8 @@ def _pair_options(p, resources, res_tag, sheets):
         o = by_key.get(s["key"], {})
         out.append({"key": s["key"], "tag": res_tag[s["key"]], "sheet": s["sheet"], "file_name": s["file_name"],
                     "title": sheet_title(s), "rows": s.get("rows", 0), "rows": s.get("rows", 0), "number": s.get("number", ""), "hidden": s.get("hidden"),
-                    "overlap": o.get("overlap"), "score": o.get("score", 0), "same_file": s["file"] == loc["file"]})
+                    "overlap": o.get("overlap"), "score": o.get("score", 0), "same_file": s["file"] == loc["file"],
+                    "struct": bool(o.get("struct"))})
     # локалнинг ўз файлидаги ресурс листлари — мослиги паст бўлса ҳам биринчи (одатда тўғриси шу), кейин мослик бўйича
     out.sort(key=lambda o: (not o["same_file"], -(o["score"] or 0)))
     best = max(out, key=lambda o: o["overlap"] or 0, default=None)
@@ -1033,10 +1042,10 @@ def _picker_ctx(batch, embed=False) -> dict:
             if s["file"] != fi:
                 continue
             cv = _column_view(s, (batch.columns or {}).get(s["key"]))
-            v = _sheet_verdict(s, cv, by_key)
+            picked = s["key"] in (batch.roles or {})
+            v = _sheet_verdict(s, cv, by_key, picked)
             sub = " · ".join(x for x in ((f'№ {s["number"]}' if s.get("number") else ""),
                                          readable(s.get("part") or s.get("obj") or "")) if x)
-            picked = s["key"] in (batch.roles or {})
             rows.append({"key": s["key"], "sheet": s["sheet"], "role": s["role"], "dup": bool(s.get("duplicate_of")),
                          # «Қўлда»: тизим тахмини фақат маслаҳат — тугма смета­чи ўзи босгунча ёнмайди
                          "show": s["role"] if (auto or picked or s.get("duplicate_of")) else "none", "picked": picked,
@@ -1061,14 +1070,17 @@ def _picker_ctx(batch, embed=False) -> dict:
     ready = sum(1 for p in batch.pairs if pair_ready(p))
     # битта жадвал: ҳар бир лист — бир қатор (тури + локал бўлса қайси ресурс билан). Ўтказилганлар — охирида йиғиқ
     pair_by = {p["local"]: p for p in pairs}
-    rows, skipped = [], []
+    rows, skipped, unclear = [], [], []
     for f in files:
         for r in f["sheets"]:
             pr = pair_by.get(r["key"]) if r["show"] == "local" else None
             r = {**r, "file_name": f["name"], "pair": pr, "title": pr["title"] if pr else r["sheet"],
                  "fi": f["i"], "undo": can_undo_file(batch, f["i"])}
             r["q"] = f'{r["title"]} {r["sheet"]} {f["name"]} {r["sub"]}'.lower()
-            (skipped if r["dup"] or r["show"] == "unknown" else rows).append(r)
+            if r["show"] == "unknown" and not r["dup"] and r["verdict"]["tone"] == "ask":
+                unclear.append(r)  # тизим тушунмаган — йиғиқ «керак эмас» ичига эмас, алоҳида кўринадиган гуруҳ
+            else:
+                (skipped if r["dup"] or r["show"] == "unknown" else rows).append(r)
     rank = {"none": 0, "local": 1, "resource": 2}
     rows.sort(key=lambda r: (rank.get(r["show"], 3), r["pair"]["n"] if r["pair"] else 0))
     count = {k: sum(1 for r in rows if r["show"] == k) for k in ("local", "resource", "none")}
@@ -1087,7 +1099,8 @@ def _picker_ctx(batch, embed=False) -> dict:
     # белгиланмаганлар («Қўлда»), жуфтсиз локал ва ҳеч қайси локалга танланмаган ресурслар — алоҳида
     loose = [r for r in rows if not r["pair"] and not (r["show"] == "resource" and r["key"] in used)]
     return {"batch": batch, "pk_files": files, "pk_pairs": pairs, "pk_ready": ready,
-            "pk_rows": rows, "pk_skipped": skipped, "pk_count": count, "pk_skipped_files": _skipped_files(batch),
+            "pk_rows": rows, "pk_skipped": skipped, "pk_unclear": unclear,
+            "pk_back": reverse("project", args=[batch.project_id]) if embed and batch.project_id else "", "pk_count": count, "pk_skipped_files": _skipped_files(batch),
             "pk_pair_rows": pair_rows, "pk_loose": loose,
             "pk_unmarked": [r for r in loose if r["show"] == "none"],
             "pk_idle": [r for r in loose if r["show"] != "none"],
@@ -1163,6 +1176,7 @@ def batch_pick(request, batch_id):
     if batch.project_id and batch.stage in (Batch.Stage.QUEUED, Batch.Stage.CONVERTING, Batch.Stage.PRICING):
         return JsonResponse({"ok": False, "error": "Бу қисм ҳозир ишланяпти — тугагач ўзгартиринг"}, status=409)
     what = request.POST.get("what")
+    remembered = 0
     if what == "role":
         key, role = request.POST.get("key", ""), request.POST.get("role", "")
         if role not in ROLE_LABELS or batch.sheet(key) is None:
@@ -1170,6 +1184,7 @@ def batch_pick(request, batch_id):
         roles = dict(batch.roles or {})
         roles[key] = role
         analyze_batch(batch, roles)
+        remembered = remember_sheets(batch, [key])
         if not batch.jobs.exists():
             batch.status = Batch.Status.REVIEW
         batch.save()
@@ -1199,6 +1214,7 @@ def batch_pick(request, batch_id):
         return JsonResponse({"ok": False, "error": "номаълум амал"}, status=400)
     state = PART_STATES.get(batch.stage) if batch.project_id else None
     return JsonResponse({"ok": True, "ready": sum(1 for p in batch.pairs if pair_ready(p)),
+                         "remembered": MEMO_SAVED if what == "role" and remembered else "",
                          "stage": batch.stage, "state": state[0] if state else "", "tone": state[1] if state else "",
                          "left": 0 if nf_auto_of(batch.owner_id) else manual_left(batch)})
 
@@ -1233,13 +1249,147 @@ def batch_replan(request, batch_id):
             convert_files(batch, only_missing=True)  # аввал очилмай қолган файллар (таҳлил узилган бўлса)
         except Exception as e:  # noqa: BLE001 — файл барибир очилмаса: қолганлари билан давом, сабаби саҳифада
             messages.error(request, f"Баъзи файллар очилмади: {e}")
+    before = (dict(batch.roles or {}), dict(batch.columns or {}))
     analyze_batch(batch, roles, columns)
+    # шу сафар ўзгартирилган листлар — эслаб қолинади (шундай тузилмали лист кейин келса, ўзи қўлланади)
+    changed = [k for k in set(roles) | set(columns)
+               if roles.get(k) != before[0].get(k) or columns.get(k) != before[1].get(k)]
+    if remember_sheets(batch, changed):
+        messages.success(request, MEMO_SAVED)
     batch.status = Batch.Status.REVIEW
     batch.save()
     if batch.project_id and not batch.jobs.exists():
         batch.stage, batch.message = ready_stage(batch)
         batch.save(update_fields=["stage", "message"])
         settle(batch.project)
+    return redirect("batch", batch_id=batch.id)
+
+
+# Белгилаш саҳифаси (офёртадагидек): қайси лист тури учун қайси устунлар сўралади — тартиби шу
+MARK_COLS = {
+    "local": [("name", True), ("unit", True), ("qty_unit", False), ("qty_total", True)],
+    "resource": [("name", True), ("unit", True), ("price", True)],
+}
+MARK_ROWS = 300  # саҳифа аввал шунча қатор кўрсатади; «Яна» — кўпроқ
+
+
+def _mark_state(s, manual) -> dict:
+    """Белгилаш саҳифаси бошланғич ҳолати: смета­чи аввал кўрсатгани, бўлмаса тизим топгани (ҳарф билан)."""
+    found = dict(s.get("columns") or {})
+    found.update(manual or {})
+    letter = lambda c: get_column_letter(int(c)) if c else ""
+    return {"role": s["role"] if s["role"] in ("local", "resource") else "",
+            "cols": {k: letter(found.get(k)) for k, *_r in COLUMN_ROLES},
+            "start": found.get("start") or None, "end": (manual or {}).get("end") or None,
+            "auto_end": found.get("end") or None}
+
+
+@require_http_methods(["GET", "POST"])
+def batch_mark(request, batch_id):
+    """Лист тизимга тушунарсиз (ёки нотўғри ўқилган): смета­чи файлнинг ўзида босиб кўрсатади — лист тури,
+    биринчи қатор, устунлар, керак бўлса охирги қатор. Сақлангач қайта жуфтланади ва тузилмаси эслаб қолинади."""
+    batch = _get_work(request, Batch, id=batch_id)
+    key = request.POST.get("key") or request.GET.get("k", "")
+    s = batch.sheet(key)
+    if s is None:
+        raise Http404("Лист топилмади")
+    if request.method == "POST":
+        if batch.owner_id != request.user.pk:
+            messages.error(request, "Бу иш сизники эмас — ўзгартириб бўлмайди")
+            return redirect("batch", batch_id=batch.id)
+        if batch.project_id and batch.stage in (Batch.Stage.QUEUED, Batch.Stage.CONVERTING, Batch.Stage.PRICING):
+            messages.error(request, "Бу қисм ҳозир ишланяпти — тугагач ўзгартиринг")
+            return redirect("batch", batch_id=batch.id)
+        role = request.POST.get("role", "")
+        if role not in ROLE_LABELS:
+            messages.error(request, "Лист турини танланг")
+            return redirect(_mark_url(batch, key, _safe_next(request)))
+        cols = {}
+        for k, need in MARK_COLS.get(role, []):
+            v = (request.POST.get(k) or "").strip().upper()
+            try:
+                if v:
+                    cols[k] = column_index_from_string(v)
+            except ValueError:
+                pass
+        for k in ("start", "end"):
+            v = (request.POST.get(k) or "").strip()
+            if v.isdigit() and int(v) > 0:
+                cols[k] = int(v)
+        if cols.get("end") and cols.get("start") and cols["end"] < cols["start"]:
+            cols.pop("end")
+        missing = [dict(COLUMN_ROLES_BY_KEY)[k] for k, need in MARK_COLS.get(role, []) if need and not cols.get(k)]
+        if role != "unknown" and (missing or not cols.get("start")):
+            messages.error(request, "Кўрсатилмади: " + ", ".join(missing + ([] if cols.get("start") else ["биринчи қатор"])))
+            return redirect(_mark_url(batch, key, _safe_next(request)))
+        roles, columns = dict(batch.roles or {}), dict(batch.columns or {})
+        roles[key] = role
+        if role == "unknown":
+            columns.pop(key, None)
+        else:
+            columns[key] = cols
+        analyze_batch(batch, roles, columns)
+        remembered = remember_sheets(batch, [key])
+        batch.status = Batch.Status.REVIEW
+        batch.save()
+        if batch.project_id and not batch.jobs.exists():
+            batch.stage, batch.message = ready_stage(batch)
+            batch.save(update_fields=["stage", "message"])
+            settle(batch.project)
+        done = batch.sheet(key) or s
+        text = f'«{s["sheet"]}» листи сиз кўрсатгандек ўқилди' + (
+            f' — {done.get("rows") or 0} та қатор.' if role != "unknown" else " — ўтказилади.")
+        messages.success(request, text + (" " + MEMO_SAVED if remembered else ""))
+        return redirect(_safe_next(request) or reverse("batch", args=[batch.id]))
+    manual = (batch.columns or {}).get(key)
+    f = batch.files[s["file"]]
+    return render(request, "jobs/mark.html", {
+        "batch": batch, "s": s, "key": key, "file_name": f["name"], "crumbs": crumbs_for(batch=batch),
+        "state": _mark_state(s, manual), "manual": bool(manual) or key in (batch.roles or {}),
+        "roles_js": [{"key": k, "label": label, "hint": hint} for k, label, _r, hint in COLUMN_ROLES],
+        "mark_cols": MARK_COLS, "row_hints": ROW_HINTS, "limit": MARK_ROWS,
+        "verdict": _sheet_verdict(s, _column_view(s, manual), {x["key"]: x for x in batch.sheets}, key in (batch.roles or {})),
+        "next": _safe_next(request),
+        "batch_url": reverse("batch", args=[batch.id]),
+    })
+
+
+def _mark_url(batch, key, nxt="") -> str:
+    from urllib.parse import urlencode
+    return f'{reverse("batch_mark", args=[batch.id])}?' + urlencode({"k": key, **({"next": nxt} if nxt else {})})
+
+
+def _safe_next(request) -> str:
+    """Белгилашдан кейин қайтиш манзили (папка саҳифаси ва ҳ.к.) — фақат шу сайт ичида."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+    nxt = request.POST.get("next") or request.GET.get("next") or ""
+    return nxt if nxt and url_has_allowed_host_and_scheme(nxt, {request.get_host()}, request.is_secure()) else ""
+
+
+COLUMN_ROLES_BY_KEY = [(k, label) for k, label, *_r in COLUMN_ROLES]
+
+
+MEMO_SAVED = ("Созлашингиз эслаб қолинди: шундай тузилишдаги лист кейин келса, тизим уни ўзи шундай ўқийди — "
+              "қайта кўрсатишингиз шарт эмас.")
+
+
+@require_POST
+def batch_forget(request, batch_id):
+    """Листга қўлланган «аввалги созлама» нотўғри — унутилади, лист қайта автомат таҳлил қилинади."""
+    batch = _get_work(request, Batch, id=batch_id)
+    if batch.owner_id != request.user.pk:
+        return redirect("batch", batch_id=batch.id)
+    if batch.project_id and batch.stage in (Batch.Stage.QUEUED, Batch.Stage.CONVERTING, Batch.Stage.PRICING):
+        messages.error(request, "Бу қисм ҳозир ишланяпти — тугагач ўзгартиринг")
+        return redirect("batch", batch_id=batch.id)
+    if forget_sheet(batch, request.POST.get("key", "")):
+        analyze_batch(batch)
+        batch.save()
+        if batch.project_id and not batch.jobs.exists():
+            batch.stage, batch.message = ready_stage(batch)
+            batch.save(update_fields=["stage", "message"])
+            settle(batch.project)
+        messages.success(request, "Аввалги созлама унутилди — лист автомат ўқилди. Керак бўлса, қайта кўрсатинг.")
     return redirect("batch", batch_id=batch.id)
 
 
@@ -1271,10 +1421,12 @@ def batch_file_replace(request, batch_id, i):
         old = batch.files[i]["name"] if 0 <= i < len(batch.files) else ""
         replace_batch_file(batch, i, f)
         audit(request, Event.Kind.UPLOAD, work=batch, work_kind="object", detail=f"файл алмаштирилди: {old} → {f.name}")
-        messages.success(request, f"«{f.name}» юкланди ва листлари қайта ўқилди." + _after_swap(batch, i))
+        msg = f"«{f.name}» юкланди ва листлари қайта ўқилди." + _after_swap(batch, i)
+        messages.success(request, msg)
     except UploadError as e:
         messages.error(request, str(e))
-    return _back(request, reverse("batch", args=[batch.id]) + "#structure")
+        return _swap_reply(request, batch, error=str(e))
+    return _swap_reply(request, batch, msg=msg)
 
 
 @require_POST
@@ -1287,9 +1439,19 @@ def batch_file_undo(request, batch_id, i):
         cur = batch.files[i]["name"] if 0 <= i < len(batch.files) else ""
         name = undo_batch_file(batch, i)
         audit(request, Event.Kind.UPLOAD, work=batch, work_kind="object", detail=f"файл қайтарилди: {cur} → {name}")
-        messages.success(request, f"«{name}» — олдинги нусха қайтарилди." + _after_swap(batch, i))
+        msg = f"«{name}» — олдинги нусха қайтарилди." + _after_swap(batch, i)
+        messages.success(request, msg)
     except UploadError as e:
         messages.error(request, str(e))
+        return _swap_reply(request, batch, error=str(e))
+    return _swap_reply(request, batch, msg=msg)
+
+
+def _swap_reply(request, batch, msg="", error=""):
+    """Файл алмаштириш / қайтариш жавоби. Саҳифа ичидан (fileops.js, фонда) — JSON: саҳифа ўзи янгиланади,
+    хабар (messages) янгиланган қисмда чиқади. Оддий форма — олдингидек йўналтириш."""
+    if request.headers.get("X-Requested-With") == "fetch":
+        return JsonResponse({"ok": not error, "message": msg, "error": error}, status=400 if error else 200)
     return _back(request, reverse("batch", args=[batch.id]) + "#structure")
 
 
@@ -2045,7 +2207,10 @@ def calc_page(request):
 # ===================== йўриқнома =====================
 def help_page(request):
     """Йўриқнома: иш тартиби қадамма-қадам ва ҳар бир ҳолат / огоҳлантириш нимани билдиради."""
-    return render(request, "jobs/help.html", {"nav": "help", "groups": help_groups(), "flow": FLOW})
+    from .guide import VIDEO_PAGES, videos
+    labels = dict(VIDEO_PAGES)
+    vids = [{**v, "label": labels.get(v["page"], "") if v["page"] else ""} for v in videos()]
+    return render(request, "jobs/help.html", {"nav": "help", "groups": help_groups(), "flow": FLOW, "videos": vids})
 
 
 @require_POST
@@ -2067,3 +2232,37 @@ def guide_seen(request):
     if request.POST.get("reset"):
         return redirect("index")
     return JsonResponse({"ok": True})
+
+
+# ===================== смета­чи созламалари (5-босқич) =====================
+def user_settings(request):
+    """Бир жойда: иш усули, нарх манбаи ва давр, йўриқнома ўзи очилиши, изоҳ белгилари, жадвал зичлиги.
+    Юклаш саҳифасидаги танловлар ҳам шу сақланганлар — иккаласи бир хил қийматни кўрсатади."""
+    from resbase.services import base_on, parse_period
+    from .services import remember_ui_prefs, ui_prefs_of
+    user = request.user
+    guide_auto = not set(GUIDE_PAGES) <= set(user.guides_seen or [])
+    if request.method == "POST":
+        before = {"nf_mode": nf_auto_of(user), **ui_prefs_of(user), "guide": guide_auto}
+        after = {"nf_mode": request.POST.get("nf_mode") != "manual",
+                 "tips": request.POST.get("tips") == "1", "dense": request.POST.get("dense") == "1",
+                 "guide": request.POST.get("guide") == "1"}
+        remember_nf_auto(user, after["nf_mode"])
+        remember_ui_prefs(user, after)
+        if after["guide"] != guide_auto:  # ўзгармаган бўлса — кўрилганлар рўйхатига тегмаймиз
+            user.guides_seen = [] if after["guide"] else list(GUIDE_PAGES)
+            user.save(update_fields=["guides_seen"])
+        changed = [k for k in after if after[k] != before[k]]
+        if base_on():
+            source = "base" if request.POST.get("source") == "base" else "res"
+            if source != price_source_of(user):
+                changed.append("source")
+            remember_price_source(user, source)
+            if "region" in request.POST or "year" in request.POST:
+                remember_base_period(user, parse_period(request.POST))
+        request.track_detail = ",".join(changed) or "—"  # панел «Фойдаланувчи йўли»: нима кўп ўзгартирилади
+        messages.success(request, "Созламалар сақланди.")
+        return redirect("user_settings")
+    return render(request, "jobs/settings.html", {
+        "nav": "settings", "nf_auto": nf_auto_of(user), "price_source": price_source_of(user),
+        "ui_prefs": ui_prefs_of(user), "guide_auto": guide_auto, **_base_ctx(base_period_of(user))})

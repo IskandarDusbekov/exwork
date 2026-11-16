@@ -6,37 +6,37 @@
 {% comment %}Tizim ofyorta jadvalini o'zi tushunmadi (yoki foydalanuvchi tuzatmoqchi): listning boshi va oxiri ko'rsatiladi —
 sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. Saqlangach list shu belgilar bilan o'qiladi.{% endcomment %}
 <style>
-  .mk { --b: #2563eb; --b-d: #1d4ed8; --b-t: #eff6ff; --line: #e3e8f0; --mut: #64748b; --ink: #0f172a; }
+  .mk { --b: rgb(var(--brand-600)); --b-d: rgb(var(--brand-700)); --b-t: rgb(var(--brand-50)); --line: rgb(var(--ink-200)); --mut: rgb(var(--ink-500)); --ink: rgb(var(--ink-900)); }
   .mk-top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; }
   .mk-ic { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 16px; background: var(--b-t); color: var(--b); }
   .mk-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--b); }
   .mk-h1 { margin-top: 2px; font-size: 24px; font-weight: 800; color: var(--ink); line-height: 1.2; }
-  .mk-sub { margin-top: 4px; font-size: 14px; color: #475569; }
+  .mk-sub { margin-top: 4px; font-size: 14px; color: rgb(var(--ink-600)); }
   .mk-tools { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
-  .mk-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; font-size: 13.5px; font-weight: 600; color: #334155; }
-  .mk-btn:hover { background: #f8fafc; border-color: #94a3b8; }
-  .mk-btn-danger:hover { color: #be123c; border-color: #fda4af; background: #fff1f2; }
+  .mk-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid rgb(var(--ink-300)); background: #fff; font-size: 13.5px; font-weight: 600; color: rgb(var(--ink-700)); }
+  .mk-btn:hover { background: rgb(var(--ink-50)); border-color: rgb(var(--ink-400)); }
+  .mk-btn-danger:hover { color: rgb(var(--bad-700)); border-color: rgb(var(--bad-300)); background: rgb(var(--bad-50)); }
   .mk-note { margin-top: 14px; display: flex; gap: 10px; padding: 12px 16px; border-radius: 14px; font-size: 14px; }
   .mk-note svg { flex: none; margin-top: 1px; }
-  .mk-note-warn { background: #fffbeb; border: 1px solid #fde68a; color: #78350f; }
-  .mk-note-info { background: #f0f9ff; border: 1px solid #bae6fd; color: #0c4a6e; }
+  .mk-note-warn { background: rgb(var(--warn-50)); border: 1px solid rgb(var(--warn-200)); color: rgb(var(--warn-900)); }
+  .mk-note-info { background: rgb(var(--brand-50)); border: 1px solid rgb(var(--brand-200)); color: rgb(var(--brand-900)); }
 
   .mk-steps { margin-top: 18px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
   @media (max-width: 900px) { .mk-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .mk-step { position: relative; text-align: left; padding: 12px 14px 12px 54px; border-radius: 16px; border: 1.5px solid var(--line); background: #fff; transition: all .15s; min-height: 72px; }
-  .mk-step:hover { border-color: #bfd3f8; }
+  .mk-step:hover { border-color: rgb(var(--brand-200)); }
   .mk-step b { display: block; font-size: 14.5px; color: var(--ink); }
   .mk-step span { display: block; margin-top: 2px; font-size: 12.5px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mk-step i { position: absolute; left: 14px; top: 14px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: #f1f5f9; color: #475569; font-style: normal; font-weight: 800; font-size: 13px; }
-  .mk-step.is-on { border-color: var(--b); box-shadow: 0 0 0 3px rgba(37, 99, 235, .14); background: linear-gradient(180deg, #fff, #f8fbff); }
+  .mk-step i { position: absolute; left: 14px; top: 14px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: rgb(var(--ink-100)); color: rgb(var(--ink-600)); font-style: normal; font-weight: 800; font-size: 13px; }
+  .mk-step.is-on { border-color: var(--b); box-shadow: 0 0 0 3px rgba(37, 99, 235, .14); background: linear-gradient(180deg, #fff, rgb(var(--ink-50))); }
   .mk-step.is-on i { background: var(--b); color: #fff; }
-  .mk-step.is-done i { background: #10b981; color: #fff; }
-  .mk-step.is-done span { color: #047857; font-weight: 600; }
-  .mk-step em { font-style: normal; font-weight: 500; color: #94a3b8; }
+  .mk-step.is-done i { background: rgb(var(--ok-500)); color: #fff; }
+  .mk-step.is-done span { color: rgb(var(--ok-700)); font-weight: 600; }
+  .mk-step em { font-style: normal; font-weight: 500; color: rgb(var(--ink-400)); }
 
   .mk-ask { position: sticky; top: 0; z-index: 25; margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; background: var(--ink); color: #fff; }
   .mk-ask-t { font-size: 16px; font-weight: 700; }
-  .mk-ask-h { margin-top: 2px; font-size: 13px; color: #cbd5e1; }
+  .mk-ask-h { margin-top: 2px; font-size: 13px; color: rgb(var(--ink-300)); }
   .mk-ask .mk-act { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
   .mk-ask button { height: 38px; padding: 0 16px; border-radius: 10px; font-size: 14px; font-weight: 700; }
   .mk-ask .mk-next { background: #fff; color: var(--ink); }
@@ -53,11 +53,11 @@ sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. S
   .mk-t td.ov { overflow: visible; }
   .mk-t td.wr { white-space: pre-wrap; overflow-wrap: anywhere; }
   .mk-t td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .mk-t td.hc { background: #f1f5f9; border-right-color: #cbd5e1; }
+  .mk-t td.hc { background: rgb(var(--ink-100)); border-right-color: rgb(var(--ink-300)); }
   .mk-t thead th { position: sticky; top: var(--askh, 0px); z-index: 3; background: #efefef; color: #444; font: 500 12px/1.2 "Segoe UI", Arial, sans-serif; text-align: center; padding: 4px 2px; border-right: 1px solid #d0d0d0; border-bottom: 1px solid #c4c4c4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mk-t thead tr.mk-roles th { top: calc(var(--askh, 0px) + 23px); padding: 3px 2px; background: #fff; border-bottom: 2px solid #94a3b8; overflow: visible; }
+  .mk-t thead tr.mk-roles th { top: calc(var(--askh, 0px) + 23px); padding: 3px 2px; background: #fff; border-bottom: 2px solid rgb(var(--ink-400)); overflow: visible; }
   .mk-t .mk-rn { position: sticky; left: 0; z-index: 2; background: #efefef; color: #555; text-align: center; font: 12px/1.2 "Segoe UI", Arial, sans-serif; font-variant-numeric: tabular-nums; vertical-align: middle; border-right: 1px solid #c4c4c4; }
-  .mk-t .mk-tag { position: sticky; left: 46px; z-index: 2; background: #fff; padding: 2px 4px; border-right: 2px solid #94a3b8; vertical-align: middle; font: 12px/1.2 "Segoe UI", Arial, sans-serif; white-space: nowrap; overflow: hidden; }
+  .mk-t .mk-tag { position: sticky; left: 46px; z-index: 2; background: #fff; padding: 2px 4px; border-right: 2px solid rgb(var(--ink-400)); vertical-align: middle; font: 12px/1.2 "Segoe UI", Arial, sans-serif; white-space: nowrap; overflow: hidden; }
   .mk-t thead .mk-rn, .mk-t thead .mk-tag { z-index: 4; background: #efefef; }
   .mk-t thead tr.mk-roles .mk-rn, .mk-t thead tr.mk-roles .mk-tag { background: #fff; }
   .mk-t thead th.is-role { border-bottom: 3px solid var(--rc); color: var(--rc); font-weight: 800; }
@@ -69,20 +69,20 @@ sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. S
   .mk-t tr.is-head td.c { --tint: rgba(37, 99, 235, .16); }
   .mk-t tr.is-work td.c { --tint: rgba(16, 185, 129, .12); }
   .mk-t tr.is-res td.c { --tint: rgba(16, 185, 129, .05); }
-  .mk-t tr.is-skip td.c, .mk-t tr.is-hid td.c { --tint: rgba(241, 245, 249, .72); color: #94a3b8 !important; }
+  .mk-t tr.is-skip td.c, .mk-t tr.is-hid td.c { --tint: rgba(241, 245, 249, .72); color: rgb(var(--ink-400)) !important; }
   .mk-t tr.is-svod td.c { --tint: rgba(245, 158, 11, .12); }
   .mk-t tr.is-final td.c { --tint: rgba(124, 58, 237, .18); }
   .mk-t tbody tr:hover td.c { --tint: rgba(37, 99, 235, .09); }
-  .mk-t tbody tr:hover .mk-rn { background: #dbeafe; color: var(--b); font-weight: 700; }
-  .mk-t tr.is-head .mk-rn { background: #2563eb; color: #fff; }
-  .mk-t tr.is-start td { border-top: 2px solid #10b981; }
-  .mk-t tr.is-end td { border-bottom: 2px solid #f59e0b !important; }
-  .mk-t tr.is-final .mk-rn { background: #7c3aed; color: #fff; }
+  .mk-t tbody tr:hover .mk-rn { background: rgb(var(--brand-100)); color: var(--b); font-weight: 700; }
+  .mk-t tr.is-head .mk-rn { background: rgb(var(--brand-600)); color: #fff; }
+  .mk-t tr.is-start td { border-top: 2px solid rgb(var(--ok-500)); }
+  .mk-t tr.is-end td { border-bottom: 2px solid rgb(var(--warn-500)) !important; }
+  .mk-t tr.is-final .mk-rn { background: rgb(var(--brand-600)); color: #fff; }
   .mk-pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-  .p-head { background: #2563eb; color: #fff; } .p-work { background: #10b981; color: #fff; } .p-res { background: #d1fae5; color: #065f46; }
-  .p-svod { background: #fde68a; color: #78350f; } .p-final { background: #7c3aed; color: #fff; } .p-skip { background: #f1f5f9; color: #64748b; }
-  .p-hid { background: #e2e8f0; color: #475569; }
-  .mk-roles select { width: 100%; min-width: 0; height: 26px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; padding: 0 4px; background: #fff; color: #334155; }
+  .p-head { background: rgb(var(--brand-600)); color: #fff; } .p-work { background: rgb(var(--ok-500)); color: #fff; } .p-res { background: rgb(var(--ok-100)); color: rgb(var(--ok-800)); }
+  .p-svod { background: rgb(var(--warn-200)); color: rgb(var(--warn-900)); } .p-final { background: rgb(var(--brand-600)); color: #fff; } .p-skip { background: rgb(var(--ink-100)); color: rgb(var(--ink-500)); }
+  .p-hid { background: rgb(var(--ink-200)); color: rgb(var(--ink-600)); }
+  .mk-roles select { width: 100%; min-width: 0; height: 26px; border-radius: 8px; border: 1px solid rgb(var(--ink-300)); font-size: 12px; font-weight: 600; padding: 0 4px; background: #fff; color: rgb(var(--ink-700)); }
   .mk-roles select.has { border-color: transparent; color: #fff; }
   .mk-roles .mk-rl { display: block; height: 22px; line-height: 22px; border-radius: 6px; font-size: 11.5px; font-weight: 700; color: #fff; }
 
@@ -92,12 +92,12 @@ sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. S
   .mk-load { padding: 48px; text-align: center; color: var(--mut); }
 
   .mk-bar { position: sticky; bottom: 12px; z-index: 20; margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 12px 12px 18px; border-radius: 18px; background: rgba(255, 255, 255, .94); backdrop-filter: blur(8px); border: 1px solid var(--line); box-shadow: 0 14px 34px rgba(15, 23, 42, .14); }
-  .mk-sum { min-width: 0; flex: 1; font-size: 13px; color: #475569; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .mk-sum { min-width: 0; flex: 1; font-size: 13px; color: rgb(var(--ink-600)); display: flex; flex-wrap: wrap; gap: 4px 14px; }
   .mk-sum b { color: var(--ink); }
-  .mk-err { width: 100%; padding: 8px 12px; border-radius: 10px; background: #fff1f2; color: #9f1239; font-size: 13.5px; font-weight: 600; }
+  .mk-err { width: 100%; padding: 8px 12px; border-radius: 10px; background: rgb(var(--bad-50)); color: rgb(var(--bad-800)); font-size: 13.5px; font-weight: 600; }
   .mk-go { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-width: 240px; height: 50px; padding: 0 24px; border-radius: 12px; background: var(--b); color: #fff; font-size: 16px; font-weight: 700; box-shadow: 0 8px 20px rgba(37, 99, 235, .35); }
   .mk-go:hover { background: var(--b-d); }
-  .mk-go:disabled { background: #94a3b8; box-shadow: none; cursor: not-allowed; }
+  .mk-go:disabled { background: rgb(var(--ink-400)); box-shadow: none; cursor: not-allowed; }
   @media (max-width: 640px) { .mk-go { width: 100%; min-width: 0; } .mk-tools { margin-left: 0; } }
 </style>
 
@@ -297,7 +297,7 @@ sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. S
       var ro0 = BY[roleOf(j)];
       h += "<th" + (ro0 ? ' class="is-role" style="--rc:' + ro0.c + '"' : "") + (K.cols && K.cols[j] === 0 ? ' title="Excel’да яширилган устун"' : "") + ">" + D.letters[j] + "</th>";
     }
-    h += '</tr><tr class="mk-roles"><th class="mk-rn"></th><th class="mk-tag" style="font-size:11px;text-align:left;color:#64748b">устун →</th>';
+    h += '</tr><tr class="mk-roles"><th class="mk-rn"></th><th class="mk-tag" style="font-size:11px;text-align:left;color:rgb(var(--ink-500))">устун →</th>';
     for (j = 0; j < w; j++) {
       var rk = roleOf(j), ro = BY[rk];
       if (step === 3) {
@@ -514,9 +514,9 @@ sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. S
     display: flex; align-items: center; gap: 14px; padding: 14px 16px 14px 18px; border-radius: 16px; color: #fff; font-size: 15px;
     box-shadow: 0 18px 44px rgba(15, 23, 42, .35); animation: mk-auto-in .3s ease-out; }
   .mk-auto[hidden] { display: none; }
-  .mk-auto.is-ok { background: #15803d; }
-  .mk-auto.is-warn { background: #b45309; }
-  .mk-auto.is-bad { background: #be123c; align-items: flex-start; }
+  .mk-auto.is-ok { background: rgb(var(--ok-700)); }
+  .mk-auto.is-warn { background: rgb(var(--warn-700)); }
+  .mk-auto.is-bad { background: rgb(var(--bad-700)); align-items: flex-start; }
   .mk-auto-ring { flex: none; position: relative; width: 42px; height: 42px; }
   .mk-auto-ring svg { width: 42px; height: 42px; transform: rotate(-90deg); }
   .mk-auto-ring circle { fill: none; stroke-width: 4; }
@@ -528,7 +528,7 @@ sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. S
   .mk-auto ul { margin: 4px 0 0; padding-left: 18px; list-style: disc; font-size: 13.5px; }
   .mk-auto-b { display: flex; gap: 8px; margin-left: 8px; }
   .mk-auto-b a, .mk-auto-b button { height: 38px; padding: 0 14px; display: inline-flex; align-items: center; border-radius: 10px; font-weight: 600; font-size: 14px; white-space: nowrap; }
-  .mk-auto-go { background: #fff; color: #0f172a; }
+  .mk-auto-go { background: #fff; color: rgb(var(--ink-900)); }
   .mk-auto-stop { border: 1.5px solid rgba(255, 255, 255, .7); color: #fff; }
   .mk-auto-stop:hover { background: rgba(255, 255, 255, .15); }
   @keyframes mk-auto-in { from { opacity: 0; transform: translateY(14px); } }

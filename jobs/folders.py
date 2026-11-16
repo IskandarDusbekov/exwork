@@ -35,7 +35,7 @@ from .services import (
 
 log = logging.getLogger(__name__)
 
-MAX_PROJECT_FILES = 400
+MAX_PROJECT_FILES = 400  # стандарт; амалдагиси — панелдан (conf "max_project_files")
 WORKING = (Batch.Stage.QUEUED, Batch.Stage.CONVERTING, Batch.Stage.PRICING)
 STALE_AFTER = timedelta(minutes=5)  # shuncha vaqt belgi bo'lmasa — ish to'xtab qolgan (server qayta yondi)
 
@@ -96,8 +96,9 @@ def create_project(owner, files, paths, skipped=()) -> Project:
             except ArchiveError as e:
                 raise UploadError(f"{rel.name}: {e}") from e
             items += [(r, p, p.stat().st_size) for r, p in found]
-        if len(items) > MAX_PROJECT_FILES:
-            raise UploadError(f"Бир марта кўпи билан {MAX_PROJECT_FILES} та файл")
+        limit = conf.get("max_project_files")
+        if len(items) > limit:
+            raise UploadError(f"Бир марта кўпи билан {limit} та файл")
         rels = [r for r, _src, _size in items]
         others = [clean_path(p) for p in skipped]
         if not any(is_shown(str(r)) for r in rels):

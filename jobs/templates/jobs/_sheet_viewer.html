@@ -15,21 +15,21 @@
 </div>
 <style>
   .tag { display: inline-grid; min-width: 1.9rem; place-items: center; border-radius: 6px; padding: 0 5px; font-size: 11px; font-weight: 700; line-height: 1.35rem; flex-shrink: 0; }
-  .tag-loc { background: #dcfce7; color: #166534; }
-  .tag-res { background: #e0f2fe; color: #075985; }
-  .tag-off { background: #f1f5f9; color: #94a3b8; }
+  .tag-loc { background: rgb(var(--ok-100)); color: rgb(var(--ok-800)); }
+  .tag-res { background: rgb(var(--brand-100)); color: rgb(var(--brand-800)); }
+  .tag-off { background: rgb(var(--ink-100)); color: rgb(var(--ink-400)); }
   .xs thead th.xs-mk { color: #fff; font-weight: 700; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .xs tbody tr.xs-out > td { opacity: .4; }
-  .xs tbody tr.xs-edge > th { background: #7c3aed; color: #fff; font-weight: 700; }
+  .xs tbody tr.xs-edge > th { background: rgb(var(--brand-600)); color: #fff; font-weight: 700; }
   .xv-picking .xs td, .xv-picking .xs th { cursor: crosshair; }
-  .xv-picking .xs tbody tr:hover > th { background: #ddd6fe; }
+  .xv-picking .xs tbody tr:hover > th { background: rgb(var(--brand-200)); }
   /* ресурсни танлаш: ресурс номининг ёнида, яшил, ўртача; танлангач — «ёпиш» */
-  .xv-pick { display: inline-flex; flex-shrink: 0; align-items: center; gap: 6px; height: 34px; padding: 0 16px; border-radius: 10px; background: #16a34a; color: #fff;
+  .xv-pick { display: inline-flex; flex-shrink: 0; align-items: center; gap: 6px; height: 34px; padding: 0 16px; border-radius: 10px; background: rgb(var(--ok-600)); color: #fff;
     font-size: 14px; font-weight: 700; box-shadow: 0 3px 10px rgba(22, 163, 74, .3); animation: xv-pulse 1.8s ease-in-out infinite; }
-  .xv-pick:hover { background: #15803d; }
+  .xv-pick:hover { background: rgb(var(--ok-700)); }
   .xv-pick.hidden { display: none; }
-  .xv-pick.is-chosen { background: #dcfce7; color: #166534; box-shadow: none; animation: none; }
-  .xv-pick.is-chosen:hover { background: #bbf7d0; }
+  .xv-pick.is-chosen { background: rgb(var(--ok-100)); color: rgb(var(--ok-800)); box-shadow: none; animation: none; }
+  .xv-pick.is-chosen:hover { background: rgb(var(--ok-200)); }
   @keyframes xv-pulse { 0%, 100% { box-shadow: 0 3px 10px rgba(22, 163, 74, .3), 0 0 0 0 rgba(34, 197, 94, .45); } 60% { box-shadow: 0 3px 10px rgba(22, 163, 74, .3), 0 0 0 7px rgba(34, 197, 94, 0); } }
   {% include "jobs/_xs_css.html" %}
 </style>
@@ -140,7 +140,7 @@
       tabs.classList.toggle("hidden", list.length < 2);
     }
     // ---- устунлар белгиси: тури, ранг, сарлавҳада ном, маълумот қаторларидан ташқариси хира; босиб танлаш, сақлаш ----
-    var COLORS = {name: "#0284c7", unit: "#d97706", qty_unit: "#0d9488", qty_total: "#059669", price: "#7c3aed"};
+    var COLORS = {name: "rgb(var(--brand-600))", unit: "rgb(var(--warn-600))", qty_unit: "rgb(var(--ok-600))", qty_total: "rgb(var(--ok-600))", price: "rgb(var(--brand-600))"};
     var ROLES = [["local", "Локал — нархланадиган смета"], ["resource", "Ресурс — нархлар рўйхати (RES)"], ["unknown", "Ўтказиш"]];
     var markBar = el.querySelector(".xv-mark"), picking = null, marks = {};
     function mk() {
@@ -166,7 +166,7 @@
       if (m.fields.length) group.innerHTML = '<span class="ml-1 font-semibold text-violet-900">Устунлар:</span>';
       markBar.appendChild(group);
       m.fields.forEach(function (f) {
-        var b = document.createElement("button"), c = COLORS[f.key] || "#7c3aed", act = picking === f.key;
+        var b = document.createElement("button"), c = COLORS[f.key] || "rgb(var(--brand-600))", act = picking === f.key;
         b.type = "button";
         b.className = "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 " +
           (act ? "border-violet-600 bg-violet-600 text-white" : f.value || f.kind === "row" ? "border-slate-300 bg-white hover:bg-violet-100" : "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100");
@@ -208,7 +208,7 @@
         if (th.dataset.l) at[th.dataset.l] = i;
       });
       m.fields.forEach(function (f) {
-        var i = f.kind === "col" && f.value ? at[f.value] : undefined, c = COLORS[f.key] || "#7c3aed";
+        var i = f.kind === "col" && f.value ? at[f.value] : undefined, c = COLORS[f.key] || "rgb(var(--brand-600))";
         if (i === undefined) return;
         ths[i].classList.add("xs-mk"); ths[i].style.background = c;
         ths[i].textContent = f.value + " · " + f.label; ths[i].title = f.label + " — " + (f.hint || "");
@@ -224,7 +224,7 @@
     // Excel ойнасидаги қўлланма: тури → устунлар (ҳар бири нима) → жадвалдан босиш → қаторлар → сақлаш
     function tourSteps() {
       var m = mk(), table = scroll.querySelector("table.xs"), C = COLORS;
-      var sw = function (k) { return '<span class="tour-dot" style="border-radius:2px;background:' + (C[k] || "#7c3aed") + '"></span> '; };
+      var sw = function (k) { return '<span class="tour-dot" style="border-radius:2px;background:' + (C[k] || "rgb(var(--brand-600))") + '"></span> '; };
       var cols = m.fields.filter(function (f) { return f.kind === "col"; });
       var th = table && (table.querySelector("thead th.xs-mk") || table.querySelectorAll("thead th")[1]);
       var rowTh = table && ((table.querySelector("tbody tr.xs-edge") || table.querySelector("tbody tr")) || {}).firstElementChild;

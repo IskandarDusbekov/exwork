@@ -45,9 +45,10 @@ def pair_sheets(local_sheets: List[str], res_sheets: List[str],
 
 # ===================== jadval tuzilishi =====================
 # «Наименование», «НАИМ. РАБОТ», «Название», «Номи» — katta-kichik harf farqi yo'q (matn kichik harfga keltiriladi)
-_NAME_RE = re.compile(r"наименован|\bнаим\b|\bназвани|\bномлан|\bноми\b|\bnomi\b|работ и затрат")
-# «Единица измерения», «ЕД.ИЗМ», «Ед. изм.», «Ед-ца», «Ед.», «Изм.», «Ўлчов бирлиги» — lekin «на.ед.изм.» (narx sarlavhasi) emas
-_UNIT_RE = re.compile(r"(?:^|[\s|(])(?:единиц[аы]\s+измер|ед\.?\s*изм|ед-?ца|ўлчов|улчов|o.lchov)"
+_NAME_RE = re.compile(r"наименован|\bнаим\b|\bназвани|\bномлан|\bnomlan|\bноми\b|\bnomi\b|работ и затрат")
+# «Единица измерения», «ЕД.ИЗМ», «Ед. изм.», «Ед-ца», «Ед.», «Изм.», «Ўлчов бирлиги», «Бирл.», «Birligi» —
+# lekin «на.ед.изм.» (narx sarlavhasi) emas
+_UNIT_RE = re.compile(r"(?:^|[\s|(])(?:единиц[аы]\s+измер|ед\.?\s*изм|ед-?ца|ўлчов|улчов|o.lchov|бирлиг|бирл\b|birlig)"
                       r"|(?:^|\|\s)(?:ед\.?|единица|изм\.?|е\.?\s?и\.?)(?:\s\||$)")
 _TOTAL_RE = re.compile(r"^(итого|всего)\s+по\s+(локальн|смет)")
 HEADER_SCAN_ROWS = 80
@@ -118,9 +119,17 @@ def _as_int(v) -> Optional[int]:
 
 def _is_numbering_row(ws, r: int) -> bool:
     """«1 2 3 4 5 6»: chapdan o'ngga dastlabki raqamlar 1, 2, 3 …"""
-    nums = [_as_int(cell_value(ws, r, c)) for c in range(1, ws.max_column + 1)]
-    nums = [n for n in nums if n is not None]
-    return len(nums) >= 3 and nums[:3] == [1, 2, 3]
+    vals = [cell_value(ws, r, c) for c in range(1, ws.max_column + 1)]
+    nums = [_as_int(v) for v in vals]
+    found = [n for n in nums if n is not None]
+    if len(found) >= 3 and found[:3] == [1, 2, 3]:
+        return True
+    # баъзи дастурлар устунни яширади / ташлаб юборади: «1 | 3 | 4 | 5 …» (2 йўқ). Фақат рақамлар, матн йўқ,
+    # 1 дан бошланиб кам-кам ўсади — маълумот қатори эмас (унда ном — матн бор)
+    if any(n is None and v is not None and str(v).strip() for n, v in zip(nums, vals)):
+        return False
+    return (len(found) >= 4 and found[0] == 1
+            and all(0 < b - a <= 2 for a, b in zip(found, found[1:])))
 
 
 def _find_header_row(ws) -> Optional[int]:
@@ -131,14 +140,19 @@ def _find_header_row(ws) -> Optional[int]:
     return None
 
 
+_PRICE_TEXT = ("цена", "нарх", "баҳо", "бахо", "narx", "baho")  # рус / ўзбек (кирилл, лотин)
+
+
 def _pick_price_col(texts: Dict[int, str], name_col: int) -> Optional[int]:
     best, best_score = None, 0
     for c in sorted(texts):
         if c <= name_col:
             continue
         t = texts[c]
-        per_unit = bool(re.search(r"на\s*\.?\s*ед|на единицу", t))
-        if "цена" in t and "сумм" not in t:
+        # «на ед.», «на единицу»; ABC: «Сметная стоимость, СУМ | в базисном уровне | единицы» («всего» — сумма)
+        per_unit = bool(re.search(r"на\s*\.?\s*ед|на единицу", t)) or (
+            bool(re.search(r"\bединицы$", t)) and "измер" not in t)
+        if any(w in t for w in _PRICE_TEXT) and "сумм" not in t and "жами" not in t:
             score = 3
         elif per_unit and "базис" in t:
             score = 2

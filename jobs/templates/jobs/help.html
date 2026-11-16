@@ -5,6 +5,7 @@
 <div class="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
 <nav class="hidden text-sm lg:block" aria-label="Йўриқнома бўлимлари">
   <div class="sticky top-4 space-y-1">
+    {% if videos %}<a href="#videos" class="block rounded-md px-2 py-1.5 text-slate-700 hover:bg-white">Видео дарслар</a>{% endif %}
     <a href="#flow" class="block rounded-md px-2 py-1.5 text-slate-700 hover:bg-white">Иш тартиби</a>
     <a href="#method" class="block rounded-md px-2 py-1.5 text-slate-700 hover:bg-white">Қайси усулни танлай?</a>
     {% for title, items in groups %}<a href="#g{{ forloop.counter }}" class="block rounded-md px-2 py-1.5 text-slate-700 hover:bg-white">{{ title }}</a>{% endfor %}
@@ -23,6 +24,41 @@
       <span class="ml-2 text-xs text-slate-400">ҳар бир саҳифага биринчи киргандек яна ўзи очилади</span>
     </form>
   </header>
+
+  {# ================= видео дарслар (панел → «Ёрдам матнлари ва видео») ================= #}
+  {% if videos %}
+  <section id="videos" class="scroll-mt-4">
+    <h2 class="mb-4 text-lg font-semibold">Видео дарслар</h2>
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {% for v in videos %}
+      <figure class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        {# аввал фақат расм; босилгандагина YouTube уланади — саҳифа тез очилади #}
+        <button type="button" class="group relative block aspect-video w-full bg-slate-900" data-yt="{{ v.id }}" aria-label="Кўриш: {{ v.title }}">
+          <img src="https://i.ytimg.com/vi/{{ v.id }}/hqdefault.jpg" alt="" loading="lazy" class="h-full w-full object-cover opacity-90 group-hover:opacity-100">
+          <span class="absolute inset-0 grid place-items-center"><span class="grid h-14 w-14 place-items-center rounded-full bg-white/90 text-slate-900 shadow-lg group-hover:scale-105">{% icon "play" "h-6 w-6" %}</span></span>
+        </button>
+        <figcaption class="px-3 py-2.5">
+          <b class="block text-sm text-slate-900">{{ v.title }}</b>
+          {% if v.label %}<span class="text-xs text-slate-400">{{ v.label }}</span>{% endif %}
+          {% if v.note %}<p class="mt-1 text-xs leading-relaxed text-slate-500">{{ v.note }}</p>{% endif %}
+        </figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+    <script>
+      document.querySelectorAll("[data-yt]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var f = document.createElement("iframe");
+          f.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(b.dataset.yt) + "?autoplay=1&rel=0";
+          f.className = "aspect-video w-full"; f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.allowFullscreen = true;
+          f.referrerPolicy = "strict-origin-when-cross-origin";  // YouTube манзилсиз (Referer йўқ) видеони очмайди
+          f.title = b.getAttribute("aria-label");
+          b.replaceWith(f);
+        });
+      });
+    </script>
+  </section>
+  {% endif %}
 
   {# ================= иш тартиби ================= #}
   <section id="flow" class="scroll-mt-4">
@@ -73,5 +109,5 @@
 
 </div>
 </div>
-<style>.help-item:target { background: #f5f3ff; box-shadow: inset 3px 0 0 #8b5cf6; }</style>
+<style>.help-item:target { background: rgb(var(--brand-50)); box-shadow: inset 3px 0 0 rgb(var(--brand-500)); }</style>
 {% endblock %}

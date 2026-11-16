@@ -24,28 +24,28 @@
   {# ekran o'rtasida: bosqichlar, o'tgan vaqt, qatorlar va umumiy foiz (burchakdagi kichik oyna o'rniga) #}
   <style>
     .tl-wrap { display: grid; place-items: center; min-height: calc(100vh - 260px); padding: 24px 0; }
-    .tl-box { width: min(520px, 100%); padding: 26px 28px 22px; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; box-shadow: 0 20px 50px rgba(15, 23, 42, .12); }
+    .tl-box { width: min(520px, 100%); padding: 26px 28px 22px; border: 1px solid rgb(var(--ink-200)); border-radius: 18px; background: #fff; box-shadow: 0 20px 50px rgba(15, 23, 42, .12); }
     .tl-h { display: flex; align-items: center; gap: 12px; }
-    .tl-spin { flex: none; width: 34px; height: 34px; border: 3px solid #dbeafe; border-top-color: #2563eb; border-radius: 999px; animation: tl-rot .9s linear infinite; }
-    .tl-box.is-ok .tl-spin { animation: none; border-color: #16a34a; background: #16a34a; }
-    .tl-box.is-bad .tl-spin { animation: none; border-color: #e11d48; background: #e11d48; }
-    .tl-t { font-size: 18px; font-weight: 700; color: #0f172a; }
-    .tl-s { font-size: 13px; color: #64748b; }
-    .tl-time { margin-left: auto; font: 600 15px/1 ui-monospace, Consolas, monospace; color: #334155; }
-    .tl-bar { position: relative; height: 10px; margin: 20px 0 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
-    .tl-bar i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: inherit; background: linear-gradient(90deg, #3b82f6, #2563eb); transition: width .5s ease-out; }
-    .tl-box.is-ok .tl-bar i { background: #16a34a; }
-    .tl-pct { display: flex; justify-content: space-between; font-size: 13px; color: #475569; }
-    .tl-pct b { color: #0f172a; }
+    .tl-spin { flex: none; width: 34px; height: 34px; border: 3px solid rgb(var(--brand-100)); border-top-color: rgb(var(--brand-600)); border-radius: 999px; animation: tl-rot .9s linear infinite; }
+    .tl-box.is-ok .tl-spin { animation: none; border-color: rgb(var(--ok-600)); background: rgb(var(--ok-600)); }
+    .tl-box.is-bad .tl-spin { animation: none; border-color: rgb(var(--bad-600)); background: rgb(var(--bad-600)); }
+    .tl-t { font-size: 18px; font-weight: 700; color: rgb(var(--ink-900)); }
+    .tl-s { font-size: 13px; color: rgb(var(--ink-500)); }
+    .tl-time { margin-left: auto; font: 600 15px/1 ui-monospace, Consolas, monospace; color: rgb(var(--ink-700)); }
+    .tl-bar { position: relative; height: 10px; margin: 20px 0 6px; border-radius: 999px; background: rgb(var(--ink-200)); overflow: hidden; }
+    .tl-bar i { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: inherit; background: linear-gradient(90deg, rgb(var(--brand-500)), rgb(var(--brand-600))); transition: width .5s ease-out; }
+    .tl-box.is-ok .tl-bar i { background: rgb(var(--ok-600)); }
+    .tl-pct { display: flex; justify-content: space-between; font-size: 13px; color: rgb(var(--ink-600)); }
+    .tl-pct b { color: rgb(var(--ink-900)); }
     .tl-steps { margin-top: 16px; display: grid; gap: 8px; }
-    .tl-step { display: flex; align-items: center; gap: 10px; font-size: 14.5px; color: #94a3b8; }
-    .tl-step i { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border: 2px solid #cbd5e1; border-radius: 999px; font-style: normal; font-size: 12px; font-weight: 700; }
-    .tl-step.is-now { color: #0f172a; font-weight: 600; }
-    .tl-step.is-now i { border-color: #2563eb; color: #2563eb; }
-    .tl-step.is-done { color: #166534; }
-    .tl-step.is-done i { border-color: #16a34a; background: #16a34a; color: #fff; }
-    .tl-step em { margin-left: auto; font-style: normal; font-size: 13px; font-weight: 500; color: #64748b; }
-    .tl-err { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: #fff1f2; color: #9f1239; font-size: 14px; }
+    .tl-step { display: flex; align-items: center; gap: 10px; font-size: 14.5px; color: rgb(var(--ink-400)); }
+    .tl-step i { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border: 2px solid rgb(var(--ink-300)); border-radius: 999px; font-style: normal; font-size: 12px; font-weight: 700; }
+    .tl-step.is-now { color: rgb(var(--ink-900)); font-weight: 600; }
+    .tl-step.is-now i { border-color: rgb(var(--brand-600)); color: rgb(var(--brand-600)); }
+    .tl-step.is-done { color: rgb(var(--ok-800)); }
+    .tl-step.is-done i { border-color: rgb(var(--ok-600)); background: rgb(var(--ok-600)); color: #fff; }
+    .tl-step em { margin-left: auto; font-style: normal; font-size: 13px; font-weight: 500; color: rgb(var(--ink-500)); }
+    .tl-err { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: rgb(var(--bad-50)); color: rgb(var(--bad-800)); font-size: 14px; }
     @keyframes tl-rot { to { transform: rotate(360deg); } }
   </style>
   <div class="tl-wrap">

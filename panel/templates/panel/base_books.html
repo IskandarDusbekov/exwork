@@ -24,7 +24,7 @@
     <div class="main">
       {% if can_act %}
       <input name="name_{{ r.key }}" value="{{ r.name }}" placeholder="ном ёзилмаган" maxlength="200"
-             class="w-full rounded-lg border px-3 py-1.5 text-sm {% if r.name %}border-blue-300{% else %}border-slate-300{% endif %}" style="{% if r.name %}border-color:#93c5fd;background:#eff6ff{% endif %}">
+             class="w-full rounded-lg border px-3 py-1.5 text-sm {% if r.name %}border-blue-300{% else %}border-slate-300{% endif %}" style="{% if r.name %}border-color:rgb(var(--brand-300));background:rgb(var(--brand-50)){% endif %}">
       {% else %}<div class="title">{{ r.name|default:"ном ёзилмаган" }}</div>{% endif %}
       <div class="ui-tags">
         <span class="ui-tag {% if r.n %}ok{% endif %}">{{ r.n }} та норма</span>

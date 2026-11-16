@@ -88,47 +88,47 @@
 <style>
   #bulk.is-folded #bulk-body { display: none; }
   #bulk.is-folded #bulk-collapse svg { transform: rotate(180deg); }
-  #bulk .chip { display: inline-flex; align-items: center; gap: .375rem; height: 2rem; padding: 0 .75rem; border: 1px solid #cbd5e1;
-                border-radius: 9999px; background: #fff; font-size: .8125rem; font-weight: 500; color: #334155; }
-  #bulk .chip:hover:not(:disabled) { border-color: #64748b; background: #f8fafc; }
+  #bulk .chip { display: inline-flex; align-items: center; gap: .375rem; height: 2rem; padding: 0 .75rem; border: 1px solid rgb(var(--ink-300));
+                border-radius: 9999px; background: #fff; font-size: .8125rem; font-weight: 500; color: rgb(var(--ink-700)); }
+  #bulk .chip:hover:not(:disabled) { border-color: rgb(var(--ink-500)); background: rgb(var(--ink-50)); }
   #bulk .chip:disabled { opacity: .4; }
-  #bulk .chip .cnt { color: #64748b; font-weight: 600; }
+  #bulk .chip .cnt { color: rgb(var(--ink-500)); font-weight: 600; }
   #bulk .chip .dot { width: .5rem; height: .5rem; border-radius: 9999px; }
-  #bulk .chip.is-active { background: #0f172a; border-color: #0f172a; color: #fff; }
-  #bulk .chip.is-active .cnt { color: #cbd5e1; }
-  #bulk #bulk-act.has-sel { background: #fff7ed; }
+  #bulk .chip.is-active { background: rgb(var(--ink-900)); border-color: rgb(var(--ink-900)); color: #fff; }
+  #bulk .chip.is-active .cnt { color: rgb(var(--ink-300)); }
+  #bulk #bulk-act.has-sel { background: rgb(var(--warn-50)); }
   #bulk .bt { width: 100%; min-width: 70rem; table-layout: fixed; font-size: .875rem; border-collapse: separate; border-spacing: 0; }
-  #bulk .bt thead th { position: sticky; top: 0; z-index: 5; background: #f1f5f9; color: #475569; font-size: .75rem; font-weight: 600;
-                       text-align: left; padding: .5rem; border-bottom: 1px solid #cbd5e1; white-space: nowrap; }
-  #bulk .bt td { padding: .5rem; border-top: 1px solid #f1f5f9; vertical-align: top; }
-  #bulk .bt tr.g:hover td { background: #f8fafc; }
-  #bulk .bt tr.g.is-sel td { background: #fff7ed; }
-  #bulk .bt tr.g.has-price td { background: #ecfdf5; }
+  #bulk .bt thead th { position: sticky; top: 0; z-index: 5; background: rgb(var(--ink-100)); color: rgb(var(--ink-600)); font-size: .75rem; font-weight: 600;
+                       text-align: left; padding: .5rem; border-bottom: 1px solid rgb(var(--ink-300)); white-space: nowrap; }
+  #bulk .bt td { padding: .5rem; border-top: 1px solid rgb(var(--ink-100)); vertical-align: top; }
+  #bulk .bt tr.g:hover td { background: rgb(var(--ink-50)); }
+  #bulk .bt tr.g.is-sel td { background: rgb(var(--warn-50)); }
+  #bulk .bt tr.g.has-price td { background: rgb(var(--ok-50)); }
   #bulk .bt tr.g.is-off td { opacity: .55; }
-  #bulk .bt tr.sec td { background: #e2e8f0; color: #1e293b; font-size: .8125rem; font-weight: 600; padding: .3rem .75rem; }
-  #bulk .code { display: inline-block; margin-top: .25rem; padding: 0 .375rem; border-radius: .25rem; background: #e2e8f0; color: #334155;
+  #bulk .bt tr.sec td { background: rgb(var(--ink-200)); color: rgb(var(--ink-800)); font-size: .8125rem; font-weight: 600; padding: .3rem .75rem; }
+  #bulk .code { display: inline-block; margin-top: .25rem; padding: 0 .375rem; border-radius: .25rem; background: rgb(var(--ink-200)); color: rgb(var(--ink-700));
                 font: 500 .75rem/1.25rem ui-monospace, SFMono-Regular, Menlo, monospace; }
   #bulk .tag { display: inline-block; border-radius: .25rem; padding: .125rem .375rem; font-size: .75rem; font-weight: 500; white-space: nowrap; }
-  #bulk .look { display: inline-flex; align-items: center; gap: .25rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 1px 6px;
-                color: #334155; background: #fff; font-size: .75rem; white-space: nowrap; }
-  #bulk .look:hover { background: #f0f9ff; border-color: #0284c7; color: #0369a1; }
+  #bulk .look { display: inline-flex; align-items: center; gap: .25rem; border: 1px solid rgb(var(--ink-300)); border-radius: 6px; padding: 1px 6px;
+                color: rgb(var(--ink-700)); background: #fff; font-size: .75rem; white-space: nowrap; }
+  #bulk .look:hover { background: rgb(var(--brand-50)); border-color: rgb(var(--brand-600)); color: rgb(var(--brand-700)); }
   #bulk .toggle { display: inline-flex; align-items: center; gap: .25rem; margin-top: .25rem; padding: .125rem .5rem; border-radius: .375rem;
-                  border: 1px solid #7dd3fc; background: #f0f9ff; color: #075985; font-size: .75rem; font-weight: 600; }
-  #bulk .toggle:hover { background: #e0f2fe; }
+                  border: 1px solid rgb(var(--brand-300)); background: rgb(var(--brand-50)); color: rgb(var(--brand-800)); font-size: .75rem; font-weight: 600; }
+  #bulk .toggle:hover { background: rgb(var(--brand-100)); }
   #bulk .ft { width: 100%; table-layout: fixed; border-collapse: collapse; background: #fff; font-size: .8125rem; min-width: 52rem; }
-  #bulk .ft th, #bulk .ft td { border: 1px solid #cbd5e1; padding: .3rem .45rem; vertical-align: middle; overflow-wrap: anywhere; }
-  #bulk .ft th { position: sticky; top: -.75rem; z-index: 1; background: #e2e8f0; color: #334155; font-size: .75rem; font-weight: 600; text-align: center; line-height: 1.2; }
-  #bulk .ft td.xl { background: #f1f5f9; color: #64748b; font-size: .75rem; }
-  #bulk .ft tr.fsec td { background: #e0f2fe; border-color: #7dd3fc; padding-top: .4rem; padding-bottom: .4rem; }
-  #bulk .ft tr.work td { background: #f8fafc; border-bottom-color: #e2e8f0; }
-  #bulk .ft tr.res td { border-top-color: #e2e8f0; }
-  #bulk .ft tr.res:hover td:not(.xl) { background: #f0f9ff; }
-  #bulk .ft tr.is-off td:not(:first-child) { color: #94a3b8; text-decoration: line-through; }
-  #bulk .sug { border: 1px solid #fde68a; background: #fffbeb; border-radius: .5rem; padding: .375rem .5rem; }
-  #bulk .price-in { width: 100%; border: 2px solid #cbd5e1; border-radius: .5rem; background: #fff; padding: .3rem .5rem; text-align: right; font-size: .875rem; }
-  #bulk .price-in:focus { border-color: #0284c7; outline: none; box-shadow: 0 0 0 3px rgba(2,132,199,.15); }
-  #bulk .price-in.bad { border-color: #f43f5e; }
-  #bulk tr.g.has-price .price-in { border-color: #10b981; background: #fff; }
+  #bulk .ft th, #bulk .ft td { border: 1px solid rgb(var(--ink-300)); padding: .3rem .45rem; vertical-align: middle; overflow-wrap: anywhere; }
+  #bulk .ft th { position: sticky; top: -.75rem; z-index: 1; background: rgb(var(--ink-200)); color: rgb(var(--ink-700)); font-size: .75rem; font-weight: 600; text-align: center; line-height: 1.2; }
+  #bulk .ft td.xl { background: rgb(var(--ink-100)); color: rgb(var(--ink-500)); font-size: .75rem; }
+  #bulk .ft tr.fsec td { background: rgb(var(--brand-100)); border-color: rgb(var(--brand-300)); padding-top: .4rem; padding-bottom: .4rem; }
+  #bulk .ft tr.work td { background: rgb(var(--ink-50)); border-bottom-color: rgb(var(--ink-200)); }
+  #bulk .ft tr.res td { border-top-color: rgb(var(--ink-200)); }
+  #bulk .ft tr.res:hover td:not(.xl) { background: rgb(var(--brand-50)); }
+  #bulk .ft tr.is-off td:not(:first-child) { color: rgb(var(--ink-400)); text-decoration: line-through; }
+  #bulk .sug { border: 1px solid rgb(var(--warn-200)); background: rgb(var(--warn-50)); border-radius: .5rem; padding: .375rem .5rem; }
+  #bulk .price-in { width: 100%; border: 2px solid rgb(var(--ink-300)); border-radius: .5rem; background: #fff; padding: .3rem .5rem; text-align: right; font-size: .875rem; }
+  #bulk .price-in:focus { border-color: rgb(var(--brand-600)); outline: none; box-shadow: 0 0 0 3px rgba(2,132,199,.15); }
+  #bulk .price-in.bad { border-color: rgb(var(--bad-500)); }
+  #bulk tr.g.has-price .price-in { border-color: rgb(var(--ok-500)); background: #fff; }
 </style>
 <script>
 (function () {

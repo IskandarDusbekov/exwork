@@ -1,0 +1,62 @@
+{% load narx %}{% comment %} 7-босқич: тепадаги «▶ Видео» — шу саҳифа учун панелда қўшилган дарслар (jobs.guide.videos).
+  Видео йўқ бўлса — ҳеч нарса чизилмайди. YouTube фақат дарс танлангандагина уланади (youtube-nocookie.com). {% endcomment %}
+{% if vids %}
+<button type="button" id="vid-btn" class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-100"
+        title="Шу саҳифа бўйича видео дарс{% if vids|length > 1 %}лар{% endif %}">{% icon "play" "h-4 w-4" %}<span class="hidden sm:inline">Видео{% if vids|length > 1 %} · {{ vids|length }}{% endif %}</span></button>
+<dialog id="vid-dlg" class="vid-dlg" aria-label="Видео дарс">
+  <div class="vid-top"><b id="vid-title"></b><button type="button" class="vid-x" data-vid-close aria-label="Ёпиш">{% icon "x" "h-5 w-5" %}</button></div>
+  <div class="vid-frame" id="vid-frame"></div>
+  <p class="vid-note" id="vid-note" hidden></p>
+  {% if vids|length > 1 %}
+  <ol class="vid-list">
+    {% for v in vids %}<li><button type="button" data-vid="{{ forloop.counter0 }}"><img src="https://i.ytimg.com/vi/{{ v.id }}/mqdefault.jpg" alt="" loading="lazy"><span>{{ v.title }}</span></button></li>{% endfor %}
+  </ol>
+  {% endif %}
+  <a href="{% url 'help' %}#videos" class="vid-all">Ҳамма видео дарслар →</a>
+</dialog>
+{{ vids|json_script:"vid-data" }}
+<style>
+  .vid-dlg { width: min(880px, calc(100vw - 24px)); padding: 0; border: 0; border-radius: 16px; background: #fff; box-shadow: 0 24px 60px rgba(15, 23, 42, .35); }
+  .vid-dlg::backdrop { background: rgba(15, 23, 42, .6); }
+  .vid-top { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+  .vid-top b { flex: 1; min-width: 0; font-size: 15px; color: rgb(var(--ink-900)); }
+  .vid-x { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 999px; background: rgb(var(--ink-100)); color: rgb(var(--ink-700)); }
+  .vid-x:hover { background: rgb(var(--ink-200)); }
+  .vid-frame { aspect-ratio: 16 / 9; background: #000; }
+  .vid-frame iframe { width: 100%; height: 100%; border: 0; }
+  .vid-note { padding: 10px 14px 0; font-size: 13px; line-height: 1.5; color: rgb(var(--ink-600)); }
+  .vid-note[hidden] { display: none; }
+  .vid-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; padding: 12px 14px 0; }
+  .vid-list button { display: grid; gap: 4px; width: 100%; padding: 4px; border-radius: 10px; border: 2px solid transparent; text-align: left; font-size: 12px; color: rgb(var(--ink-700)); }
+  .vid-list button:hover { background: rgb(var(--ink-50)); }
+  .vid-list button.is-on { border-color: rgb(var(--brand-500)); background: rgb(var(--brand-50)); }
+  .vid-list img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; }
+  .vid-all { display: block; padding: 12px 14px 14px; font-size: 13px; font-weight: 600; color: rgb(var(--brand-700)); }
+</style>
+<script>
+  (function () {
+    var list = JSON.parse(document.getElementById("vid-data").textContent), dlg = document.getElementById("vid-dlg");
+    var frame = document.getElementById("vid-frame"), note = document.getElementById("vid-note");
+    function play(i) {
+      var v = list[i];
+      document.getElementById("vid-title").textContent = v.title;
+      note.textContent = v.note || ""; note.hidden = !v.note;
+      var f = document.createElement("iframe");
+      f.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(v.id) + "?autoplay=1&rel=0";
+      f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.allowFullscreen = true;
+      f.referrerPolicy = "strict-origin-when-cross-origin";  // YouTube Referer'сиз видеони очмайди
+      f.title = v.title;
+      frame.replaceChildren(f);
+      dlg.querySelectorAll("[data-vid]").forEach(function (b) { b.classList.toggle("is-on", +b.dataset.vid === i); });
+    }
+    function close() { frame.replaceChildren(); if (dlg.open) dlg.close(); }  // ёпилса — овоз ҳам тўхтайди
+    document.getElementById("vid-btn").addEventListener("click", function () { dlg.showModal(); play(0); });
+    dlg.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-vid]");
+      if (b) play(+b.dataset.vid);
+      if (e.target.closest("[data-vid-close]") || e.target === dlg) close();
+    });
+    dlg.addEventListener("close", function () { frame.replaceChildren(); });
+  })();
+</script>
+{% endif %}

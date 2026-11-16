@@ -171,7 +171,11 @@
       inp.value = "";
       inp.onchange = function () {
         if (!inp.files.length) return;
-        if (!confirm("«" + (NAMES[i] || "файл") + "» ўрнига «" + inp.files[0].name + "» юклансинми?\nФақат шу файл листлари қайта ўқилади, қолгани ўзгармайди.")) return;
+        // тасдиқлаш ва юклаш — саҳифа ичида (fileops.js: ойна, жараён фоизи), браузер саҳифани қайта юкламайди
+        if (window.narxFileOps) {
+          window.narxFileOps.replaceFile(at(UP, i), NAMES[i] || "файл", inp.files[0], "Фақат шу файл листлари қайта ўқилади, қолгани ўзгармайди.");
+          return;
+        }
         form.action = at(UP, i);
         if (form.requestSubmit) form.requestSubmit(); else form.submit();
       };
@@ -183,7 +187,7 @@
         '<a href="' + at(DL, i) + '" class="file-act" title="Асл файлни юклаб олиш (тузатиш учун)">' + ICON_DL + (labels ? "юклаб олиш" : "") + "</a>" +
         (form ? '<button type="button" class="file-act" data-replace="' + i + '" title="Тузатилган файлни шу ўрнига юклаш — фақат шу файл ўзгаради">' + ICON_UP + (labels ? "қайта юклаш" : "") + "</button>" : "") +
         (form && UNDO[i] ? '<button type="button" class="file-act" data-fop="undo" data-url="' + at(UNDO_URL, i) + '" data-name="' + (NAMES[i] || "").replace(/"/g, "&quot;") +
-          '" title="Охирги алмаштиришни бекор қилиш — олдинги нусха қайтади" style="color:#b45309">' + ICON_UNDO + (labels ? "ортга" : "") + "</button>" : "") +
+          '" title="Охирги алмаштиришни бекор қилиш — олдинги нусха қайтади" style="color:rgb(var(--warn-700))">' + ICON_UNDO + (labels ? "ортга" : "") + "</button>" : "") +
         "</span>";
     },
   };
@@ -228,7 +232,7 @@
     <tr data-k="{{ s.key }}" class="sheet-row border-t border-slate-100 {% if v.tone == 'off' %}is-off text-slate-400{% endif %}" data-i="{{ i }}">
       <td class="py-2 pl-4 pr-3 align-top">
         <span class="flex items-start gap-2">
-          <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full {% if v.tone == 'ok' %}bg-emerald-500{% elif v.tone == 'res' %}bg-sky-500{% elif v.tone == 'warn' %}bg-amber-500{% else %}bg-slate-300{% endif %}"></span>
+          <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full {% if v.tone == 'ok' %}bg-emerald-500{% elif v.tone == 'res' %}bg-sky-500{% elif v.tone == 'warn' or v.tone == 'ask' %}bg-amber-500{% else %}bg-slate-300{% endif %}"></span>
           <span class="min-w-0">
             <button type="button" class="sheet-open font-semibold {% if v.tone == 'off' %}text-slate-500{% else %}text-slate-900{% endif %} hover:underline" data-k="{{ s.key }}" title="Excel кўринишида очиш">{{ s.sheet }}</button>
             {% if s.hidden %}<span class="ml-1 rounded bg-slate-100 px-1 text-[11px] text-slate-500">яширин</span>{% endif %}
@@ -242,8 +246,9 @@
         </select>
       </td>
       <td class="px-3 py-2 align-top" title="{{ s.reason }}">
-        <span class="text-xs font-semibold {% if v.tone == 'ok' %}text-emerald-700{% elif v.tone == 'res' %}text-sky-700{% elif v.tone == 'warn' %}text-amber-700{% else %}text-slate-500{% endif %}">{{ v.text }}</span>
-        {% if v.hint %}<span class="block text-[11px] {% if v.tone == 'warn' %}text-amber-700{% else %}text-slate-400{% endif %}">{{ v.hint }}</span>{% endif %}
+        <span class="text-xs font-semibold {% if v.tone == 'ok' %}text-emerald-700{% elif v.tone == 'res' %}text-sky-700{% elif v.tone == 'warn' or v.tone == 'ask' %}text-amber-700{% else %}text-slate-500{% endif %}">{{ v.text }}</span>
+        {% if v.hint %}<span class="block text-[11px] {% if v.tone == 'warn' or v.tone == 'ask' %}text-amber-700{% else %}text-slate-400{% endif %}">{{ v.hint }}</span>{% endif %}
+        <a href="{% url 'batch_mark' batch.id %}?k={{ s.key|urlencode }}" class="mt-1 inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold {% if v.tone == 'warn' or v.tone == 'ask' %}bg-amber-500 text-white hover:bg-amber-600{% else %}border border-slate-300 bg-white text-slate-600 hover:bg-slate-100{% endif %}" title="Файлнинг ўзида кўрсатиш: лист тури, биринчи қатор ва устунлар. Эслаб қолинади.">{% icon "pencil" "h-3 w-3" %} Белгилаш</a>
         {% if v.tone == 'warn' %}<button type="button" class="tour-start mt-0.5 text-[11px] font-semibold text-violet-700 underline hover:text-violet-900" data-i="{{ i }}">Қандай тўғирлайман? →</button>{% endif %}
       </td>
       <td class="px-3 py-2 align-top text-xs">
@@ -252,6 +257,8 @@
             <span class="h-2 w-2 rounded-sm {% if not p.value %}bg-rose-400{% elif p.key == 'name' %}bg-sky-600{% elif p.key == 'unit' %}bg-amber-600{% elif p.key == 'price' %}bg-violet-600{% elif p.key == 'qty_unit' %}bg-teal-600{% else %}bg-emerald-600{% endif %}"></span>{{ p.label }} <b class="font-mono text-slate-900">{{ p.value|default:"?" }}</b></span>{% endfor %}
           {% if cv.start %}<span class="text-slate-400" title="Маълумот қаторлари">{{ cv.start }}–{{ cv.end }} қатор</span>{% endif %}
           {% if s.manual %}<span class="rounded bg-violet-100 px-1.5 py-0.5 font-semibold text-violet-700" title="Смета­чи қўлда кўрсатган">қўлда</span>{% endif %}
+          {% if s.memo %}<span class="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 font-semibold text-emerald-800" title="Сиз аввал шундай тузилишдаги листда турини ёки устунларини кўрсатгансиз — тизим уни эслаб қолган ва бу листга ўзи қўллади">{% icon "check" "h-3 w-3" "3" %} аввалги созламангиз</span>
+          <button type="submit" formaction="{% url 'batch_forget' batch.id %}" name="key" value="{{ s.key }}" formnovalidate class="text-[11px] text-slate-500 underline hover:text-rose-700" title="Бу лист бошқача бўлса — эслатмани ўчириб, автомат ўқиш">унутиш</button>{% endif %}
           <button type="button" class="cols-edit inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] text-slate-600 hover:bg-slate-100" aria-expanded="false">{% icon "pencil" "h-3 w-3" %} тузатиш</button>
         </span>
       </td>
@@ -291,7 +298,8 @@
   <div class="px-4 py-3 border-t border-slate-100">
     <button type="submit" class="replan-btn rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-60">
       <span class="when-idle">Қайта жуфтлаш</span><span class="when-busy">Таҳлил қилиняпти…</span></button>
-    <span class="ml-2 text-xs text-slate-500">Тур ёки устун ўзгартирилгач — шу тугма билан қайта таҳлил қилинади.</span>
+    <span class="ml-2 text-xs text-slate-500">Тур ёки устун ўзгартирилгач — шу тугма билан қайта таҳлил қилинади.
+      Кўрсатганингиз <b class="text-emerald-700">эслаб қолинади</b>: шундай тузилишдаги лист кейин келса, тизим ўзи шундай ўқийди.</span>
   </div>
 </form>
 <script>
@@ -407,32 +415,32 @@
 {{ sheets_js|json_script:"sheets-data" }}
 {% include "jobs/_sheet_viewer.html" %}
 <style>
-  .side { border-left: 3px solid; border-radius: 8px; background: #fff; padding: 6px 10px; box-shadow: inset 0 0 0 1px #e2e8f0; }
-  .side-loc { border-left-color: #22c55e; }
-  .side-res { border-left-color: #0ea5e9; }
-  .side-res.is-empty { border-left-color: #f43f5e; background: #fff1f2; }
+  .side { border-left: 3px solid; border-radius: 8px; background: #fff; padding: 6px 10px; box-shadow: inset 0 0 0 1px rgb(var(--ink-200)); }
+  .side-loc { border-left-color: rgb(var(--ok-500)); }
+  .side-res { border-left-color: rgb(var(--brand-500)); }
+  .side-res.is-empty { border-left-color: rgb(var(--bad-500)); background: rgb(var(--bad-50)); }
   .side-dot { display: inline-block; width: 8px; height: 8px; border-radius: 9999px; flex-shrink: 0; }
-  .eye { flex-shrink: 0; border-radius: 6px; padding: 2px; color: #94a3b8; }
-  .eye:hover { background: #f1f5f9; color: #0f172a; }
+  .eye { flex-shrink: 0; border-radius: 6px; padding: 2px; color: rgb(var(--ink-400)); }
+  .eye:hover { background: rgb(var(--ink-100)); color: rgb(var(--ink-900)); }
   .pair-row.is-off { opacity: .5; }
   .file-acts { display: inline-flex; flex-shrink: 0; align-items: center; gap: 2px; margin-left: 2px; }
-  .file-act { display: inline-flex; align-items: center; gap: 3px; border-radius: 6px; padding: 2px 4px; color: #64748b; font-size: 11px; }
-  .file-act:hover { background: #e2e8f0; color: #0f172a; }
-  .xv-fact .file-act, [role=alert] .file-act { border: 1px solid #cbd5e1; padding: 2px 8px; color: #334155; background: #fff; }
+  .file-act { display: inline-flex; align-items: center; gap: 3px; border-radius: 6px; padding: 2px 4px; color: rgb(var(--ink-500)); font-size: 11px; }
+  .file-act:hover { background: rgb(var(--ink-200)); color: rgb(var(--ink-900)); }
+  .xv-fact .file-act, [role=alert] .file-act { border: 1px solid rgb(var(--ink-300)); padding: 2px 8px; color: rgb(var(--ink-700)); background: #fff; }
   .xv-fact .file-acts { gap: 4px; margin-left: 6px; }
   .pair-row .pair-ov { font-size: 15px; padding: 3px 12px; }
   .obj-page { max-width: 1360px; margin: 0 auto; }
   .obj-steps { display: flex; flex-wrap: wrap; gap: 6px 20px; }
   .obj-steps li { display: flex; align-items: flex-start; gap: 8px; flex: 1 1 260px; }
   .obj-steps li > span { display: grid; place-items: center; width: 20px; height: 20px; flex-shrink: 0; border-radius: 9999px;
-    background: #0284c7; color: #fff; font-size: 11px; font-weight: 700; margin-top: 1px; }
+    background: rgb(var(--brand-600)); color: #fff; font-size: 11px; font-weight: 700; margin-top: 1px; }
   .obj-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
-  .obj-chips-k { font-size: 11px; color: #94a3b8; margin-right: 2px; }
-  .obj-chip { border: 1px solid #e2e8f0; border-radius: 9999px; padding: 2px 10px; font-size: 12px; color: #475569; background: #f8fafc; }
-  .obj-chip:hover { border-color: #94a3b8; background: #fff; color: #0f172a; }
+  .obj-chips-k { font-size: 11px; color: rgb(var(--ink-400)); margin-right: 2px; }
+  .obj-chip { border: 1px solid rgb(var(--ink-200)); border-radius: 9999px; padding: 2px 10px; font-size: 12px; color: rgb(var(--ink-600)); background: rgb(var(--ink-50)); }
+  .obj-chip:hover { border-color: rgb(var(--ink-400)); background: #fff; color: rgb(var(--ink-900)); }
   #sheets .sh-g:not(.show-off) tr.is-off { display: none; }
-  .sh-off-btn { font-size: 12px; color: #475569; font-weight: 500; }
-  .sh-off-btn:hover { color: #0f172a; text-decoration: underline; }
+  .sh-off-btn { font-size: 12px; color: rgb(var(--ink-600)); font-weight: 500; }
+  .sh-off-btn:hover { color: rgb(var(--ink-900)); text-decoration: underline; }
   .sh-off-a { display: inline-block; transition: transform .15s; }
   .sh-g.show-off .sh-off-a { transform: rotate(90deg); }
 </style>
@@ -660,49 +668,49 @@
 <style>
   .pk-page { max-width: 1080px; margin: 0 auto; display: grid; gap: 16px; }
   .pk-top { display: grid; gap: 10px; }
-  .pk-back { display: inline-flex; align-items: center; gap: 6px; width: max-content; font-size: 14px; color: #475569; }
-  .pk-back:hover { color: #0f172a; text-decoration: underline; }
+  .pk-back { display: inline-flex; align-items: center; gap: 6px; width: max-content; font-size: 14px; color: rgb(var(--ink-600)); }
+  .pk-back:hover { color: rgb(var(--ink-900)); text-decoration: underline; }
   .pk-title { display: flex; align-items: center; gap: 8px; }
   .pk-title h1 { min-width: 0; overflow-wrap: anywhere; font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
-  .pk-ren { border-radius: 8px; padding: 6px; color: #94a3b8; } .pk-ren:hover { background: #f1f5f9; color: #0f172a; }
-  .pk-flow { border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; padding: 10px 14px; overflow-x: auto; }
-  .pk-msg { padding: 10px 14px; border-radius: 12px; border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; font-size: 14px; }
-  .pk-msg.is-err { border-color: #fecdd3; background: #fff1f2; color: #9f1239; }
-  .pk-ufile { display: inline-flex; align-items: center; gap: 4px; margin: 4px 6px 0 0; padding: 2px 8px; border-radius: 8px; background: #fff; border: 1px solid #fecdd3; color: #334155; }
+  .pk-ren { border-radius: 8px; padding: 6px; color: rgb(var(--ink-400)); } .pk-ren:hover { background: rgb(var(--ink-100)); color: rgb(var(--ink-900)); }
+  .pk-flow { border: 1px solid rgb(var(--ink-200)); border-radius: 14px; background: #fff; padding: 10px 14px; overflow-x: auto; }
+  .pk-msg { padding: 10px 14px; border-radius: 12px; border: 1px solid rgb(var(--ok-200)); background: rgb(var(--ok-50)); color: rgb(var(--ok-800)); font-size: 14px; }
+  .pk-msg.is-err { border-color: rgb(var(--bad-200)); background: rgb(var(--bad-50)); color: rgb(var(--bad-800)); }
+  .pk-ufile { display: inline-flex; align-items: center; gap: 4px; margin: 4px 6px 0 0; padding: 2px 8px; border-radius: 8px; background: #fff; border: 1px solid rgb(var(--bad-200)); color: rgb(var(--ink-700)); }
   .pk-adv { display: block !important; max-width: 1080px; }
   .pk-adv > div > *:not(#sheets) { display: none; }
-  .pk-again { border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; }
+  .pk-again { border: 1px solid rgb(var(--ink-200)); border-radius: 14px; background: #fff; }
   .pk-again > summary { display: flex; align-items: center; gap: 8px; padding: 14px 16px; cursor: pointer; font-weight: 700; list-style: none; }
   .pk-again > summary::-webkit-details-marker { display: none; }
   .pk-again-b { padding: 0 12px 14px; }
-  .pk-again > summary i, .rs-group h2 i { font-style: normal; font-weight: 800; color: #94a3b8; }
-  .pk-again > summary span { font-weight: 400; font-size: 13px; color: #94a3b8; }
+  .pk-again > summary i, .rs-group h2 i { font-style: normal; font-weight: 800; color: rgb(var(--ink-400)); }
+  .pk-again > summary span { font-weight: 400; font-size: 13px; color: rgb(var(--ink-400)); }
   /* натижа саҳифаси */
   .rs-group { display: grid; gap: 8px; }
   .rs-group h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 18px; font-weight: 800; }
-  .rs-group h2.is-fix { color: #be123c; } .rs-group h2.is-ok { color: #15803d; }
-  .rs-group h2 small { flex-basis: 100%; font-size: 13px; font-weight: 400; color: #64748b; }
+  .rs-group h2.is-fix { color: rgb(var(--bad-700)); } .rs-group h2.is-ok { color: rgb(var(--ok-700)); }
+  .rs-group h2 small { flex-basis: 100%; font-size: 13px; font-weight: 400; color: rgb(var(--ink-500)); }
   .rs-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px;
-    border: 1px solid #e2e8f0; border-left: 6px solid #22c55e; background: #fff; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
-  .rs-row:hover { box-shadow: 0 6px 18px rgba(15, 23, 42, .08); border-color: #cbd5e1; border-left-color: #16a34a; }
-  .rs-row.is-fix { border-left-color: #f43f5e; background: #fffafa; }
-  .rs-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #dcfce7; color: #16a34a; }
-  .rs-row.is-fix .rs-ic { background: #ffe4e6; color: #e11d48; }
-  .rs-n b { display: block; font-size: 16px; color: #0f172a; overflow-wrap: anywhere; }
-  .rs-n small { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 2px; font-size: 12px; color: #64748b; }
-  .rs-n small i { font-style: normal; font-weight: 700; } .rs-n .t-l { color: #059669; } .rs-n .t-r { color: #0284c7; }
-  .rs-n .rs-bad { color: #be123c; font-weight: 700; }
-  .rs-sum { text-align: right; font-size: 17px; font-weight: 800; color: #0f172a; white-space: nowrap; }
+    border: 1px solid rgb(var(--ink-200)); border-left: 6px solid rgb(var(--ok-500)); background: #fff; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+  .rs-row:hover { box-shadow: 0 6px 18px rgba(15, 23, 42, .08); border-color: rgb(var(--ink-300)); border-left-color: rgb(var(--ok-600)); }
+  .rs-row.is-fix { border-left-color: rgb(var(--bad-500)); background: rgb(var(--ink-50)); }
+  .rs-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: rgb(var(--ok-100)); color: rgb(var(--ok-600)); }
+  .rs-row.is-fix .rs-ic { background: rgb(var(--bad-100)); color: rgb(var(--bad-600)); }
+  .rs-n b { display: block; font-size: 16px; color: rgb(var(--ink-900)); overflow-wrap: anywhere; }
+  .rs-n small { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 2px; font-size: 12px; color: rgb(var(--ink-500)); }
+  .rs-n small i { font-style: normal; font-weight: 700; } .rs-n .t-l { color: rgb(var(--ok-600)); } .rs-n .t-r { color: rgb(var(--brand-600)); }
+  .rs-n .rs-bad { color: rgb(var(--bad-700)); font-weight: 700; }
+  .rs-sum { text-align: right; font-size: 17px; font-weight: 800; color: rgb(var(--ink-900)); white-space: nowrap; }
   .rs-btns { display: flex; gap: 6px; }
-  .rs-open { display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 16px; border-radius: 12px; border: 2px solid #16a34a; color: #15803d; font-weight: 700; }
-  .rs-open:hover { background: #f0fdf4; }
-  .rs-row.is-fix .rs-open { border-color: #f43f5e; background: #f43f5e; color: #fff; }
-  .rs-get { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; border: 1px solid #cbd5e1; color: #334155; }
-  .rs-get:hover { border-color: #0f172a; }
-  .rs-none { padding: 14px; color: #64748b; }
+  .rs-open { display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 16px; border-radius: 12px; border: 2px solid rgb(var(--ok-600)); color: rgb(var(--ok-700)); font-weight: 700; }
+  .rs-open:hover { background: rgb(var(--ok-50)); }
+  .rs-row.is-fix .rs-open { border-color: rgb(var(--bad-500)); background: rgb(var(--bad-500)); color: #fff; }
+  .rs-get { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; border: 1px solid rgb(var(--ink-300)); color: rgb(var(--ink-700)); }
+  .rs-get:hover { border-color: rgb(var(--ink-900)); }
+  .rs-none { padding: 14px; color: rgb(var(--ink-500)); }
   .rs-files ul { display: grid; gap: 6px; }
-  .rs-files li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: #f8fafc; font-size: 14px; }
-  .rs-files li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; } .rs-files li small { color: #94a3b8; }
+  .rs-files li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgb(var(--ink-50)); font-size: 14px; }
+  .rs-files li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; } .rs-files li small { color: rgb(var(--ink-400)); }
   @media (max-width: 760px) {
     .rs-hero { grid-template-columns: 1fr; }
     .rs-row { grid-template-columns: auto minmax(0, 1fr); }

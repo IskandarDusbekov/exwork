@@ -47,6 +47,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.LoginRequiredMiddleware",
     "panel.middleware.StaffTwoFactorMiddleware",  # панел / админ — фақат икки босқичли кириш билан
     "panel.middleware.SessionTrackMiddleware",  # IP, қурилма, охирги фаоллик
+    "panel.track.TrackMiddleware",  # фойдаланувчи йўли: юклаш → текшириш → нархлаш → натижа (панел «Фойдаланувчи йўли»)
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
@@ -65,6 +66,7 @@ TEMPLATES = [
             "django.contrib.messages.context_processors.messages",
             "accounts.context.signup",
             "support.context.support",
+            "jobs.context.ui",
         ]},
     },
 ]
@@ -181,7 +183,7 @@ SECURE_CSP = {
     "script-src": [CSP.SELF, CSP.UNSAFE_INLINE, "https://www.googletagmanager.com", "https://mc.yandex.ru"],
     "style-src": [CSP.SELF, CSP.UNSAFE_INLINE, "https://fonts.googleapis.com"],
     "font-src": [CSP.SELF, "https://fonts.gstatic.com", "data:"],
-    "img-src": [CSP.SELF, "data:", "blob:", "https://*.google-analytics.com", "https://www.googletagmanager.com",
+    "img-src": [CSP.SELF, "data:", "blob:", "https://i.ytimg.com", "https://*.google-analytics.com", "https://www.googletagmanager.com",
                 "https://mc.yandex.ru"],
     "connect-src": [CSP.SELF, "https://*.google-analytics.com", "https://*.analytics.google.com",
                     "https://www.googletagmanager.com", "https://mc.yandex.ru", "https://mc.yandex.com"],
@@ -189,6 +191,8 @@ SECURE_CSP = {
     "base-uri": [CSP.SELF],
     "form-action": [CSP.SELF],
     "frame-ancestors": [CSP.NONE],
+    # 6-босқич: панелда қўшилган видео дарслар — фақат YouTube'нинг cookie'сиз манзили ва унинг расмлари
+    "frame-src": ["https://www.youtube-nocookie.com"],
 }
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
@@ -284,6 +288,11 @@ NARXLASH_AUTO_MIN_SCORE = 90  # «Автоматик»: яқин ресурс т
 NARXLASH_AUTO_SAME_WORD = True  # … ва номининг биринчи сўзи бир хил («МУСОР …» ≠ «ГВОЗДИ …»)
 NARXLASH_AUTO_SAME_UNIT = True  # … ва бирлиги бир хил
 NARXLASH_FUZZY_DEFAULT = 95  # янги сметада «ўхшаш» деб нархлаш чегараси (смета­чи ўзи 80–100 оралиғида ўзгартиради)
+NARXLASH_MAX_FILES = 10  # 6-босқич: панелда ўзгаради — битта юклашда алоҳида Excel файллар
+NARXLASH_MAX_PROJECT_FILES = 400  # битта папка / архивдаги файллар
+NARXLASH_LM_OWNERS_MIN = 2  # L/M базаси: RES далилисиз — шунча ҳар хил смета­чи бир хил деса
+NARXLASH_LM_STRONG_VOTES = 3  # L/M базаси: шунча бир хил овоз, қарама-қаршиси йўқ — ишончли
+NARXLASH_PRICE_STALE_DAYS = 365  # нарх базаси: шунча кундан бери янги нарх келмаса — «эскирган»
 NARXLASH_BASE_PRICE_RATIO = 3  # ресурс базаси: медианадан шунча баравар фарқ қилган нарх — шубҳали
 # Ro'yxatdan o'tish: open — hamma o'zi ochadi; closed — hisobni faqat admin yaratadi (Django admin)
 NARXLASH_SIGNUP = os.environ.get("NARXLASH_SIGNUP", "open")

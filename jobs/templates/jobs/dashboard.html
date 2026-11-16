@@ -5,20 +5,20 @@
 {% block content %}
 {% csrf_token %}
 <style>
-  .ds-card { position: relative; display: flex; flex-direction: column; gap: 14px; padding: 22px 22px 18px; border: 1.5px solid #e3e8f0; border-radius: 20px; background: #fff; text-align: left; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); transition: border-color .15s, box-shadow .15s, transform .15s; cursor: var(--cur-hand, pointer); }
-  .ds-card:hover { transform: translateY(-2px); border-color: #c7d4ea; box-shadow: 0 10px 26px rgba(15, 23, 42, .08); }
+  .ds-card { position: relative; display: flex; flex-direction: column; gap: 14px; padding: 22px 22px 18px; border: 1.5px solid rgb(var(--ink-200)); border-radius: 20px; background: #fff; text-align: left; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); transition: border-color .15s, box-shadow .15s, transform .15s; cursor: var(--cur-hand, pointer); }
+  .ds-card:hover { transform: translateY(-2px); border-color: rgb(var(--ink-300)); box-shadow: 0 10px 26px rgba(15, 23, 42, .08); }
   .ds-card[aria-selected="true"] { border-color: var(--ds-c); box-shadow: 0 0 0 4px var(--ds-ring), 0 12px 28px rgba(15, 23, 42, .08); }
   .ds-card[aria-selected="true"]::after { content: ""; position: absolute; left: 50%; bottom: -11px; width: 18px; height: 18px; margin-left: -9px; transform: rotate(45deg); background: #fff; border-right: 1.5px solid var(--ds-c); border-bottom: 1.5px solid var(--ds-c); }
   .ds-ic { display: grid; place-items: center; flex: none; width: 56px; height: 56px; border-radius: 16px; background: var(--ds-tint); color: var(--ds-c); }
-  .ds-stat { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 12px; background: #f8fafc; }
-  .ds-stat b { font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.1; }
-  .ds-stat span { font-size: 12px; color: #64748b; }
+  .ds-stat { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 12px; background: rgb(var(--ink-50)); }
+  .ds-stat b { font-size: 20px; font-weight: 700; color: rgb(var(--ink-900)); line-height: 1.1; }
+  .ds-stat span { font-size: 12px; color: rgb(var(--ink-500)); }
   .ds-go { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 10px; background: var(--ds-c); color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 6px 16px var(--ds-ring); }
   .ds-go:hover { filter: brightness(.93); }
-  .ds-open { display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 12px; border-radius: 10px; color: #475569; font-size: 14px; font-weight: 500; }
-  .ds-open:hover { background: #f1f5f9; color: #0f172a; }
-  .ds-smeta { --ds-c: #059669; --ds-tint: #ecfdf5; --ds-ring: rgba(5, 150, 105, .16); }
-  .ds-tn { --ds-c: #2563eb; --ds-tint: #eff6ff; --ds-ring: rgba(37, 99, 235, .16); }
+  .ds-open { display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 12px; border-radius: 10px; color: rgb(var(--ink-600)); font-size: 14px; font-weight: 500; }
+  .ds-open:hover { background: rgb(var(--ink-100)); color: rgb(var(--ink-900)); }
+  .ds-smeta { --ds-c: rgb(var(--ok-600)); --ds-tint: rgb(var(--ok-50)); --ds-ring: rgba(5, 150, 105, .16); }
+  .ds-tn { --ds-c: rgb(var(--brand-600)); --ds-tint: rgb(var(--brand-50)); --ds-ring: rgba(37, 99, 235, .16); }
   [data-pane][hidden] { display: none; }
 </style>
 
@@ -43,8 +43,8 @@
     </div>
     <div class="grid grid-cols-3 gap-2">
       <div class="ds-stat"><b class="num">{{ count_smetas }}</b><span>смета</span></div>
-      <div class="ds-stat"><b class="num" style="color:#059669">{{ count_done }}</b><span>тайёр</span></div>
-      <div class="ds-stat"><b class="num"{% if attention_total %} style="color:#be123c"{% endif %}>{{ attention_total }}</b><span>эътибор керак</span></div>
+      <div class="ds-stat"><b class="num" style="color:rgb(var(--ok-600))">{{ count_done }}</b><span>тайёр</span></div>
+      <div class="ds-stat"><b class="num"{% if attention_total %} style="color:rgb(var(--bad-700))"{% endif %}>{{ attention_total }}</b><span>эътибор керак</span></div>
     </div>
     <div class="flex flex-wrap items-center gap-1">
       <a href="{% url 'index' %}" class="ds-go">{% icon "upload" "h-4 w-4" %}Смета юклаш</a>
@@ -62,7 +62,7 @@
     </div>
     <div class="grid grid-cols-3 gap-2">
       <div class="ds-stat"><b class="num">{{ tn.count }}</b><span>объект</span></div>
-      <div class="ds-stat"><b class="num" style="color:#2563eb">{{ tn_acts }}</b><span>далолатнома</span></div>
+      <div class="ds-stat"><b class="num" style="color:rgb(var(--brand-600))">{{ tn_acts }}</b><span>далолатнома</span></div>
       <div class="ds-stat"><b class="num">{% if tn_recent %}{{ tn_recent.0.when|date:"d.m" }}{% else %}—{% endif %}</b><span>охирги иш</span></div>
     </div>
     <div class="flex flex-wrap items-center gap-1">

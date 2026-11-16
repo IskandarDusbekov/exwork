@@ -199,7 +199,52 @@ ALIASES = {
 }
 
 
+def help_texts() -> dict:
+    """``HELP`` + панелда ўзгартирилгани (6-босқич, ``SiteSetting`` "help_texts"). Бўш қолдирилган майдон — коддагиси."""
+    from panel import conf
+    over = conf.raw("help_texts", {})
+    if not isinstance(over, dict) or not over:
+        return HELP
+    out = {}
+    for k, base in HELP.items():
+        o = over.get(k)
+        out[k] = tuple((o[i] if isinstance(o, (list, tuple)) and i < len(o) and str(o[i]).strip() else base[i])
+                       for i in range(3))
+    return out
+
+
 def help_groups():
     """/help/ саҳифаси учун: [(бўлим, [{key, title, what, todo}]), …]."""
-    return [(title, [{"key": k, "title": HELP[k][0], "what": HELP[k][1], "todo": HELP[k][2]} for k in keys])
+    texts = help_texts()
+    return [(title, [{"key": k, "title": texts[k][0], "what": texts[k][1], "todo": texts[k][2]} for k in keys])
             for title, keys in HELP_GROUPS]
+
+
+# 6-босқич: видео дарслар — панелда қўшилади (SiteSetting "videos"); 7-босқичда ёзилади.
+# page — қайси саҳифага тегишли (GUIDE_PAGES дан бири ёки бўш — умумий)
+VIDEO_PAGES = (("", "Умумий"), ("upload", "Юклаш"), ("folder", "Папка"), ("object", "Объект"), ("smeta", "Смета"),
+               ("dashboard", "Иш столи"), ("calc", "Калькулятор"), ("texnazor", "Офёрта ва далолатнома"))
+
+
+# 7-босқич: саҳифа (URL номи) → видео саҳифаси — тепадаги «▶ Видео» тугмаси шу саҳифанинг дарсларини очади
+VIDEO_ROUTES = {"index": "upload", "project": "folder", "batch": "object", "batch_mark": "object", "job": "smeta",
+                "dashboard": "dashboard", "calc": "calc", "texnazor:index": "texnazor", "texnazor:object": "texnazor",
+                "texnazor:mark": "texnazor", "texnazor:choose_sheet": "texnazor"}
+
+
+def youtube_id(url: str) -> str:
+    """YouTube ҳаволасидан видео ID (youtu.be/ID, watch?v=ID, /embed/ID, /shorts/ID); бўлмаса — бўш."""
+    import re
+    m = re.search(r"(?:youtu\.be/|[?&]v=|/embed/|/shorts/|/live/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])", url or "")
+    return m.group(1) if m else ""
+
+
+def videos(page=None) -> list:
+    """[{title, id, page, note}] — тартиби панелдагидек. ``page`` берилса — фақат шу саҳифаникилари."""
+    from panel import conf
+    out = []
+    for v in conf.raw("videos", []) or []:
+        if isinstance(v, dict) and v.get("id"):
+            if page is None or v.get("page", "") == page:
+                out.append({"title": v.get("title", ""), "id": v["id"], "page": v.get("page", ""), "note": v.get("note", "")})
+    return out

@@ -291,7 +291,8 @@ def help(key, cls=""):
     """``{% help "warn" %}`` — огоҳлантириш ёнидаги «?»: босилса нимани билдиради ва нима қилиш кераклиги чиқади."""
     from django.utils.html import format_html
 
-    from jobs.guide import ALIASES, HELP
+    from jobs.guide import ALIASES, help_texts
+    HELP = help_texts()
     key = ALIASES.get(key, key)
     if key not in HELP:
         return ""
@@ -300,13 +301,22 @@ def help(key, cls=""):
                        'aria-label="{}: бу нима дегани?">?</button>', cls, key, HELP[key][0], HELP[key][0])
 
 
+@register.inclusion_tag("jobs/_video_btn.html", takes_context=True)
+def page_videos(context):
+    """Тепадаги «▶ Видео»: шу саҳифага панелда видео қўшилган бўлсагина кўринади (7-босқич)."""
+    from jobs.guide import VIDEO_ROUTES, videos
+    match = getattr(context.get("request"), "resolver_match", None)
+    page = VIDEO_ROUTES.get(match.view_name if match else "", "")
+    return {"vids": videos(page) if page else []}
+
+
 @register.simple_tag
 def help_data():
     """«?» изоҳлари учун матнлар: {калит: [номи, нимани билдиради, нима қилиш керак]} (_guide.html)."""
     from django.utils.html import json_script
 
-    from jobs.guide import HELP
-    return json_script(HELP, "help-data")
+    from jobs.guide import help_texts
+    return json_script(help_texts(), "help-data")
 
 
 FLOW_STEPS = [

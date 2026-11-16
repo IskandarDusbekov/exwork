@@ -59,6 +59,18 @@ FIELDS = (
           "Базага тушган нарх ўша ресурс медианасидан шунча баравар катта ёки кичик бўлса — «Текширув» навбатига "
           "тушади (базага ўзи кирмайди). Мисол: 3 — медиана 1 000 бўлса, 3 000 дан катта ёки 333 дан кичиги.",
           "марта", lo=2, hi=50),
+    Field("max_files", "Битта юклашда Excel файллар", "Чекловлар", "int", "NARXLASH_MAX_FILES",
+          "«Файл танлаш» билан бир марта нечта Excel юкланади (папка ва архив — алоҳида).", "та", lo=1, hi=200),
+    Field("max_project_files", "Битта папка / архивда файллар", "Чекловлар", "int", "NARXLASH_MAX_PROJECT_FILES",
+          "Бутун объект юкланганда ичидаги файллар сони.", "та", lo=10, hi=5000),
+    Field("lm_owners_min", "L / M базаси: нечта смета­чи деса", "Ресурс базаси", "int", "NARXLASH_LM_OWNERS_MIN",
+          "RES файлида далил бўлмаса — ресурс кабель (L) ёки ускуна (M) деб базага шунча ҳар хил смета­чи "
+          "бир хил белгилагандан кейин киради. Битта одамнинг 20 сметаси — битта овоз.", "киши", lo=1, hi=20),
+    Field("lm_strong_votes", "L / M базаси: ишончли деб ҳисоблаш", "Ресурс базаси", "int", "NARXLASH_LM_STRONG_VOTES",
+          "Шунча (ва ундан кўп) бир хил овоз бўлса ва қарама-қаршиси бўлмаса — тур ишончли деб ўзи қўйилади.",
+          "овоз", lo=1, hi=50),
+    Field("price_stale_days", "Нарх базаси: эскирган нарх", "Ресурс базаси", "int", "NARXLASH_PRICE_STALE_DAYS",
+          "Ресурсга шунча кундан бери янги нарх келмаган бўлса — «Эскирган» деб кўрсатилади.", "кун", lo=30, hi=3650),
     Field("signup", "Рўйхатдан ўтиш", "Фойдаланувчилар", "choice", "NARXLASH_SIGNUP",
           "Ёпиқ бўлса — ҳисобни фақат админ очади.", choices=(("open", "Очиқ — ҳар ким"), ("closed", "Ёпиқ"))),
 )
@@ -136,6 +148,22 @@ def save(changes: dict, user) -> list:
         done.append((f.label, old, value))
     cache.delete(CACHE_KEY)
     return done
+
+
+def raw(key: str, default=None):
+    """``FIELDS`` да йўқ, панелда сақланадиган маълумот (ёрдам матнлари, видео рўйхати) — JSON."""
+    v = _stored().get(key)
+    return default if v is None else v
+
+
+def put(key: str, value, user):
+    """``raw`` учун ёзиш; бўш қиймат — базадан ўчади (кодда ёзилгани ишлайди)."""
+    from .models import SiteSetting
+    if value in (None, {}, []):
+        SiteSetting.objects.filter(key=key).delete()
+    else:
+        SiteSetting.objects.update_or_create(key=key, defaults={"value": value, "updated_by": user})
+    cache.delete(CACHE_KEY)
 
 
 def user_quota(user) -> Optional[int]:

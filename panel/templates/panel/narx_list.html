@@ -6,7 +6,7 @@
 {% include "panel/_base_ui.html" %}
 <style>
   main.mx-auto { max-width: 118rem; }  /* бу саҳифа — кенгроқ */
-  .ic-O { background: #ffe4e6; color: #be123c; }
+  .ic-O { background: rgb(var(--bad-100)); color: rgb(var(--bad-700)); }
   .nx-summary { margin-bottom: 1rem; border: 1px solid var(--ui-line); border-radius: 1rem; background: #fff; padding: 1rem 1.1rem 1.1rem; }
   .nx-sum-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .9rem; }
   .nx-sum-head h2 { font-size: 1rem; font-weight: 700; color: var(--ui-ink); }
@@ -14,19 +14,19 @@
   .nx-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
   @media (max-width: 1279.98px) { .nx-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 639.98px) { .nx-kpis { grid-template-columns: minmax(0, 1fr); } }
-  .nx-kpi { display: flex; align-items: flex-start; gap: .8rem; border: 1px solid #eef2f7; border-radius: .9rem; background: var(--ui-soft); padding: .85rem 1rem; }
-  .nx-kpi.warn { border-color: #fde68a; background: #fffbeb; }
+  .nx-kpi { display: flex; align-items: flex-start; gap: .8rem; border: 1px solid rgb(var(--ink-100)); border-radius: .9rem; background: var(--ui-soft); padding: .85rem 1rem; }
+  .nx-kpi.warn { border-color: rgb(var(--warn-200)); background: rgb(var(--warn-50)); }
   .nx-ki { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; flex-shrink: 0; border-radius: .75rem; }
   .nx-kpi .l { font-size: .8rem; color: var(--ui-muted); }
   .nx-kpi .v { font-size: 1.55rem; font-weight: 700; color: var(--ui-ink); font-variant-numeric: tabular-nums; line-height: 1.2; }
   .nx-kpi .s { margin-top: .15rem; font-size: .74rem; color: var(--ui-muted); }
-  .nx-bar { display: block; margin-top: .4rem; height: .4rem; overflow: hidden; border-radius: 9999px; background: #e2e8f0; }
-  .nx-bar > i { display: block; height: 100%; border-radius: 9999px; background: linear-gradient(90deg, #22c55e, #16a34a); }
+  .nx-bar { display: block; margin-top: .4rem; height: .4rem; overflow: hidden; border-radius: 9999px; background: rgb(var(--ink-200)); }
+  .nx-bar > i { display: block; height: 100%; border-radius: 9999px; background: linear-gradient(90deg, rgb(var(--ok-500)), rgb(var(--ok-600))); }
   .nx-cats { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .65rem; margin-bottom: 1rem; }
   @media (max-width: 1279.98px) { .nx-cats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
   @media (max-width: 639.98px) { .nx-cats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .nx-cat { display: flex; min-width: 0; flex-direction: column; border: 1px solid var(--ui-line); border-radius: 1rem; background: #fff; padding: .75rem .85rem; transition: box-shadow .15s, border-color .15s; }
-  .nx-cat:hover { border-color: #cbd5e1; box-shadow: 0 4px 14px rgb(15 23 42 / .06); }
+  .nx-cat:hover { border-color: rgb(var(--ink-300)); box-shadow: 0 4px 14px rgb(15 23 42 / .06); }
   .nx-cat .top { display: flex; min-width: 0; align-items: center; gap: .55rem; }
   .nx-cat .ic { display: grid; place-items: center; width: 1.9rem; height: 1.9rem; flex-shrink: 0; border-radius: .6rem; font-size: .8rem; font-weight: 700; }
   .nx-cat .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .875rem; font-weight: 600; color: var(--ui-ink); }
@@ -38,18 +38,18 @@
   .nx-cat.on .nx-bar { background: rgb(255 255 255 / .25); } .nx-cat.on .nx-bar > i { background: #fff; }
   .nx-three { display: grid; grid-template-columns: repeat(3, 7.6rem); flex-shrink: 0; overflow: hidden; border: 1px solid var(--ui-line); border-radius: .85rem; text-align: right; }
   .nx-three > div { padding: .45rem .7rem; }
-  .nx-three > div + div { border-left: 1px solid #f1f5f9; }
+  .nx-three > div + div { border-left: 1px solid rgb(var(--ink-100)); }
   .nx-three small { display: block; font-size: .68rem; font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
   .nx-three b { display: block; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .nx-three .lo { background: #f0fdf4; } .nx-three .lo small, .nx-three .lo b { color: #15803d; }
+  .nx-three .lo { background: rgb(var(--ok-50)); } .nx-three .lo small, .nx-three .lo b { color: rgb(var(--ok-700)); }
   .nx-three .mi { background: #fff; } .nx-three .mi small { color: var(--ui-muted); } .nx-three .mi b { font-size: 1.05rem; color: var(--ui-ink); }
-  .nx-three .hi { background: #fff1f2; } .nx-three .hi small, .nx-three .hi b { color: #be123c; }
+  .nx-three .hi { background: rgb(var(--bad-50)); } .nx-three .hi small, .nx-three .hi b { color: rgb(var(--bad-700)); }
   .nx-three.one { grid-template-columns: 22.8rem; text-align: center; }
   .nx-three.one .mi small { color: var(--ui-muted); }
   .nx-three.none { grid-template-columns: 22.8rem; text-align: center; color: var(--ui-muted); font-size: .85rem; }
   @media (max-width: 767.98px) { .nx-three { grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; } .nx-three.one, .nx-three.none { grid-template-columns: minmax(0, 1fr); } }
   .ui-row .where { width: 10rem; flex-shrink: 0; font-size: .78rem; color: var(--ui-muted); line-height: 1.3; }
-  .ui-row .where b { display: block; color: #334155; font-weight: 600; }
+  .ui-row .where b { display: block; color: rgb(var(--ink-700)); font-weight: 600; }
 </style>
 
 {% include "panel/_narx_tabs.html" %}
@@ -69,24 +69,24 @@
   </div>
   <div class="nx-kpis">
     <div class="nx-kpi">
-      <span class="nx-ki" style="background:#eff6ff;color:#2563eb">{% icon "database" "h-5 w-5" %}</span>
+      <span class="nx-ki" style="background:rgb(var(--brand-50));color:rgb(var(--brand-600))">{% icon "database" "h-5 w-5" %}</span>
       <div class="min-w-0"><div class="l">Жами ресурс</div><div class="v">{{ counts.items|som }}</div>
         <div class="s">номи + бирлиги бўйича ҳар хил</div></div>
     </div>
     <div class="nx-kpi">
-      <span class="nx-ki" style="background:#f0fdf4;color:#16a34a">{% icon "tag" "h-5 w-5" %}</span>
+      <span class="nx-ki" style="background:rgb(var(--ok-50));color:rgb(var(--ok-600))">{% icon "tag" "h-5 w-5" %}</span>
       <div class="min-w-0"><div class="l">Жами нарх</div><div class="v">{{ counts.prices|som }}</div>
         <div class="s">{{ counts.batches }} та тўпламдан киритилган</div></div>
     </div>
     <div class="nx-kpi" title="Охирги {{ cover.jobs }} та нархланган сметанинг ресурс қаторлари: номи + бирлиги базада борми (вилоят ва йилдан қатъи назар). Сметанинг ўз папкасидан киритилган нархлар ҳисобланмайди.">
-      <span class="nx-ki" style="background:#ecfeff;color:#0e7490">{% icon "chart" "h-5 w-5" %}</span>
+      <span class="nx-ki" style="background:rgb(var(--ok-50));color:rgb(var(--ok-700))">{% icon "chart" "h-5 w-5" %}</span>
       <div class="min-w-0 flex-1"><div class="l">Тахминан нархлай олади</div>
         <div class="v">{{ cover.pct }}%</div>
         <div class="nx-bar"><i style="width: {{ cover.pct }}%"></i></div>
         <div class="s">охирги {{ cover.jobs }} смета · {{ cover.rows|som }} қатор</div></div>
     </div>
     <div class="nx-kpi warn" title="Четда — бошқалардан 3 баробар фарқ қилади; ҳисобдан чиқарилган — админ олиб ташлаган. Иккаласи ҳам паст/ўрта/юқорига кирмайди">
-      <span class="nx-ki" style="background:#fef3c7;color:#b45309">{% icon "alert" "h-5 w-5" %}</span>
+      <span class="nx-ki" style="background:rgb(var(--warn-100));color:rgb(var(--warn-700))">{% icon "alert" "h-5 w-5" %}</span>
       <div class="min-w-0"><div class="l">Ҳисобга кирмаган нарх</div><div class="v">{{ counts.outliers|add:counts.excluded }}</div>
         <div class="s">{{ counts.outliers }} четда · {{ counts.excluded }} ҳисобдан чиқарилган</div></div>
     </div>

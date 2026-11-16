@@ -52,8 +52,10 @@ class FlowTests(LoggedInTestCase):
         self.assertContains(r, 'name="files"')
         self.assertContains(r, "Файл танлаш")
         self.assertContains(r, "Папка танлаш")
-        html = r.content.decode()  # усул — юклашдан олдин (1-қадам)
-        self.assertLess(html.index('name="nf_mode"'), html.index('id="drop"'))
+        html = r.content.decode()  # 4-босқич: асосий амал — файл танлаш; усул йиғиқ «Созламалар» ичида, ёпиқ
+        self.assertLess(html.index('id="drop"'), html.index('name="nf_mode"'))
+        self.assertIn('<details class="up-set" id="up-set" data-guide="nf-mode">', html)
+        self.assertContains(r, "Усул: Автоматик")
 
     def test_fresh_visit_opens_dashboard(self):
         """Сайт янгидан очилса (Referer йўқ ёки бошқа сайт) — «Иш столи»; сайт ичидан — юклаш саҳифаси."""
@@ -768,6 +770,10 @@ class FolderTests(LoggedInTestCase):
         parts = {p.folder: p for p in project.parts.all()}
         page = self.client.get(data["url"])
         self.assertContains(page, 'value="manual" checked')
+        # 4-босқич: тепада «ҳозир нима қилиш керак» — белгиланмаган қисмлар сони ва биринчисини очиш тугмаси; усул йиғиқ
+        self.assertContains(page, "тасида листларни белгиланг")
+        self.assertContains(page, "data-first-need")
+        self.assertContains(page, "Усул: Қўлда")
         marked = parts["2. ОВ"]
         pick = reverse("batch_pick", args=[marked.id])
         for sh in marked.sheets:

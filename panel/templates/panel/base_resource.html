@@ -27,7 +27,7 @@
     {% if can_act %}
     <div class="flex shrink-0 gap-2">
       <form method="post" action="{% url 'panel:base_resource_delete' res.code %}" data-confirm="{{ res.code }} коди ва унинг {{ obs|length }} та нархи ўчирилади. Манба қайта йиғилса, яна пайдо бўлади." data-confirm-title="Ресурсни ўчириш" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}
-        <button class="ui-btn-o" style="color:#be123c;border-color:#fecdd3">Ўчириш</button></form>
+        <button class="ui-btn-o" style="color:rgb(var(--bad-700));border-color:rgb(var(--bad-200))">Ўчириш</button></form>
     </div>
     {% endif %}
   </div>
@@ -57,7 +57,7 @@
     <span><span class="t block">{{ medians|length }}</span><span class="n">вилоят · давр</span></span></div>
   <div class="ui-card"><span class="ic ic-mount">{% icon "tree" "h-5 w-5" %}</span>
     <span><span class="t block">{{ works|length }}</span><span class="n">ишда</span></span></div>
-  {% if n_pending %}<a href="{% url 'panel:base_review' %}" class="ui-card" style="border-color:#fcd34d"><span class="ic ic-repair">{% icon "alert" "h-5 w-5" %}</span>
+  {% if n_pending %}<a href="{% url 'panel:base_review' %}" class="ui-card" style="border-color:rgb(var(--warn-300))"><span class="ic ic-repair">{% icon "alert" "h-5 w-5" %}</span>
     <span><span class="t block">{{ n_pending }}</span><span class="n">текширувда</span></span></a>{% endif %}
 </div>
 
@@ -88,7 +88,7 @@
     <span class="gt">Ҳамма нархлар<small>Ҳар бири — битта файл ёки сметадан.</small></span>
     <span class="ui-count">{{ obs|length }} та</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
   {% for o in obs %}
-  <div class="ui-row" {% if o.excluded %}style="opacity:.55"{% elif o.review == 'pending' %}style="background:#fffbeb"{% endif %}>
+  <div class="ui-row" {% if o.excluded %}style="opacity:.55"{% elif o.review == 'pending' %}style="background:rgb(var(--warn-50))"{% endif %}>
     <span class="doc">{% icon "sheet" "h-5 w-5" %}</span>
     <div class="main">
       <div class="title">{% if o.source.is_file %}<a href="{% url 'panel:base_data' %}?region={{ o.source.region }}&year={{ o.source.year|default:'' }}&src={{ o.source_id }}" class="font-medium hover:underline">{{ o.source.title }}</a>
@@ -108,13 +108,13 @@
     {% if can_act %}
     <div class="flex shrink-0 gap-1.5">
       {% if o.review == 'pending' %}
-      <form method="post" action="{% url 'panel:base_obs' o.pk 'accept' %}">{% csrf_token %}<button class="ui-btn-o" style="color:#15803d">Қабул</button></form>
-      <form method="post" action="{% url 'panel:base_obs' o.pk 'reject' %}">{% csrf_token %}<button class="ui-btn-o" style="color:#be123c">Рад</button></form>
+      <form method="post" action="{% url 'panel:base_obs' o.pk 'accept' %}">{% csrf_token %}<button class="ui-btn-o" style="color:rgb(var(--ok-700))">Қабул</button></form>
+      <form method="post" action="{% url 'panel:base_obs' o.pk 'reject' %}">{% csrf_token %}<button class="ui-btn-o" style="color:rgb(var(--bad-700))">Рад</button></form>
       {% else %}
-      <form method="post" action="{% url 'panel:base_obs' o.pk 'exclude' %}">{% csrf_token %}<button class="ui-btn-o" style="color:#334155">{% if o.excluded %}Қайтариш{% else %}Истисно{% endif %}</button></form>
+      <form method="post" action="{% url 'panel:base_obs' o.pk 'exclude' %}">{% csrf_token %}<button class="ui-btn-o" style="color:rgb(var(--ink-700))">{% if o.excluded %}Қайтариш{% else %}Истисно{% endif %}</button></form>
       {% endif %}
       <form method="post" action="{% url 'panel:base_obs' o.pk 'delete' %}" data-confirm="{{ o.price|som }} нарх ўчирилади ({{ o.source.title }})." data-confirm-title="Нархни ўчириш" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}
-        <button class="ui-btn-o" style="color:#be123c" aria-label="Ўчириш">×</button></form>
+        <button class="ui-btn-o" style="color:rgb(var(--bad-700))" aria-label="Ўчириш">×</button></form>
     </div>
     {% endif %}
   </div>

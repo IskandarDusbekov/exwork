@@ -1,0 +1,103 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Ёрдам матнлари ва видео — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<div class="mb-5">
+  <h1 class="text-2xl font-semibold">Ёрдам матнлари ва видео</h1>
+  <p class="max-w-3xl text-sm text-slate-500">Сайтдаги <b>«?»</b> изоҳлари ва «Йўриқнома» саҳифасидаги матнлар — коддан ўзгартирмасдан шу ерда тўғриланади.
+    Бўш қолдирилган майдон — асл (коддаги) матн. Ўзгариш ярим дақиқа ичида ҳамма учун ишлайди ва журналга ёзилади.</p>
+</div>
+{% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-700{% endif %}">{{ m }}</div>{% endfor %}
+
+{# ================= видео ================= #}
+<section class="mb-6 rounded-xl border border-slate-200 bg-white shadow-sm">
+  <div class="border-b border-slate-100 px-4 py-3">
+    <h2 class="flex items-center gap-2 font-semibold">{% icon "play" "h-4 w-4 text-slate-500" %} Видео дарслар <span class="num text-sm font-normal text-slate-500">{{ videos|length|add:"-1" }}</span></h2>
+    <p class="mt-0.5 text-xs text-slate-500">YouTube ҳаволасини қўйинг (youtu.be/… ёки youtube.com/watch?v=…). Видео «Йўриқнома» саҳифасида кўринади; саҳифаси танланса — кейин ўша саҳифада ҳам.
+      Сайтга YouTube'нинг cookie'сиз варианти (youtube-nocookie.com) билан уланади. Тартиби — шу рўйхатдагидек; қаторни ўчириш учун ҳаволани ва номни бўшатинг.</p>
+  </div>
+  <form method="post" action="{% url 'panel:videos_save' %}">{% csrf_token %}
+    <div class="divide-y divide-slate-100" id="vid-rows">
+      {% for v in videos %}
+      <div class="grid gap-2 px-4 py-3 md:grid-cols-[7rem_1fr_1fr_10rem] md:items-start" data-vid-row>
+        <div class="aspect-video w-28 overflow-hidden rounded-md bg-slate-100">{% if v.id %}<img src="https://i.ytimg.com/vi/{{ v.id }}/mqdefault.jpg" alt="" class="h-full w-full object-cover" loading="lazy">{% endif %}</div>
+        <div class="grid gap-1.5">
+          <input name="v_title" value="{{ v.title }}" placeholder="{% if v.id %}Номи{% else %}Янги видео: номи{% endif %}" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">
+          <input name="v_url" value="{% if v.id %}https://youtu.be/{{ v.id }}{% endif %}" placeholder="https://youtu.be/…" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs">
+        </div>
+        <textarea name="v_note" rows="2" placeholder="Қисқа изоҳ (ихтиёрий)" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">{{ v.note }}</textarea>
+        <select name="v_page" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm" aria-label="Саҳифа">
+          {% for k, label in pages %}<option value="{{ k }}" {% if v.page == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endfor %}
+    </div>
+    {% if can_act %}
+    <div class="flex items-center gap-2 border-t border-slate-100 px-4 py-3">
+      <button type="button" id="vid-add" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">+ Яна қатор</button>
+      <button class="ml-auto rounded-lg bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-800">Видеоларни сақлаш</button>
+    </div>
+    {% endif %}
+  </form>
+</section>
+
+{# ================= «?» изоҳлари ================= #}
+<form method="post" action="{% url 'panel:help_texts_save' %}">{% csrf_token %}
+  <div class="mb-3 flex flex-wrap items-center gap-3">
+    <h2 class="font-semibold">«?» изоҳлари</h2>
+    <span class="text-sm text-slate-500">{% if changed %}<b class="text-violet-700">{{ changed }}</b> таси ўзгартирилган{% else %}ҳаммаси асл ҳолида{% endif %}</span>
+    <input type="search" id="ht-q" placeholder="Қидириш…" class="ml-auto w-56 rounded-lg border border-slate-200 px-3 py-1.5 text-sm">
+  </div>
+  <div class="space-y-3">
+  {% for title, rows in groups %}
+  <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <h3 class="border-b border-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700">{{ title }}</h3>
+    <div class="divide-y divide-slate-100">
+      {% for r in rows %}
+      <details class="group px-4 py-2.5" data-ht="{{ r.key }} {{ r.cur.0|lower }} {{ r.cur.1|lower }}"{% if r.changed %} open{% endif %}>
+        <summary class="flex cursor-pointer list-none items-center gap-2 text-sm">
+          <span class="help-q pointer-events-none">?</span>
+          <b class="text-slate-900">{{ r.cur.0 }}</b>
+          <code class="text-[11px] text-slate-400">{{ r.key }}</code>
+          {% if r.changed %}<span class="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700">ўзгартирилган</span>{% endif %}
+          <span class="ml-auto text-xs text-slate-400 group-open:hidden">очиш</span></summary>
+        <div class="mt-2 grid gap-2">
+          {% for i, label, base, cur in r.fields %}
+          <label class="grid gap-1 text-xs text-slate-500">{{ label }}
+            {% if i == 0 %}<input name="t_{{ r.key }}_{{ i }}" value="{% if cur != base %}{{ cur }}{% endif %}" placeholder="{{ base }}" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-900">
+            {% else %}<textarea name="t_{{ r.key }}_{{ i }}" rows="3" placeholder="{{ base }}" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm leading-relaxed text-slate-900">{% if cur != base %}{{ cur }}{% endif %}</textarea>{% endif %}
+          </label>
+          {% endfor %}
+          <p class="text-[11px] text-slate-400">Кулранг ёзув — асл матн. Ўзгартириш учун майдонга ёзинг; асл ҳолига қайтариш — бўшатинг.</p>
+        </div>
+      </details>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  </div>
+  {% if can_act %}
+  <div class="sticky bottom-3 mt-4 flex justify-end">
+    <button class="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-slate-800">Изоҳларни сақлаш</button>
+  </div>
+  {% endif %}
+</form>
+<script>
+  (function () {
+    var q = document.getElementById("ht-q");
+    q.addEventListener("input", function () {
+      var t = q.value.trim().toLowerCase();
+      document.querySelectorAll("[data-ht]").forEach(function (d) { d.hidden = t && d.dataset.ht.indexOf(t) < 0; });
+    });
+    var add = document.getElementById("vid-add");
+    if (add) add.addEventListener("click", function () {
+      var rows = document.querySelectorAll("[data-vid-row]"), last = rows[rows.length - 1], copy = last.cloneNode(true);
+      copy.querySelectorAll("input, textarea").forEach(function (i) { i.value = ""; });
+      copy.querySelector("select").selectedIndex = 0;
+      copy.firstElementChild.innerHTML = "";
+      last.after(copy);
+    });
+  })();
+</script>
+{% endblock %}

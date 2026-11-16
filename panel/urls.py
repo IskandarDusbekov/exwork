@@ -1,6 +1,8 @@
 from django.urls import path
 
-from . import views, views_access, views_base, views_base_usage, views_lm, views_mail, views_narx, views_seo, views_settings, views_support, views_tender, views_tn
+from . import (views, views_access, views_base, views_base_usage, views_help, views_lm, views_mail, views_memo, views_narx,
+               views_seo,
+               views_settings, views_support, views_tender, views_tn, views_track)
 
 app_name = "panel"
 
@@ -27,6 +29,9 @@ urlpatterns = [
     path("processes/", views.processes, name="processes"),
     path("settings/", views_settings.settings_page, name="settings"),
     path("settings/save/", views_settings.settings_save, name="settings_save"),
+    path("help-texts/", views_help.help_texts_page, name="help_texts"),
+    path("help-texts/save/", views_help.help_texts_save, name="help_texts_save"),
+    path("help-texts/videos/", views_help.videos_save, name="videos_save"),
     path("seo/", views_seo.seo_page, name="seo"),
     path("mail/", views_mail.mail_page, name="mail"),
     path("mail/preview/", views_mail.mail_preview, name="mail_preview"),
@@ -129,6 +134,9 @@ urlpatterns = [
     path("lm/harvest/", views_lm.lm_harvest, name="lm_harvest"),
     path("lm/<int:pk>/set/", views_lm.lm_set, name="lm_set"),
     path("lm/<int:pk>/delete/", views_lm.lm_delete, name="lm_delete"),
+    path("memos/", views_memo.memos, name="memos"),
+    path("memos/<int:pk>/delete/", views_memo.memo_delete, name="memo_delete"),
+    path("track/", views_track.track_page, name="track"),
     path("support/", views_support.support_list, name="support"),
     path("support/<int:pk>/", views_support.support_chat, name="support_chat"),
     path("support/<int:pk>/poll/", views_support.support_poll, name="support_poll"),

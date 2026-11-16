@@ -21,15 +21,15 @@
   </div>
 </div>
 <style>
-  #narx-dialog .nd-ok { min-width: 132px; height: 46px; padding: 0 20px; border-radius: 12px; background: #16a34a; color: #fff; font-size: 15px; font-weight: 700;
+  #narx-dialog .nd-ok { min-width: 132px; height: 46px; padding: 0 20px; border-radius: 12px; background: rgb(var(--ok-600)); color: #fff; font-size: 15px; font-weight: 700;
     box-shadow: 0 6px 16px rgba(22, 163, 74, .35); transition: background .15s, transform .1s; }
-  #narx-dialog .nd-ok:hover { background: #15803d; } #narx-dialog .nd-ok:active { transform: scale(.97); }
-  #narx-dialog .nd-ok:focus-visible { outline: 3px solid #86efac; outline-offset: 2px; }
-  #narx-dialog .nd-ok.is-danger { background: #e11d48; box-shadow: 0 6px 16px rgba(225, 29, 72, .3); }
-  #narx-dialog .nd-ok.is-danger:hover { background: #be123c; } #narx-dialog .nd-ok.is-danger:focus-visible { outline-color: #fda4af; }
-  #narx-dialog .nd-cancel { height: 46px; padding: 0 14px; border-radius: 12px; background: transparent; color: #64748b; font-size: 14px; font-weight: 500; }
-  #narx-dialog .nd-cancel:hover { background: #f1f5f9; color: #0f172a; }
-  #narx-dialog .nd-cancel:focus-visible { outline: 2px solid #cbd5e1; }
+  #narx-dialog .nd-ok:hover { background: rgb(var(--ok-700)); } #narx-dialog .nd-ok:active { transform: scale(.97); }
+  #narx-dialog .nd-ok:focus-visible { outline: 3px solid rgb(var(--ok-300)); outline-offset: 2px; }
+  #narx-dialog .nd-ok.is-danger { background: rgb(var(--bad-600)); box-shadow: 0 6px 16px rgba(225, 29, 72, .3); }
+  #narx-dialog .nd-ok.is-danger:hover { background: rgb(var(--bad-700)); } #narx-dialog .nd-ok.is-danger:focus-visible { outline-color: rgb(var(--bad-300)); }
+  #narx-dialog .nd-cancel { height: 46px; padding: 0 14px; border-radius: 12px; background: transparent; color: rgb(var(--ink-500)); font-size: 14px; font-weight: 500; }
+  #narx-dialog .nd-cancel:hover { background: rgb(var(--ink-100)); color: rgb(var(--ink-900)); }
+  #narx-dialog .nd-cancel:focus-visible { outline: 2px solid rgb(var(--ink-300)); }
 </style>
 <script>
 (function () {

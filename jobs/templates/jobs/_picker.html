@@ -51,6 +51,15 @@
     </div>
     {% endif %}
 
+    {% if pk_unclear %}
+    <div class="pk-group is-mark is-unclear">
+      <h3><span class="pk-gnum">?</span> Тизим тушунмаган листлар — белгиланг <i>{{ pk_unclear|length }}</i>
+        <span class="pk-i" tabindex="0" role="button" aria-label="Изоҳ">i<span class="pk-i-pop">Бу листларда тизим сарлавҳа («Наименование», «Ед. изм.») ёки нарх / миқдор устунини тополмади. Свод ёки акт эмас — шунинг учун яширилмади.
+          «Белгилаш»ни босинг: лист нима эканини ва қайси устун нима эканини файлнинг ўзида кўрсатасиз. Керак бўлмаса — «Керак эмас» деб белгиланг. Кўрсатганингиз эслаб қолинади.</span></span></h3>
+      <div class="pk-table">{% for r in pk_unclear %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>
+    </div>
+    {% endif %}
+
     {% if pk_pair_rows %}
     <div class="pk-group">
       <h3>Ҳар бир локал қайси ресурс билан нархланади <i>{{ pk_pair_rows|length }}</i>

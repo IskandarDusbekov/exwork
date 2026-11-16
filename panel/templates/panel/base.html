@@ -54,9 +54,12 @@
 
         <div class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Таҳлил</div>
         {% include "panel/_side_link.html" with key="stats" url="panel:stats" ic="chart" label="Статистика" hint="Юклашлар, нархлашлар, киришлар — давр бўйича" %}
+        {% include "panel/_side_link.html" with key="track" url="panel:track" ic="activity" label="Фойдаланувчи йўли" hint="Юклашдан натижагача: ким қаерга етди, қаерда тўхтади, қайтиб келдими" %}
         {% include "panel/_side_link.html" with key="speed" url="panel:speed" ic="clock" label="Тезлик" hint="Файл очиш ва нархлаш вақти" %}
         {% include "panel/_side_link.html" with key="narx" url="panel:narx" ic="tag" label="Нарх базаси (янги)" hint="Номи ва бирлиги бўйича: паст / ўрта / юқори нарх ва ҳар нархнинг паспорти" %}
         {% include "panel/_side_link.html" with key="base" url="panel:base_data" ic="database" label="Ресурс базаси" hint="Нархлар ва нормалар базаси" %}
+        {% include "panel/_side_link.html" with key="help_texts" url="panel:help_texts" ic="help" label="Ёрдам матнлари ва видео" hint="«?» изоҳлари ва йўриқнома матнлари, видео дарслар — коддан ўзгартирмасдан" %}
+        {% include "panel/_side_link.html" with key="memos" url="panel:memos" ic="table" label="Эслаб қолинган листлар" hint="Смета­чилар қўлда белгилаган листлар: ким, қаерда, қандай — тизим кейин ўзи қўллайди" %}
         {% include "panel/_side_link.html" with key="lm" url="panel:lm" ic="layers" label="Ускуна ва кабель базаси" hint="Қайси ресурс ускуна (M), қайси кабель (L) — ўзи ўрганади, сиз ўргатасиз" %}
         {% include "panel/_side_link.html" with key="tender" url="panel:tender" ic="chart" label="Объект таҳлили" hint="Ёқиш, таҳлил қоидалари ва тажриба омиллари" %}
 

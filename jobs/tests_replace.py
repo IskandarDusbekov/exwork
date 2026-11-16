@@ -62,6 +62,21 @@ class ReplaceFileTests(LoggedInTestCase):
         self.batch.refresh_from_db()
         self.assertEqual(self.batch.files[1]["name"], self.res.name)
 
+    def test_in_page_replace_answers_json(self):
+        """Саҳифа ичидан (fileops.js, фонда) — йўналтириш эмас, JSON; хато ҳам JSON (браузер саҳифани юкламайди)."""
+        new = SimpleUploadedFile("v2" + self.res.suffix, self.res.read_bytes())
+        r = self.client.post(reverse("batch_file_replace", args=[self.batch.id, 1]), {"file": new},
+                             HTTP_X_REQUESTED_WITH="fetch")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json()["ok"])
+        self.assertIn("юкланди ва листлари қайта ўқилди", r.json()["message"])
+        bad = self.client.post(reverse("batch_file_replace", args=[self.batch.id, 1]),
+                               {"file": SimpleUploadedFile("x.txt", b"hello")}, HTTP_X_REQUESTED_WITH="fetch")
+        self.assertEqual(bad.status_code, 400)
+        self.assertIn("фақат .xls, .xlsx, .xlsm", bad.json()["error"])
+        undo = self.client.post(reverse("batch_file_undo", args=[self.batch.id, 1]), HTTP_X_REQUESTED_WITH="fetch")
+        self.assertTrue(undo.json()["ok"])
+
     def _replace(self, i, name, **extra):
         new = SimpleUploadedFile(name, (self.res if i == 1 else self.local).read_bytes())
         return self.client.post(reverse("batch_file_replace", args=[self.batch.id, i]), {"file": new, **extra})

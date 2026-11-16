@@ -928,7 +928,12 @@ def _spark(pts, years, w=96, h=24) -> str:
 
 
 # ===================== текшириш навбати =====================
-STALE_DAYS = 365
+STALE_DAYS = 365  # стандарт; амалдагиси — панелдан (stale_days)
+
+
+def stale_days() -> int:
+    from panel import conf
+    return conf.get("price_stale_days")
 DUP_MIN = 0.86  # номлари шунчалик ўхшаш ва рақамлари бир хил бўлса — эҳтимол икки нусха
 
 
@@ -984,7 +989,7 @@ def stale_items():
     from datetime import timedelta
 
     from django.db.models import Max
-    cutoff = timezone.localdate() - timedelta(days=STALE_DAYS)
+    cutoff = timezone.localdate() - timedelta(days=stale_days())
     return live_items().annotate(last=Max("prices__date")).filter(last__lt=cutoff).order_by("last")
 
 

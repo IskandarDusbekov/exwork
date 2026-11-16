@@ -7,9 +7,9 @@
 {% include "panel/_base_tabs.html" with base_tab="settings" %}
 
 {# ---------- нархлашда бу база ишлатилмайди ---------- #}
-<section class="ui-group" style="padding:1.1rem 1.25rem;border-color:#fde68a;background:#fffbeb">
+<section class="ui-group" style="padding:1.1rem 1.25rem;border-color:rgb(var(--warn-200));background:rgb(var(--warn-50))">
   <div class="flex flex-wrap items-center gap-4">
-    <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-amber-700" style="background:#fef3c7">{% icon "database" "h-5 w-5" %}</span>
+    <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-amber-700" style="background:rgb(var(--warn-100))">{% icon "database" "h-5 w-5" %}</span>
     <div class="min-w-0 flex-1">
       <div class="font-semibold text-slate-900">Бу эски база нархлашда ишлатилмайди</div>
       <div class="text-sm text-slate-600">Сметалар энди фақат <a href="{% url 'panel:narx' %}" class="font-medium text-sky-700 underline">«Нарх базаси (янги)»</a> дан нархланади. Бу ердаги маълумотлар фақат кўриш учун қолган.</div>
@@ -27,11 +27,11 @@
     <span><span class="t block">{{ n_norms }}</span><span class="n">норма (шифр)</span></span></a>
   <a href="{% url 'panel:base_sources' %}" class="ui-card"><span class="ic ic-tr">{% icon "sheet" "h-5 w-5" %}</span>
     <span><span class="t block">{{ n_sources }}</span><span class="n">файл ва смета</span></span></a>
-  {% if n_offers %}<a href="{% url 'panel:base_sources' %}" class="ui-card" style="border-color:#7dd3fc"><span class="ic" style="background:#e0f2fe;color:#0369a1">{% icon "plus" "h-5 w-5" %}</span>
+  {% if n_offers %}<a href="{% url 'panel:base_sources' %}" class="ui-card" style="border-color:rgb(var(--brand-300))"><span class="ic" style="background:rgb(var(--brand-100));color:rgb(var(--brand-700))">{% icon "plus" "h-5 w-5" %}</span>
     <span><span class="t block">{{ n_offers }}</span><span class="n">янги смета</span></span></a>{% endif %}
-  {% if n_pending %}<a href="{% url 'panel:base_review' %}" class="ui-card" style="border-color:#fcd34d"><span class="ic ic-repair">{% icon "alert" "h-5 w-5" %}</span>
+  {% if n_pending %}<a href="{% url 'panel:base_review' %}" class="ui-card" style="border-color:rgb(var(--warn-300))"><span class="ic ic-repair">{% icon "alert" "h-5 w-5" %}</span>
     <span><span class="t block">{{ n_pending }}</span><span class="n">текширувда</span></span></a>{% endif %}
-  {% if n_unknown %}<a href="{% url 'panel:base_sources' %}?f=unknown" class="ui-card" style="border-color:#fcd34d"><span class="ic ic-repair">?</span>
+  {% if n_unknown %}<a href="{% url 'panel:base_sources' %}?f=unknown" class="ui-card" style="border-color:rgb(var(--warn-300))"><span class="ic ic-repair">?</span>
     <span><span class="t block">{{ n_unknown }}</span><span class="n">даври номаълум</span></span></a>{% endif %}
 </div>
 
@@ -62,10 +62,10 @@
 
 {% if can_act %}
 <details class="ui-group">
-  <summary><span class="gt" style="font-size:.9rem;color:#be123c">Синов учун: базани тозалаш</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
+  <summary><span class="gt" style="font-size:.9rem;color:rgb(var(--bad-700))">Синов учун: базани тозалаш</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}</summary>
   <form method="post" action="{% url 'panel:base_wipe' %}" class="flex flex-wrap items-center gap-3 px-5 pb-4" data-confirm="Ҳамма {{ n_resources }} та код ва {{ n_obs }} та нарх ўчирилади. Сметалар ўзгармайди." data-confirm-title="Базани тўлиқ тозалаш" data-confirm-ok="Тозалаш" data-danger>{% csrf_token %}
     <span class="text-sm text-slate-600">Ҳамма манба, код, нарх ва норма ўчади. Сметаларнинг ўзига тегилмайди.</span>
-    <button class="ui-btn-o" style="color:#be123c;border-color:#fecdd3">Тозалаш</button></form>
+    <button class="ui-btn-o" style="color:rgb(var(--bad-700));border-color:rgb(var(--bad-200))">Тозалаш</button></form>
 </details>
 {% endif %}
 {% endblock %}

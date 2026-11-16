@@ -32,11 +32,11 @@ from . import convert
 from .classify import (
     CABLE, COLUMN_KIND, EQUIPMENT, KIND_COLUMN, OTHER, is_chel_ch, is_machinists_labor, is_workers_row, name_hint, row_kind,
 )
-from .columns import detect_local_columns, num as as_number, prepare_local
+from .columns import LayoutError, detect_local_columns, num as as_number, prepare_local
 from .detect import _is_numbering_row, cell_value, detect_layout, override_layout
 from .log_sheet import LOG_TITLE, log_row, write_log
 from .matcher import AMBIGUOUS, EXACT, FUZZY, NOT_FOUND, Match, ResourceIndex
-from .normalize import name_unit_key, norm_code, norm_name, norm_unit, unit_key
+from .normalize import name_unit_key, norm_cipher, norm_code, norm_name, norm_unit, unit_key
 from .tender import tender_prices
 from .svodka import (
     DEFAULT_PERCENTS, XlError, make_evaluator, parse_text_number, resolve_percents, write_svodka,
@@ -264,14 +264,20 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     if ws_res is None:
         index = ResourceIndex({})
     elif smart and (res_layout is None or res_layout.price_col is None):
-        warnings.append("Resurs jadvalining sarlavhasi topilmadi — eski ustunlar olindi (nom D, birlik E, narx G)")
-        res_layout = None
+        # тахмин қилмаймиз (аввал D / E / G олинарди — тасодифан тўғри чиқарди): смета­чи ўзи кўрсатади,
+        # кўрсатгани эслаб қолинади ва шундай RES кейин келса ўзи ўқилади
+        what = "сарлавҳаси («Наименование», «Ед. изм.»)" if res_layout is None else "нарх устуни"
+        raise LayoutError(f"«{ws_res.title}» RES листида {what} топилмади — тахмин билан нархланмади. Объект "
+                          "саҳифасида «Устунларни тузатиш» → шу листнинг «тузатиш» тугмаси: ном, бирлик ва нарх "
+                          "устунини кўрсатинг (Excel кўринишида босиб танлаш мумкин). Кўрсатганингиз эслаб қолинади.")
     if ws_res is None:
         pass
     elif res_layout:
         warnings += res_layout.warnings
+        # шифр устуни — «Шифр … коды ресурсов» (Форма 5 / 6а: B) — локалда ҳам шу жойда бўлса солиштирилади
         index = ResourceIndex.from_sheet(ws_res, res_layout.name_col, res_layout.price_col,
-                                         res_layout.unit_col, res_layout.data_start, res_layout.data_stop)
+                                         res_layout.unit_col, res_layout.data_start, res_layout.data_stop,
+                                         code_col=CODE_COL if smart and res_layout.name_col > CODE_COL else None)
         columns.update(res_name=get_column_letter(res_layout.name_col), res_unit=get_column_letter(res_layout.unit_col),
                        res_price=get_column_letter(res_layout.price_col))
     else:
@@ -870,6 +876,20 @@ def _split_by_quantity(qtys: List[float], targets: List[tuple]) -> Optional[List
     return found[0] if len(found) == 1 else None
 
 
+CODE_COL = 2       # «Шифр номера нормативов и коды ресурсов»
+CODE_SCORE = 0.99  # шифр бўйича топилган таклиф: аниқ эмас (номи бошқа), лекин энг ишончли таклиф
+
+
+def _by_code(index: ResourceIndex, ws, r: int, ln: int, local_unit: str, real_unit: bool) -> Optional[str]:
+    """RES'да шу шифр ва бирликли ягона ресурс номи (нархи рақам бўлса); йўқ бўлса ``None``."""
+    if ln <= CODE_COL or not real_unit or not index.codes:
+        return None
+    name = index.by_code(norm_cipher(_peek(ws, r, CODE_COL)), local_unit)
+    if name is None or _as_price(index.by_unit.get(local_unit, {}).get(name)) is None:
+        return None
+    return name
+
+
 def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warnings: List[str],
                  prices: Optional[Dict[int, float]] = None, cleared=None, layout=None,
                  base: Optional[Dict[str, dict]] = None, base_label: str = "", auto_clear: bool = False):
@@ -1018,6 +1038,13 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
             st, value, suggestion = AMBIGUOUS, CHECK_TEXT, m.price
             note = (f"2 та номзод: «{m.name}» ({m.price}) ва «{m.second_name}» ({m.second_price}), "
                     f"ўхшашлик {round(m.score, 3)}")
+        elif (code_name := _by_code(index, ws, r, ln, local_unit, real_unit)) is not None:
+            # номи бошқача ёзилган (смета­чи RES'да тавсифни ўзгартирган), лекин шифр ва бирлик айнан бир хил —
+            # ўша ресурс. Нарх ўзи ёзилмайди: «ТЕКШИРИНГ» + таклиф, смета­чи тасдиқлайди
+            m = Match(FUZZY, local_unit, code_name, index.by_unit[local_unit][code_name], CODE_SCORE)
+            st, value, suggestion = FUZZY, CHECK_TEXT, m.price
+            note = (f"шифр бир хил («{_peek(ws, r, CODE_COL)}»), номи бошқача: ресурсда "
+                    f"«{index.raw_of(m.unit, m.name)[0]}» — {m.price}, текширинг")
         else:
             st, value = NOT_FOUND, NOT_FOUND_TEXT
             # aniq ham, o'xshash ham emas — lekin RES dagi eng yaqin resurs narxi taklif qilinadi

@@ -1,0 +1,84 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Эслаб қолинган листлар — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<div class="mb-4">
+  <h1 class="text-xl font-semibold text-slate-900">Эслаб қолинган листлар</h1>
+  <p class="mt-0.5 max-w-3xl text-sm text-slate-600">Тизим ўзи ўқий олмаган листни смета­чи «Белгилаш»да кўрсатган: лист тури, биринчи қатор, қайси устун нима.
+    Тизим буни листнинг <b>тузилмасига</b> (устун кенгликлари, шапкадаги бирлашган катаклар) боғлаб эслаб қолади — номга эмас.
+    Шундай тузилмали лист шу смета­чида яна келса, тизим ўзи шундай ўқийди. Ҳар бир смета­чининг эслатмаси — фақат ўзига.</p>
+</div>
+{% for m in messages %}<div class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">{{ m }}</div>{% endfor %}
+
+<div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+  <a href="?" class="rounded-xl border bg-white px-3 py-2.5 {% if not f.role %}border-slate-900 ring-1 ring-slate-900{% else %}border-slate-200 hover:border-slate-400{% endif %}">
+    <div class="text-xs text-slate-500">Ҳаммаси</div><div class="num text-xl font-semibold">{{ total.n }}</div>
+    <div class="text-[11px] text-slate-400">{{ total.users }} та смета­чи</div></a>
+  <a href="?role=local" class="rounded-xl border bg-emerald-50 px-3 py-2.5 {% if f.role == 'local' %}border-emerald-600 ring-1 ring-emerald-600{% else %}border-emerald-200 hover:border-emerald-400{% endif %}">
+    <div class="text-xs text-emerald-800">Локал</div><div class="num text-xl font-semibold text-emerald-800">{{ by_role.local|default:0 }}</div></a>
+  <a href="?role=resource" class="rounded-xl border bg-sky-50 px-3 py-2.5 {% if f.role == 'resource' %}border-sky-600 ring-1 ring-sky-600{% else %}border-sky-200 hover:border-sky-400{% endif %}">
+    <div class="text-xs text-sky-800">Ресурс</div><div class="num text-xl font-semibold text-sky-800">{{ by_role.resource|default:0 }}</div></a>
+  <a href="?role=unknown" class="rounded-xl border bg-slate-50 px-3 py-2.5 {% if f.role == 'unknown' %}border-slate-600 ring-1 ring-slate-600{% else %}border-slate-200 hover:border-slate-400{% endif %}">
+    <div class="text-xs text-slate-700">Керак эмас</div><div class="num text-xl font-semibold text-slate-700">{{ by_role.unknown|default:0 }}</div></a>
+  <div class="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5" title="Эслатма янги юкланган файлга неча марта ўзи қўлланди — смета­чи қайта кўрсатмади">
+    <div class="text-xs text-violet-800">Ўзи қўлланди</div><div class="num text-xl font-semibold text-violet-800">{{ total.uses|default:0 }} марта</div></div>
+</div>
+
+<form method="get" class="mb-3 flex flex-wrap items-center gap-2">
+  {% if f.role %}<input type="hidden" name="role" value="{{ f.role }}">{% endif %}
+  <input type="search" name="q" value="{{ f.q }}" placeholder="Файл, лист ёки смета­чи (email, исм)…" class="w-80 max-w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+  <select name="user" class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm" onchange="this.form.submit()">
+    <option value="">Ҳамма смета­чилар</option>
+    {% for u in users %}<option value="{{ u.owner_id }}" {% if f.user == u.owner_id|stringformat:'d' %}selected{% endif %}>{{ u.owner__email }} · {{ u.n }}</option>{% endfor %}
+  </select>
+  <button class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white">Қидириш</button>
+  {% if f.q or f.user %}<a href="?{% if f.role %}role={{ f.role }}{% endif %}" class="text-sm text-slate-500 underline">тозалаш</a>{% endif %}
+</form>
+
+{% if rows %}
+<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+<table class="w-full text-sm">
+  <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500"><tr>
+    <th class="px-3 py-2 text-left font-medium">Смета­чи</th>
+    <th class="px-3 py-2 text-left font-medium">Қаерда кўрсатилган</th>
+    <th class="px-3 py-2 text-left font-medium">Тури</th>
+    <th class="px-3 py-2 text-left font-medium">Қандай белгиланган</th>
+    <th class="px-3 py-2 text-right font-medium" title="Янги файлга неча марта ўзи қўлланди">Қўлланди</th>
+    <th class="px-3 py-2 text-left font-medium">Сана</th>
+    <th class="px-3 py-2"></th>
+  </tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr class="border-t border-slate-100 align-top">
+    <td class="px-3 py-2"><a href="{% url 'panel:user' r.m.owner_id %}" class="font-medium text-slate-900 hover:underline">{{ r.m.owner.get_full_name|default:r.m.owner.email }}</a>
+      {% if r.m.owner.get_full_name %}<div class="text-[11px] text-slate-400">{{ r.m.owner.email }}</div>{% endif %}</td>
+    <td class="max-w-xs px-3 py-2"><div class="truncate font-medium text-slate-800" title="{{ r.file }}">{{ r.file }}</div>
+      {% if r.sheet %}<div class="text-[11px] text-slate-500">лист «{{ r.sheet }}»</div>{% endif %}
+      <div class="mt-1 flex flex-wrap gap-2 text-[11px]">
+        {% if r.open %}<a href="{{ r.open }}" class="inline-flex items-center gap-1 font-semibold text-violet-700 hover:underline">{% icon "table" "h-3 w-3" %} Листни очиш</a>
+        <a href="{{ r.work }}" class="text-slate-500 hover:underline">объект</a>{% else %}<span class="text-slate-400" title="Объект ўчирилган ёки эски эслатма">намуна йўқ</span>{% endif %}
+      </div></td>
+    <td class="px-3 py-2"><span class="rounded-full px-2 py-0.5 text-xs font-semibold {{ r.role.1 }}">{{ r.role.0 }}</span></td>
+    <td class="px-3 py-2 text-xs">
+      <div class="flex flex-wrap gap-1">{% for c in r.cols %}<span class="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-slate-600">{{ c.label }} <b class="font-mono text-slate-900">{{ c.letter }}</b></span>{% empty %}{% if r.m.role != "unknown" %}<span class="text-slate-400">устунлар — тизим топганича</span>{% endif %}{% endfor %}</div>
+      {% if r.start %}<div class="mt-1 text-[11px] text-slate-500">Биринчи қатор: {{ r.start }}</div>{% endif %}
+    </td>
+    <td class="num px-3 py-2 text-right {% if r.m.uses %}font-semibold text-violet-700{% else %}text-slate-400{% endif %}">{{ r.m.uses }}</td>
+    <td class="whitespace-nowrap px-3 py-2 text-xs text-slate-500"><span title="Биринчи марта кўрсатилди">{{ r.m.created|date:"d.m.Y H:i" }}</span>
+      {% if r.m.updated|date:"YmdHi" != r.m.created|date:"YmdHi" %}<div class="text-[11px] text-slate-400" title="Охирги ўзгартирилди">ўзг. {{ r.m.updated|date:"d.m.Y H:i" }}</div>{% endif %}</td>
+    <td class="px-3 py-2 text-right">{% if can_act %}
+      <form method="post" action="{% url 'panel:memo_delete' r.m.pk %}" onsubmit="return confirm('Бу эслатма ўчирилсинми? Шундай лист кейин келса, тизим уни яна ўзи ўқийди.')">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button class="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700">Ўчириш</button></form>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% include "panel/_pager.html" %}
+{% else %}
+<div class="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+  {% if f.q or f.role or f.user %}Бу сузгич бўйича эслатма йўқ.{% else %}Ҳали ҳеч бир смета­чи листни қўлда белгиламаган.{% endif %}</div>
+{% endif %}
+{% endblock %}

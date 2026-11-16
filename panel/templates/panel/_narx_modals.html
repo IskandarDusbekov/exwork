@@ -3,11 +3,11 @@
 <style>
   dialog.nx-modal { width: min(44rem, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); border: 0; border-radius: 1rem; padding: 0; box-shadow: 0 24px 60px rgb(15 23 42 / .25); }
   dialog.nx-modal::backdrop { background: rgb(15 23 42 / .45); backdrop-filter: blur(2px); }
-  .nx-modal .hd { display: flex; align-items: flex-start; gap: .75rem; border-bottom: 1px solid #f1f5f9; padding: 1rem 1.25rem; }
+  .nx-modal .hd { display: flex; align-items: flex-start; gap: .75rem; border-bottom: 1px solid rgb(var(--ink-100)); padding: 1rem 1.25rem; }
   .nx-modal .bd { padding: 1rem 1.25rem; }
-  .nx-modal .ft { display: flex; justify-content: flex-end; gap: .5rem; border-top: 1px solid #f1f5f9; background: #f8fafc; padding: .8rem 1.25rem; }
-  .nx-modal label > span { font-size: .8125rem; color: #475569; }
-  .nx-modal input:not([type=radio]):not([type=file]), .nx-modal select { margin-top: .25rem; width: 100%; border: 1px solid #cbd5e1; border-radius: .6rem; padding: .5rem .7rem; font-size: .875rem; }
+  .nx-modal .ft { display: flex; justify-content: flex-end; gap: .5rem; border-top: 1px solid rgb(var(--ink-100)); background: rgb(var(--ink-50)); padding: .8rem 1.25rem; }
+  .nx-modal label > span { font-size: .8125rem; color: rgb(var(--ink-600)); }
+  .nx-modal input:not([type=radio]):not([type=file]), .nx-modal select { margin-top: .25rem; width: 100%; border: 1px solid rgb(var(--ink-300)); border-radius: .6rem; padding: .5rem .7rem; font-size: .875rem; }
   .nx-modal .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
   @media (max-width: 639.98px) { .nx-modal .grid2 { grid-template-columns: minmax(0, 1fr); } }
 </style>

@@ -11,7 +11,7 @@ from openpyxl import load_workbook
 
 from core import convert
 from core.columns import LayoutError
-from core.batch import apply_roles, inspect_workbook, mark_duplicates, plan_pairs, promote_catalogs
+from core.batch import apply_roles, inspect_workbook, mark_duplicates, memo_payload, plan_pairs, promote_catalogs
 from core.detect import pair_sheets
 from core.normalize import norm_name
 from core.pipeline import MODES, Options, run
@@ -19,7 +19,7 @@ from core.svodka import DEFAULT_PERCENTS, parse_text_number
 
 from django.utils import timezone
 
-from .models import Batch, Job, Project, Setting
+from .models import Batch, Job, Project, Setting, SheetMemo
 
 ALLOWED_EXT = (".xls", ".xlsx", ".xlsm")
 
@@ -113,6 +113,22 @@ def nf_auto_of(owner) -> bool:
 
 def remember_nf_auto(owner, auto: bool):
     Setting.objects.update_or_create(owner_id=getattr(owner, "pk", owner), key="nf_mode", defaults={"value": {"auto": bool(auto)}})
+
+
+# 5-босқич: кўриниш созламалари (фақат экранда; Excel натижасига таъсир қилмайди)
+UI_DEFAULTS = {"tips": True, "dense": False}
+
+
+def ui_prefs_of(owner) -> dict:
+    """``tips`` — «i» / «?» изоҳ белгилари кўринсин; ``dense`` — жадваллар ихчам (қаторлар зич)."""
+    s = Setting.objects.filter(owner_id=getattr(owner, "pk", owner), key="ui").first()
+    v = s.value if s and isinstance(s.value, dict) else {}
+    return {k: bool(v.get(k, d)) for k, d in UI_DEFAULTS.items()}
+
+
+def remember_ui_prefs(owner, prefs: dict):
+    value = {k: bool(prefs.get(k, d)) for k, d in UI_DEFAULTS.items()}
+    Setting.objects.update_or_create(owner_id=getattr(owner, "pk", owner), key="ui", defaults={"value": value})
 
 
 BASE_RES = "__base__"  # жуфтликда RES ўрнига «ресурс базаси» танланди
@@ -451,8 +467,10 @@ def create_batch(owner, files) -> "Batch":
     """Fayllarni saqlaydi, .xlsx ga o'giradi, har bir listni tahlil qilib juftliklarni taklif qiladi."""
     if not files:
         raise UploadError("Камида битта файл танланг")
-    if len(files) > MAX_FILES:
-        raise UploadError(f"Бир марта кўпи билан {MAX_FILES} та файл юкланг")
+    from panel import conf
+    limit = conf.get("max_files")
+    if len(files) > limit:
+        raise UploadError(f"Бир марта кўпи билан {limit} та файл юкланг")
     names = [Path(f.name).name for f in files]
     batch = Batch(owner=owner, name=names[0] if len(names) == 1 else f"{names[0]} + {len(names) - 1} та файл")
     clock, seconds = FileClock(), {}
@@ -542,6 +560,7 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
     if columns is not None:
         batch.columns = columns
     infos, prices = [], {}
+    recall, used = memo_recall(batch.owner_id)
     for i, f in enumerate(batch.files):
         if not f.get("path"):  # очилмай қолган файл (таҳлил узилган) — листлари йўқ
             continue
@@ -551,7 +570,7 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
         # қийматни ўқиш керак, акс ҳолда «нархи йўқ» деб нотўғри белгиланади (data_only)
         wbd = load_workbook(batch.abs(f["path"]), keep_links=False, data_only=True)
         try:
-            found = inspect_workbook(wb, i, f["name"], batch.roles, batch.columns)
+            found = inspect_workbook(wb, i, f["name"], batch.roles, batch.columns, recall=recall)
             for info in found:
                 prices[info.key] = count_prices(wbd[info.sheet], info.columns or {})
             infos += found
@@ -560,6 +579,9 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
             wbd.close()
             if timings is not None:
                 timings[i] = time.monotonic() - t
+    if used:
+        from django.db.models import F
+        SheetMemo.objects.filter(pk__in=used).update(uses=F("uses") + 1)
     apply_roles(infos, batch.roles or {})
     promote_catalogs(infos, batch.roles or {})
     mark_duplicates(infos)
@@ -580,6 +602,59 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
             p.update(res=old.get("res"), include=old.get("include"), base=old.get("base", False),
                      label=old.get("label") or p["label"], picked=True)
     return batch
+
+
+# ---- смета­чи созламасини эслаб қолиш (``SheetMemo``) ----
+def memo_recall(owner_id):
+    """``(recall, used)``: ``recall(fp, fpl)`` — шу смета­чининг шундай тузилмали листдаги созламаси
+    (``inspect_workbook`` учун); ``used`` — қўлланган эслатмалар (сони кейин оширилади)."""
+    memos = list(SheetMemo.objects.filter(owner_id=owner_id).only("id", "fp", "fpl", "role", "columns"))
+    by_fp = {m.fp: m for m in memos}
+    by_fpl = {}
+    for m in memos:  # энг янгиси (ordering = -updated)
+        if m.fpl:
+            by_fpl.setdefault(m.fpl, m)
+    used = set()
+
+    def recall(fp, fpl):
+        m, how = (by_fp.get(fp), "fp") if fp in by_fp else (by_fpl.get(fpl), "fpl")
+        if m is None:
+            return None
+        used.add(m.pk)
+        return m.payload(), how
+    return recall, used
+
+
+def remember_sheets(batch: "Batch", keys) -> int:
+    """Смета­чи шу листларда қўлда кўрсатганини (тури, устунлари) эслаб қолади. Нечтаси сақланди."""
+    saved = 0
+    for key in keys:
+        s = batch.sheet(key)
+        if not s or not s.get("fp"):
+            continue  # устун кенгликлари йўқ лист — изи йўқ, эслаб қолиб бўлмайди
+        role = (batch.roles or {}).get(key, "")
+        payload = memo_payload(role, (batch.columns or {}).get(key), s.get("anchor") or 0)
+        if not payload["role"] and not payload["columns"]:
+            continue
+        f = batch.files[s["file"]] if 0 <= s.get("file", -1) < len(batch.files) else {}
+        SheetMemo.objects.update_or_create(owner_id=batch.owner_id, fp=s["fp"], defaults={
+            "fpl": s.get("fpl") or "", "role": payload["role"], "columns": payload["columns"],
+            "sample": f'{f.get("name", "")} · {s["sheet"]}'[:300], "batch_id": batch.pk, "sheet_key": key[:300]})
+        saved += 1
+    return saved
+
+
+def forget_sheet(batch: "Batch", key: str) -> int:
+    """Шу листга қўлланган эслатмани ўчиради (нотўғри бўлса) — лист қайта автомат таҳлил қилинади."""
+    s = batch.sheet(key)
+    if not s:
+        return 0
+    q = SheetMemo.objects.filter(owner_id=batch.owner_id)
+    n = q.filter(fp=s.get("fp") or "-").delete()[0]
+    if not n and s.get("memo") == "fpl" and s.get("fpl"):
+        m = q.filter(fpl=s["fpl"]).first()
+        n = m.delete()[0] if m else 0
+    return n
 
 
 def batch_original(batch: "Batch", i: int) -> Optional[Path]:
@@ -787,8 +862,9 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
                   local_sheet=loc["sheet"], res_sheet=res["sheet"] if res else "", mode="smart",
                   percents=remembered_percents(batch.owner_id), base_period=base_period, fuzzy=_fuzzy_default(),
                   auto_cleared=not nf_auto,  # «Қўлда» усули: бўлим номлари ўзи тозаланмайди
-                  local_columns=(batch.columns or {}).get(p["local"], {}),
-                  res_columns=(batch.columns or {}).get(p["res"], {}) if res else {})
+                  # қўлда кўрсатилгани, бўлмаса — смета­чининг аввалги созламаси (шундай тузилмали листда)
+                  local_columns=(batch.columns or {}).get(p["local"]) or loc.get("recall") or {},
+                  res_columns=((batch.columns or {}).get(p["res"]) or res.get("recall") or {}) if res else {})
         local_dst = job.abs(f"conv/{loc['file']}.xlsx")
         local_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(batch.abs(lf["path"]), local_dst)

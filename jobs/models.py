@@ -281,6 +281,34 @@ class Worker(models.Model):
         return self.name
 
 
+class SheetMemo(models.Model):
+    """Смета­чи листни қўлда тушунтирди (тури, устунлари, биринчи қатор) — шундай тузилмали лист кейин келса,
+    тизим ўзи қўллайди. Номга эмас, тузилмага боғланади (``core.batch.sheet_fingerprint``): устун кенгликлари ва
+    шапкадаги бирлашган катаклар бир дастур / бир шаблондан чиққан файлларда бир хил, матни эса ҳар хил."""
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    fp = models.CharField(max_length=40, db_index=True)  # аниқ из
+    fpl = models.CharField(max_length=40, db_index=True, blank=True)  # кенг из (тизим ўзи эплолмаганда)
+    role = models.CharField(max_length=16, blank=True)  # local | resource | unknown | "" (тури ўзгармаган)
+    columns = models.JSONField(default=dict, blank=True)  # {"name": 3, "unit": 4, "price": 6, "start_off": 2, …}
+    sample = models.CharField(max_length=300, blank=True)  # қайси файл / листда кўрсатилган (смета­чига эслатиш)
+    uses = models.PositiveIntegerField(default=0)  # неча марта ўзи қўлланди
+    # қайси объектда кўрсатилган (админ панелда намунани очиш учун); объект ўчирилса ҳам эслатма қолади
+    batch_id = models.UUIDField(null=True, blank=True)
+    sheet_key = models.CharField(max_length=300, blank=True)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated"]
+        constraints = [models.UniqueConstraint(fields=["owner", "fp"], name="sheetmemo_owner_fp")]
+
+    def payload(self) -> dict:
+        return {"role": self.role, "columns": self.columns or {}}
+
+    def __str__(self):
+        return self.sample or self.fp
+
+
 class FileTiming(models.Model):
     """Bitta faylni ochish vaqti: .xls → .xlsx o'girish, listlar ro'yxatini o'qish va listlar tahlili.
     Panel statistikasi uchun — ish o'chirilsa ham tarix qoladi."""

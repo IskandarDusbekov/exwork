@@ -5,130 +5,151 @@
 <link rel="stylesheet" href="{% static 'css/picker.css' %}">
 <style>
   .up { max-width: 760px; margin: 0 auto; }
-  .up-h1 { font-size: 26px; font-weight: 700; color: #0f172a; letter-spacing: -.01em; }
-  .up-sub { margin-top: 4px; color: #64748b; }
+  .up-h1 { font-size: 26px; font-weight: 700; color: rgb(var(--ink-900)); letter-spacing: -.01em; }
+  .up-sub { margin-top: 4px; color: rgb(var(--ink-500)); }
   .up-zone { margin-top: 22px; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 44px 24px 36px; text-align: center;
-    border: 2px dashed #cbd5e1; border-radius: 20px; background: #f8fafc; transition: border-color .15s, background .15s; }
-  .up-zone.is-over { border-color: #2563eb; background: #eff6ff; }
+    border: 2px dashed rgb(var(--ink-300)); border-radius: 20px; background: rgb(var(--ink-50)); transition: border-color .15s, background .15s; }
+  .up-zone.is-over { border-color: rgb(var(--brand-600)); background: rgb(var(--brand-50)); }
   /* «шу ерга ташланг»: чегара секин айланиб юради, белги тепага-пастга сакрайди, атрофида тўлқин —
      файл судраб келинганда майдон катталашиб, кўк ёришади */
   .up-zone:not(.has) { position: relative; border-color: transparent;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Crect x='1' y='1' width='99.5%25' height='99%25' rx='19' ry='19' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-dasharray='10 8'%3E%3Canimate attributeName='stroke-dashoffset' from='0' to='-36' dur='1.2s' repeatCount='indefinite'/%3E%3C/rect%3E%3C/svg%3E");
-    background-color: #f8fafc; transition: background-color .2s, transform .2s, box-shadow .2s; }
-  .up-zone:not(.has):hover { background-color: #f1f5f9; }
+    background-color: rgb(var(--ink-50)); transition: background-color .2s, transform .2s, box-shadow .2s; }
+  .up-zone:not(.has):hover { background-color: rgb(var(--ink-100)); }
   .up-zone:not(.has) .up-ic { position: relative; animation: up-bob 1.8s ease-in-out infinite; }
-  .up-ring { position: absolute; inset: -1px; border-radius: 999px; border: 2px solid #93c5fd; opacity: 0; animation: up-ring 2.4s ease-out infinite; pointer-events: none; }
+  .up-ring { position: absolute; inset: -1px; border-radius: 999px; border: 2px solid rgb(var(--brand-300)); opacity: 0; animation: up-ring 2.4s ease-out infinite; pointer-events: none; }
   .up-ring.is-2 { animation-delay: 1.2s; }
   .up-zone.has .up-ring { display: none; }
   @keyframes up-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
   @keyframes up-ring { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(1.9); opacity: 0; } }
-  .up-t b { color: #2563eb; }
-  .up-or { margin-top: -8px; font-size: 13px; color: #94a3b8; }
+  .up-t b { color: rgb(var(--brand-600)); }
+  .up-or { margin-top: -8px; font-size: 13px; color: rgb(var(--ink-400)); }
   .up-zone.has .up-or { display: none; }
   .up-drop { display: none; }
-  .up-zone.is-over { background-color: #eff6ff; transform: scale(1.02); box-shadow: 0 0 0 6px rgba(37, 99, 235, .15), 0 16px 40px rgba(37, 99, 235, .18);
+  .up-zone.is-over { background-color: rgb(var(--brand-50)); transform: scale(1.02); box-shadow: 0 0 0 6px rgba(37, 99, 235, .15), 0 16px 40px rgba(37, 99, 235, .18);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Crect x='1' y='1' width='99.5%25' height='99%25' rx='19' ry='19' fill='none' stroke='%232563eb' stroke-width='3' stroke-dasharray='14 8'%3E%3Canimate attributeName='stroke-dashoffset' from='0' to='-44' dur='.6s' repeatCount='indefinite'/%3E%3C/rect%3E%3C/svg%3E"); }
   .up-zone.is-over .up-idle, .up-zone.is-over .up-btns, .up-zone.is-over .up-hint { display: none; }
-  .up-zone.is-over .up-drop { display: inline; color: #1d4ed8; font-size: 20px; font-weight: 800; }
-  .up-zone.is-over .up-ic { background: #2563eb; color: #fff; border-color: #2563eb; transform: scale(1.15); animation: up-bob .7s ease-in-out infinite; }
-  .up-zone.is-over .up-ring { border-color: #2563eb; animation-duration: 1.2s; }
+  .up-zone.is-over .up-drop { display: inline; color: rgb(var(--brand-700)); font-size: 20px; font-weight: 800; }
+  .up-zone.is-over .up-ic { background: rgb(var(--brand-600)); color: #fff; border-color: rgb(var(--brand-600)); transform: scale(1.15); animation: up-bob .7s ease-in-out infinite; }
+  .up-zone.is-over .up-ring { border-color: rgb(var(--brand-600)); animation-duration: 1.2s; }
   @media (prefers-reduced-motion: reduce) { .up-zone .up-ic, .up-ring { animation: none !important; } }
-  .up-zone.has { padding: 22px 24px; border-style: solid; border-color: #e2e8f0; background: #fff; }
-  .up-ic { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 999px; background: #fff; color: #2563eb; box-shadow: 0 1px 2px rgba(15, 23, 42, .06); border: 1px solid #e2e8f0; }
+  .up-zone.has { padding: 22px 24px; border-style: solid; border-color: rgb(var(--ink-200)); background: #fff; }
+  .up-ic { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 999px; background: #fff; color: rgb(var(--brand-600)); box-shadow: 0 1px 2px rgba(15, 23, 42, .06); border: 1px solid rgb(var(--ink-200)); }
   .up-zone.has .up-ic, .up-zone.has .up-t, .up-zone.has .up-hint { display: none; }
-  .up-t { font-size: 18px; font-weight: 600; color: #0f172a; }
+  .up-t { font-size: 18px; font-weight: 600; color: rgb(var(--ink-900)); }
   .up-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-  .up-pick { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid #cbd5e1; background: #fff; font-weight: 600; color: #0f172a; }
-  .up-pick:hover { border-color: #0f172a; }
+  .up-pick { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid rgb(var(--ink-300)); background: #fff; font-weight: 600; color: rgb(var(--ink-900)); }
+  .up-pick:hover { border-color: rgb(var(--ink-900)); }
   .up-split { display: inline-flex; }
   .up-split .up-pick:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
   .up-split .up-pick + .up-pick { margin-left: -1px; border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 14px; }
   .up-split .up-pick:hover { position: relative; z-index: 1; }
-  .up-hint { font-size: 13px; color: #94a3b8; }
+  .up-hint { font-size: 13px; color: rgb(var(--ink-400)); }
   .up-sel { width: 100%; text-align: left; }
   .up-sel ul { display: grid; gap: 6px; }
-  .up-sel li { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: #f1f5f9; font-size: 14px; }
-  .up-sel li .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; color: #0f172a; }
-  .up-sel li .sz { color: #64748b; white-space: nowrap; }
-  .up-sel li button { padding: 0 6px; border-radius: 6px; font-size: 18px; line-height: 1; color: #64748b; }
-  .up-sel li button:hover { background: #e2e8f0; color: #0f172a; }
-  .up-fold { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #fffbeb; border: 1px solid #fde68a; }
-  .up-fold b { display: block; color: #0f172a; overflow-wrap: anywhere; }
-  .up-fold span { font-size: 14px; color: #64748b; }
-  .up-clear { margin-left: auto; font-size: 13px; color: #64748b; text-decoration: underline; white-space: nowrap; }
+  .up-sel li { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: rgb(var(--ink-100)); font-size: 14px; }
+  .up-sel li .nm { flex: 1; min-width: 0; overflow-wrap: anywhere; color: rgb(var(--ink-900)); }
+  .up-sel li .sz { color: rgb(var(--ink-500)); white-space: nowrap; }
+  .up-sel li button { padding: 0 6px; border-radius: 6px; font-size: 18px; line-height: 1; color: rgb(var(--ink-500)); }
+  .up-sel li button:hover { background: rgb(var(--ink-200)); color: rgb(var(--ink-900)); }
+  .up-fold { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: rgb(var(--warn-50)); border: 1px solid rgb(var(--warn-200)); }
+  .up-fold b { display: block; color: rgb(var(--ink-900)); overflow-wrap: anywhere; }
+  .up-fold span { font-size: 14px; color: rgb(var(--ink-500)); }
+  .up-clear { margin-left: auto; font-size: 13px; color: rgb(var(--ink-500)); text-decoration: underline; white-space: nowrap; }
   .up-go { margin-top: 16px; display: flex; width: 100%; align-items: center; justify-content: center; gap: 8px; height: 54px; border-radius: 14px;
-    background: #0f172a; color: #fff; font-size: 16px; font-weight: 600; }
-  .up-go:hover { background: #1e293b; }
-  .up-go:disabled { background: #cbd5e1; cursor: not-allowed; }
-  .up-err { margin-top: 12px; display: flex; gap: 8px; padding: 10px 14px; border-radius: 12px; border: 1px solid #fecdd3; background: #fff1f2; color: #9f1239; font-size: 14px; }
+    background: rgb(var(--ink-900)); color: #fff; font-size: 16px; font-weight: 600; }
+  .up-go:hover { background: rgb(var(--ink-800)); }
+  .up-go:disabled { background: rgb(var(--ink-300)); cursor: not-allowed; }
+  .up-err { margin-top: 12px; display: flex; gap: 8px; padding: 10px 14px; border-radius: 12px; border: 1px solid rgb(var(--bad-200)); background: rgb(var(--bad-50)); color: rgb(var(--bad-800)); font-size: 14px; }
   .up-bar { margin-top: 12px; }
-  .up-bar div { height: 8px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
-  .up-bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: #2563eb; transition: width .3s; }
-  .up-bar p { margin-top: 6px; display: flex; justify-content: space-between; font-size: 13px; color: #64748b; }
-  .up-more { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; color: #64748b; }
+  .up-bar div { height: 8px; border-radius: 999px; background: rgb(var(--ink-200)); overflow: hidden; }
+  .up-bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: rgb(var(--brand-600)); transition: width .3s; }
+  .up-bar p { margin-top: 6px; display: flex; justify-content: space-between; font-size: 13px; color: rgb(var(--ink-500)); }
+  .up-more { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; color: rgb(var(--ink-500)); }
   .up-more details summary { cursor: pointer; list-style: none; text-decoration: underline; }
   .up-more details summary::-webkit-details-marker { display: none; }
-  .up-rules { margin-top: 10px; padding: 14px 16px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; color: #475569; line-height: 1.55; }
+  .up-rules { margin-top: 10px; padding: 14px 16px; border-radius: 12px; background: rgb(var(--ink-50)); border: 1px solid rgb(var(--ink-200)); color: rgb(var(--ink-600)); line-height: 1.55; }
   .up-rules li + li { margin-top: 6px; }
-  .up-opts { margin-top: 18px; display: grid; gap: 14px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; }
-  .up-opt-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: #334155; }
-  .up-ok { font-size: 12px; font-weight: 500; color: #047857; }
+  .up-opts { margin-top: 18px; display: grid; gap: 14px; padding: 16px; border: 1px solid rgb(var(--ink-200)); border-radius: 16px; background: #fff; }
+  .up-opt-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: rgb(var(--ink-700)); }
+  .up-ok { font-size: 12px; font-weight: 500; color: rgb(var(--ok-700)); }
   .up-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .up-mode-o { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; cursor: pointer; }
-  .up-mode-o.is-on { border-color: #10b981; background: #ecfdf5; box-shadow: 0 0 0 1px #10b981; }
-  .up-mode-o input { margin-top: 3px; accent-color: #059669; }
-  .up-mode-o b { display: block; font-size: 14px; color: #0f172a; }
-  .up-mode-o small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.4; color: #64748b; }
+  .up-mode-o { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid rgb(var(--ink-200)); border-radius: 12px; background: #fff; cursor: pointer; }
+  .up-mode-o.is-on { border-color: rgb(var(--ok-500)); background: rgb(var(--ok-50)); box-shadow: 0 0 0 1px rgb(var(--ok-500)); }
+  .up-mode-o input { margin-top: 3px; accent-color: rgb(var(--ok-600)); }
+  .up-mode-o b { display: block; font-size: 14px; color: rgb(var(--ink-900)); }
+  .up-mode-o small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.4; color: rgb(var(--ink-500)); }
   @media (max-width: 640px) { .up-mode { grid-template-columns: 1fr; } }
-  .up-src { margin-top: -4px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; background: #f8fafc; font-size: 14px; color: #475569; }
-  .up-warn { font-size: 12px; color: #b45309; }
+  .up-src { margin-top: -4px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; background: rgb(var(--ink-50)); font-size: 14px; color: rgb(var(--ink-600)); }
+  .up-warn { font-size: 12px; color: rgb(var(--warn-700)); }
   .up-err[hidden], .up-bar[hidden], .up-sel[hidden], .up-src[hidden], .up-warn[hidden] { display: none; }
   .up-dlg { width: min(560px, calc(100vw - 32px)); padding: 0; border: 0; border-radius: 18px; box-shadow: 0 20px 50px rgba(15, 23, 42, .25); }
   .up-dlg::backdrop { background: rgba(15, 23, 42, .45); }
   .up-dlg form { padding: 20px; }
-  .up-dlg h2 { font-size: 18px; font-weight: 700; color: #0f172a; }
-  .up-dlg h2 + p { margin-top: 4px; font-size: 13px; color: #64748b; }
+  .up-dlg h2 { font-size: 18px; font-weight: 700; color: rgb(var(--ink-900)); }
+  .up-dlg h2 + p { margin-top: 4px; font-size: 13px; color: rgb(var(--ink-500)); }
   .up-pcts { margin: 16px 0 6px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-  .up-pcts label > span:first-child { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #475569; }
-  .up-pct { margin-top: 4px; display: flex; align-items: center; gap: 4px; font-size: 14px; color: #64748b; }
-  .up-pct input { width: 84px; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 8px; text-align: right; font-size: 14px; color: #0f172a; }
-  .up-pct input.is-changed { border-color: #fbbf24; background: #fffbeb; }
+  .up-pcts label > span:first-child { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: rgb(var(--ink-600)); }
+  .up-pct { margin-top: 4px; display: flex; align-items: center; gap: 4px; font-size: 14px; color: rgb(var(--ink-500)); }
+  .up-pct input { width: 84px; padding: 6px 8px; border: 1px solid rgb(var(--ink-300)); border-radius: 8px; text-align: right; font-size: 14px; color: rgb(var(--ink-900)); }
+  .up-pct input.is-changed { border-color: rgb(var(--warn-400)); background: rgb(var(--warn-50)); }
   .up-dlg-b { margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px; }
-  .up-dlg-b button { height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #cbd5e1; font-weight: 600; color: #0f172a; background: #fff; }
-  .up-dlg-b .is-main { border-color: #0f172a; background: #0f172a; color: #fff; }
-  .up-go { background: #16a34a; height: 64px; border-radius: 18px; font-size: 20px; font-weight: 800; box-shadow: 0 10px 26px rgba(22, 163, 74, .35);
+  .up-dlg-b button { height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid rgb(var(--ink-300)); font-weight: 600; color: rgb(var(--ink-900)); background: #fff; }
+  .up-dlg-b .is-main { border-color: rgb(var(--ink-900)); background: rgb(var(--ink-900)); color: #fff; }
+  .up-go { background: rgb(var(--ok-600)); height: 64px; border-radius: 18px; font-size: 20px; font-weight: 800; box-shadow: 0 10px 26px rgba(22, 163, 74, .35);
     animation: pk-pulse 1.6s ease-in-out infinite; }
-  .up-go:hover { background: #15803d; }
+  .up-go:hover { background: rgb(var(--ok-700)); }
   .up-go:disabled { animation: none; box-shadow: none; }
   .up-go[hidden] { display: none; }
   .up-bar div { height: 12px; }
-  .up-bar i { background: #16a34a; }
-  .up-bar p { font-size: 15px; font-weight: 600; color: #0f172a; }
-  .up-sel li.is-up { background: #dcfce7; }
-  .up-sel li .ok { color: #16a34a; font-weight: 700; white-space: nowrap; }
+  .up-bar i { background: rgb(var(--ok-600)); }
+  .up-bar p { font-size: 15px; font-weight: 600; color: rgb(var(--ink-900)); }
+  .up-sel li.is-up { background: rgb(var(--ok-100)); }
+  .up-sel li .ok { color: rgb(var(--ok-600)); font-weight: 700; white-space: nowrap; }
   #pk-slot { margin-top: 22px; }
   #pk-slot:empty { display: none; }
   #pk-slot .pk-modebar { display: none; }  /* усул тепада (1-қадам) танланади */
   #pk-slot .pk-step:not(.is-done) .pk-num { font-size: 0; }
-  #pk-slot .pk-step:not(.is-done) .pk-num::after { content: "3"; font-size: 18px; }
+  #pk-slot .pk-step:not(.is-done) .pk-num::after { content: "2"; font-size: 18px; }
   .up-step-h { margin-top: 22px; display: flex; align-items: center; gap: 12px; }
-  .up-step-h h2 { font-size: 18px; font-weight: 700; color: #0f172a; }
-  .up-step-h p { font-size: 13px; color: #64748b; }
-  .up-step-h .pk-num { background: #0f172a; color: #fff; }
-  .up-step-h .pk-num.is-ok { background: #16a34a; font-size: 0; }
+  .up-step-h h2 { font-size: 18px; font-weight: 700; color: rgb(var(--ink-900)); }
+  .up-step-h p { font-size: 13px; color: rgb(var(--ink-500)); }
+  .up-step-h .pk-num { background: rgb(var(--ink-900)); color: #fff; }
+  .up-step-h .pk-num.is-ok { background: rgb(var(--ok-600)); font-size: 0; }
   .up-step-h .pk-num.is-ok::after { content: "✓"; font-size: 20px; }
   .up-modes { margin-top: 12px; }
   .up-modes .pk-mode { background: #fff; }
-  .up-ml { margin-top: 6px; display: grid; gap: 3px; font-size: 13px; line-height: 1.35; color: #475569; }
+  .up-ml { margin-top: 6px; display: grid; gap: 3px; font-size: 13px; line-height: 1.35; color: rgb(var(--ink-600)); }
   .up-ml li { position: relative; padding-left: 16px; }
-  .up-ml li::before { content: "✓"; position: absolute; left: 0; font-weight: 800; color: #16a34a; }
-  .pk-mode:not(.is-on) .up-ml li::before { color: #94a3b8; }
-  .up-mode-saved { margin-left: auto; font-size: 13px; font-weight: 600; color: #15803d; }
+  .up-ml li::before { content: "✓"; position: absolute; left: 0; font-weight: 800; color: rgb(var(--ok-600)); }
+  .pk-mode:not(.is-on) .up-ml li::before { color: rgb(var(--ink-400)); }
+  .up-mode-saved { margin-left: auto; font-size: 13px; font-weight: 600; color: rgb(var(--ok-700)); }
   .up .up-zone { margin-top: 12px; }
   .up-recent { margin-top: 36px; }
-  .up-recent h2 { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #334155; }
-  .up-recent h2 a { margin-left: auto; font-size: 13px; font-weight: 500; color: #64748b; }
-  .up-recent h2 a:hover { color: #0f172a; }
+  .up-recent h2 { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: rgb(var(--ink-700)); }
+  .up-recent h2 a { margin-left: auto; font-size: 13px; font-weight: 500; color: rgb(var(--ink-500)); }
+  .up-recent h2 a:hover { color: rgb(var(--ink-900)); }
+  .up-flow { margin-top: 18px; overflow-x: auto; padding: 4px 2px; }
+  .up-pick.is-main { border-color: rgb(var(--ink-900)); background: rgb(var(--ink-900)); color: #fff; }
+  .up-pick.is-main:hover { background: rgb(var(--ink-800)); }
+  .up-set { margin-top: 14px; border: 1px solid rgb(var(--ink-200)); border-radius: 14px; background: #fff; }
+  .up-set summary { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; list-style: none; }
+  .up-set summary::-webkit-details-marker { display: none; }
+  .up-set-ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgb(var(--ink-100)); color: rgb(var(--ink-600)); }
+  .up-set-t { min-width: 0; flex: 1; }
+  .up-set-t b { display: block; font-size: 14px; color: rgb(var(--ink-900)); }
+  .up-set-t small { display: block; font-size: 12.5px; color: rgb(var(--ink-500)); }
+  .up-set-go { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: rgb(var(--brand-700)); white-space: nowrap; }
+  .up-set-go svg { transition: transform .15s; }
+  .up-set[open] .up-set-go svg { transform: rotate(180deg); }
+  .up-set .is-hide, .up-set[open] .is-show { display: none; }
+  .up-set[open] .is-hide { display: inline; }
+  .up-set-b { padding: 4px 14px 14px; border-top: 1px solid rgb(var(--ink-100)); }
+  .up-set-b .up-opt-h { margin-top: 12px; }
+  .up-set-b .up-opts { margin-top: 14px; padding: 0; border: 0; }
+  .up-set .up-mode-saved { margin-left: 0; }
+  .up-set-all { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 600; color: rgb(var(--brand-700)); }
+  .up-set-all:hover { text-decoration: underline; }
 </style>
 
 <div class="up">
@@ -136,36 +157,19 @@
   <p class="up-sub">Excel файлларни (локал ва ресурс) танланг — улар дарҳол очилади ва шу ернинг ўзида листларни белгилайсиз. Бутун объект бўлса — папка ёки архив.</p>
 
   {% if resume %}
-  <a href="{{ resume.url }}" class="mt-5 flex items-center gap-3 rounded-2xl bg-slate-900 px-4 py-3.5 text-white hover:bg-slate-800">
-    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/10">{% if resume.working %}{% icon "loader" "h-5 w-5 animate-spin" "2.5" %}{% else %}{% icon "arrow-right" "h-5 w-5" %}{% endif %}</span>
+  <a href="{{ resume.url }}" class="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-slate-900 hover:border-slate-400">
+    <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600">{% if resume.working %}{% icon "loader" "h-5 w-5 animate-spin" "2.5" %}{% else %}{% icon "arrow-right" "h-5 w-5" %}{% endif %}</span>
     <span class="min-w-0 flex-1">
-      <span class="block text-xs text-slate-400">{% if resume.working %}Ишланяпти · {{ resume.progress }}{% else %}Охирги иш — давом эттириш{% endif %}</span>
+      <span class="block text-xs text-slate-500">{% if resume.working %}Ишланяпти · {{ resume.progress }}{% else %}Охирги иш — давом эттириш{% endif %}</span>
       <span class="block truncate font-semibold">{{ resume.name }}</span>
     </span>
     {% icon "chevron-right" "h-5 w-5 shrink-0 text-slate-400" %}
   </a>
   {% endif %}
 
-  {# 1-қадам: усул — юклашдан олдин; бутун иш (листларни ажратиш, нархлар) шунга қараб боради #}
-  <section class="pk" data-guide="nf-mode">
-    <div class="up-step-h"><span class="pk-num is-ok">1</span>
-      <div><h2>Қандай ишлаймиз?</h2><p>Юклашдан олдин танланг — бутун иш шунга қараб боради. Танлов эслаб қолинади.</p></div>
-      <span class="up-mode-saved" id="nf-saved" hidden>✓ сақланди</span></div>
-    <form id="nf-mode" class="pk-modes up-modes">{% csrf_token %}
-      <label class="pk-mode{% if nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="auto" {% if nf_auto %}checked{% endif %}>
-        <span class="pk-mode-ic">{% icon "activity" "h-6 w-6" %}</span>
-        <span><b>Автоматик</b><small>Тизим ўзи қилади, сиз текширасиз:</small>
-          <ul class="up-ml"><li>локал ва ресурсни ажратади, жуфтлайди</li><li>ишончли нарх таклифларини (90%+, бирлиги бошқа бўлса ҳам) қабул қилади</li>
-            <li>кабель ва ускунани L / M га ўтказади</li><li>нархсиз бўлим номларини тозалайди</li></ul></span></label>
-      <label class="pk-mode{% if not nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="manual" {% if not nf_auto %}checked{% endif %}>
-        <span class="pk-mode-ic">{% icon "pencil" "h-6 w-6" %}</span>
-        <span><b>Қўлда</b><small>Ҳаммасини ўзингиз ҳал қиласиз:</small>
-          <ul class="up-ml"><li>ҳар бир листни белгилайсиз (Локал / Ресурс / Ўтказиш)</li><li>нарх таклифлари ва бирлик фарқини ўзингиз қабул қиласиз</li>
-            <li>кабель / ускунани ўзингиз ажратасиз</li><li>белгиланмаган лист нархланмайди</li></ul></span></label>
-    </form>
-  </section>
+  <div class="up-flow">{% flow 1 %}</div>
 
-  <div class="up-step-h"><span class="pk-num">2</span>
+  <div class="up-step-h"><span class="pk-num" id="step1-n">1</span>
     <div><h2>Файл ёки папкани танланг</h2><p>Битта смета — файллар; бутун объект — папка ёки архив.</p></div></div>
   {# bitta maydon: fayllar, papka yoki arxiv — tizim o'zi qaysi yo'l bilan yuklashni tanlaydi #}
   <div id="drop" class="up-zone" data-guide="drop">
@@ -174,7 +178,7 @@
     <div class="up-or"><span class="up-idle">ёки компьютердан танланг</span></div>
     <div class="up-sel" id="sel" hidden></div>
     <div class="up-btns">
-      <button type="button" class="up-pick" id="pick-files" title="Битта смета: Excel файллар (.xls, .xlsx)">{% icon "sheet" "h-5 w-5 text-emerald-600" %}<span>Файл танлаш</span></button>
+      <button type="button" class="up-pick is-main" id="pick-files" title="Битта смета: Excel файллар (.xls, .xlsx)">{% icon "sheet" "h-5 w-5" %}<span>Файл танлаш</span></button>
       <span class="up-split" role="group" aria-label="Бутун объект: папка ёки архив">
         <button type="button" class="up-pick" id="pick-folder" title="Бутун объект: ичма-ич папкалари билан">{% icon "folder" "h-5 w-5 text-amber-600" %}<span>Папка танлаш</span></button>
         <button type="button" class="up-pick" id="pick-arch" title="Бутун объект: ZIP, RAR ёки 7z архив">{% icon "layers" "h-5 w-5 text-amber-600" %}<span>ZIP / RAR</span></button>
@@ -194,7 +198,30 @@
   {% else %}<div class="up-err" id="ferror" hidden></div>{% endif %}
   <div class="up-bar" id="fprogress" hidden><div><i id="fprogress-bar"></i></div><p><span id="fprogress-text">Юкланяпти…</span><span id="fprogress-pct" class="num">0%</span></p></div>
 
-  {# нарх манбаи (база ёқилган бўлса) — юклашдан олдин; нархлаш усули листлар билан бирга (_picker.html) #}
+  {# кам ўзгартириладиган танловлар — йиғиқ; ёпиқ ҳолда ҳам ҳозирги танлов кўриниб туради. Ҳаммаси эслаб қолинади #}
+  <details class="up-set" id="up-set" data-guide="nf-mode"{% if base_on and price_source == "base" and not base_period.year %} open{% endif %}>
+    <summary><span class="up-set-ic">{% icon "sliders" "h-4 w-4" %}</span>
+      <span class="up-set-t"><b>Созламалар</b>
+        <small><span id="set-mode">Усул: {% if nf_auto %}Автоматик{% else %}Қўлда{% endif %}</span>{% if base_on %} · <span id="set-src">Нарх: {% if price_source == "base" %}ресурс базасидан{% else %}RES файлдан{% endif %}</span>{% endif %}</small></span>
+      <span class="up-mode-saved" id="nf-saved" hidden>✓ сақланди</span>
+      <span class="up-set-go"><span class="is-show">Ўзгартириш</span><span class="is-hide">Йиғиш</span>{% icon "chevron-down" "h-4 w-4" "2.5" %}</span></summary>
+    <div class="up-set-b">
+    <a href="{% url 'user_settings' %}" class="up-set-all">Ҳамма созламалар (йўриқнома, изоҳлар, ихчам жадвал) →</a>
+    <div class="up-opt-h">Қандай ишлаймиз? <span class="font-normal text-slate-500">— юклашдан олдин; бутун иш шунга қараб боради</span></div>
+    <form id="nf-mode" class="pk-modes up-modes">{% csrf_token %}
+      <label class="pk-mode{% if nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="auto" {% if nf_auto %}checked{% endif %}>
+        <span class="pk-mode-ic">{% icon "activity" "h-6 w-6" %}</span>
+        <span><b>Автоматик</b><small>Тизим ўзи қилади, сиз текширасиз:</small>
+          <ul class="up-ml"><li>локал ва ресурсни ажратади, жуфтлайди</li><li>ишончли нарх таклифларини (90%+, бирлиги бошқа бўлса ҳам) қабул қилади</li>
+            <li>кабель ва ускунани L / M га ўтказади</li><li>нархсиз бўлим номларини тозалайди</li></ul></span></label>
+      <label class="pk-mode{% if not nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="manual" {% if not nf_auto %}checked{% endif %}>
+        <span class="pk-mode-ic">{% icon "pencil" "h-6 w-6" %}</span>
+        <span><b>Қўлда</b><small>Ҳаммасини ўзингиз ҳал қиласиз:</small>
+          <ul class="up-ml"><li>ҳар бир листни белгилайсиз (Локал / Ресурс / Ўтказиш)</li><li>нарх таклифлари ва бирлик фарқини ўзингиз қабул қиласиз</li>
+            <li>кабель / ускунани ўзингиз ажратасиз</li><li>белгиланмаган лист нархланмайди</li></ul></span></label>
+    </form>
+
+  {# нарх манбаи (база ёқилган бўлса) — юклашдан олдин #}
   {% if base_on %}<section class="up-opts" data-guide="price-src">
     <form id="price-source" class="up-opt">{% csrf_token %}
       <div class="up-opt-h">Нарх қаердан олинади <span id="src-saved" class="up-ok hidden">✓ сақланди</span></div>
@@ -213,6 +240,8 @@
     <p id="base-warn" class="up-warn"{% if price_source != "base" or base_period.region and base_period.year %} hidden{% endif %}>
       Вилоят ва йилни танланг — акс ҳолда нарх RES файлдан олинади.</p>
   </section>{% endif %}
+    </div>
+  </details>
 
   <button type="button" id="go" class="up-go" hidden data-guide="go">{% icon "play" "h-6 w-6" %}<span id="go-t">Бошлаш</span></button>
 
@@ -233,7 +262,10 @@
       var full = Array.prototype.every.call(period.querySelectorAll("select"), function (s) { return s.value; });
       document.getElementById("base-warn").hidden = !base || full;
     }
-    src.addEventListener("change", function () { refresh(); post(src, "{% url 'price_source' %}", document.getElementById("src-saved")); });
+    src.addEventListener("change", function () {
+      refresh();
+      var t = document.getElementById("set-src");
+      if (t) t.textContent = "Нарх: " + (src.querySelector("input[name=source]:checked").value === "base" ? "ресурс базасидан" : "RES файлдан"); post(src, "{% url 'price_source' %}", document.getElementById("src-saved")); });
     period.addEventListener("change", function () { refresh(); post(period, "{% url 'base_period' %}", document.getElementById("base-saved")); });
   })();
   </script>
@@ -283,6 +315,7 @@
     function render() {
       var has = mode === "files" ? files.length > 0 : mode === "folder" && tree.some(function (x) { return !why(x.path); });
       drop.classList.toggle("has", !!has);
+      document.getElementById("step1-n").classList.toggle("is-ok", !!current);
       sel.hidden = !has;
       go.hidden = !(has && mode === "folder");  // Excel файллар ўзи юкланади; папка — «Бошлаш» билан
       go.disabled = false;
@@ -425,6 +458,7 @@
     var nf = document.getElementById("nf-mode");
     nf.addEventListener("change", function (e) {
       nf.querySelectorAll(".pk-mode").forEach(function (m) { m.classList.toggle("is-on", m.querySelector("input").checked); });
+      document.getElementById("set-mode").textContent = "Усул: " + (nf.querySelector("input:checked").value === "auto" ? "Автоматик" : "Қўлда");
       fetch("{% url 'nf_mode' %}", {method: "POST", body: new FormData(nf), credentials: "same-origin",
                                     headers: {"X-CSRFToken": nf.csrfmiddlewaretoken.value}}).then(function (r) {
         if (!r.ok) return;

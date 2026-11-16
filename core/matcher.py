@@ -13,7 +13,7 @@ from openpyxl.utils import column_index_from_string
 from rapidfuzz.distance.LCSseq import similarity as _lcs
 
 from .classify import section_kind
-from .normalize import fold_name, norm_name, norm_unit
+from .normalize import fold_name, norm_cipher, norm_name, norm_unit
 
 EXACT = "EXACT"
 FUZZY = "FUZZY"
@@ -144,6 +144,12 @@ class ResourceIndex:
         # RES'da bir xil nom va birlik bir necha marta, HAR XIL narxda: (birlik, nom) -> [(narx, miqdor, qator), …]
         # (by_unit'da birinchisi turadi; qaysi biri — lokal miqdor bo'yicha pipeline tanlaydi)
         self.alts: Dict[tuple, List[tuple]] = {}
+        # шифр (ресурс коди) + бирлик -> RES'даги ном: ном бошқача ёзилган бўлса ҳам топиш учун (фақат таклиф).
+        # Битта шифрда бир неча хил ном бўлса — киритилмайди (қайсиниси эканини айтиб бўлмайди)
+        self.codes: Dict[tuple, str] = {}
+
+    def by_code(self, code: str, unit: str) -> Optional[str]:
+        return self.codes.get((code, unit)) if code else None
 
     def _folded_of(self, unit: str) -> Dict[str, str]:
         f = self._folded.get(unit)
@@ -176,8 +182,11 @@ class ResourceIndex:
     @classmethod
     def from_sheet(cls, ws, name_col: Union[str, int] = "D", price_col: Union[str, int] = "G",
                    unit_col: Union[str, int, None] = None, start_row: int = 1,
-                   stop_row: Optional[int] = None) -> "ResourceIndex":
-        """Ustunlar harf yoki raqam; ``unit_col`` berilmasa — nomdan keyingi ustun (eski dastur kabi)."""
+                   stop_row: Optional[int] = None, code_col: Union[str, int, None] = None) -> "ResourceIndex":
+        """Ustunlar harf yoki raqam; ``unit_col`` berilmasa — nomdan keyingi ustun (eski dastur kabi).
+        ``code_col`` — шифр устуни (берилса, ``by_code`` ишлайди)."""
+        rc = _col(code_col) if code_col is not None else None
+        codes: Dict[tuple, set] = {}
         rn = _col(name_col)
         ru = _col(unit_col) if unit_col is not None else rn + 1
         rp = _col(price_col)
@@ -219,6 +228,10 @@ class ResourceIndex:
             qty = next((v for v in (ws.cell(row=r, column=c).value for c in range(rp - 1, ru, -1))
                         if isinstance(v, (int, float)) and not isinstance(v, bool)), None)
             seen.setdefault((unit, name), []).append((ws.cell(row=r, column=rp).value, qty, r))
+            if rc:
+                code = norm_cipher(ws.cell(row=r, column=rc).value)
+                if code:
+                    codes.setdefault((code, unit), set()).add(name)
             if name not in d:
                 d[name] = ws.cell(row=r, column=rp).value
                 positions[(unit, name)] = (len(section_list) - 1, r)
@@ -229,6 +242,7 @@ class ResourceIndex:
         index.alts = {k: v for k, v in seen.items() if len({_price_key(p) for p, _q, _r in v}) > 1}
         index.raw = raw
         index.unitless = unitless
+        index.codes = {k: next(iter(v)) for k, v in codes.items() if len(v) == 1}
         return index
 
     # ---------- moslashtirish natijalarini saqlash (smeta qayta hisoblanganda solishtirish takrorlanmaydi) ----------

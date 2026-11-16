@@ -1,0 +1,517 @@
+{% extends "jobs/base.html" %}
+{% load narx %}
+{% block title %}Листни белгилаш · {{ s.sheet }}{% endblock %}
+{% block side %}rail{% endblock %}
+{% block main_class %}w-full px-4 py-6 lg:px-6{% endblock %}
+{% block content %}
+{% comment %}Смета листи тизимга тушунарсиз (ёки нотўғри ўқилган): офёртадагидек файлнинг ўзида босиб кўрсатилади —
+лист тури, биринчи қатор, устунлар, керак бўлса охирги қатор. Ҳеч нарса номга боғланмайди: тизим устун ва
+қатор ўрнини, листнинг тузилмасини (кенгликлар, бирлашган катаклар) эслаб қолади.{% endcomment %}
+<style>
+  {% include "jobs/_xs_css.html" %}
+  .mk { --b: rgb(var(--brand-600)); --b-d: rgb(var(--brand-700)); --b-t: rgb(var(--brand-50)); --line: rgb(var(--ink-200)); --mut: rgb(var(--ink-500)); --ink: rgb(var(--ink-900)); }
+  .mk-top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; }
+  .mk-ic { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 16px; background: var(--b-t); color: var(--b); }
+  .mk-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--b); }
+  .mk-h1 { margin-top: 2px; font-size: 24px; font-weight: 800; color: var(--ink); line-height: 1.2; }
+  .mk-sub { margin-top: 4px; font-size: 14px; color: rgb(var(--ink-600)); }
+  .mk-tools { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .mk-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid rgb(var(--ink-300)); background: #fff; font-size: 13.5px; font-weight: 600; color: rgb(var(--ink-700)); }
+  .mk-btn:hover { background: rgb(var(--ink-50)); border-color: rgb(var(--ink-400)); }
+  .mk-note { margin-top: 14px; display: flex; gap: 10px; padding: 12px 16px; border-radius: 14px; font-size: 14px; }
+  .mk-note svg { flex: none; margin-top: 1px; }
+  .mk-note-warn { background: rgb(var(--warn-50)); border: 1px solid rgb(var(--warn-200)); color: rgb(var(--warn-900)); }
+  .mk-note-info { background: rgb(var(--brand-50)); border: 1px solid rgb(var(--brand-200)); color: rgb(var(--brand-900)); }
+  .mk-note-err { background: rgb(var(--bad-50)); border: 1px solid rgb(var(--bad-200)); color: rgb(var(--bad-800)); }
+
+  .mk-steps { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .mk-step { position: relative; text-align: left; padding: 9px 12px 9px 46px; border-radius: 14px; border: 1.5px solid var(--line); background: #fff; transition: all .15s; min-width: 150px; max-width: 260px; }
+  .mk-step:hover { border-color: rgb(var(--brand-200)); }
+  .mk-step:disabled { opacity: .5; cursor: not-allowed; }
+  .mk-step b { display: block; font-size: 14px; color: var(--ink); }
+  .mk-step span { display: block; margin-top: 1px; font-size: 12.5px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mk-step i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 26px; height: 26px; border-radius: 999px; background: rgb(var(--ink-100)); color: rgb(var(--ink-600)); font-style: normal; font-weight: 800; font-size: 12.5px; }
+  .mk-step.is-on { border-color: var(--b); box-shadow: 0 0 0 3px rgba(37, 99, 235, .14); background: linear-gradient(180deg, #fff, rgb(var(--ink-50))); }
+  .mk-step.is-on i { background: var(--b); color: #fff; }
+  .mk-step.is-done i { background: var(--rc, rgb(var(--ok-500))); color: #fff; }
+  .mk-step.is-done span { color: rgb(var(--ok-700)); font-weight: 600; }
+  .mk-step.is-skip span { color: rgb(var(--ink-400)); }
+
+  .mk-ask { position: sticky; top: 0; z-index: 25; margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; background: var(--ink); color: #fff; }
+  .mk-ask-t { font-size: 16px; font-weight: 700; }
+  .mk-ask-h { margin-top: 2px; font-size: 13px; color: rgb(var(--ink-300)); max-width: 900px; }
+  .mk-ask-s { margin-top: 4px; font-size: 13px; color: rgb(var(--warn-200)); }
+  .mk-ask .mk-act { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .mk-ask button { height: 38px; padding: 0 16px; border-radius: 10px; font-size: 14px; font-weight: 700; }
+  .mk-ask .mk-next { background: #fff; color: var(--ink); }
+  .mk-ask .mk-next:disabled { opacity: .45; cursor: not-allowed; }
+  .mk-ask .mk-alt { background: rgba(255, 255, 255, .12); color: #fff; border: 1px solid rgba(255, 255, 255, .25); }
+  .mk-ask .mk-alt:hover { background: rgba(255, 255, 255, .2); }
+  .mk-ask .mk-alt.is-sel { background: #fff; color: var(--ink); }
+  .mk-ask .mk-role { height: 46px; padding: 0 20px; font-size: 15px; }
+  .mk-ask .mk-role small { display: block; font-size: 11.5px; font-weight: 500; opacity: .75; }
+
+  /* йўриқнома: қадам рақами, нима қилиш, мисол ва кичик расм */
+  .mk-ask { align-items: stretch; padding: 16px 18px; gap: 18px; }
+  .mk-no { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-width: 92px; padding: 8px 10px; border-radius: 14px; background: rgba(255, 255, 255, .08); }
+  .mk-no small { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgb(var(--ink-400)); }
+  .mk-no b { font-size: 30px; line-height: 1; font-weight: 800; color: rgb(var(--warn-400)); }
+  .mk-no b em { font-style: normal; font-size: 16px; color: rgb(var(--ink-500)); }
+  .mk-no .mk-prog { width: 100%; height: 5px; border-radius: 9px; background: rgba(255, 255, 255, .15); overflow: hidden; }
+  .mk-no .mk-prog i { display: block; height: 100%; border-radius: 9px; background: rgb(var(--warn-400)); transition: width .3s; }
+  .mk-body { min-width: 0; flex: 1; }
+  .mk-do { margin-top: 8px; display: grid; gap: 5px; font-size: 14px; color: rgb(var(--ink-200)); padding: 0; }
+  .mk-do li { list-style: none; position: relative; padding-left: 28px; line-height: 1.45; }
+  .mk-do li b { color: #fff; }
+  .mk-do li i { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 999px; background: rgb(var(--warn-400)); color: rgb(var(--ink-900)); font-size: 12px; font-weight: 800; font-style: normal; }
+  .mk-ex { margin-top: 8px; display: inline-block; padding: 4px 10px; border-radius: 8px; background: rgba(251, 191, 36, .14); color: rgb(var(--warn-200)); font-size: 13px; }
+  .mk-ex[hidden], .mk-act[hidden] { display: none; }
+  .mk-pic { flex: none; position: relative; align-self: center; }
+  .mk-mini { display: grid; grid-template-columns: 22px repeat(4, 38px); grid-auto-rows: 17px; gap: 1px; padding: 1px; border-radius: 8px; background: rgb(var(--ink-600)); font: 600 10px/17px "Segoe UI", Arial, sans-serif; text-align: center; overflow: hidden; }
+  .mk-mini span { background: rgb(var(--ink-50)); color: rgb(var(--ink-500)); overflow: hidden; white-space: nowrap; }
+  .mk-mini span.g { background: rgb(var(--ink-200)); color: rgb(var(--ink-600)); }
+  .mk-mini span.hd { background: rgb(var(--ink-300)); color: rgb(var(--ink-700)); }
+  .mk-mini span.on { background: var(--hl); color: #fff; animation: mkBlink 1.1s ease-in-out infinite; }
+  .mk-mini span.set { background: color-mix(in srgb, var(--hl) 30%, #fff); color: rgb(var(--ink-900)); }
+  .mk-hand { position: absolute; font-size: 22px; line-height: 1; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .5)); animation: mkTap 1.1s ease-in-out infinite; pointer-events: none; }
+  .mk-pic-cap { margin-top: 6px; text-align: center; font-size: 11.5px; font-weight: 700; color: rgb(var(--warn-400)); }
+  @keyframes mkBlink { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.35); box-shadow: 0 0 0 2px #fff inset; } }
+  @keyframes mkTap { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-3px, -6px); } }
+  @keyframes mkPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); } 50% { box-shadow: 0 0 0 6px rgba(251, 191, 36, .6); } }
+  @keyframes mkGlow { 0%, 100% { background: rgb(var(--warn-100)); color: rgb(var(--warn-800)); } 50% { background: var(--cue, rgb(var(--warn-500))); color: #fff; } }
+  @keyframes mkBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+  .mk-ask .mk-role { animation: mkPulse 1.4s ease-in-out infinite; }
+  .mk-ask .mk-role:hover { animation: none; }
+  .mk-step.is-on { animation: mkPulse 1.6s ease-in-out infinite; }
+  .mk-step .mk-now { position: absolute; top: -9px; right: 10px; padding: 0 7px; border-radius: 999px; background: rgb(var(--warn-500)); color: #fff; font-size: 10.5px; font-weight: 800; font-style: normal; line-height: 17px; letter-spacing: .04em; }
+  /* жадвалнинг ўзида: қаерни босиш — миллиллайди */
+  .mk-cue { margin-top: 10px; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: rgb(var(--warn-50)); border: 2px dashed rgb(var(--warn-500)); color: rgb(var(--warn-900)); font-size: 14.5px; font-weight: 600; }
+  .mk-cue[hidden] { display: none; }
+  .mk-cue .mk-arr { font-size: 20px; animation: mkBounce .9s ease-in-out infinite; }
+  .mk-cue small { display: block; font-weight: 500; font-size: 12.5px; color: rgb(var(--warn-800)); }
+  .mk-wrap.cue-row .xs tbody th { animation: mkGlow 1.2s ease-in-out infinite; cursor: pointer; }
+  .mk-wrap.cue-col .xs thead th:not(.xs-corner) { animation: mkGlow 1.2s ease-in-out infinite; cursor: pointer; }
+  .mk-wrap.cue-off { opacity: .55; }
+  .mk-go.is-ready { animation: mkPulse 1.3s ease-in-out infinite; }
+  .mk-toast { position: fixed; left: 50%; bottom: 110px; z-index: 60; transform: translateX(-50%) translateY(20px); opacity: 0; padding: 12px 18px; border-radius: 14px; background: rgb(var(--ok-800)); color: #fff; font-size: 14.5px; font-weight: 700; box-shadow: 0 12px 30px rgba(6, 95, 70, .35); transition: all .25s; pointer-events: none; max-width: calc(100vw - 32px); }
+  .mk-toast.is-on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .mk-toast small { display: block; font-weight: 500; color: rgb(var(--ok-200)); }
+  @media (max-width: 900px) { .mk-pic { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .mk *, .mk-toast { animation: none !important; } }
+
+  .mk-legend { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--mut); align-items: center; }
+  .mk-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-weight: 700; font-size: 12px; color: #fff; }
+
+  .mk-wrap { position: relative; margin-top: 10px; border: 1px solid var(--line); border-radius: 16px; background: #fff; overflow: auto; max-height: calc(100vh - 150px); box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+  .mk-inner { position: relative; width: max-content; }
+  .mk-wrap .xs tbody tr { cursor: pointer; }
+  .mk-wrap.pick-col .xs tbody tr { cursor: cell; }
+  .mk-wrap.pick-none .xs tbody tr { cursor: default; }
+  .mk-wrap .xs tbody tr:hover > td { box-shadow: inset 0 0 0 9999px rgba(37, 99, 235, .07); }
+  .mk-wrap.pick-col .xs tbody tr:hover > td { box-shadow: none; }
+  .mk-wrap .xs tbody tr:hover > th { background: rgb(var(--brand-100)); color: var(--b); font-weight: 700; }
+  .mk-wrap .xs tr.is-head > td { box-shadow: inset 0 0 0 9999px rgba(100, 116, 139, .08); color: rgb(var(--ink-500)); }
+  .mk-wrap .xs tr.is-data > td { box-shadow: inset 0 0 0 9999px rgba(16, 185, 129, .06); }
+  .mk-wrap .xs tr.is-after > td { color: rgb(var(--ink-400)) !important; }
+  .mk-wrap .xs tr.is-start > td { border-top: 3px solid rgb(var(--ok-500)); }
+  .mk-wrap .xs tr.is-start > th { background: rgb(var(--ok-500)); color: #fff; font-weight: 700; }
+  .mk-wrap .xs tr.is-end > td { border-bottom: 3px solid rgb(var(--warn-500)) !important; }
+  .mk-wrap .xs tr.is-end > th { background: rgb(var(--warn-500)); color: #fff; font-weight: 700; }
+  .mk-wrap .xs thead th.is-role { color: #fff; background: var(--rc); font-weight: 800; }
+  .mk-wrap.pick-col .xs thead th:not(.xs-corner) { cursor: pointer; }
+  .mk-wrap.pick-col .xs thead th:not(.xs-corner):hover { background: rgb(var(--brand-100)); color: var(--b); }
+  /* устун вазифаси — жадвал устидаги шаффоф йўлак (файлдаги ранглар кўриниб туради) */
+  .mk-band { position: absolute; top: 0; pointer-events: none; z-index: 1; background: color-mix(in srgb, var(--rc) 13%, transparent); border-left: 2px solid var(--rc); border-right: 2px solid var(--rc); }
+  .mk-band b { position: sticky; top: 22px; display: block; margin: 22px 2px 0; padding: 1px 6px; border-radius: 6px; background: var(--rc); color: #fff; font: 700 11px/1.5 "Segoe UI", Arial, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: max-content; max-width: calc(100% - 4px); }
+  .mk-more { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; font-size: 13px; color: var(--mut); border-top: 1px solid var(--line); background: rgb(var(--ink-50)); }
+  .mk-more button { font-weight: 600; color: var(--b); }
+  .mk-more button:hover { text-decoration: underline; }
+  .mk-load { padding: 48px; text-align: center; color: var(--mut); }
+
+  .mk-bar { position: sticky; bottom: 12px; z-index: 20; margin-top: 16px; margin-right: 112px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 12px 12px 18px; border-radius: 18px; background: rgba(255, 255, 255, .94); backdrop-filter: blur(8px); border: 1px solid var(--line); box-shadow: 0 14px 34px rgba(15, 23, 42, .14); }
+  .mk-sum { min-width: 0; flex: 1; font-size: 13px; color: rgb(var(--ink-600)); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .mk-sum b { color: var(--ink); }
+  .mk-sum .is-miss { color: rgb(var(--bad-700)); font-weight: 700; }
+  .mk-go { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-width: 240px; height: 50px; padding: 0 24px; border-radius: 12px; background: var(--b); color: #fff; font-size: 16px; font-weight: 700; box-shadow: 0 8px 20px rgba(37, 99, 235, .35); }
+  .mk-go:hover { background: var(--b-d); }
+  .mk-go:disabled { background: rgb(var(--ink-400)); box-shadow: none; cursor: not-allowed; }
+  .mk-mem { width: 100%; font-size: 12.5px; color: rgb(var(--ok-700)); }
+  @media (max-width: 640px) { .mk-go { width: 100%; min-width: 0; } .mk-tools { margin-left: 0; } }
+</style>
+
+<div class="mk pb-6">
+  <a href="{{ next|default:batch_url }}" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">← {{ batch.name }}</a>
+
+  <div class="mk-top mt-3">
+    <span class="mk-ic">{% icon "table" "h-6 w-6" %}</span>
+    <div class="min-w-0">
+      <div class="mk-eyebrow">Листни белгилаш</div>
+      <h1 class="mk-h1">Тизимга листни кўрсатинг</h1>
+      <p class="mk-sub">«<b>{{ file_name }}</b>» · лист «<b>{{ s.sheet }}</b>» · <span id="mk-total">…</span></p>
+    </div>
+    <div class="mk-tools">
+      <a href="{{ next|default:batch_url }}" class="mk-btn">{% icon "arrow-left" "h-4 w-4" %}Объектга қайтиш</a>
+    </div>
+  </div>
+
+  {% for m in messages %}<div class="mk-note {% if m.level_tag == 'error' %}mk-note-err{% else %}mk-note-info{% endif %}" role="status">{{ m }}</div>{% endfor %}
+
+  {% if verdict.tone == "ok" or verdict.tone == "res" %}
+  <div class="mk-note mk-note-info">{% icon "help" "h-5 w-5" %}
+    <div>Ранглар — тизим бу листни ҳозир қандай ўқигани: биринчи қатор, ном, бирлик{% if s.role == "local" %}, миқдор{% else %}, нарх{% endif %} устунлари.
+      Ҳаммаси тўғри бўлса — ҳеч нарса қилманг. Нотўғрисини босиб ўзгартиринг ва «Сақлаш»ни босинг.</div></div>
+  {% else %}
+  <div class="mk-note mk-note-warn">{% icon "alert-circle" "h-5 w-5" %}
+    <div><b>Тизим бу листни ўзи тўлиқ тушунмади{% if verdict.text %} ({{ verdict.text|lower }}){% endif %}.</b>
+      <div class="mt-0.5">Қуйида файлнинг ўзи. Тепадаги саволларга жавоб беринг: аввал лист нима эканини, кейин қаторлар ва устунларни босиб кўрсатинг. Файл ўзгармайди.
+        Кўрсатганингиз эслаб қолинади — шундай тузилишдаги лист кейин келса, тизим ўзи ўқийди.</div></div></div>
+  {% endif %}
+
+  <div class="mk-steps" id="mk-steps"></div>
+
+  <div class="mk-ask" id="mk-ask">
+    <div class="mk-no"><small>Қадам</small><b id="mk-no">1</b><span class="mk-prog"><i id="mk-prog"></i></span></div>
+    <div class="mk-body">
+      <div class="mk-ask-t" id="mk-ask-t"></div>
+      <ol class="mk-do" id="mk-do"></ol>
+      <div class="mk-ex" id="mk-ex" hidden></div>
+      <div class="mk-ask-s" id="mk-ask-s" hidden></div>
+      <div class="mk-act" id="mk-act" style="margin:12px 0 0"></div>
+    </div>
+    <div class="mk-pic" id="mk-pic"></div>
+  </div>
+
+  <div class="mk-cue" id="mk-cue" hidden><span class="mk-arr">👇</span><div id="mk-cue-t"></div></div>
+
+  <div class="mk-legend" id="mk-legend"></div>
+
+  <div class="mk-toast" id="mk-toast" role="status"></div>
+  <div class="mk-wrap" id="mk-wrap">
+    <div class="mk-inner" id="mk-inner"><div class="mk-load">Лист очиляпти…</div></div>
+  </div>
+
+  <form method="post" class="mk-bar" id="mk-form">{% csrf_token %}
+    <input type="hidden" name="key" value="{{ key }}">{% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <input type="hidden" name="role" id="f-role">
+    {% for r in roles_js %}<input type="hidden" name="{{ r.key }}" id="f-{{ r.key }}">{% endfor %}
+    <input type="hidden" name="start" id="f-start"><input type="hidden" name="end" id="f-end">
+    <div class="mk-sum" id="mk-sum"></div>
+    <button class="mk-go" id="mk-go" disabled>{% icon "check" "h-5 w-5" "2.5" %}<span id="mk-go-t">Сақлаш ва қайта жуфтлаш</span></button>
+    {% if s.fp %}<div class="mk-mem">✓ Сақлангач эслаб қолинади: шундай тузилишдаги лист кейин келса, қайта кўрсатишингиз шарт эмас.</div>{% endif %}
+  </form>
+</div>
+
+{{ state|json_script:"mk-state" }}
+{{ roles_js|json_script:"mk-roles" }}
+{{ mark_cols|json_script:"mk-cols" }}
+{{ row_hints|json_script:"mk-hints" }}
+<script>
+(() => {
+  const st = JSON.parse(document.getElementById("mk-state").textContent);
+  const ROLE = Object.fromEntries(JSON.parse(document.getElementById("mk-roles").textContent).map(r => [r.key, r]));
+  const NEED = JSON.parse(document.getElementById("mk-cols").textContent);
+  const HINTS = JSON.parse(document.getElementById("mk-hints").textContent);
+  const COLOR = { name: "#2563eb", unit: "#0891b2", qty_unit: "#7c3aed", qty_total: "#db2777", price: "#16a34a" };
+  const KINDS = { local: ["Локал смета", "ишлар ва ресурслар — нархланади"], resource: ["Ресурслар (RES)", "нархлар манбаи"],
+                  unknown: ["Керак эмас", "сводка, акт, бўш — ўтказилади"] };
+  const SHEET_URL = "{% url 'batch_sheet' batch.id %}?k={{ key|urlencode }}&n=";
+  const $ = id => document.getElementById(id);
+  const wrap = $("mk-wrap"), inner = $("mk-inner");
+  let limit = {{ limit }}, total = 0, step = "", skipped = new Set();
+  const cols = { ...st.cols };  // устун вазифаси → ҳарф
+  let role = st.role, start = st.start, end = st.end;
+
+  // ---- қадамлар: тури → биринчи қатор → устунлар (тартиби тури бўйича) → охирги қатор ----
+  // тури ҳали танланмаган — бутун йўл (локал бўйича) кулранг кўриниб турсин: смета­чи олдинда нима борлигини билсин
+  const steps = () => role === "unknown" ? ["role"] : ["role", "start", ...NEED[role || "local"].map(c => c[0]), "end"];
+  const optional = k => k === "end" || (role && (NEED[role] || []).some(c => c[0] === k && !c[1]));
+  const isDone = k => k === "role" ? !!role : k === "start" ? !!start : k === "end" ? !!end || skipped.has("end")
+                      : !!cols[k] || skipped.has(k);
+  const label = k => k === "role" ? "Лист тури" : k === "start" ? "Биринчи қатор" : k === "end" ? "Охирги қатор" : ROLE[k].label;
+  const value = k => k === "role" ? (role ? KINDS[role][0] : "—") : k === "start" ? (start ? `${start}-қатор` : "—")
+    : k === "end" ? (end ? `${end}-қатор` : "охиригача (Итого гача)")
+    : cols[k] ? `${cols[k]} устун` : skipped.has(k) ? "йўқ" : "—";
+  const firstOpen = () => steps().find(k => !isDone(k)) || "";
+
+  function drawSteps() {
+    $("mk-steps").innerHTML = steps().map((k, i) => {
+      const done = isDone(k), rc = COLOR[k] ? `style="--rc:${COLOR[k]}"` : "";
+      const cls = ["mk-step", k === step ? "is-on" : "", done ? "is-done" : "", skipped.has(k) && !cols[k] ? "is-skip" : ""].join(" ");
+      return `<button type="button" class="${cls}" ${rc} data-step="${k}" ${k !== "role" && !role ? "disabled" : ""}>` +
+             `${k === step ? '<em class="mk-now">ҲОЗИР</em>' : ""}<i>${done && k !== step ? "✓" : i + 1}</i><b>${label(k)}</b><span>${value(k)}</span></button>`;
+    }).join("");
+  }
+
+  // ҳар бир қадамда нима қилиш — оддий тилда, мисол билан (смета­чи биринчи марта кўрса ҳам тушунсин)
+  const COL_EX = { name: "Мисол: «Щебень фракции 20-40 мм», «Разработка грунта экскаватором»",
+                   unit: "Мисол: м3, т, шт, м2, чел.-ч, маш.-ч", qty_unit: "Мисол: 21,4 — 1 бирлик иш учун сарф (норма)",
+                   qty_total: "Мисол: 17,98 — бутун иш учун сарф (норма × ҳажм)", price: "Мисол: 125 000 — 1 бирликнинг нархи (сўм)" };
+  const COL_AT = { name: 2, unit: 3, qty_unit: 4, qty_total: 4, price: 4 };  // кичик расмда қайси устун
+  function guide(k) {
+    if (k === "role") return {
+      t: "Бу лист нима? — пастдаги жадвалга қараб, битта тугмани босинг",
+      do: ["Ишлар ва уларнинг ресурслари (ҳажми билан) ёзилган бўлса — <b>«Локал смета»</b>",
+           "Фақат ресурс номлари ва нархлари бўлса — <b>«Ресурслар (RES)»</b>",
+           "Сводка, акт, титул ёки бўш лист бўлса — <b>«Керак эмас»</b>"],
+      ex: "Мисол: «Локальный сметный расчёт» — Локал смета; «Ресурсная ведомость» — Ресурслар" };
+    if (k === "start") return {
+      t: "Биринчи иш (ёки ресурс) ёзилган қаторни босинг",
+      do: ["Жадвалда сарлавҳадан («Наименование», «Ед. изм.») ва «1 2 3 4…» рақамлар қаторидан <b>пастга</b> тушинг",
+           "Биринчи иш ёки ресурс ёзилган қаторни босинг — <b>чапдаги миллиллаётган рақамни</b> ёки қаторнинг исталган жойини"],
+      ex: "Мисол: «1 · Разработка грунта экскаватором … · 1000 м3» ёзилган қатор",
+      cue: "Жадвалда: чапдаги <b>сариқ миллиллаётган қатор рақамини</b> босинг", sub: "Шу қатордан бошлаб тизим ўқийди, тепаси — сарлавҳа" };
+    if (k === "end") return {
+      t: "Охирги иш қаторини босинг — шарт эмас",
+      do: ["Охирги иш ёки ресурс ёзилган қаторни босинг — ундан пасти («Итого», имзолар) ўқилмайди",
+           "Билмасангиз ёки ҳамма қатор керак бўлса — <b>«Охиригача»</b> тугмасини босинг"],
+      ex: "Тизим ўзи «Итого по локальной смете» қаторигача ўқийди",
+      cue: "Жадвалда: охирги иш қаторининг <b>чапдаги рақамини</b> босинг — ёки тепадаги «Охиригача»", sub: "" };
+    if (ROLE[k]) return {
+      t: `<span class="mk-chip" style="background:${COLOR[k]};font-size:14px">${ROLE[k].label}</span> устунини босинг`,
+      do: ["Жадвал тепасидаги <b>миллиллаётган ҳарфлардан</b> (A, B, C…) керагини босинг — ёки шу устундаги исталган катакни",
+           ROLE[k].hint + (optional(k) ? " Бундай устун бўлмаса — <b>«Бу устун йўқ»</b>." : "")],
+      ex: COL_EX[k],
+      cue: `Жадвалда: <b>«${ROLE[k].label}»</b> ёзилган устуннинг тепадаги <b>ҳарфини</b> босинг`,
+      sub: "Босилган устун рангга бўялади, тизим кейинги саволга ўзи ўтади" };
+    return {
+      t: role === "unknown" ? "Тайёр — «Сақлаш»ни босинг" : "Ҳаммаси кўрсатилди — «Сақлаш»ни босинг",
+      do: role === "unknown" ? ["Бу лист нархланмайди ва жуфтланмайди", "Пастдаги кўк <b>«Сақлаш»</b> тугмасини босинг"] :
+          ["Жадвалга бир қаранг: <b>яшил чизиқ</b> — биринчи қатор, <b>рангли йўлаклар</b> — устунлар",
+           "Нотўғриси бўлса — тепадаги қадам картасини босиб, қайта кўрсатинг",
+           "Тўғри бўлса — пастдаги кўк <b>«Сақлаш»</b> тугмасини босинг"],
+      ex: "", cue: "Энди пастдаги <b>«Сақлаш»</b> тугмасини босинг", sub: "Кўрсатганингиз эслаб қолинади" };
+  }
+
+  // кичик расм: 4 устун × 6 қатор — қаерни босиш кераклиги миллиллайди, қўл кўрсатади
+  function pic(k) {
+    if (!k || k === "role") return "";
+    const C = ROLE[k] ? COL_AT[k] : 0, hl = ROLE[k] ? COLOR[k] : k === "end" ? "rgb(var(--warn-500))" : "rgb(var(--ok-500))";
+    const rows = [["", "A", "B", "C", "D"], ["1", "СМЕТА", "", "", ""], ["2", "№", "Наим.", "Ед.", "Кол."],
+                  ["3", "1", "2", "3", "4"], ["4", "1", "Щебень", "м3", "12,5"], ["5", "2", "Бетон", "м3", "4,2"], ["6", "", "Итого", "", ""]];
+    const R = k === "start" ? 4 : k === "end" ? 5 : 0;
+    let cells = "";
+    rows.forEach((r, i) => r.forEach((v, j) => {
+      let c = i === 0 || j === 0 ? "g" : i <= 3 ? "hd" : "";
+      if (C && j === C) c = i === 0 ? "on" : "set";
+      if (R && i === R) c = j === 0 ? "on" : "set";
+      cells += `<span class="${c}">${v}</span>`;
+    }));
+    // қўл: устун қадамида — ҳарф устида, қатор қадамида — рақам устида
+    const x = C ? 22 + (C - 1) * 39 + 10 : 2, y = C ? 8 : R * 18 + 8;
+    return `<div class="mk-mini" style="--hl:${hl}">${cells}</div>` +
+           `<span class="mk-hand" style="left:${x}px;top:${y}px">👆</span>` +
+           `<div class="mk-pic-cap">${C ? "устун ҳарфини босинг" : "қатор рақамини босинг"}</div>`;
+  }
+
+  // фойдаланувчи йўли (панел): қайси қадамгача етди — сахифа ёпилса ҳам етиб боради
+  function track(s, d) {
+    try {
+      const f = new FormData();
+      f.append("s", s); f.append("w", "{{ batch.id }}"); f.append("d", d || "");
+      f.append("csrfmiddlewaretoken", document.querySelector("#mk-form [name=csrfmiddlewaretoken]").value);
+      navigator.sendBeacon("{% url 'track' %}", f);
+    } catch (e) { /* кузатув ишни бузмасин */ }
+  }
+
+  let toastT = 0;
+  function toast(main, sub) {
+    const el = $("mk-toast");
+    el.innerHTML = `✓ ${main}${sub ? `<small>${sub}</small>` : ""}`;
+    el.classList.add("is-on");
+    clearTimeout(toastT);
+    toastT = setTimeout(() => el.classList.remove("is-on"), 2600);
+  }
+  const nextName = () => { const k = firstOpen(); return k ? `Энди: ${label(k)}` : "Энди пастдаги «Сақлаш»ни босинг"; };
+
+  function go(k) {
+    step = k;
+    const g = guide(k), act = $("mk-act"), all = steps();
+    $("mk-ask-s").hidden = true;
+    $("mk-no").innerHTML = `${k ? all.indexOf(k) + 1 : "✓"}<em> / ${all.length}</em>`;
+    $("mk-prog").style.width = `${Math.round(100 * all.filter(isDone).length / all.length)}%`;
+    $("mk-ask-t").innerHTML = g.t;
+    $("mk-do").innerHTML = g.do.map((x, i) => `<li><i>${i + 1}</i>${x}</li>`).join("");
+    $("mk-ex").hidden = !g.ex;
+    $("mk-ex").textContent = g.ex || "";
+    $("mk-pic").innerHTML = pic(k);
+    wrap.classList.toggle("pick-col", !!ROLE[k]);
+    wrap.classList.toggle("pick-none", !k || k === "role");
+    wrap.classList.toggle("cue-row", k === "start" || k === "end");
+    wrap.classList.toggle("cue-col", !!ROLE[k]);
+    wrap.classList.toggle("cue-off", k === "role");
+    wrap.style.setProperty("--cue", ROLE[k] ? COLOR[k] : k === "end" ? "rgb(var(--warn-500))" : "rgb(var(--ok-500))");
+    $("mk-cue").hidden = !g.cue;
+    $("mk-cue-t").innerHTML = g.cue ? `${g.cue}${g.sub ? `<small>${g.sub}</small>` : ""}` : "";
+    $("mk-go").classList.toggle("is-ready", !k);
+    if (k === "role") {
+      act.innerHTML = Object.entries(KINDS).map(([r, [a, b]]) =>
+        `<button type="button" class="mk-alt mk-role ${role === r ? "is-sel" : ""}" data-role="${r}">${a}<small>${b}</small></button>`).join("");
+    } else if (k === "start") {
+      act.innerHTML = start ? `<button type="button" class="mk-next" data-next>${start}-қатор тўғри, кейинги →</button>` : "";
+    } else if (k === "end") {
+      act.innerHTML = `<button type="button" class="mk-alt" data-skip>Охиригача</button>`;
+    } else if (ROLE[k]) {
+      act.innerHTML = (optional(k) ? `<button type="button" class="mk-alt" data-skip>Бу устун йўқ</button>` : "") +
+                      (cols[k] ? `<button type="button" class="mk-next" data-next>${cols[k]} устун тўғри, кейинги →</button>` : "");
+    } else act.innerHTML = "";
+    act.hidden = !act.innerHTML;
+    draw();
+    if (ROLE[k] && cols[k]) sample(k);
+  }
+
+  function sample(k) {
+    const tx = cellText(start, cols[k]);
+    const s2 = $("mk-ask-s");
+    if (!start || !cols[k]) return;
+    s2.hidden = false;
+    s2.textContent = tx ? `${start}-қаторда: «${tx.slice(0, 90)}»` : `${start}-қаторда бу устун бўш — тўғри устунми?`;
+  }
+
+  function next() { go(firstOpen()); }
+
+  // ---- жадвал ----
+  const heads = () => [...inner.querySelectorAll(".xs thead th:not(.xs-corner)")];
+  const colTh = L => heads().find(th => th.textContent === L);
+  const rowTr = n => [...inner.querySelectorAll(".xs tbody tr")].find(tr => tr.firstElementChild.textContent === String(n));
+  function cellText(r, L) {
+    const tr = rowTr(r), th = colTh(L);
+    if (!tr || !th) return "";
+    const x = th.getBoundingClientRect(), mid = x.left + x.width / 2;
+    const td = [...tr.children].slice(1).find(td => { const b = td.getBoundingClientRect(); return b.left <= mid && mid < b.right; });
+    return td ? td.textContent.trim() : "";
+  }
+
+  function draw() {
+    drawSteps();
+    const table = inner.querySelector(".xs");
+    if (!table) return summary();
+    inner.querySelectorAll(".mk-band").forEach(b => b.remove());
+    heads().forEach(th => { th.classList.remove("is-role"); th.style.removeProperty("--rc"); });
+    const h = table.offsetHeight, base = inner.getBoundingClientRect().left;
+    for (const [k, L] of Object.entries(cols)) {
+      if (!L || !role || !(NEED[role] || []).some(c => c[0] === k)) continue;
+      const th = colTh(L);
+      if (!th) continue;
+      th.classList.add("is-role"); th.style.setProperty("--rc", COLOR[k]);
+      const r = th.getBoundingClientRect(), b = document.createElement("div");
+      b.className = "mk-band"; b.style.cssText = `--rc:${COLOR[k]};left:${r.left - base}px;width:${r.width}px;height:${h}px`;
+      b.innerHTML = `<b>${ROLE[k].label}</b>`;
+      inner.appendChild(b);
+    }
+    const known = role && role !== "unknown";
+    for (const tr of table.querySelectorAll("tbody tr")) {
+      const n = +tr.firstElementChild.textContent;
+      tr.classList.toggle("is-head", known && !!start && n < start);
+      tr.classList.toggle("is-start", known && n === start);
+      tr.classList.toggle("is-data", known && !!start && n >= start && (!end || n <= end));
+      tr.classList.toggle("is-end", known && n === end);
+      tr.classList.toggle("is-after", known && !!end && n > end);
+    }
+    summary();
+  }
+
+  function summary() {
+    const miss = [];
+    let html = `<span>Тури: <b>${role ? KINDS[role][0] : "—"}</b></span>`;
+    if (!role) miss.push("лист тури");
+    if (role && role !== "unknown") {
+      html += `<span>Биринчи қатор: <b>${start || "—"}</b></span>`;
+      if (!start) miss.push("биринчи қатор");
+      for (const [k, need] of NEED[role]) {
+        if (need && !cols[k]) miss.push(ROLE[k].label.toLowerCase());
+        if (cols[k] || need) html += `<span>${ROLE[k].label}: <b style="color:${COLOR[k]}">${cols[k] || "—"}</b></span>`;
+      }
+      html += `<span>Охирги: <b>${end || "охиригача"}</b></span>`;
+    }
+    if (miss.length) html += `<span class="is-miss">Кўрсатилмаган: ${miss.join(", ")}</span>`;
+    $("mk-sum").innerHTML = html;
+    $("mk-go").disabled = miss.length > 0;
+    $("mk-go-t").textContent = role === "unknown" ? "Сақлаш — бу лист ўтказилсин" : "Сақлаш ва қайта жуфтлаш";
+    $("f-role").value = role || "";
+    for (const k of Object.keys(ROLE)) $("f-" + k).value = role && (NEED[role] || []).some(c => c[0] === k) ? (cols[k] || "") : "";
+    $("f-start").value = start || ""; $("f-end").value = end || "";
+  }
+
+  // ---- воқеалар ----
+  $("mk-steps").addEventListener("click", e => { const b = e.target.closest("[data-step]"); if (b && !b.disabled) go(b.dataset.step); });
+  $("mk-act").addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.role) {
+      role = b.dataset.role;
+      for (const k of Object.keys(cols)) if (!(NEED[role] || []).some(c => c[0] === k)) cols[k] = "";
+      role === "unknown" ? go("") : next();
+      track("mark_role", role);
+      return toast(`Лист тури: ${KINDS[role][0]}`, nextName());
+    }
+    if (b.hasAttribute("data-skip")) {
+      if (step === "end") end = null; else cols[step] = "";
+      skipped.add(step);
+      const was = step;
+      next();
+      track(was === "end" ? "mark_end" : "mark_col", was === "end" ? "охиригача" : `${was}=йўқ`);
+      return toast(was === "end" ? "Лист охиригача ўқилади" : `${label(was)} — йўқ`, nextName());
+    }
+    if (b.hasAttribute("data-next")) { skipped.add(step); next(); }
+  });
+  inner.addEventListener("click", e => {
+    if (ROLE[step]) {
+      const th = e.target.closest("thead th:not(.xs-corner)");
+      let L = th ? th.textContent : "";
+      if (!L) {
+        const x = e.clientX;
+        const h = heads().find(h => { const b = h.getBoundingClientRect(); return b.left <= x && x < b.right; });
+        L = h ? h.textContent : "";
+      }
+      if (!L) return;
+      for (const k of Object.keys(cols)) if (cols[k] === L && k !== step) cols[k] = "";  // бир устун — битта вазифа
+      cols[step] = L; skipped.delete(step);
+      draw(); sample(step);
+      const was = step;
+      track("mark_col", `${was}=${L}`);
+      setTimeout(() => { if (step === was && cols[was] === L) { next(); toast(`${ROLE[was].label} — ${L} устун`, nextName()); } }, 650);
+      return;
+    }
+    const tr = e.target.closest("tbody tr");
+    if (!tr || !(step === "start" || step === "end")) return;
+    const n = +tr.firstElementChild.textContent;
+    if (step === "start") { start = n; if (end && end < n) end = null; }
+    else { if (start && n < start) return toast("Охирги қатор биринчисидан пастда бўлсин", ""); end = n; skipped.delete("end"); }
+    const was = step;
+    next();
+    track(was === "start" ? "mark_start" : "mark_end", String(n));
+    toast(`${was === "start" ? "Биринчи" : "Охирги"} қатор — ${n}`, nextName());
+  });
+  window.addEventListener("resize", () => draw());
+
+  function load() {
+    fetch(SHEET_URL + limit).then(r => r.json()).then(d => {
+      if (d.error) throw new Error(d.error);
+      total = d.total_rows || d.rows;
+      $("mk-total").textContent = `${total} қатор`;
+      inner.innerHTML = d.html;
+      if (d.truncated) {
+        const m = document.createElement("div");
+        m.className = "mk-more";
+        m.innerHTML = `<span>Биринчи ${d.rows} қатор кўрсатилди (жами ${total}).</span><button type="button">Яна кўрсатиш</button>`;
+        m.querySelector("button").onclick = () => { limit = Math.min(limit * 4, 60000); inner.innerHTML = '<div class="mk-load">Очиляпти…</div>'; load(); };
+        wrap.appendChild(m);
+      } else wrap.querySelectorAll(".mk-more").forEach(m => m.remove());
+      go(step || firstOpen());
+      const tr = start && rowTr(Math.max(1, start - 4));
+      if (tr && wrap.scrollTop === 0) wrap.scrollTop = tr.offsetTop - 30;
+    }).catch(err => { inner.innerHTML = `<div class="mk-load">Лист очилмади: ${err.message}</div>`; });
+  }
+
+  // аввал белгиланган (ёки тизим тўғри ўқиган) лист — қадамлар тўлиқ, «Ҳаммаси кўрсатилди»дан бошланади
+  if (role) for (const [k, need] of NEED[role]) if (!need && !cols[k]) skipped.add(k);
+  if (role && !end) skipped.add("end");
+  {% if not manual and verdict.tone != "ok" and verdict.tone != "res" %}step = "role";{% endif %}
+  $("mk-legend").innerHTML = '<span>Белгилар:</span><span class="mk-chip" style="background:rgb(var(--ok-500))">биринчи қатор</span>' +
+    '<span class="mk-chip" style="background:rgb(var(--warn-500))">охирги қатор</span>' +
+    Object.entries(COLOR).map(([k, c]) => `<span class="mk-chip" style="background:${c}">${ROLE[k].label}</span>`).join("");
+  go(step || firstOpen());  // савол лист очилишини кутмайди
+  load();
+})();
+</script>
+{% endblock %}

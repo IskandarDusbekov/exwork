@@ -77,6 +77,18 @@ def norm_code(raw) -> str:
     return str(int(s)) if _CODE.match(s) else ""
 
 
+def norm_cipher(raw) -> str:
+    """Сметадаги шифр / ресурс коди (номдан қатъий назар солиштириш учун): «2347-81Т» = «2347-81T» = «2347 - 81т»;
+    «000258» = «258». Рақамсиз ёки жуда қисқа ёзув («1», «С», «прайс») — "" (шифр эмас)."""
+    s = norm_name(raw)
+    if s.endswith(".0"):
+        s = s[:-2]
+    s = re.sub(r"\s+", "", s).translate(_FOLD)
+    if s.isdigit():
+        return str(int(s)) if len(s) >= 3 else ""
+    return s if len(s) >= 4 and any(ch.isdigit() for ch in s) else ""
+
+
 def unit_key(unit) -> str:
     """Birlikni solishtirish kaliti: «ЧЕЛ.-Ч» = «ЧЕЛ-ЧАС» = «челч»."""
     return re.sub(r"час$", "ч", norm_unit(unit))

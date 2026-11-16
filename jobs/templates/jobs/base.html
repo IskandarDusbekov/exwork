@@ -1,5 +1,5 @@
 {% load narx static %}<!doctype html>
-<html lang="uz" data-side="{% block side %}wide{% endblock %}">
+<html lang="uz" data-side="{% block side %}wide{% endblock %}" class="{% if ui and not ui.tips %}no-tips{% endif %}{% if ui.dense %} is-dense{% endif %}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,23 +10,27 @@
   <link rel="stylesheet" href="{% static 'css/app.css' %}">{# frontend/: npm run build #}
   <style>
     .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    /* 5-босқич: смета­чи созламалари (jobs/settings.html) — изоҳ белгилари яширилади; жадваллар ихчам (фақат экранда) */
+    html.no-tips .pk-i, html.no-tips .help-q { display: none !important; }
+    html.is-dense table.text-sm td, html.is-dense table.text-sm th, html.is-dense .nf-table td, html.is-dense .td-table td, html.is-dense .td-table th { padding-top: .2rem; padding-bottom: .2rem; }
+    html.is-dense table.text-sm, html.is-dense .td-table { font-size: 13px; }
     {% include "jobs/_cursor_css.html" %}
     /* чап меню (jobs/_side.html) */
     .side-link { position: relative; display: flex; align-items: center; gap: .75rem; border-radius: .625rem; padding: .55rem .7rem; font-weight: 500; white-space: nowrap; }
-    .side-nav .side-link { color: #475569; }
-    .side-nav .side-link:hover { background: #f1f5f9; color: #0f172a; }
-    .side-nav .side-link svg { color: #94a3b8; }
-    .side-nav .side-link:hover svg { color: #475569; }
-    .side-nav .side-link.is-on { background: #ecfdf5; color: #065f46; font-weight: 600; }
-    .side-nav .side-link.is-on svg { color: #059669; }
-    .side-nav .side-link.is-on::before { content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: #10b981; }
-    .side-badge { margin-left: auto; min-width: 1.25rem; border-radius: 999px; background: #e11d48; padding: 0 .4rem; text-align: center; font-size: 12px; font-weight: 700; line-height: 1.25rem; color: #fff; }
+    .side-nav .side-link { color: rgb(var(--ink-600)); }
+    .side-nav .side-link:hover { background: rgb(var(--ink-100)); color: rgb(var(--ink-900)); }
+    .side-nav .side-link svg { color: rgb(var(--ink-400)); }
+    .side-nav .side-link:hover svg { color: rgb(var(--ink-600)); }
+    .side-nav .side-link.is-on { background: rgb(var(--ok-50)); color: rgb(var(--ok-800)); font-weight: 600; }
+    .side-nav .side-link.is-on svg { color: rgb(var(--ok-600)); }
+    .side-nav .side-link.is-on::before { content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: rgb(var(--ok-500)); }
+    .side-badge { margin-left: auto; min-width: 1.25rem; border-radius: 999px; background: rgb(var(--bad-600)); padding: 0 .4rem; text-align: center; font-size: 12px; font-weight: 700; line-height: 1.25rem; color: #fff; }
     html[data-side=rail] .app-side .side-badge { position: absolute; top: 2px; right: 6px; min-width: 1rem; font-size: 10px; line-height: 1rem; }
-    .side-cap { padding: .9rem .7rem .35rem; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; }
+    .side-cap { padding: .9rem .7rem .35rem; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgb(var(--ink-400)); }
     .side-user { display: flex; align-items: center; gap: .6rem; padding: .4rem .45rem; border-radius: .625rem; }
-    .side-ava { flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 999px; background: #0f172a; color: #fff; font-size: 12px; font-weight: 700; }
-    .side-out { margin-left: auto; flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: .5rem; color: #94a3b8; }
-    .side-out:hover { background: #f1f5f9; color: #be123c; }
+    .side-ava { flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 999px; background: rgb(var(--ink-900)); color: #fff; font-size: 12px; font-weight: 700; }
+    .side-out { margin-left: auto; flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: .5rem; color: rgb(var(--ink-400)); }
+    .side-out:hover { background: rgb(var(--ink-100)); color: rgb(var(--bad-700)); }
     html[data-side=rail] .app-side .side-cap { visibility: hidden; height: .6rem; padding: 0; }
     html[data-side=rail] .app-side .side-user { flex-direction: column; padding: .2rem 0; }
     html[data-side=rail] .app-side .side-out { margin-left: 0; }
@@ -74,6 +78,7 @@
       {% block header_extra %}{% endblock %}
       <a href="{% url 'help' %}" id="guide-btn" data-guide="help-btn" class="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-sm font-medium text-violet-700 hover:bg-violet-100" title="Йўриқнома: иш тартиби ва огоҳлантиришлар">
         {% icon "help" "h-4 w-4" %}<span class="hidden sm:inline">Йўриқнома</span></a>
+      {% page_videos %}
       {% else %}
       <div class="ml-auto flex items-center gap-2 text-sm">
         <a href="{% url 'landing' %}" class="hidden rounded-lg px-3 py-1.5 font-medium text-slate-500 hover:text-slate-900 sm:block">Тизим ҳақида</a>

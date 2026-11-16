@@ -1,0 +1,107 @@
+{% extends "jobs/base.html" %}
+{% load narx %}
+{% block title %}Созламалар — mhisobot{% endblock %}
+{% block content %}
+{% comment %} 5-босқич: смета­чининг созламалари бир жойда. Юклаш саҳифасидаги «Созламалар» ҳам шу қийматлар.
+   Кўриниш созламалари (изоҳ белгилари, ихчам жадвал) — фақат экранда, Excel натижасига тегмайди. {% endcomment %}
+<style>
+  .st { max-width: 760px; margin: 0 auto; }
+  .st-sec { margin-top: 16px; padding: 16px; border: 1px solid rgb(var(--ink-200)); border-radius: 16px; background: #fff; }
+  .st-sec h2 { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: rgb(var(--ink-900)); }
+  .st-sec h2 + p { margin: 2px 0 12px; font-size: 13px; color: rgb(var(--ink-500)); }
+  .st-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media (max-width: 640px) { .st-opts { grid-template-columns: 1fr; } }
+  .st-o { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid rgb(var(--ink-200)); border-radius: 12px; cursor: pointer; }
+  .st-o:hover { border-color: rgb(var(--ink-400)); }
+  .st-o.is-on { border-color: rgb(var(--ok-500)); background: rgb(var(--ok-50)); box-shadow: 0 0 0 1px rgb(var(--ok-500)); }
+  .st-o input { margin-top: 3px; accent-color: rgb(var(--ok-600)); }
+  .st-o b { display: block; font-size: 14px; color: rgb(var(--ink-900)); }
+  .st-o small { display: block; margin-top: 2px; font-size: 12.5px; line-height: 1.45; color: rgb(var(--ink-500)); }
+  .st-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; }
+  .st-row + .st-row { border-top: 1px solid rgb(var(--ink-100)); }
+  .st-row b { display: block; font-size: 14px; color: rgb(var(--ink-900)); }
+  .st-row small { display: block; font-size: 12.5px; line-height: 1.45; color: rgb(var(--ink-500)); }
+  /* ёқиш / ўчириш тугмачаси */
+  .st-sw { position: relative; flex-shrink: 0; width: 42px; height: 24px; margin-top: 2px; }
+  .st-sw input { position: absolute; inset: 0; opacity: 0; cursor: pointer; margin: 0; }
+  .st-sw i { position: absolute; inset: 0; border-radius: 999px; background: rgb(var(--ink-300)); transition: background .15s; pointer-events: none; }
+  .st-sw i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .3); transition: transform .15s; }
+  .st-sw input:checked + i { background: rgb(var(--ok-600)); }
+  .st-sw input:checked + i::after { transform: translateX(18px); }
+  .st-sw input:focus-visible + i { outline: 2px solid rgb(var(--brand-500)); outline-offset: 2px; }
+  .st-period { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; background: rgb(var(--ink-50)); font-size: 14px; color: rgb(var(--ink-600)); }
+  .st-period[hidden] { display: none; }
+  .st-bar { position: sticky; bottom: 12px; margin-top: 18px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: rgb(var(--ink-900)); color: rgb(var(--ink-300)); box-shadow: 0 10px 30px rgba(15, 23, 42, .25); }
+  .st-bar span { flex: 1; font-size: 13px; }
+  .st-bar span.is-dirty { color: #fff; font-weight: 600; }
+  .st-save { height: 42px; padding: 0 20px; border-radius: 12px; background: rgb(var(--ok-600)); color: #fff; font-weight: 700; }
+  .st-save:hover { background: rgb(var(--ok-700)); }
+  .st-q { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 2px; border-radius: 999px; border: 1px solid rgb(var(--ink-400));
+          font: 700 10px/1 system-ui, sans-serif; color: rgb(var(--ink-500)); vertical-align: middle; }
+  .st-msg { margin-top: 14px; padding: 10px 14px; border-radius: 12px; background: rgb(var(--ok-50)); border: 1px solid rgb(var(--ok-200)); color: rgb(var(--ok-800)); font-size: 14px; }
+</style>
+
+<form method="post" class="st" id="st-form">{% csrf_token %}
+  <h1 class="text-2xl font-bold text-slate-900">Созламалар</h1>
+  <p class="mt-1 text-slate-500">Ўзингизга мослаб олинг. Ҳаммаси эслаб қолинади ва кейинги ишларда шу билан бошланади.</p>
+  {% for m in messages %}<div class="st-msg" role="status">✓ {{ m }}</div>{% endfor %}
+
+  <section class="st-sec">
+    <h2>{% icon "activity" "h-5 w-5 text-slate-500" %} Иш усули</h2>
+    <p>Янги смета ёки папка юклаганда шу усул билан бошланади. Юклаш саҳифасида ҳар сафар алмаштириш мумкин.</p>
+    <div class="st-opts" data-radio>
+      <label class="st-o{% if nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="auto"{% if nf_auto %} checked{% endif %}>
+        <span><b>Автоматик</b><small>Тизим листларни ажратади, жуфтлайди, ишончли нарх таклифларини қабул қилади. Сиз текширасиз.</small></span></label>
+      <label class="st-o{% if not nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="manual"{% if not nf_auto %} checked{% endif %}>
+        <span><b>Қўлда</b><small>Ҳар бир листни, нарх таклифини ва кабель / ускунани ўзингиз ҳал қиласиз.</small></span></label>
+    </div>
+  </section>
+
+  {% if base_on %}
+  <section class="st-sec">
+    <h2>{% icon "layers" "h-5 w-5 text-slate-500" %} Нарх қаердан олинади</h2>
+    <p>RES файлда йўқ нархлар ҳар доим базадан изланади. «Ресурс базасидан» — RES юкланса ҳам ишлатилмайди.</p>
+    <div class="st-opts" data-radio>
+      <label class="st-o{% if price_source != 'base' %} is-on{% endif %}"><input type="radio" name="source" value="res"{% if price_source != "base" %} checked{% endif %}>
+        <span><b>Юкланган RES файлдан</b><small>Локал ва RES файлини бирга юклайсиз</small></span></label>
+      <label class="st-o{% if price_source == 'base' %} is-on{% endif %}"><input type="radio" name="source" value="base"{% if price_source == "base" %} checked{% endif %}>
+        <span><b>Ресурс базасидан</b><small>Ҳамма нарх базадан</small></span></label>
+    </div>
+    <div class="st-period" id="st-period"{% if price_source != "base" %} hidden{% endif %}>
+      <span>Вилоят ва давр:</span>
+      {% include "panel/_base_period.html" with r=base_period.region y=base_period.year q=base_period.quarter %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="st-sec">
+    <h2>{% icon "help" "h-5 w-5 text-slate-500" %} Ёрдам ва изоҳлар</h2>
+    <p>Тизимни яхши билсангиз — ўчириб қўйинг. «Йўриқнома» тугмаси тепада доим туради.</p>
+    <label class="st-row"><span class="st-sw"><input type="checkbox" name="guide" value="1"{% if guide_auto %} checked{% endif %}><i></i></span>
+      <span><b>Йўриқнома ўзи очилсин</b><small>Саҳифага биринчи марта кирганда нима қилишни қадамма-қадам кўрсатади. Ёқсангиз — ҳамма саҳифада яна бир марта кўрсатилади.</small></span></label>
+    <label class="st-row"><span class="st-sw"><input type="checkbox" name="tips" value="1"{% if ui_prefs.tips %} checked{% endif %}><i></i></span>
+      <span><b>Изоҳ белгилари <span class="st-q">?</span> <span class="st-q">i</span></b><small>Сарлавҳа ва огоҳлантиришлар ёнидаги кичик белгилар — устига келсангиз нимани билдиришини айтади.</small></span></label>
+  </section>
+
+  <section class="st-sec">
+    <h2>{% icon "sheet" "h-5 w-5 text-slate-500" %} Кўриниш</h2>
+    <p>Фақат экранда. Юклаб олинадиган Excel ўзгармайди.</p>
+    <label class="st-row"><span class="st-sw"><input type="checkbox" name="dense" value="1"{% if ui_prefs.dense %} checked{% endif %}><i></i></span>
+      <span><b>Ихчам жадваллар</b><small>Қаторлар зичроқ — бир экранда кўпроқ қатор кўринади. Катта сметаларда қулай.</small></span></label>
+  </section>
+
+  <div class="st-bar"><span id="st-state">Ўзгартирсангиз — «Сақлаш»ни босинг</span>
+    <button type="submit" class="st-save">Сақлаш</button></div>
+</form>
+<script>
+  (function () {
+    var f = document.getElementById("st-form"), state = document.getElementById("st-state"), period = document.getElementById("st-period");
+    f.addEventListener("change", function (e) {
+      f.querySelectorAll("[data-radio] .st-o").forEach(function (o) { o.classList.toggle("is-on", o.querySelector("input").checked); });
+      if (period && e.target.name === "source") period.hidden = e.target.value !== "base";
+      state.textContent = "Ўзгариш бор — сақлашни унутманг";
+      state.classList.add("is-dirty");
+    });
+  })();
+</script>
+{% endblock %}

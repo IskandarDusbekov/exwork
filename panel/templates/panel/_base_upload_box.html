@@ -20,9 +20,9 @@
 {% endif %}
 
 {% if pending %}
-<section class="ui-group" style="border-color:#fcd34d">
-  <div class="flex items-center gap-3 px-5 py-3" style="background:#fffbeb">
-    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style="background:#fef3c7;color:#b45309">{% icon "alert" "h-5 w-5" %}</span>
+<section class="ui-group" style="border-color:rgb(var(--warn-300))">
+  <div class="flex items-center gap-3 px-5 py-3" style="background:rgb(var(--warn-50))">
+    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style="background:rgb(var(--warn-100));color:rgb(var(--warn-700))">{% icon "alert" "h-5 w-5" %}</span>
     <div class="min-w-0 flex-1"><div class="font-semibold text-amber-950">Такрор файллар — қарор кутмоқда ({{ pending|length }})</div>
       <div class="text-xs text-amber-900/70">Шу даврга аввал юкланган. «Алмаштириш» — эскиси ўчиб, янгиси ёзилади.</div></div>
   </div>
@@ -34,8 +34,8 @@
         <span class="ui-tag warn">{% if p.exact %}айнан шу файл{% else %}мазмуни айнан бир хил файл{% endif %}</span>
         {% for d in p.same %}<span class="ui-tag">«{{ d.title }}» · {{ d.date }}</span>{% endfor %}</div></div>
     {% if can_act %}
-    <form method="post" action="{% url 'panel:base_upload_pending' p.token 'skip' %}">{% csrf_token %}<button class="ui-btn-o" style="color:#334155">Ўтказиб юбориш</button></form>
-    <form method="post" action="{% url 'panel:base_upload_pending' p.token 'replace' %}">{% csrf_token %}<button class="ui-btn" style="background:#d97706">Алмаштириш</button></form>
+    <form method="post" action="{% url 'panel:base_upload_pending' p.token 'skip' %}">{% csrf_token %}<button class="ui-btn-o" style="color:rgb(var(--ink-700))">Ўтказиб юбориш</button></form>
+    <form method="post" action="{% url 'panel:base_upload_pending' p.token 'replace' %}">{% csrf_token %}<button class="ui-btn" style="background:rgb(var(--warn-600))">Алмаштириш</button></form>
     {% endif %}
   </div>
   {% endfor %}
@@ -45,7 +45,7 @@
 {% if last %}
 <details class="ui-group" open>
   <summary>
-    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style="background:#dcfce7;color:#15803d">{% icon "check-circle" "h-5 w-5" %}</span>
+    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style="background:rgb(var(--ok-100));color:rgb(var(--ok-700))">{% icon "check-circle" "h-5 w-5" %}</span>
     <span class="gt">Охирги юклаш<small>{{ last.period }}</small></span>
     <span class="ui-count">{{ last.items|length }} та файл</span>{% icon "chevron-down" "ui-chev h-5 w-5" %}
   </summary>

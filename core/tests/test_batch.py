@@ -145,7 +145,7 @@ def test_res_without_qty_header_promoted_when_local_matches(tmp_path):
     for row in ws.iter_rows(max_row=40):
         for c in row:
             if isinstance(c.value, str) and any(w in c.value.lower() for w in ("колич", "кол-во", "кол.", "объем", "объём")):
-                c.value = "Потребность"
+                c.value = "Показатель"  # «Потребность» энди миқдор сўзи (ABC) — бошқа номаълум сўз
                 hits += 1
     assert hits
     wb.save(tmp_path / "vr.xlsx")
@@ -160,3 +160,118 @@ def test_res_without_qty_header_promoted_when_local_matches(tmp_path):
     infos = _infos(d / "input_local.xlsx", tmp_path / "vr.xlsx")
     promote_catalogs(infos, {"1:RES": UNKNOWN})
     assert next(i for i in infos if i.file == 1).role == UNKNOWN
+
+
+# ===================== номга боғланмаслик: тузилма бўйича жуфтлаш ва эслаб қолиш =====================
+def _form(path, rows, title_no="7", res=False):
+    """Битта файлда Форма 5 / 6а кўринишидаги лист (устун кенгликлари — шаблондагидек)."""
+    from openpyxl import Workbook
+    wb = Workbook() if not Path(path).exists() else load_workbook(path)
+    ws = wb.create_sheet("92960_БР" if res else "92960_БВ")
+    for c, w in zip("ABCDEFG", (6, 16, 97, 12, 11, 11, 11)):
+        ws.column_dimensions[c].width = w
+    ws["C5"] = ("ЛОКАЛЬНЫЙ РЕСУРСНЫЙ СМЕТНЫЙ РАСЧЕТ № " if res else "ЛОКАЛЬНАЯ РЕСУРСНАЯ ВЕДОМОСТЬ № ") + title_no
+    for c, t in zip("ABCDE", ("N п.п.", "Шифр номера нормативов и коды ресурсов", "Наименование работ и затрат",
+                              "Единица измерения", "Количество")):
+        ws[f"{c}12"] = t
+    ws["F12"] = "в текущем уровне цен" if res else "по проектным данным"
+    ws["F13"] = "на.ед.изм." if res else None
+    for i, c in enumerate("ABCDEF", start=1):
+        ws[f"{c}14"] = i
+    for r, (code, name, unit, qty, price) in enumerate(rows, start=16):
+        ws[f"A{r}"], ws[f"B{r}"], ws[f"C{r}"], ws[f"D{r}"], ws[f"E{r}"] = r - 15, code, name, unit, qty
+        if res:
+            ws[f"F{r}"] = price
+    if "Sheet" in wb.sheetnames:
+        del wb["Sheet"]
+    wb.save(path)
+    return path
+
+
+def test_pairs_by_structure_when_names_differ(tmp_path):
+    """Смета­чи RES'да ускуна тавсифини ўзгартирган — номлар мос эмас, лекин битта файл, лист ва смета рақами бир хил."""
+    p = tmp_path / "solar.xlsx"
+    _form(p, [("2347-81Т", "УСТАНОВКА СОЛНЕЧНОЙ СИСТЕМЫ: Инвертор 4 кВт-5шт", "ШТ", 1, None)])
+    _form(p, [("2347-81T", "УСТАНОВКА СОЛНЕЧНОЙ СИСТЕМЫ: Сетевой инвертор 20 кВт-1шт", "ШТ", 1, 90720000)], res=True)
+    pairs, _ = plan_pairs(_infos(p))
+    assert [(x.local, x.res) for x in pairs] == [("0:92960_БВ", "0:92960_БР")]
+    assert any("рақами бўйича жуфтланди" in r for r in pairs[0].reasons)
+
+
+def test_no_structural_pair_across_files_or_numbers(tmp_path):
+    a, b = tmp_path / "a.xlsx", tmp_path / "b.xlsx"
+    _form(a, [("1", "ЦЕМЕНТ", "Т", 1, None)])
+    _form(b, [("1", "ПЕСОК", "М3", 1, 5)], res=True)
+    pairs, _ = plan_pairs(_infos(a, b))  # бошқа файл — фақат номлар мослиги билан
+    assert pairs[0].res is None
+
+
+def test_cipher_suggests_price_when_name_differs(tmp_path):
+    from core import pipeline
+    p = tmp_path / "solar.xlsx"
+    _form(p, [("2347-81Т", "УСТАНОВКА СОЛНЕЧНОЙ СИСТЕМЫ: Инвертор 4 кВт-5шт", "ШТ", 1, None)])
+    _form(p, [("2347-81T", "УСТАНОВКА СОЛНЕЧНОЙ СИСТЕМЫ: Сетевой инвертор 20 кВт-1шт", "ШТ", 1, 90720000)], res=True)
+    r = pipeline.run(p, p, pipeline.Options(mode="smart", local_sheet="92960_БВ", res_sheet="92960_БР",
+                                            output_path=tmp_path / "out.xlsx"))
+    row = next(x for x in r.rows if x["row"] == 16)
+    # нарх ўзи ёзилмайди — «ТЕКШИРИНГ» ва таклиф (смета­чи тасдиқлайди)
+    assert (row["status"], row["g"], row["suggested_price"]) == ("FUZZY", "ТЕКШИРИНГ", 90720000)
+    assert "шифр бир хил" in row["note"]
+
+
+def test_cipher_ignored_when_unit_differs_or_code_ambiguous(tmp_path):
+    from core import pipeline
+    p = tmp_path / "x.xlsx"
+    _form(p, [("2347-81Т", "ПАНЕЛЬ А", "ШТ", 1, None), ("1111-22", "КАБЕЛЬ А", "М", 5, None)])
+    _form(p, [("2347-81Т", "ПАНЕЛЬ Б", "КОМПЛ", 1, 100), ("1111-22", "КАБЕЛЬ Б", "М", 5, 7),
+              ("1111-22", "КАБЕЛЬ В", "М", 5, 8)], res=True)
+    r = pipeline.run(p, p, pipeline.Options(mode="smart", local_sheet="92960_БВ", res_sheet="92960_БР",
+                                            output_path=tmp_path / "out.xlsx"))
+    rows = {x["row"]: x for x in r.rows}
+    assert "шифр бир хил" not in (rows[16]["note"] or "")  # бирлиги бошқа
+    assert "шифр бир хил" not in (rows[17]["note"] or "")  # битта шифрда икки хил ном
+
+
+def test_fingerprint_ignores_text_but_not_structure(tmp_path):
+    from core.batch import sheet_fingerprint
+    a, b, c = tmp_path / "a.xlsx", tmp_path / "b.xlsx", tmp_path / "c.xlsx"
+    _form(a, [("1", "ЦЕМЕНТ", "Т", 1, None)])
+    _form(b, [("9", "ПЕСОК ҚУРИЛИШ", "М3", 4, None), ("8", "ГВОЗДИ", "КГ", 2, None)], title_no="12")
+    _form(c, [("1", "ЦЕМЕНТ", "Т", 1, None)])
+    wc = load_workbook(c)
+    wc.active.column_dimensions["C"].width = 60  # бошқа шаблон
+    wc.save(c)
+    fa, fb, fc = (sheet_fingerprint(load_workbook(x).active) for x in (a, b, c))
+    assert fa == fb and fa[0]  # матни бошқа — изи бир хил
+    assert fa[0] != fc[0] and fa[1] != fc[1]
+
+
+def test_numbering_row_with_missing_column():
+    from openpyxl import Workbook
+    from core.detect import _is_numbering_row
+    ws = Workbook().active
+    for c, v in zip("ADEFGHIJ", (1, 3, 4, 5, 6, 7, 8, 9)):
+        ws[f"{c}1"] = v
+    ws["A2"], ws["D2"], ws["E2"], ws["F2"] = 1, "ЦЕМЕНТ", 3, 4  # маълумот қатори (матн бор)
+    ws["A3"], ws["B3"], ws["C3"], ws["D3"] = 1, 2, 3, 4
+    assert _is_numbering_row(ws, 1) and not _is_numbering_row(ws, 2) and _is_numbering_row(ws, 3)
+
+
+def test_abc_price_header_and_uzbek_headers():
+    from openpyxl import Workbook
+    from core.detect import detect_layout
+    ws = Workbook().active
+    for c, t in zip("ABCDEFG", ("N п/п", "Шифр (обоснование)", "Код АВС", "Наименование ресурса", "Единица измерения",
+                                "Сметная потреб-ность", "Сметная стоимость, СУМ")):
+        ws[f"{c}14"] = t
+    ws["G15"], ws["G16"], ws["H16"] = "в базисном уровне", "единицы", "всего"
+    for i, c in enumerate("ABCDEFGH", start=1):
+        ws[f"{c}17"] = i
+    lay = detect_layout(ws, need_price=True, stop_at_total=False)
+    assert (lay.name_col, lay.unit_col, lay.price_col, lay.data_start) == (4, 5, 7, 18)
+
+    uz = Workbook().active
+    for c, t in zip("ABCD", ("№", "Номи", "Бирл.", "Баҳоси, сўм")):
+        uz[f"{c}3"] = t
+    lay = detect_layout(uz, need_price=True, stop_at_total=False)
+    assert (lay.name_col, lay.unit_col, lay.price_col) == (2, 3, 4)

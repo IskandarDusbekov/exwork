@@ -8,9 +8,9 @@
 
 {# ---------- фойдаланувчи сметалари: админ танлаб киритади ---------- #}
 {% if pending %}
-<form method="post" action="{% url 'panel:base_add_selected' %}" class="ui-group" style="border-color:#7dd3fc">{% csrf_token %}
-  <div class="flex flex-wrap items-center gap-3 px-5 py-4" style="background:#f0f9ff">
-    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style="background:#e0f2fe;color:#0369a1">{% icon "plus" "h-5 w-5" %}</span>
+<form method="post" action="{% url 'panel:base_add_selected' %}" class="ui-group" style="border-color:rgb(var(--brand-300))">{% csrf_token %}
+  <div class="flex flex-wrap items-center gap-3 px-5 py-4" style="background:rgb(var(--brand-50))">
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style="background:rgb(var(--brand-100));color:rgb(var(--brand-700))">{% icon "plus" "h-5 w-5" %}</span>
     <div class="min-w-0 flex-1">
       <div class="font-semibold text-slate-900">Янги нархланган сметалар ({{ pending|length }})</div>
       <div class="text-xs text-slate-600">Фойдаланувчилар нархлаган, ҳали базада йўқ. Керакларини белгиланг, даврини танланг ва киритинг.</div>
@@ -43,7 +43,7 @@
   <a href="?" class="ui-card {% if not f %}on{% endif %}"><span class="ic ic-all">{% icon "database" "h-5 w-5" %}</span><span><span class="t block">Ҳаммаси</span><span class="n">{{ n_all }}</span></span></a>
   <a href="?f=file" class="ui-card {% if f == 'file' %}on{% endif %}"><span class="ic ic-tr">{% icon "upload" "h-5 w-5" %}</span><span><span class="t block">Юкланган файл</span><span class="n">{{ n_file }}</span></span></a>
   <a href="?f=smeta" class="ui-card {% if f == 'smeta' %}on{% endif %}"><span class="ic ic-I">{% icon "sheet" "h-5 w-5" %}</span><span><span class="t block">Смета</span><span class="n">{{ n_smeta }}</span></span></a>
-  {% if n_unknown %}<a href="?f=unknown" class="ui-card {% if f == 'unknown' %}on{% endif %}" style="border-color:#fcd34d"><span class="ic ic-repair">?</span><span><span class="t block">Даври номаълум</span><span class="n">{{ n_unknown }}</span></span></a>{% endif %}
+  {% if n_unknown %}<a href="?f=unknown" class="ui-card {% if f == 'unknown' %}on{% endif %}" style="border-color:rgb(var(--warn-300))"><span class="ic ic-repair">?</span><span><span class="t block">Даври номаълум</span><span class="n">{{ n_unknown }}</span></span></a>{% endif %}
 </nav>
 
 <p class="mb-2 px-1 text-sm text-slate-600">Базага нима тушгани шу жадвалда: ҳар файл ёки сметадан <b>нечта нарх</b> ва <b>нечта иш</b> олинди,
@@ -62,7 +62,7 @@
     </thead>
     <tbody class="divide-y divide-slate-100">
     {% for s in page %}
-      <tr class="align-top" {% if not s.period_known %}style="background:#fffbeb"{% endif %}>
+      <tr class="align-top" {% if not s.period_known %}style="background:rgb(var(--warn-50))"{% endif %}>
         <td class="px-4 py-2.5">
           <a href="{% url 'panel:base_source_detail' s.pk %}" class="font-medium text-slate-900 hover:underline">{{ s.title }}</a>
           <div class="text-xs text-slate-500">{% if s.is_file %}юкланган файл{% else %}{{ s.get_kind_display|lower }} (тизимда нархланган){% endif %} · {{ s.created|date:"d.m.Y" }}{% if s.owner %} · {{ s.owner.email }}{% endif %}</div>
@@ -72,7 +72,7 @@
             <form method="post" action="{% url 'panel:base_source' s.pk 'edit' %}" class="mt-1 flex flex-col gap-1">{% csrf_token %}
               <input type="hidden" name="next" value="{{ request.get_full_path }}">
               {% include "panel/_base_period.html" with r=s.region y=s.year q=s.quarter %}
-              <button class="ui-btn-o" style="color:#334155">Сақлаш</button></form></details>{% endif %}
+              <button class="ui-btn-o" style="color:rgb(var(--ink-700))">Сақлаш</button></form></details>{% endif %}
         </td>
         <td class="num px-3 py-2.5 text-right font-semibold {% if s.n %}text-emerald-700{% else %}text-slate-300{% endif %}">{{ s.n|default:"—" }}</td>
         <td class="num px-3 py-2.5 text-right font-semibold {% if s.w %}text-sky-700{% else %}text-slate-300{% endif %}">{{ s.w|default:"—" }}</td>
@@ -83,10 +83,10 @@
         <td class="whitespace-nowrap px-3 py-2.5 text-right">
           <form method="post" action="{% url 'panel:base_source' s.pk 'reharvest' %}" class="inline" title="{% if s.is_file %}Файл қайта ўқилади{% else %}Сметадан нархлар қайта олинади{% endif %}">{% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <button class="ui-btn-o" style="color:#334155">Қайта ўқиш</button></form>
+            <button class="ui-btn-o" style="color:rgb(var(--ink-700))">Қайта ўқиш</button></form>
           <form method="post" action="{% url 'panel:base_source' s.pk 'delete' %}" class="inline" data-confirm="«{{ s.title }}» дан олинган маълумотлар базадан ўчирилади.{% if s.is_file %} Файл нусхаси ҳам ўчади.{% else %} Сметанинг ўзига тегилмайди.{% endif %}" data-confirm-title="Манбани ўчириш" data-confirm-ok="Ўчириш" data-danger>{% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <button class="ui-btn-o" style="color:#be123c;border-color:#fecdd3">Ўчириш</button></form>
+            <button class="ui-btn-o" style="color:rgb(var(--bad-700));border-color:rgb(var(--bad-200))">Ўчириш</button></form>
         </td>
         {% endif %}
       </tr>
