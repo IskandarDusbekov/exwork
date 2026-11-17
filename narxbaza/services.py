@@ -590,6 +590,22 @@ def similar_items(it: Item, q="", limit=8) -> list:
 
 
 @transaction.atomic
+def merged_into(pk: int):
+    """Бирлаштирилиб ўчган ресурс (``pk``) ҳозир қайси ресурсда — эски ҳаволалар учун. Занжир бўлса (A → B → C)
+    охиргисигача боради; топилмаса — ``None``."""
+    seen = set()
+    while pk not in seen:
+        seen.add(pk)
+        it = Item.objects.filter(pk=pk).first()
+        if it is not None:
+            return it
+        lg = Log.objects.filter(action=Log.Action.MERGE, data__from__pk=pk).exclude(item=None).order_by("-id").first()
+        if lg is None:
+            return None
+        pk = lg.item_id
+    return None
+
+
 def merge_items(target: Item, source: Item, user=None) -> int:
     """``source`` ни ``target`` га қўшади: нархлари, бошқа номлари ва тарихи ўтади, ``source`` номи «бошқа номи»
     бўлиб қолади, ``source`` ўчади. Бирлиги бир хил бўлиши шарт. Ўтган нархлар сонини қайтаради."""
@@ -599,7 +615,7 @@ def merge_items(target: Item, source: Item, user=None) -> int:
         raise ValueError("Саватчадаги ресурсга қўшиб бўлмайди.")
     if target.unit_key != source.unit_key:
         raise ValueError(f"Бирлиги бошқа: «{target.unit}» ва «{source.unit}» — бирлаштириб бўлмайди.")
-    src_key = source.key_before or source.key
+    src_key, src_pk = source.key_before or source.key, source.pk
     prices = Price.all_objects.filter(item=source)
     touched = {(target.pk, r, y) for r, y in prices.values_list("region", "year")}
     n = prices.update(item=target)
@@ -615,7 +631,7 @@ def merge_items(target: Item, source: Item, user=None) -> int:
     source.delete()
     recalc(touched)
     _log(Log.Action.MERGE, user, item=target, detail=f"«{title}» шу ресурсга қўшилди: {n} та нарх",
-         data={"from": {"name": source.name, "unit": source.unit, "key": src_key}, "prices": n})
+         data={"from": {"name": source.name, "unit": source.unit, "key": src_key, "pk": src_pk}, "prices": n})
     return n
 
 

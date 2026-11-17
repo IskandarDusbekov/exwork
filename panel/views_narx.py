@@ -169,7 +169,13 @@ def narx_list(request):
 # ===================== паспорт =====================
 @staff_required
 def narx_item(request, pk):
-    it = get_object_or_404(Item, pk=pk)
+    it = Item.objects.filter(pk=pk).first()
+    if it is None:  # бирлаштирилиб ўчган — эски ҳавола қўшилган ресурсга олиб боради
+        to = services.merged_into(pk) if not Item.all_objects.filter(pk=pk).exists() else None
+        if to is None:
+            raise Http404
+        messages.info(request, f"Бу ресурс «{to.name}» га бирлаштирилган — шу ерга ўтказилдингиз.")
+        return redirect("panel:narx_item", pk=to.pk)
     prices = list(it.prices.select_related("batch", "batch__owner", "batch__added_by").order_by("-date", "-id"))
     stats = list(it.stats.all())
     aliases = list(it.aliases.select_related("added_by"))
@@ -970,7 +976,8 @@ def narx_intake(request, pk):
         cmp_all=cmp["all"],
         file_names=[f["file"] + (f" — {f['sheet']}" if it.kind == "file" and f.get("sheet") else "") for f in files],
         file_done=[bool(f.get("done")) for f in files],
-        rows_script=_json_tag(rows, "ni-rows"), cats_json=[[k, label, GUTTER[k]] for k, label in CATEGORIES]))
+        rows_script=_json_tag(rows, "ni-rows"), base_script=_json_tag(I.base_prices({r["item"] for r in rows if r["item"]}), "ni-base"),
+        cats_json=[[k, label, GUTTER[k]] for k, label in CATEGORIES]))
 
 
 def _json_tag(value, eid: str):
@@ -1134,7 +1141,7 @@ def narx_uploads(request):
         qs = qs.filter(status=Intake.Status.DONE)
     elif s == "cancelled":
         qs = qs.filter(status=Intake.Status.CANCELLED)
-    v = "uploads" if request.GET.get("v") == "uploads" else "files"
+    v = "files" if request.GET.get("v") == "files" else "uploads"  # сукут бўйича — юклашлар бўйича
     q = " ".join(request.GET.get("q", "").split())[:100]
     n = {"": sum(tot.values()), "active": sum(tot.get(k, 0) for k in act), "done": tot.get("done", 0),
          "cancelled": tot.get("cancelled", 0)}

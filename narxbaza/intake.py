@@ -460,6 +460,18 @@ def row_json(r: IntakeRow) -> dict:
             "item_cat": r.item.category if r.item_id else None}
 
 
+def base_prices(item_ids) -> dict:
+    """Текширувда кўрсатиш учун: ``{item_id: {low, mid, high, n, region, year, single}}`` — базадаги энг охирги
+    йил (кўп нархли вилояти) нархлари (``best_stat``)."""
+    from resbase.regions import REGION_LABELS
+    out = {}
+    for iid, st in S.best_stat(list(item_ids)).items():
+        out[iid] = {"low": S.fmt(st.low), "mid": S.fmt(st.mid) if st.mid is not None else "", "high": S.fmt(st.high),
+                    "ref": float(st.mid if st.mid is not None else st.low), "n": st.n, "year": st.year,
+                    "region": REGION_LABELS.get(st.region, st.region), "single": st.low == st.high}
+    return out
+
+
 def rows_json(intake: Intake) -> list:
     """``row_json`` ҳамма қатор учун — модел объектларисиз (минглаб қаторда бир неча баравар тез)."""
     cols = ("pk", "fi", "row", "name", "unit", "price", "qty", "category", "suggested", "reason", "sure", "warn",
@@ -467,7 +479,7 @@ def rows_json(intake: Intake) -> list:
     out = []
     for (pk, fi, row, name, unit, price, qty, cat, sug, reason, sure, warn, known, state, iid, iver,
          icat) in intake.rows.order_by(*IntakeRow._meta.ordering or ["pk"]).values_list(*cols):
-        out.append({"id": pk, "fi": fi, "row": row, "name": name, "unit": unit, "price": S.fmt(price),
+        out.append({"id": pk, "fi": fi, "row": row, "name": name, "unit": unit, "price": S.fmt(price), "pv": float(price),
                     "qty": S.fmt(qty) if qty is not None else "", "cat": cat, "sug": sug, "reason": reason,
                     "sure": sure, "warn": warn, "known": known, "state": state, "item": iid or None,
                     "item_verified": bool(iid and iver), "item_cat": icat if iid else None})

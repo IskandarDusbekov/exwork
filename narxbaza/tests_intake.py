@@ -274,19 +274,19 @@ class UploadsPageTests(TestCase):
         with override_settings(MEDIA_ROOT=self.media, NARXBAZA_INLINE=True):
             self.client.post(reverse("panel:narx_upload"), {"file": self._xlsx(), "kind": "excel", "category": "K"})
             it = Intake.objects.get()
-            r = self.client.get(reverse("panel:narx_uploads"))  # сукут — файллар бўйича
+            r = self.client.get(reverse("panel:narx_uploads") + "?v=files")
             self.assertContains(r, "taklif.xlsx")
             self.assertContains(r, "давом этиш")
             self.assertContains(r, "базада бор", count=0)  # ҳали ёзилмаган
-            self.assertNotContains(self.client.get(reverse("panel:narx_uploads") + "?q=yoq-fayl"), "taklif.xlsx")
-            r = self.client.get(reverse("panel:narx_uploads") + "?v=uploads")
+            self.assertNotContains(self.client.get(reverse("panel:narx_uploads") + "?v=files&q=yoq-fayl"), "taklif.xlsx")
+            r = self.client.get(reverse("panel:narx_uploads"))  # сукут — юклашлар бўйича
             self.assertContains(r, "taklif.xlsx")
             self.assertContains(r, "Давом этиш")
             self.assertRedirects(self.client.post(reverse("panel:narx_intake_cancel", args=[it.pk])),
                                  reverse("panel:narx_uploads"))
             it.refresh_from_db()
             self.assertEqual(it.status, "cancelled")
-            self.assertContains(self.client.get(reverse("panel:narx_uploads") + "?s=cancelled"), "Қайта очиш")
+            self.assertContains(self.client.get(reverse("panel:narx_uploads") + "?v=files&s=cancelled"), "Қайта очиш")
             self.assertContains(self.client.get(reverse("panel:narx_uploads") + "?v=uploads&s=cancelled"), "Қайта очиш")
             self.client.post(reverse("panel:narx_intake_reopen", args=[it.pk]))
             it.refresh_from_db()

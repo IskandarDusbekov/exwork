@@ -315,3 +315,20 @@ class RekeyAndCheckTests(TestCase):
         self.client.post(reverse("panel:narx_check_bulk"), {"action": "merge", "pair": [f"{a.pk}-{b.pk}"]})
         self.assertFalse(Item.objects.filter(pk=b.pk).exists())
         self.assertEqual(a.prices.count(), 3)
+
+
+class MergedLinkTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser("admin@test.uz", PASSWORD, first_name="A", last_name="D")
+        self.client.force_login(self.admin)
+
+    def test_old_link_redirects_through_chain(self):
+        a = _prices([100], name="Қум йирик")[0].item
+        b = _prices([110], name="Қум майда")[0].item
+        c = _prices([120], name="Қум ўрта")[0].item
+        old = a.pk
+        services.merge_items(b, a)
+        services.merge_items(c, b)
+        r = self.client.get(reverse("panel:narx_item", args=[old]))
+        self.assertRedirects(r, reverse("panel:narx_item", args=[c.pk]))
+        self.assertEqual(self.client.get(reverse("panel:narx_item", args=[999999])).status_code, 404)

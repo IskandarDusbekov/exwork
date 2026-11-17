@@ -10,8 +10,8 @@
     {% for k, label, c in tabs %}<a href="?v={{ v }}{% if k %}&s={{ k }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="{% if not forloop.first %}border-l border-slate-300 {% endif %}px-3 py-1.5 {% if s == k %}bg-slate-100 font-semibold{% else %}hover:bg-slate-50{% endif %}">{{ label }} <span class="num text-slate-500">{{ c }}</span></a>{% endfor %}
   </nav>
   <nav class="inline-flex overflow-hidden rounded-lg border border-slate-300 bg-white text-sm" aria-label="Кўриниш">
-    <a href="?v=files{% if s %}&s={{ s }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="px-3 py-1.5 {% if v == 'files' %}bg-slate-900 font-semibold text-white{% else %}hover:bg-slate-50{% endif %}">Файллар бўйича</a>
-    <a href="?v=uploads{% if s %}&s={{ s }}{% endif %}" class="border-l border-slate-300 px-3 py-1.5 {% if v == 'uploads' %}bg-slate-900 font-semibold text-white{% else %}hover:bg-slate-50{% endif %}">Юклашлар бўйича</a>
+    <a href="?v=uploads{% if s %}&s={{ s }}{% endif %}" class="px-3 py-1.5 {% if v == 'uploads' %}bg-slate-900 font-semibold text-white{% else %}hover:bg-slate-50{% endif %}">Юклашлар бўйича</a>
+    <a href="?v=files{% if s %}&s={{ s }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="border-l border-slate-300 px-3 py-1.5 {% if v == 'files' %}bg-slate-900 font-semibold text-white{% else %}hover:bg-slate-50{% endif %}">Файллар бўйича</a>
   </nav>
   {% if v == "files" %}<form method="get" class="ml-auto flex items-center gap-1.5"><input type="hidden" name="v" value="files">{% if s %}<input type="hidden" name="s" value="{{ s }}">{% endif %}
     <input type="search" name="q" value="{{ q }}" placeholder="Файл ёки архив номи…" class="w-64 rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
