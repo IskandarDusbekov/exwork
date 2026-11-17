@@ -92,6 +92,7 @@ urlpatterns = [
     path("narx/backup/saved/<str:name>/", views_narx.narx_backup_saved, name="narx_backup_saved"),
     path("narx/uploads/", views_narx.narx_uploads, name="narx_uploads"),
     path("narx/intake/<int:pk>/reopen/", views_narx.narx_intake_reopen, name="narx_intake_reopen"),
+    path("narx/uploads/<int:pk>/delete/", views_narx.narx_upload_delete, name="narx_upload_delete"),
     path("narx/intake/<int:pk>/cancel/", views_narx.narx_intake_cancel, name="narx_intake_cancel"),
     path("narx/verify/", views_narx.narx_verify, name="narx_verify"),
     path("narx/batches/", views_narx.narx_batches, name="narx_batches"),

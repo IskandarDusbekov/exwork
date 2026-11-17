@@ -274,8 +274,12 @@ class UploadsPageTests(TestCase):
         with override_settings(MEDIA_ROOT=self.media, NARXBAZA_INLINE=True):
             self.client.post(reverse("panel:narx_upload"), {"file": self._xlsx(), "kind": "excel", "category": "K"})
             it = Intake.objects.get()
-            r = self.client.get(reverse("panel:narx_uploads"))
-            self.assertEqual(r.status_code, 200)
+            r = self.client.get(reverse("panel:narx_uploads"))  # сукут — файллар бўйича
+            self.assertContains(r, "taklif.xlsx")
+            self.assertContains(r, "давом этиш")
+            self.assertContains(r, "базада бор", count=0)  # ҳали ёзилмаган
+            self.assertNotContains(self.client.get(reverse("panel:narx_uploads") + "?q=yoq-fayl"), "taklif.xlsx")
+            r = self.client.get(reverse("panel:narx_uploads") + "?v=uploads")
             self.assertContains(r, "taklif.xlsx")
             self.assertContains(r, "Давом этиш")
             self.assertRedirects(self.client.post(reverse("panel:narx_intake_cancel", args=[it.pk])),
@@ -283,6 +287,81 @@ class UploadsPageTests(TestCase):
             it.refresh_from_db()
             self.assertEqual(it.status, "cancelled")
             self.assertContains(self.client.get(reverse("panel:narx_uploads") + "?s=cancelled"), "Қайта очиш")
+            self.assertContains(self.client.get(reverse("panel:narx_uploads") + "?v=uploads&s=cancelled"), "Қайта очиш")
             self.client.post(reverse("panel:narx_intake_reopen", args=[it.pk]))
             it.refresh_from_db()
             self.assertEqual(it.status, "open")
+
+
+class FileNameAndStatsTests(TestCase):
+    """Юкланган файл номи (архив ичидаги йўл) ва тўпламда «янги / базада бор / нархи янгиланди»."""
+
+    def test_fname(self):
+        from panel.views_narx import _fname
+        self.assertEqual(_fname("Смета (7)/Смета/1-Трасса+/r2770.xls", "Смета (7).zip"),
+                         {"fname": "r2770.xls", "fdir": "Смета/1-Трасса+", "farch": "Смета (7).zip"})
+        self.assertEqual(_fname("taklif.xlsx", "taklif.xlsx"), {"fname": "taklif.xlsx", "fdir": "", "farch": ""})
+        self.assertEqual(_fname("obj/a.xlsx", "obj")["farch"], "obj (папка)")
+
+    def test_batch_counts_new_existing_changed(self):
+        from datetime import date
+        from decimal import Decimal
+        from narxbaza import services as S
+
+        def rows(*items):
+            return S.group_rows((n, u, Decimal(p), None, "K", "FILE", {"file": "f.xlsx", "row": i})
+                                for i, (n, u, p) in enumerate(items))
+        day = date(2026, 5, 1)
+        b1 = S.add_batch("file", None, rows(("Цемент", "т", 1000), ("Қум", "м3", 50)), region="toshkent_v", day=day,
+                         title="a.xlsx")
+        self.assertEqual((b1.stats["new"], b1.stats["existing"]), (2, 0))
+        b2 = S.add_batch("file", None, rows(("Цемент", "т", 2000), ("Қум", "м3", 50), ("Шағал", "м3", 70)),
+                         region="toshkent_v", day=day, title="b.xlsx")
+        self.assertEqual({k: b2.stats[k] for k in ("new", "existing", "changed", "same")},
+                         {"new": 1, "existing": 2, "changed": 1, "same": 1})  # цемент — бошқа нархда, қум — ўша нарх
+
+
+class UploadDeleteAndRestoreTests(TestCase):
+    """Керак бўлмаган юклашни ўчириш; Excel кўриниши йўқолса (захирадан тиклангандан кейин) асл файлдан қайта тузилади."""
+    setUp, tearDown, _xlsx = IntakeUploadTests.setUp, IntakeUploadTests.tearDown, IntakeUploadTests._xlsx
+
+    def test_view_restored_from_original(self):
+        import os
+        with override_settings(MEDIA_ROOT=self.media, NARXBAZA_INLINE=True):
+            self.client.post(reverse("panel:narx_upload"), {"file": self._xlsx(), "kind": "excel", "category": "K"})
+            it = Intake.objects.get()
+            self.assertIn("src", it.progress)
+            # Excel кўриниши ҳам, кеш ҳам йўқ — масалан, эски захира нусхадан тикланган
+            it.files = [{**it.files[0], "path": it.files[0]["path"].replace("taklif", "yoq")}]
+            it.save(update_fields=["files"])
+            sheet = self.client.get(reverse("panel:narx_intake_sheet", args=[it.pk, 0]))
+            self.assertEqual(sheet.status_code, 200)
+            self.assertIn("Ноутбук HP", sheet.json()["html"])
+            it.refresh_from_db()
+            self.assertTrue(os.path.isfile(os.path.join(self.media, it.files[0]["path"])))
+            # асл файл ҳам йўқ — тушунарли хабар
+            for rel in {it.files[0]["path"], it.progress["src"][0][1]}:  # .xlsx да кўриниш — асл файлнинг ўзи
+                os.remove(os.path.join(self.media, rel))
+            r = self.client.get(reverse("panel:narx_intake_sheet", args=[it.pk, 0]))
+            self.assertEqual(r.status_code, 404)
+            self.assertIn("асл юкланган файл ҳам топилмади", r.json()["error"])
+
+    def test_delete_only_unwritten(self):
+        import os
+        with override_settings(MEDIA_ROOT=self.media, NARXBAZA_INLINE=True):
+            self.client.post(reverse("panel:narx_upload"), {"file": self._xlsx(), "kind": "excel", "category": "K"})
+            self.client.post(reverse("panel:narx_upload"), {"file": self._xlsx(name="b.xlsx"), "kind": "excel", "category": "K"})
+            a, b = Intake.objects.order_by("pk")
+            b.rows.update(state="ok")
+            self.client.post(reverse("panel:narx_intake_commit", args=[b.pk]), {"region": "buxoro", "date": "2026-11-01", "fi": ["0"]})
+            page = self.client.get(reverse("panel:narx_uploads"))
+            self.assertContains(page, reverse("panel:narx_upload_delete", args=[a.pk]))
+            self.assertNotContains(page, reverse("panel:narx_upload_delete", args=[b.pk]))  # базага ёзилгани ўчирилмайди
+            root = os.path.join(self.media, a.progress["root"])
+            self.assertTrue(os.path.isdir(root))
+            self.client.post(reverse("panel:narx_upload_delete", args=[a.pk]))
+            self.assertFalse(Intake.objects.filter(pk=a.pk).exists())
+            self.assertFalse(os.path.isdir(root))
+            self.client.post(reverse("panel:narx_upload_delete", args=[b.pk]))  # базага ёзилган — ўчмайди
+            self.assertTrue(Intake.objects.filter(pk=b.pk).exists())
+            self.assertEqual(Price.objects.count(), 2)

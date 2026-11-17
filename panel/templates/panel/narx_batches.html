@@ -17,8 +17,10 @@
     <tbody class="divide-y divide-slate-100">
       {% for b in page %}
       <tr class="hover:bg-slate-50">
-        <td class="max-w-md px-4 py-2.5"><a href="{% url 'panel:narx_batch' b.pk %}" class="break-words font-medium text-slate-900 hover:underline">{{ b.title }}</a>
-          <div class="text-xs text-slate-500">{{ b.get_kind_display }}{% if b.note %} · {{ b.note }}{% endif %}</div></td>
+        <td class="max-w-md px-4 py-2.5"><a href="{% url 'panel:narx_batch' b.pk %}" class="break-words font-medium text-slate-900 hover:underline" title="{{ b.title }}">{{ b.fname }}</a>
+          {% if b.fdir or b.farch %}<div class="break-words text-[11px] text-slate-400">{% if b.farch %}{{ b.farch }}{% if b.fdir %} › {% endif %}{% endif %}{{ b.fdir }}</div>{% endif %}
+          <div class="text-xs text-slate-500">{{ b.get_kind_display }}{% if b.note %} · {{ b.note }}{% endif %}</div>
+          {% include "panel/_narx_bstats.html" with st=b.bst %}</td>
         <td class="px-3 py-2.5 text-xs">{{ b.get_region_display }}</td>
         <td class="num whitespace-nowrap px-3 py-2.5 text-xs">{{ b.date|date:"d.m.Y" }}</td>
         <td class="num px-3 py-2.5 text-right">{{ b.n }}</td>

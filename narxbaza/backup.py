@@ -4,7 +4,7 @@ ZIP ичида:
 * ``manifest.json`` — қайси дастур, қачон, нечта ёзув, охирги миграция;
 * ``data.json`` — ҳамма жадваллар (ресурслар, нархлар, тўпламлар, ҳисоблар, тарих, текширувлар, созлама),
   саватчадагилари ҳам;
-* ``media/…`` — тўпламларнинг асл файллари ва очиқ текширувларнинг Excel кўринишлари.
+* ``media/…`` — тўпламларнинг асл файллари, текширувларнинг асл юкланган файллари ва Excel кўринишлари.
 
 Тиклаш базадаги ҳамма нарх базаси маълумотини нусхадагиси билан **алмаштиради** (қўшмайди). Олдин жорий
 ҳолатнинг нусхаси ``MEDIA_ROOT/narxbaza/backups/`` га автоматик сақланади — адашиб тикланса, қайтариш мумкин.
@@ -50,8 +50,11 @@ def _last_migration() -> str:
 def _media_files() -> list[str]:
     """Нусхага кирадиган файллар (MEDIA_ROOT ичидаги нисбий йўллар, бор бўлганлари)."""
     rels = set(Batch.all_objects.exclude(file_path="").values_list("file_path", flat=True))
-    for files in Intake.objects.filter(status=Intake.Status.OPEN).values_list("files", flat=True):
+    # текширувлар (бекор қилинганидан ташқари): Excel кўринишлари ва асл юкланган файллар — тиклангандан кейин ҳам очилсин
+    for files, fp, pr in Intake.objects.exclude(status=Intake.Status.CANCELLED).values_list("files", "file_path", "progress"):
         rels.update(f.get("path") for f in files or [] if isinstance(f, dict) and f.get("path"))
+        rels.add(fp)
+        rels.update(x[1] for x in (pr or {}).get("src") or [] if isinstance(x, (list, tuple)) and len(x) == 3)
     root = _media().resolve()
     out = []
     for r in sorted(x for x in rels if x and x.startswith(APP + "/")):

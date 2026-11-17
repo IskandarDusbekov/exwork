@@ -8,8 +8,10 @@
 <section class="mb-4 flex flex-wrap items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
   <div class="min-w-0 flex-1">
     <div class="text-xs text-slate-400">{{ b.get_kind_display }}</div>
-    <h2 class="break-words text-lg font-semibold">{{ b.title }}</h2>
-    <p class="text-sm text-slate-600">{{ b.get_region_display }} · нархлар санаси <b>{{ b.date|date:"d.m.Y" }}</b> · {{ prices|length }} та нарх{% if b.stats.new %}, {{ b.stats.new }} та янги ресурс{% endif %}</p>
+    <h2 class="break-words text-lg font-semibold" title="{{ b.title }}">{{ b.fname }}</h2>
+    {% if b.fdir or b.farch %}<div class="break-words text-xs text-slate-400">{% if b.farch %}архив: {{ b.farch }}{% if b.fdir %} › {% endif %}{% endif %}{{ b.fdir }}</div>{% endif %}
+    <p class="text-sm text-slate-600">{{ b.get_region_display }} · нархлар санаси <b>{{ b.date|date:"d.m.Y" }}</b> · {{ prices|length }} та нарх</p>
+    {% include "panel/_narx_bstats.html" with st=b.bst big=1 %}
     {% if b.file_path %}<a href="{% url 'panel:narx_batch_file' b.pk %}" class="text-sm text-sky-700 hover:underline">⬇ асл файлни юклаб олиш</a>{% endif %}
     <p class="text-xs text-slate-500">{% if b.kind != "manual" %}Смета­чи: {{ b.owner.get_full_name|default:"—" }} · {% endif %}Тасдиқлади: {{ b.added_by.get_full_name|default:"—" }}, {{ b.created|date:"d.m.Y H:i" }}{% if b.note %} · {{ b.note }}{% endif %}</p>
   </div>

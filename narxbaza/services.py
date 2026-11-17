@@ -316,11 +316,26 @@ def add_batch(kind, work, rows, *, region, day: _date, user=None, note="", title
         objs.append(Price(item=it, batch=b, price=r["price"], qty=r["qty"] or None, region=region, date=day,
                           year=day.year, name=r["name"], unit=r["unit"], places=r["places"], seen=max(1, r.get("n") or 1)))
     Price.objects.bulk_create(objs, batch_size=1000)
-    b.stats = {"prices": len(objs), "items": len(cache), "new": sum(1 for i in cache.values() if i.is_new)}
-    b.save(update_fields=["stats"])
+    # базада бор ресурслар: шу вилоят/йилдаги нархи (паст/ўрта/юқори) ёзишдан олдин ва кейин — «янгиланди» ёки «ўзгармади»
+    old_ids = [i.pk for i in cache.values() if not i.is_new]
+    before = _stat_map(old_ids, region, day.year)
     recalc({(i.pk, region, day.year) for i in cache.values()})
+    after = _stat_map(old_ids, region, day.year)
+    changed = sum(1 for k in old_ids if before.get(k) != after.get(k))
+    b.stats = {"prices": len(objs), "items": len(cache), "new": len(cache) - len(old_ids), "existing": len(old_ids),
+               "changed": changed, "same": len(old_ids) - changed}
+    b.save(update_fields=["stats"])
     log.info("narxbaza: «%s» — %s ta narx (%s, %s)", b.title, len(objs), region, day)
     return b
+
+
+def _stat_map(item_ids, region, year) -> dict:
+    """{item_id: (паст, ўрта, юқори)} — шу вилоят ва йилда."""
+    out = {}
+    for i in range(0, len(item_ids), 900):
+        for iid, low, mid, high in Stat.objects.filter(item_id__in=item_ids[i:i + 900], region=region, year=year)                 .values_list("item_id", "low", "mid", "high"):
+            out[iid] = (low, mid, high)
+    return out
 
 
 @transaction.atomic

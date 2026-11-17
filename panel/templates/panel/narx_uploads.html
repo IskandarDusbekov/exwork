@@ -7,9 +7,60 @@
 
 <div class="mb-3 flex flex-wrap items-center gap-2">
   <nav class="inline-flex overflow-x-auto whitespace-nowrap rounded-lg border border-slate-300 bg-white text-sm">
-    {% for k, label, c in tabs %}<a href="?{% if k %}s={{ k }}{% endif %}" class="{% if not forloop.first %}border-l border-slate-300 {% endif %}px-3 py-1.5 {% if s == k %}bg-slate-100 font-semibold{% else %}hover:bg-slate-50{% endif %}">{{ label }} <span class="num text-slate-500">{{ c }}</span></a>{% endfor %}
+    {% for k, label, c in tabs %}<a href="?v={{ v }}{% if k %}&s={{ k }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="{% if not forloop.first %}border-l border-slate-300 {% endif %}px-3 py-1.5 {% if s == k %}bg-slate-100 font-semibold{% else %}hover:bg-slate-50{% endif %}">{{ label }} <span class="num text-slate-500">{{ c }}</span></a>{% endfor %}
   </nav>
+  <nav class="inline-flex overflow-hidden rounded-lg border border-slate-300 bg-white text-sm" aria-label="Кўриниш">
+    <a href="?v=files{% if s %}&s={{ s }}{% endif %}{% if q %}&q={{ q|urlencode }}{% endif %}" class="px-3 py-1.5 {% if v == 'files' %}bg-slate-900 font-semibold text-white{% else %}hover:bg-slate-50{% endif %}">Файллар бўйича</a>
+    <a href="?v=uploads{% if s %}&s={{ s }}{% endif %}" class="border-l border-slate-300 px-3 py-1.5 {% if v == 'uploads' %}bg-slate-900 font-semibold text-white{% else %}hover:bg-slate-50{% endif %}">Юклашлар бўйича</a>
+  </nav>
+  {% if v == "files" %}<form method="get" class="ml-auto flex items-center gap-1.5"><input type="hidden" name="v" value="files">{% if s %}<input type="hidden" name="s" value="{{ s }}">{% endif %}
+    <input type="search" name="q" value="{{ q }}" placeholder="Файл ёки архив номи…" class="w-64 rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+    <button class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50">Қидириш</button></form>{% endif %}
 </div>
+
+{% if v == "files" %}
+<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+  {% if page.object_list %}
+  <div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr>
+      <th class="px-4 py-2 font-medium">Файл</th><th class="px-3 py-2 font-medium">Юкланган</th>
+      <th class="px-3 py-2 font-medium">Қаторлар</th><th class="px-3 py-2 font-medium">Базага</th><th class="px-3 py-2"></th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+    {% for r in page %}
+      {% ifchanged r.up.pk %}{% if not forloop.first %}<tr><td colspan="5" class="h-1.5 bg-slate-50 p-0"></td></tr>{% endif %}{% endifchanged %}
+      <tr class="align-top hover:bg-slate-50">
+        <td class="max-w-xl px-4 py-2.5">
+          <a href="{% url 'panel:narx_intake' r.up.pk %}" class="break-words font-medium text-slate-900 hover:underline" title="{{ r.fname }}">{{ r.fname }}</a>{% if r.sheet %} <span class="text-xs text-slate-500">· лист «{{ r.sheet }}»</span>{% endif %}
+          {% if r.fdir %}<div class="break-words text-[11px] text-slate-400">{% icon "folder" "inline h-3 w-3 -mt-0.5" %} {{ r.fdir }}</div>{% endif %}
+          {% if r.farch %}<div class="text-[11px] text-slate-400">{% icon "file" "inline h-3 w-3 -mt-0.5" %} {{ r.farch }}</div>{% endif %}
+        </td>
+        <td class="whitespace-nowrap px-3 py-2.5 text-xs text-slate-600"><span class="num">{{ r.up.created|date:"d.m.Y H:i" }}</span><div class="text-slate-400">{{ r.up.created_by.get_full_name|default:r.up.created_by|default:"—" }}</div></td>
+        <td class="whitespace-nowrap px-3 py-2.5 text-xs">{% if r.n %}<span class="num">{{ r.n }}</span> та
+          <div class="text-slate-500"><span class="num text-emerald-700" title="тасдиқланган">✓ {{ r.ok }}</span> · <span class="num text-red-700" title="рад этилган">✕ {{ r.skip }}</span>{% if r.new %} · <span class="num text-amber-700">{{ r.new }} кўрилмаган</span>{% endif %}</div>
+          {% else %}<span class="text-slate-400">—</span>{% endif %}</td>
+        <td class="px-3 py-2.5 text-xs">
+          {% if r.fi is None %}
+            {% if r.up.status == "reading" %}<span class="rounded bg-sky-100 px-1.5 py-0.5 font-semibold text-sky-800">⏳ ўқилмоқда</span>
+            {% elif r.up.status == "failed" %}<span class="rounded bg-red-100 px-1.5 py-0.5 font-semibold text-red-800">ўқиб бўлмади</span>
+            {% else %}<span class="rounded bg-slate-200 px-1.5 py-0.5 font-semibold text-slate-600">бекор қилинган</span>{% endif %}
+          {% elif r.done %}
+            <span class="font-semibold text-emerald-700">✓ ёзилди</span> <span class="text-slate-500">{{ r.region }} · {{ r.date }}</span>{% if r.batch %} · <a href="{% url 'panel:narx_batch' r.batch %}" class="text-sky-700 hover:underline">тўплам №{{ r.batch }}</a>{% include "panel/_narx_bstats.html" with st=r.bstats %}{% else %}<div class="text-slate-400">ҳамма қатори рад этилган</div>{% endif %}
+          {% elif r.up.status == "cancelled" %}<span class="rounded bg-slate-200 px-1.5 py-0.5 font-semibold text-slate-600">бекор қилинган</span>
+          {% else %}<span class="rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-800">текширилмоқда</span>{% endif %}
+        </td>
+        <td class="whitespace-nowrap px-3 py-2.5 text-right">{% if r.reopen %}<form method="post" action="{% url 'panel:narx_intake_reopen' r.up.pk %}" class="inline">{% csrf_token %}<button class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100">Қайта очиш</button></form>{% elif r.up.status != "cancelled" %}<a href="{% url 'panel:narx_intake' r.up.pk %}" class="text-xs font-medium text-sky-700 hover:underline">{% if r.done %}кўриш{% else %}давом этиш{% endif %} →</a>{% endif %}{% if r.del %}<form method="post" action="{% url 'panel:narx_upload_delete' r.up.pk %}" class="inline" data-danger data-confirm-ok="Ўчириш" data-confirm="«{{ r.up.title|truncatechars:80 }}» бутунлай ўчирилсинми? Қаторлари ва серверда сақланган файллари ҳам ўчади. Базага ҳеч нарса ёзилмаган — нарх базаси ўзгармайди.">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="ml-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700" title="Бутунлай ўчириш">Ўчириш</button></form>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if page.has_other_pages %}<div class="flex justify-center gap-2 border-t border-slate-100 px-4 py-2.5 text-sm">
+    {% if page.has_previous %}<a href="?v=files&s={{ s }}&q={{ q|urlencode }}&page={{ page.previous_page_number }}" class="rounded border px-2 py-1 hover:bg-slate-50">←</a>{% endif %}
+    <span class="num px-2 py-1 text-slate-500">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a href="?v=files&s={{ s }}&q={{ q|urlencode }}&page={{ page.next_page_number }}" class="rounded border px-2 py-1 hover:bg-slate-50">→</a>{% endif %}
+  </div>{% endif %}
+  {% else %}<div class="px-4 py-10 text-center text-sm text-slate-500">{% if q %}«{{ q }}» бўйича файл топилмади.{% else %}Ҳали файл юкланмаган.{% endif %}</div>{% endif %}
+</section>
+{% else %}
 
 <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
   {% if page.object_list %}
@@ -37,17 +88,18 @@
           {% else %}<span class="rounded bg-slate-200 px-1.5 py-0.5 text-slate-600">бекор қилинган</span>{% endif %}</td>
         <td class="whitespace-nowrap px-3 py-2.5 text-right">
           {% if x.can_reopen %}<form method="post" action="{% url 'panel:narx_intake_reopen' x.pk %}" class="inline">{% csrf_token %}<button class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100">Қайта очиш</button></form>
-          {% elif x.status != "cancelled" %}<a href="{% url 'panel:narx_intake' x.pk %}" class="inline-flex items-center gap-1 rounded-lg {% if x.status == 'done' %}border border-slate-300 bg-white text-slate-700 hover:bg-slate-100{% else %}bg-slate-900 text-white hover:bg-slate-700{% endif %} px-3 py-1.5 text-xs font-semibold">{% if x.status == "done" %}Кўриш{% elif x.status == "open" %}Давом этиш{% else %}Очиш{% endif %} {% icon "arrow-right" "h-3.5 w-3.5" %}</a>{% endif %}</td>
+          {% elif x.status != "cancelled" %}<a href="{% url 'panel:narx_intake' x.pk %}" class="inline-flex items-center gap-1 rounded-lg {% if x.status == 'done' %}border border-slate-300 bg-white text-slate-700 hover:bg-slate-100{% else %}bg-slate-900 text-white hover:bg-slate-700{% endif %} px-3 py-1.5 text-xs font-semibold">{% if x.status == "done" %}Кўриш{% elif x.status == "open" %}Давом этиш{% else %}Очиш{% endif %} {% icon "arrow-right" "h-3.5 w-3.5" %}</a>{% endif %}{% if x.can_delete %}<form method="post" action="{% url 'panel:narx_upload_delete' x.pk %}" class="inline" data-danger data-confirm-ok="Ўчириш" data-confirm="«{{ x.title|truncatechars:80 }}» бутунлай ўчирилсинми? Қаторлари ва серверда сақланган файллари ҳам ўчади. Базага ҳеч нарса ёзилмаган — нарх базаси ўзгармайди.">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="ml-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700" title="Бутунлай ўчириш">Ўчириш</button></form>{% endif %}</td>
       </tr>
     {% endfor %}
     </tbody>
   </table></div>
   {% if page.has_other_pages %}<div class="flex justify-center gap-2 border-t border-slate-100 px-4 py-2.5 text-sm">
-    {% if page.has_previous %}<a href="?s={{ s }}&page={{ page.previous_page_number }}" class="rounded border px-2 py-1 hover:bg-slate-50">←</a>{% endif %}
+    {% if page.has_previous %}<a href="?v=uploads&s={{ s }}&page={{ page.previous_page_number }}" class="rounded border px-2 py-1 hover:bg-slate-50">←</a>{% endif %}
     <span class="num px-2 py-1 text-slate-500">{{ page.number }} / {{ page.paginator.num_pages }}</span>
-    {% if page.has_next %}<a href="?s={{ s }}&page={{ page.next_page_number }}" class="rounded border px-2 py-1 hover:bg-slate-50">→</a>{% endif %}
+    {% if page.has_next %}<a href="?v=uploads&s={{ s }}&page={{ page.next_page_number }}" class="rounded border px-2 py-1 hover:bg-slate-50">→</a>{% endif %}
   </div>{% endif %}
   {% else %}<div class="px-4 py-10 text-center text-sm text-slate-500">Ҳали файл юкланмаган.</div>{% endif %}
 </section>
+{% endif %}
 {% include "panel/_narx_modals.html" %}
 {% endblock %}

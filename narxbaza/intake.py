@@ -351,7 +351,8 @@ def read_upload(pk) -> None:
                 return
             _build(it, rows)
             it.files, it.status = files, Intake.Status.OPEN
-            it.progress = {"bad": [list(b) for b in bad], "root": pr.get("root")}
+            # src — асл юкланган файллар: Excel кўриниши йўқолса (масалан, захира нусхадан тикланганда) қайта тузиш учун
+            it.progress = {"bad": [list(b) for b in bad], "root": pr.get("root"), "src": pr.get("src") or []}
             it.save(update_fields=["files", "status", "progress", "updated"])
         log.info("narxbaza: юклаш «%s» ўқилди — %s та файл, %s та қатор", it.title, len(files), len(rows))
     except Exception as e:  # noqa: BLE001
@@ -363,6 +364,43 @@ def read_upload(pk) -> None:
         close_old_connections()
 
 
+def restore_view(it: Intake, fi: int):
+    """Файлнинг Excel кўриниши (``files[fi]["path"]``) серверда йўқ бўлса — асл юкланган файлдан (архив бўлса —
+    ичидан топиб) қайта тузади ва йўлини сақлайди. Топилмаса — ``None``. Масалан, захира нусхадан тиклангандан кейин."""
+    from pathlib import Path, PurePosixPath
+
+    from django.conf import settings
+
+    from core import convert
+    from jobs.archives import extract_excel, is_archive
+    media = Path(settings.MEDIA_ROOT)
+    files = list(it.files or [])
+    if not 0 <= fi < len(files):
+        return None
+    want = files[fi]["file"]
+    src = [tuple(x) for x in (it.progress or {}).get("src") or [] if len(x) == 3]
+    if not src and it.file_path:
+        src = [(it.title, it.file_path, is_archive(it.file_path))]
+    root = media / ((it.progress or {}).get("root") or PurePosixPath(it.file_path).parent.parent.as_posix())
+    for n, (show, rel, arch) in enumerate(src):
+        p = media / rel
+        if not p.is_file():
+            continue
+        if arch:
+            got = extract_excel(p, root / "unpack_r" / str(n), PurePosixPath(show).parent, name=PurePosixPath(show).name)
+            match = [path for r, path in got if str(r) == want]
+        else:
+            match = [p] if show == want or len(src) == 1 else []
+        if match:
+            x = convert.ensure_xlsx(match[0], root / "view_r" / f"{fi}")
+            files[fi] = {**files[fi], "path": x.relative_to(media).as_posix()}
+            Intake.objects.filter(pk=it.pk).update(files=files)
+            it.files = files
+            log.info("narxbaza: «%s» — Excel кўриниши асл файлдан қайта тузилди (%s)", it.title, want)
+            return x
+    return None
+
+
 # ===================== ҳолат =====================
 def counts(intake: Intake) -> dict:
     agg = dict(intake.rows.values_list("state").annotate(c=Count("id")))
@@ -371,6 +409,42 @@ def counts(intake: Intake) -> dict:
     total = sum(agg.values())
     return {"total": total, "new": agg.get("new", 0), "ok": agg.get("ok", 0), "skip": agg.get("skip", 0),
             "known_new": known_new, "warn_new": warn_new, "done_pct": round(100 * (total - agg.get("new", 0)) / total) if total else 0}
+
+
+def compare(intake: Intake) -> dict:
+    """Базага нисбатан, ҳар файл учун (рад этилмаган қаторлар, ресурс бўйича — ном + бирлик): ``{fi: {new, same,
+    changed}}`` ва ``"all"`` — ҳамма файл бўйича. ``new`` — базада йўқ (янги ресурс); ``same`` — базада бор ва нархи
+    базадагидек; ``changed`` — базада бор, лекин бошқа нархда (ёзилса базадаги нархи янгиланади). Солиштириш —
+    базадаги охирги йил нархи (ўрта, бўлмаса паст) билан, навбат очилгандагидек."""
+    data = {}
+    for fi, key, price in intake.rows.exclude(state=IntakeRow.State.SKIP).values_list("fi", "key", "price"):
+        data.setdefault(fi, {}).setdefault(key, set()).add(price)
+    keys = {k for d in data.values() for k in d}
+    items = _item_map(keys)
+    ref = S.best_stat(list({it.pk for it in items.values()}))
+
+    def kind(key, prices):
+        it = items.get(key)
+        if it is None:
+            return "new"
+        st = ref.get(it.pk)
+        base = (st.mid if st.mid is not None else st.low) if st else None
+        if base is None:
+            return "changed"
+        return "same" if all(abs(p - base) < Decimal("0.01") for p in prices) else "changed"
+
+    out, every = {}, {}
+    for fi, d in data.items():
+        c = {"new": 0, "same": 0, "changed": 0}
+        for key, prices in d.items():
+            c[kind(key, prices)] += 1
+            every.setdefault(key, set()).update(prices)
+        out[fi] = c
+    tot = {"new": 0, "same": 0, "changed": 0}
+    for key, prices in every.items():
+        tot[kind(key, prices)] += 1
+    out["all"] = tot
+    return out
 
 
 def row_json(r: IntakeRow) -> dict:

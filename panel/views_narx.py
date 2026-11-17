@@ -403,14 +403,32 @@ def narx_batches(request):
         qs = qs.filter(kind=Batch.Kind.MANUAL)
     elif k == "work":
         qs = qs.exclude(kind=Batch.Kind.MANUAL)
-    return render(request, "panel/narx_batches.html", _nctx(
-        request, "batches", page=Paginator(qs, 40).get_page(request.GET.get("page")), k=k))
+    page = Paginator(qs, 40).get_page(request.GET.get("page"))
+    _batch_names(page.object_list)
+    return render(request, "panel/narx_batches.html", _nctx(request, "batches", page=page, k=k))
+
+
+def _batch_names(batches):
+    """Юкланган файлдан тўпламлар: файл номи, ичидаги папкаси ва қайси архивдан (``b.fname``, ``b.fdir``, ``b.farch``)."""
+    from narxbaza.models import Intake
+    batches = list(batches)
+    want = {b.pk for b in batches if b.kind == Batch.Kind.FILE}
+    up = {}
+    if want:
+        for title, files in Intake.objects.filter(kind="file").values_list("title", "files"):
+            for f in files or []:
+                if f.get("batch") in want:
+                    up[f["batch"]] = title
+    for b in batches:
+        d = _fname(b.title, up.get(b.pk, "")) if b.kind == Batch.Kind.FILE else {"fname": b.title, "fdir": "", "farch": ""}
+        b.fname, b.fdir, b.farch, b.bst = d["fname"], d["fdir"], d["farch"], _bst(b.stats)
 
 
 @staff_required
 def narx_batch(request, pk):
     b = get_object_or_404(Batch.objects.select_related("owner", "added_by"), pk=pk)
     prices = list(b.prices.select_related("item").order_by("item__name"))
+    _batch_names([b])
     return render(request, "panel/narx_batch.html", _nctx(request, "batches", b=b, prices=prices,
                                                           logs=list(b.logs.select_related("user")[:50])))
 
@@ -824,14 +842,19 @@ def narx_intake(request, pk):
         return render(request, "panel/narx_intake_wait.html", _nctx(request, "uploads" if it.kind == "file" else "collect", it=it, pr=it.progress or {},
                                                                      stuck=I.stuck(it)))
     rows = I.rows_json(it)
+    cmp = I.compare(it)
+    bstats = dict(Batch.all_objects.filter(pk__in={f["batch"] for f in it.files or [] if f.get("batch")})
+                  .values_list("pk", "stats"))
     files = []
     for i, f in enumerate(it.files or []):
         n = sum(1 for r in rows if r["fi"] == i)
-        files.append({**f, "i": i, "n": n, "left": sum(1 for r in rows if r["fi"] == i and r["state"] == "new"),
+        files.append({**f, "i": i, "n": n, "cmp": None if f.get("done") else cmp.get(i), **_fname(f["file"], it.title),
+                      "bst": _bst(bstats.get(f.get("batch"))), "left": sum(1 for r in rows if r["fi"] == i and r["state"] == "new"),
                       "region_label": REGION_LABELS.get(f.get("region", ""), "")})
     bad = (it.progress or {}).get("bad") or []
     return render(request, "panel/narx_intake.html", _nctx(
         request, "uploads" if it.kind == "file" else "collect", it=it, files=files, c=I.counts(it), stale=I.stale(it), bad=bad,
+        cmp_all=cmp["all"],
         file_names=[f["file"] + (f" — {f['sheet']}" if it.kind == "file" and f.get("sheet") else "") for f in files],
         file_done=[bool(f.get("done")) for f in files],
         rows_script=_json_tag(rows, "ni-rows"), cats_json=[[k, label, GUTTER[k]] for k, label in CATEGORIES]))
@@ -865,7 +888,16 @@ def narx_intake_sheet(request, pk, fi):
         else:
             path = Path(settings.MEDIA_ROOT) / (f.get("path") or it.view_path or it.file_path)
             if not path.is_file():
-                raise Http404("Файл топилмади")
+                from narxbaza import intake as I
+                try:
+                    path = I.restore_view(it, fi)
+                except Exception:  # noqa: BLE001 — асл файл бузуқ / ўгириб бўлмади
+                    path = None
+                if path is None:
+                    return JsonResponse({"error": "Бу файлнинг Excel нусхаси серверда йўқ ва асл юкланган файл ҳам топилмади "
+                                                  "(масалан, захира нусхадан тикланган — эски нусхага файллар кирмаган). "
+                                                  "Қаторлар ва қарорлар жойида; Excel кўриниши учун файлни қайта юкланг."},
+                                        status=404)
             data = xlview.cached(_udir() / "preview", f"{it.pk}|{fi}|{f.get('sheet')}", path,
                                  lambda: xlview.render(path, f.get("sheet") or None))
     except preview.NotAvailable as e:
@@ -932,11 +964,43 @@ def narx_intake_commit(request, pk):
     else:
         audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: текширувдан «{b.title}» — {b.stats.get('prices', 0)} та нарх, "
               f"{REGION_LABELS[region]}, {day}")
-        messages.success(request, f"«{b.title}» базага ёзилди: {b.stats.get('prices', 0)} та нарх, "
-                                  f"{b.stats.get('new', 0)} та янги ресурс ({REGION_LABELS[region]}, {day:%d.%m.%Y}).")
+        st = b.stats
+        messages.success(request, f"«{_fname(b.title)['fname']}» базага ёзилди ({REGION_LABELS[region]}, {day:%d.%m.%Y}): "
+                                  f"{st.get('items', 0)} та ресурс — {st.get('new', 0)} та янги, {st.get('existing', 0)} та базада бор "
+                                  f"({st.get('changed', 0)} тасининг нархи янгиланди, {st.get('same', 0)} таси ўзгармади).")
     if it.status == it.Status.DONE and b is not None:
         return redirect("panel:narx_batch", pk=b.pk)
     return redirect("panel:narx_intake", pk=pk)
+
+
+def _bst(stats) -> dict:
+    """Тўплам ҳисоби: эски тўпламларда «базада бор» = ресурслар − янги (нарх ўзгариши ҳисобланмаган — ``old``)."""
+    st = dict(stats or {})
+    if "existing" not in st and st.get("items"):
+        st.update(existing=st["items"] - st.get("new", 0), new=st.get("new", 0), old=True)
+    return st
+
+
+ARCHIVE_EXT = (".zip", ".rar", ".7z")
+
+
+def _fname(path: str, upload: str = "") -> dict:
+    """Юкланган файл йўли → ``{fname, fdir, farch}``: файл номи, ичидаги папкаси ва қайси архив / папкадан.
+    «Смета (7)/Смета/1-Трасса+/r2770.xls» (архив «Смета (7).zip») → r2770.xls · Смета/1-Трасса+ · Смета (7).zip."""
+    parts = [p for p in (path or "").replace("\\", "/").split("/") if p]
+    if not parts:
+        return {"fname": path or "", "fdir": "", "farch": ""}
+    name, dirs = parts[-1], parts[:-1]
+    farch = ""
+    low = (upload or "").lower()
+    if dirs and upload:
+        stem = upload.rsplit(".", 1)[0] if low.endswith(ARCHIVE_EXT) else upload
+        if dirs[0] == stem:
+            dirs = dirs[1:]
+            farch = upload if low.endswith(ARCHIVE_EXT) else f"{upload} (папка)"
+    elif low.endswith(ARCHIVE_EXT):
+        farch = upload
+    return {"fname": name, "fdir": "/".join(dirs), "farch": farch}
 
 
 UPLOAD_FILTERS = {"active": "Текширилаётганлар", "done": "Базага ёзилганлар", "cancelled": "Бекор қилинганлар"}
@@ -957,6 +1021,15 @@ def narx_uploads(request):
         qs = qs.filter(status=Intake.Status.DONE)
     elif s == "cancelled":
         qs = qs.filter(status=Intake.Status.CANCELLED)
+    v = "uploads" if request.GET.get("v") == "uploads" else "files"
+    q = " ".join(request.GET.get("q", "").split())[:100]
+    n = {"": sum(tot.values()), "active": sum(tot.get(k, 0) for k in act), "done": tot.get("done", 0),
+         "cancelled": tot.get("cancelled", 0)}
+    tabs = [("", "Ҳаммаси", n[""])] + [(k, label, n[k]) for k, label in UPLOAD_FILTERS.items()]
+    if v == "files":
+        page = Paginator(_upload_files(qs, q), 60).get_page(request.GET.get("page"))
+        return render(request, "panel/narx_uploads.html", _nctx(request, "uploads", page=page, s=s, tabs=tabs, v=v, q=q,
+                                                                file_kinds=services.FILE_KINDS))
     page = Paginator(qs, 40).get_page(request.GET.get("page"))
     for x in page:
         files = x.files or []
@@ -965,11 +1038,41 @@ def narx_uploads(request):
         x.batches = sorted({f["batch"] for f in files if f.get("batch")})
         x.bad = len((x.progress or {}).get("bad") or [])
         x.can_reopen = x.status == Intake.Status.CANCELLED and x.c["total"] > 0
-    n = {"": sum(tot.values()), "active": sum(tot.get(k, 0) for k in act), "done": tot.get("done", 0),
-         "cancelled": tot.get("cancelled", 0)}
-    tabs = [("", "Ҳаммаси", n[""])] + [(k, label, n[k]) for k, label in UPLOAD_FILTERS.items()]
-    return render(request, "panel/narx_uploads.html", _nctx(request, "uploads", page=page, s=s, tabs=tabs,
+        x.can_delete = _deletable(x)
+    return render(request, "panel/narx_uploads.html", _nctx(request, "uploads", page=page, s=s, tabs=tabs, v=v, q=q,
                                                             file_kinds=services.FILE_KINDS))
+
+
+def _upload_files(qs, q=""):
+    """«Файллар бўйича»: ҳар юкланган файл (архив ичидагиси ҳам; лист — алоҳида) битта қатор. Юклаш ҳали ўқилмаган
+    ёки бекор қилинган бўлса — юклашнинг ўзи битта қатор."""
+    from narxbaza.models import IntakeRow
+    ups = list(qs)
+    agg = {}
+    for iid, fi, state, c in (IntakeRow.objects.filter(intake__in=[x.pk for x in ups]).values_list("intake_id", "fi", "state")
+                              .annotate(c=Count("id")).order_by()):
+        agg.setdefault((iid, fi), {})[state] = c
+    out, ql = [], q.lower()
+    for x in ups:
+        files = x.files or []
+        if not files:
+            if not ql or ql in x.title.lower():
+                out.append({"up": x, "fi": None, "fname": x.title, "fdir": "", "farch": "", "sheet": "", "n": 0,
+                            "del": _deletable(x)})
+            continue
+        for i, f in enumerate(files):
+            if ql and ql not in f["file"].lower() and ql not in x.title.lower():
+                continue
+            c = agg.get((x.pk, i), {})
+            out.append({"up": x, "fi": i, **_fname(f["file"], x.title), "sheet": f.get("sheet", ""),
+                        "reopen": i == 0 and x.status == x.Status.CANCELLED, "del": i == 0 and _deletable(x),
+                        "n": sum(c.values()), "ok": c.get("ok", 0), "skip": c.get("skip", 0), "new": c.get("new", 0),
+                        "done": bool(f.get("done")), "batch": f.get("batch"), "region": REGION_LABELS.get(f.get("region", ""), ""),
+                        "date": f.get("date", "")})
+    bst = dict(Batch.all_objects.filter(pk__in={r["batch"] for r in out if r.get("batch")}).values_list("pk", "stats"))
+    for r in out:
+        r["bstats"] = _bst(bst.get(r.get("batch")))
+    return out
 
 
 @require_POST
@@ -983,6 +1086,36 @@ def narx_intake_reopen(request, pk):
     it.save(update_fields=["status", "updated"])
     messages.success(request, f"«{it.title}» қайта очилди.")
     return redirect("panel:narx_intake", pk=pk)
+
+
+def _deletable(it) -> bool:
+    """Базага ҳеч нарса ёзилмаган юклаш ўчирилади (ёзилган нархлар — тўпламларда, улар «Киритилганлар»дан ўчирилади)."""
+    from narxbaza.models import Intake
+    return it.kind == "file" and it.status != Intake.Status.DONE and not any(f.get("done") for f in it.files or [])
+
+
+@require_POST
+@superuser_required
+def narx_upload_delete(request, pk):
+    """Керак бўлмаган юклашни бутунлай ўчириш: навбат, қаторлар ва серверда сақланган файллари."""
+    import shutil
+    from django.conf import settings
+    from narxbaza.models import Intake
+    it = get_object_or_404(Intake, pk=pk, kind="file")
+    if not _deletable(it):
+        messages.error(request, f"«{it.title}» ўчирилмади: файлларидан бири базага ёзилган. Ёзилган нархларни "
+                                "«Киритилганлар»да тўпламни саватчага ташлаб олиб ташланг.")
+        return redirect(request.POST.get("next") or "panel:narx_uploads")
+    root = Path(settings.MEDIA_ROOT).resolve()
+    rel = (it.progress or {}).get("root") or (Path(it.file_path).parent.parent.as_posix() if it.file_path else "")
+    d = (root / rel).resolve() if rel else None
+    title = it.title
+    it.delete()
+    if d is not None and d != root and (root / UPLOAD_DIR).resolve() in d.parents and d.name.startswith("up_"):
+        shutil.rmtree(d, ignore_errors=True)
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: юклаш ўчирилди — «{title[:150]}»")
+    messages.success(request, f"«{title}» ўчирилди (базага ҳеч нарса ёзилмаган эди).")
+    return redirect(request.POST.get("next") if (request.POST.get("next") or "").startswith("/") else "panel:narx_uploads")
 
 
 @require_POST

@@ -1,0 +1,8 @@
+{% comment %} Тўплам ёзилганда базага нисбатан: янги ресурс / базада бор (нархи янгиланди / ўзгармади). st — Batch.stats.
+Эски тўпламларда «базада бор» = ресурслар − янги, нарх ўзгариши йўқ (``_bst``). {% endcomment %}
+{% if st.existing is not None %}<div class="mt-1 flex flex-wrap gap-x-2.5 {% if big %}text-sm{% else %}text-[11px]{% endif %}">
+  <span class="text-sky-700" title="Базада йўқ эди — янги ресурс бўлиб қўшилди">янги <b class="num">{{ st.new }}</b></span>
+  <span class="text-slate-500" title="Базада бор эди">базада бор <b class="num">{{ st.existing }}</b></span>
+  {% if st.changed %}<span class="text-amber-700" title="Шу вилоят ва йилдаги нархи (паст / ўрта / юқори) ўзгарди">нархи янгиланди <b class="num">{{ st.changed }}</b></span>{% endif %}
+  {% if st.same %}<span class="text-slate-400" title="Нархи ўзгармади">ўзгармади <b class="num">{{ st.same }}</b></span>{% endif %}
+</div>{% endif %}

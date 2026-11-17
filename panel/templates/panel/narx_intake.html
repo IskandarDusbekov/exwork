@@ -38,6 +38,12 @@
     <div class="min-w-0 flex-1">
       <h2 class="break-words text-lg font-semibold">{{ it.title }}</h2>
       <p class="text-sm text-slate-600">{% if it.kind == "file" %}Юклади{% else %}Смета­чи{% endif %}: <b>{{ it.owner.get_full_name|default:"—" }}</b> · {{ files|length }} та файл · {{ c.total }} та ресурс қатори</p>
+      {% if cmp_all and it.status == "open" %}<div class="mt-2 flex flex-wrap gap-2 text-xs">
+        <span class="rounded-lg bg-sky-50 px-2.5 py-1 text-sky-800" title="Ном + бирлик бўйича базада йўқ ресурслар">Янги (базада йўқ): <b class="num">{{ cmp_all.new }}</b></span>
+        <span class="rounded-lg bg-slate-100 px-2.5 py-1 text-slate-700" title="Базада бор, нархи базадагидек">Базада бор, нархи бир хил: <b class="num">{{ cmp_all.same }}</b></span>
+        <span class="rounded-lg bg-amber-50 px-2.5 py-1 text-amber-800" title="Базада бор, лекин бу файлда бошқа нархда — ёзилса базадаги нархи янгиланади">Базада бор, бошқа нархда: <b class="num">{{ cmp_all.changed }}</b></span>
+        <span class="self-center text-slate-400">рад этилганлар ҳисобга кирмайди</span>
+      </div>{% endif %}
     </div>
     <div class="w-full max-w-sm">
       <div class="flex justify-between text-xs text-slate-500"><span>Кўрилди</span><span class="num" data-c="pct">{{ c.done_pct }}%</span></div>
@@ -79,8 +85,10 @@
       {% for f in files %}
       <tr class="cursor-pointer hover:bg-sky-50/60 {% if f.done %}bg-emerald-50/50{% endif %}" data-open="{{ f.i }}">
         <td class="px-3 py-2.5" data-nopen>{% if it.status == "open" and not f.done %}<input type="checkbox" name="fi" value="{{ f.i }}" form="ni-commit-form" data-fpick="{{ f.i }}" class="h-4 w-4" aria-label="Базага ёзишга белгилаш">{% elif f.done %}<span class="text-emerald-600" title="Базага ёзилган">✓</span>{% endif %}</td>
-        <td class="max-w-lg px-2 py-2.5"><span class="break-words font-medium text-slate-900">{{ f.file }}</span>{% if f.sheet and it.kind == "file" %} <span class="text-xs text-slate-500">· лист «{{ f.sheet }}»</span>{% endif %}
-          {% if f.done %}<div class="text-xs text-emerald-700">✓ базага ёзилган · {{ f.region_label }} · {{ f.date }}{% if f.batch %} · <a href="{% url 'panel:narx_batch' f.batch %}" class="underline" data-nopen>тўплам</a>{% else %} · ҳаммаси рад этилган{% endif %}</div>{% endif %}</td>
+        <td class="max-w-lg px-2 py-2.5"><span class="break-words font-medium text-slate-900" title="{{ f.file }}">{% if it.kind == "file" %}{{ f.fname }}{% else %}{{ f.file }}{% endif %}</span>{% if f.sheet and it.kind == "file" %} <span class="text-xs text-slate-500">· лист «{{ f.sheet }}»</span>{% endif %}
+          {% if it.kind == "file" and f.fdir %}<div class="break-words text-[11px] text-slate-400">{% icon "folder" "inline h-3 w-3 -mt-0.5" %} {{ f.fdir }}</div>{% endif %}
+          {% if f.cmp %}<div class="mt-0.5 flex flex-wrap gap-x-2 text-[11px]"><span class="text-sky-700" title="Базада йўқ — янги ресурс бўлиб қўшилади">янги <b class="num">{{ f.cmp.new }}</b></span><span class="text-slate-500" title="Базада бор, нархи базадагидек">базада бор <b class="num">{{ f.cmp.same|add:f.cmp.changed }}</b></span>{% if f.cmp.changed %}<span class="text-amber-700" title="Базада бор, лекин бошқа нархда — ёзилса базадаги нархи янгиланади">шундан бошқа нархда <b class="num">{{ f.cmp.changed }}</b></span>{% endif %}</div>{% endif %}
+          {% if f.done %}<div class="text-xs text-emerald-700">✓ базага ёзилган · {{ f.region_label }} · {{ f.date }}{% if f.batch %} · <a href="{% url 'panel:narx_batch' f.batch %}" class="underline" data-nopen>тўплам</a>{% else %} · ҳаммаси рад этилган{% endif %}</div>{% if f.batch %}{% include "panel/_narx_bstats.html" with st=f.bst %}{% endif %}{% endif %}</td>
         <td class="num px-3 py-2.5 text-right">{{ f.n }}</td>
         <td class="px-3 py-2.5"><span class="flex flex-wrap gap-1" data-cats="{{ f.i }}"></span></td>
         <td class="px-3 py-2.5"><span class="flex items-center gap-2"><span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100"><span class="block h-full bg-emerald-500" data-fbar="{{ f.i }}"></span></span><span class="num w-24 text-xs" data-left="{{ f.i }}"></span></span></td>
@@ -236,7 +244,7 @@
     document.getElementById("ni-fname").textContent = FILES[n] || "";
     fileLeft();
     grid.innerHTML = '<div class="px-4 py-16 text-center text-sm text-slate-500">Юкланмоқда…</div>';
-    fetch(sheetUrl(n)).then(r => r.ok ? r.json() : Promise.reject(r.status)).then(d => {
+    fetch(sheetUrl(n)).then(r => r.ok ? r.json() : r.json().catch(() => ({})).then(d => Promise.reject(d.error || ""))).then(d => {
       if (fi !== n) return;
       grid.innerHTML = d.html;
       const col = grid.querySelector("colgroup col"), tbl = grid.querySelector("table.xs");
@@ -250,7 +258,12 @@
       });
       if (!trs.length) { info.textContent = "Бу файлда ресурс қатори йўқ."; return; }
       focus(trs.find(r => r.state === "new") || trs[0]);
-    }).catch(() => { grid.innerHTML = '<div class="px-4 py-16 text-center text-sm text-red-700">Excel кўринишини очиб бўлмади.</div>'; });
+    }).catch(why => {
+      const box = document.createElement("div");
+      box.className = "mx-auto max-w-xl px-4 py-16 text-center text-sm text-red-700";
+      box.textContent = "Excel кўринишини очиб бўлмади." + (typeof why === "string" && why ? " " + why : "");
+      grid.replaceChildren(box);
+    });
   }
   // жадвал ўлчами: «Мослаш» — экран кенглигига (энг ками 100%, энг кўпи 220%), ёки қўлда 60–300%
   const ZS = [0.6, 0.75, 0.9, 1, 1.15, 1.3, 1.5, 1.75, 2, 2.5, 3];
