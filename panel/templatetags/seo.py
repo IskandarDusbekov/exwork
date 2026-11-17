@@ -18,7 +18,7 @@ def _ld(data) -> str:
 
 
 @register.inclusion_tag("panel/_seo_head.html", takes_context=True)
-def seo_head(context, title="", canonical="", analytics=True, title_tag=True):
+def seo_head(context, title="", canonical="", analytics=True, title_tag=True, description=""):
     request = context.get("request")
     v = seo.values()
     absolute = request.build_absolute_uri if request is not None else (lambda p: p)
@@ -42,5 +42,13 @@ def seo_head(context, title="", canonical="", analytics=True, title_tag=True):
         {"@type": "SoftwareApplication", "name": v["site_name"], "url": home, "applicationCategory": "BusinessApplication",
          "operatingSystem": "Web", "description": v["description"], "inLanguage": "uz"},
     ]}
+    if description:  # блог саҳифалари: ўз тавсифи (қидирув натижасида сарлавҳа остидаги матн)
+        v = {**v, "description": description}
     return {"v": v, "title": title or v["title"], "title_tag": title_tag, "url": url, "image": image,
             "ld": _ld(graph), "analytics": analytics and v["index"]}
+
+
+@register.filter
+def ld_json(data):
+    """Саҳифанинг қўшимча JSON-LD маълумоти (савол-жавоб, видео, мақола): ``<script type="application/ld+json">`` ичига."""
+    return _ld(data)

@@ -23,6 +23,22 @@ class BlockedIPMiddleware:
         return self.get_response(request)
 
 
+class SecurityHeadersMiddleware:
+    """Django ўзи қўймайдиган ҳимоя сарлавҳалари. ``Permissions-Policy`` — сайт камера, микрофон, жойлашув ва
+    тўловдан фойдаланмайди: XSS ёки бегона скрипт бўлиб қолса ҳам браузер уларга рухсат сўрамайди."""
+
+    POLICY = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        response.headers.setdefault("Permissions-Policy", self.POLICY)
+        response.headers.setdefault("X-Permitted-Cross-Domain-Policies", "none")
+        return response
+
+
 class StaffTwoFactorMiddleware:
     """Панел ва Django админ — фақат икки босқичли кириш билан (``is_staff``). Ёқилмаган бўлса — ўрнатиш саҳифаси,
     ёқилган, лекин шу сессияда код киритилмаган бўлса (масалан админнинг ўз кириш формаси орқали) — код саҳифаси.

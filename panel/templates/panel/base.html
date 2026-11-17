@@ -1,7 +1,7 @@
 {% load narx static %}<!doctype html>
 {% comment %}Бошқарув панелининг ўз қобиғи — сайтнинг чап менюси (jobs/_side.html) ва сарлавҳаси йўқ.
    Ҳар бир саҳифа: page_title (сарлавҳа), page_desc (нимани кўрсатади), page_actions (тугмалар), page_back (ортга).
-   Ресурс базаси саҳифалари ўз сарлавҳасини (_base_tabs.html) ишлатади — уларда page_head бўш.{% endcomment %}
+{% endcomment %}
 <html lang="uz">
 <head>
   <meta charset="utf-8">
@@ -52,23 +52,28 @@
         {% include "panel/_side_link.html" with key="support" url="panel:support" ic="message" label="Ёрдам хизмати" newmsg=support_new hint="Фойдаланувчилар саволлари ва жавоблар" %}
         {% include "panel/_side_link.html" with key="texnazor" url="panel:texnazor" ic="building" label="Техназор объектлари" hint="Офёрталар ва далолатномалар" %}
 
+        <div class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Нархлаш</div>
+        {% include "panel/_side_link.html" with key="narx" url="panel:narx" ic="tag" label="Нарх базаси" hint="Номи ва бирлиги бўйича: паст / ўрта / юқори нарх ва ҳар нархнинг паспорти" %}
+        {% include "panel/_side_link.html" with key="lm" url="panel:lm" ic="layers" label="Ускуна ва кабель базаси" hint="Қайси ресурс ускуна (M), қайси кабель (L) — ўзи ўрганади, сиз ўргатасиз" %}
+        {% include "panel/_side_link.html" with key="memos" url="panel:memos" ic="table" label="Эслаб қолинган листлар" hint="Смета­чилар қўлда белгилаган листлар: ким, қаерда, қандай — тизим кейин ўзи қўллайди" %}
+        {% include "panel/_side_link.html" with key="tender" url="panel:tender" ic="chart" label="Объект таҳлили" hint="Ёқиш, таҳлил қоидалари ва тажриба омиллари" %}
+
         <div class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Таҳлил</div>
         {% include "panel/_side_link.html" with key="stats" url="panel:stats" ic="chart" label="Статистика" hint="Юклашлар, нархлашлар, киришлар — давр бўйича" %}
         {% include "panel/_side_link.html" with key="track" url="panel:track" ic="activity" label="Фойдаланувчи йўли" hint="Юклашдан натижагача: ким қаерга етди, қаерда тўхтади, қайтиб келдими" %}
         {% include "panel/_side_link.html" with key="speed" url="panel:speed" ic="clock" label="Тезлик" hint="Файл очиш ва нархлаш вақти" %}
-        {% include "panel/_side_link.html" with key="narx" url="panel:narx" ic="tag" label="Нарх базаси (янги)" hint="Номи ва бирлиги бўйича: паст / ўрта / юқори нарх ва ҳар нархнинг паспорти" %}
-        {% include "panel/_side_link.html" with key="base" url="panel:base_data" ic="database" label="Ресурс базаси" hint="Нархлар ва нормалар базаси" %}
-        {% include "panel/_side_link.html" with key="help_texts" url="panel:help_texts" ic="help" label="Ёрдам матнлари ва видео" hint="«?» изоҳлари ва йўриқнома матнлари, видео дарслар — коддан ўзгартирмасдан" %}
-        {% include "panel/_side_link.html" with key="memos" url="panel:memos" ic="table" label="Эслаб қолинган листлар" hint="Смета­чилар қўлда белгилаган листлар: ким, қаерда, қандай — тизим кейин ўзи қўллайди" %}
-        {% include "panel/_side_link.html" with key="lm" url="panel:lm" ic="layers" label="Ускуна ва кабель базаси" hint="Қайси ресурс ускуна (M), қайси кабель (L) — ўзи ўрганади, сиз ўргатасиз" %}
-        {% include "panel/_side_link.html" with key="tender" url="panel:tender" ic="chart" label="Объект таҳлили" hint="Ёқиш, таҳлил қоидалари ва тажриба омиллари" %}
+
+        <div class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Сайт ва контент</div>
+        {% include "panel/_side_link.html" with key="blog" url="panel:blog" ic="play" label="Блог: мақола ва видео" hint="Мақолалар, видео дарслар ва бўлимлар — сайтдаги «Қўлланма» саҳифаси" %}
+        {% include "panel/_side_link.html" with key="site" url="panel:site" ic="file" label="Бош саҳифа матнлари" hint="Бош саҳифа матнлари ва блог мақолалари — коддан ўзгартирмасдан" %}
+        {% include "panel/_side_link.html" with key="help_texts" url="panel:help_texts" ic="help" label="Ёрдам матнлари (?)" hint="«?» изоҳлари ва йўриқнома матнлари, видео дарслар — коддан ўзгартирмасдан" %}
+        {% include "panel/_side_link.html" with key="seo" url="panel:seo" ic="search" label="SEO" hint="Google, Yandex: сарлавҳа, тасдиқлаш коди, статистика" %}
 
         <div class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Хавфсизлик ва тизим</div>
         {% include "panel/_side_link.html" with key="access" url="panel:access" ic="monitor" label="Кириш уринишлари" hint="Ким, қайси саҳифага, неча марта; сканер ва ботлар" %}
         {% include "panel/_side_link.html" with key="log" url="panel:log" ic="lock" label="Журнал ва хавфсизлик" hint="Ким, қачон, нима қилди; блоклар" %}
         {% include "panel/_side_link.html" with key="settings" url="panel:settings" ic="sliders" label="Созламалар" hint="Чегаралар ва рухсатлар" %}
         {% include "panel/_side_link.html" with key="mail" url="panel:mail" ic="mail" label="Почта (SMTP)" hint="Хат юбориш созламалари ва хат кўриниши" %}
-        {% include "panel/_side_link.html" with key="seo" url="panel:seo" ic="search" label="SEO" hint="Google, Yandex: сарлавҳа, тасдиқлаш коди, статистика" %}
         {% include "panel/_side_link.html" with key="backups" url="panel:backups" ic="database" label="Захира нусха" hint="База ва файллар нусхаси" %}
       </nav>
       <div class="shrink-0 border-t border-white/10 p-3">

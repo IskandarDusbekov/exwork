@@ -197,3 +197,36 @@ class AccessStat(models.Model):
 
     def __str__(self):
         return f"{self.ip} {self.path} ×{self.count}"
+
+
+class Category(models.Model):
+    """Блог мақолалари бўлими (очиқ саҳифа /blog/c/<slug>/) — панел «Блог» → «Бўлимлар»."""
+    name = models.CharField(max_length=80)
+    slug = models.SlugField(max_length=90, unique=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Post(models.Model):
+    """Блог мақоласи (очиқ саҳифа /blog/<slug>/) — панел «Сайт: бош саҳифа ва блог» бўлимида ёзилади.
+    Матн оддий: бўш қатор — хатбоши, «## » — сарлавҳа, «- » — рўйхат (``jobs.site.render_body``; HTML ёзилмайди)."""
+    title = models.CharField(max_length=160)
+    slug = models.SlugField(max_length=90, unique=True)
+    summary = models.CharField(max_length=300, blank=True)  # рўйхатда ва қидирув тавсифида
+    body = models.TextField()
+    published = models.BooleanField(default=False, db_index=True)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.SET_NULL, related_name="posts")
+
+    class Meta:
+        ordering = ["-created"]
+
+    def __str__(self):
+        return self.title

@@ -1,0 +1,50 @@
+{% extends "jobs/_public.html" %}
+{% load narx seo %}
+{% block seo %}{% url 'blog_video' video.id as here %}{% seo_head title=video.title|add:" — видео дарс · mhisobot" canonical=here description=description %}{% endblock %}
+{% block css %}{% include "jobs/_blog_css.html" %}{% endblock %}
+{% block content %}
+<div class="wrap art">
+  <article class="art-main">
+    <nav class="crumbs" aria-label="Йўл"><a href="{% url 'index' %}">Бош саҳифа</a><span aria-hidden="true">/</span><a href="{% url 'blog' %}">Қўлланма</a><span aria-hidden="true">/</span><a href="{% url 'blog' %}#v-{{ section.slug }}">{{ section.label }}</a></nav>
+    <h1>{{ video.title }}</h1>
+    <p class="meta">Видео дарс · {{ section.label }}</p>
+    {# YouTube фақат босилганда юкланади (cookie'сиз манзил): саҳифа тез очилади, олдиндан кузатув йўқ #}
+    <div class="player" id="player">
+      <button type="button" data-src="https://www.youtube-nocookie.com/embed/{{ video.id }}?autoplay=1&amp;rel=0" aria-label="Видеони ўйнатиш: {{ video.title }}">
+        <img src="{{ thumb }}" alt="" width="480" height="360"><span class="vplay">{% icon "play" "h-6 w-6" %}</span>
+      </button>
+    </div>
+    <p class="yt-alt">Видео очилмаса: <a href="https://www.youtube.com/watch?v={{ video.id }}" target="_blank" rel="noopener">YouTube’да кўриш ↗</a></p>
+    {% if note %}<div class="prose">{{ note }}</div>{% endif %}
+  </article>
+  <aside class="side">
+    {% if more %}
+    <h2>Шу бўлимдаги бошқа дарслар</h2>
+    <div class="vgrid">
+      {% for v in more %}
+      <a class="vcard" href="{% url 'blog_video' v.id %}">
+        <span class="vthumb"><img src="https://i.ytimg.com/vi/{{ v.id }}/mqdefault.jpg" alt="" loading="lazy" width="320" height="180"><span class="vplay">{% icon "play" "h-4 w-4" %}</span></span>
+        <h3>{{ v.title }}</h3>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% include "jobs/_blog_cta.html" %}
+  </aside>
+</div>
+<script>
+  (function () {
+    var b = document.querySelector("#player button");
+    if (!b) return;
+    b.addEventListener("click", function () {
+      var f = document.createElement("iframe");
+      f.src = b.dataset.src;
+      f.title = b.getAttribute("aria-label");
+      f.allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen";
+      f.referrerPolicy = "strict-origin-when-cross-origin";
+      f.allowFullscreen = true;
+      b.replaceWith(f);
+    });
+  })();
+</script>
+{% endblock %}

@@ -23,6 +23,15 @@ def public_pages():
     pages = [(reverse("index"), "1.0"), (reverse("login"), "0.5")]
     if conf.get("signup") == "open":
         pages.insert(1, (reverse("register"), "0.6"))
+    # блог: видео дарслар (бўлимлари билан) ва мақолалар — қидирув тизими ҳар бирини алоҳида саҳифа сифатида кўради
+    from jobs import site
+    from .models import Category, Post
+    pages.append((reverse("blog"), "0.8"))
+    for sec in site.video_sections():
+        pages += [(reverse("blog_video", args=[v["id"]]), "0.6") for v in sec["videos"]]
+    pages += [(reverse("blog_post", args=[slug]), "0.7") for slug in Post.objects.filter(published=True).values_list("slug", flat=True)]
+    pages += [(reverse("blog_category", args=[slug]), "0.6") for slug in
+              Category.objects.filter(posts__published=True).distinct().values_list("slug", flat=True)]
     return pages
 
 

@@ -1,0 +1,69 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Бош саҳифа матнлари — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<div class="mb-5 flex flex-wrap items-end gap-3">
+  <div>
+    <h1 class="text-2xl font-semibold">Бош саҳифа матнлари</h1>
+    <p class="max-w-3xl text-sm text-slate-500">Сайтнинг очиқ қисми (кирмаган одам кўрадиган) — коддан ўзгартирмасдан. Бўш қолдирилган майдон — асл матн.
+      Ўзгариш ярим дақиқа ичида ҳамма учун ишлайди ва журналга ёзилади.</p>
+  </div>
+  <div class="ml-auto flex gap-2 text-sm">
+    <a href="{% url 'landing' %}" target="_blank" rel="noopener" class="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-50">Бош саҳифани очиш ↗</a>
+    <a href="{% url 'panel:blog' %}" class="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-50">Блог: мақола ва видео →</a>
+  </div>
+</div>
+{% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-700{% endif %}">{{ m }}</div>{% endfor %}
+
+{# ================= бош саҳифа матнлари ================= #}
+<form method="post" action="{% url 'panel:landing_save' %}">{% csrf_token %}
+  <div class="mb-3 flex flex-wrap items-center gap-3">
+    <h2 class="font-semibold">Бош саҳифа матнлари</h2>
+    <span class="text-sm text-slate-500">{% if changed %}<b class="text-violet-700">{{ changed }}</b> та бўлим ўзгартирилган{% else %}ҳаммаси асл ҳолида{% endif %}</span>
+  </div>
+  <p class="mb-3 max-w-3xl text-xs text-slate-500">Рўйхатли бўлимларда (афзалликлар, қадамлар, саволлар…) қатор қўшиш учун охирги бўш қаторни тўлдиринг (энг кўпи {{ max_rows }} та);
+    ўчириш учун қаторнинг ҳамма майдонини бўшатинг. Алоқа маълумотлари (email, телефон, Telegram) «SEO» бўлимидан олинади.</p>
+  <div class="space-y-3">
+  {% for blk in blocks %}
+  <details class="rounded-xl border border-slate-200 bg-white shadow-sm"{% if blk.changed %} open{% endif %}>
+    <summary class="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm">
+      <b class="text-slate-900">{{ blk.b.title }}</b>
+      {% if blk.changed %}<span class="rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700">ўзгартирилган</span>{% endif %}
+      {% if blk.b.hint %}<span class="hidden text-xs text-slate-400 md:inline">{{ blk.b.hint }}</span>{% endif %}
+      <span class="ml-auto text-xs text-slate-400">очиш</span>
+    </summary>
+    <div class="grid gap-3 border-t border-slate-100 px-4 py-3">
+      {% for f in blk.fields %}
+      <label class="grid gap-1 text-xs text-slate-500">{{ f.label }}
+        {% if f.long %}<textarea name="f_{{ blk.b.key }}_{{ f.key }}" rows="3" placeholder="{{ f.default }}" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm leading-relaxed text-slate-900">{% if f.value != f.default %}{{ f.value }}{% endif %}</textarea>
+        {% else %}<input name="f_{{ blk.b.key }}_{{ f.key }}" value="{% if f.value != f.default %}{{ f.value }}{% endif %}" placeholder="{{ f.default }}" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-900">{% endif %}
+      </label>
+      {% endfor %}
+      {% if blk.cols %}
+      <div class="overflow-x-auto rounded-lg border border-slate-200">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr>{% for i, c in blk.cols %}<th class="px-2 py-1.5 font-medium">{{ c }}</th>{% endfor %}</tr></thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for row in blk.rows %}
+            <tr>{% for i, val in row %}<td class="p-1.5 align-top">
+              {% if i == 0 and blk.cols|length > 1 %}<input name="r_{{ blk.b.key }}_{{ i }}" value="{{ val }}" {% if not can_act %}disabled{% endif %} {% if not val %}placeholder="+ янги қатор"{% endif %} class="w-full rounded-md border border-slate-200 px-2 py-1 text-sm">
+              {% else %}<textarea name="r_{{ blk.b.key }}_{{ i }}" rows="2" {% if not can_act %}disabled{% endif %} {% if not val %}placeholder="+ янги қатор"{% endif %} class="w-full rounded-md border border-slate-200 px-2 py-1 text-sm leading-relaxed">{{ val }}</textarea>{% endif %}
+            </td>{% endfor %}</tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+  </details>
+  {% endfor %}
+  </div>
+  {% if can_act %}
+  <div class="sticky bottom-3 mt-4 flex justify-end gap-2">
+    <button name="reset" value="1" onclick="return confirm('Бош саҳифанинг ҳамма матнлари асл ҳолига қайтсинми?')" class="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm shadow-lg hover:bg-slate-50">Асл ҳолига қайтариш</button>
+    <button class="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-slate-800">Бош саҳифани сақлаш</button>
+  </div>
+  {% endif %}
+</form>
+{% endblock %}

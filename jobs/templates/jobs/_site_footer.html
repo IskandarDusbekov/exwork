@@ -1,0 +1,14 @@
+{# Очиқ саҳифалар пастки қисми — чизма варағи штампи каби #}
+<footer class="stamp">
+  <div class="wrap"><div class="stamp-in">
+    <div class="stamp-cell stamp-name">{% include "jobs/_brand.html" %}</div>
+    <div class="stamp-cell"><span>Тўлиқ номи</span><b>Муҳандис ҳисобот</b></div>
+    <div class="stamp-cell"><span>Бўлимлар</span><b>Нархлаш · Техник назорат</b></div>
+    <div class="stamp-cell"><span>Манзил · йил</span><b>mhisobot.uz · {% now "Y" %}</b></div>
+    <nav class="stamp-cell stamp-links" aria-label="Пастки ҳаволалар">
+      {% if user.is_authenticated %}<a href="{% url 'index' %}">Юклаш</a><a href="{% url 'dashboard' %}">Иш столи</a><a href="{% url 'texnazor:index' %}">Техник назорат</a>
+      {% else %}<a href="{% url 'login' %}">Кириш</a>{% if signup_open %}<a href="{% url 'register' %}">Рўйхатдан ўтиш</a>{% endif %}{% endif %}
+      <a href="{% url 'blog' %}">Қўлланма ва блог</a><a href="{% url 'landing' %}#security">Хавфсизлик</a><a href="{% url 'landing' %}#faq">Саволлар</a>
+    </nav>
+  </div></div>
+</footer>

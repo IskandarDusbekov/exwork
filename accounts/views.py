@@ -46,7 +46,7 @@ def _next_url(request) -> str:
 @login_not_required
 @sensitive_post_parameters("password")
 @never_cache
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "HEAD", "POST"])
 def login_view(request):
     if request.user.is_authenticated:
         return redirect(_next_url(request) or HOME)
@@ -92,7 +92,7 @@ def verified(request) -> bool:
 
 @login_not_required
 @never_cache
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "HEAD", "POST"])
 def login_code_view(request):
     """Иккинчи босқич: илова коди. Пароль аввал текширилган; 5 дақиқа ва 5 уриниш — кейин қайтадан пароль."""
     p = request.session.get(PENDING)
@@ -133,7 +133,7 @@ def login_code_view(request):
 
 
 @never_cache
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "HEAD", "POST"])
 def twofa_setup_view(request):
     """Икки босқичли киришни ёқиш: калит (QR ўрнига қўлда ёки ҳавола) -> иловадаги код билан тасдиқлаш."""
     nxt = _next_url(request)
@@ -166,7 +166,7 @@ def twofa_setup_view(request):
 @login_not_required
 @sensitive_post_parameters("password1", "password2")
 @never_cache
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "HEAD", "POST"])
 def register_view(request):
     if request.user.is_authenticated:
         return redirect(HOME)
@@ -216,7 +216,7 @@ def _code_hash(code):
 
 @login_not_required
 @never_cache
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "HEAD", "POST"])
 def reset_request_view(request):
     form = ResetRequestForm(request.POST or None)
     error = None
@@ -249,7 +249,7 @@ def _send_reset(request, user) -> dict:
 
 @login_not_required
 @never_cache
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "HEAD", "POST"])
 def reset_code_view(request):
     """Хатдаги кодни киритиш. Тўғри бўлса — янги пароль саҳифаси (ҳаволадаги каби)."""
     entry = request.session.get(RESET_CODE)
@@ -283,7 +283,7 @@ def _reset_user(uidb64):
 @login_not_required
 @sensitive_post_parameters("password1", "password2")
 @never_cache
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "HEAD", "POST"])
 def reset_confirm_view(request, uidb64, token):
     user = _reset_user(uidb64)
     if user is not None and token != RESET_URL_TOKEN and default_token_generator.check_token(user, token):
@@ -351,7 +351,7 @@ def _wait_text(sec):
 
 
 @never_cache
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "HEAD", "POST"])
 def verify_email_view(request):
     user = request.user
     if user.email_verified:

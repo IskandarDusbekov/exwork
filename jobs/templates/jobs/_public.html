@@ -1,0 +1,58 @@
+{% load narx static seo %}<!doctype html>
+{% comment %} Очиқ саҳифалар асоси (бош саҳифа, блог): <head>, сарлавҳа, пастки қисм. app.css юкланмайди — ранглар
+_site_css.html да. Блоклар: title (бўш — панелдаги бош саҳифа сарлавҳаси), canonical, description, css, content. {% endcomment %}
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d1522">
+  {% block seo %}{% seo_head canonical="/" %}{% endblock %}
+  <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{% static 'apple-touch-icon.png' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  {% for item in ld %}<script type="application/ld+json">{{ item|ld_json }}</script>
+  {% endfor %}
+  {% include "jobs/_site_css.html" %}
+  <style>
+    {% include "jobs/_cursor_css.html" %}
+    .skip { position: absolute; left: 12px; top: -60px; z-index: 2000; padding: 10px 14px; background: var(--ink); color: #fff; text-decoration: none; font-weight: 600; }
+    .skip:focus { top: 12px; }
+    [id] { scroll-margin-top: 96px; }
+    .eyebrow { display: flex; align-items: center; gap: 12px; font: 500 12.5px/1.2 var(--fm); letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
+    .eyebrow::before { content: ""; width: 28px; height: 1px; flex: none; background: currentColor; }
+    .sec { padding-block: clamp(64px, 8vw, 120px); border-bottom: 1px solid var(--line); }
+    .sec-h { display: grid; gap: 14px 48px; margin-bottom: clamp(36px, 4vw, 60px); }
+    @media (min-width: 1000px) { .sec-h { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: end; } }
+    .sec-h h2, .h2 { font-size: clamp(1.8rem, 1.2rem + 1.8vw, 2.9rem); line-height: 1.08; font-weight: 600; letter-spacing: -.022em; text-wrap: balance; margin-top: 14px; }
+    .sec-h p { max-width: 40em; color: var(--ink-2); line-height: 1.65; }
+    .crumbs { display: flex; flex-wrap: wrap; gap: 6px; font: 500 12.5px var(--fm); color: var(--mute); }
+    .crumbs a { text-decoration: none; } .crumbs a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+    .crumbs span[aria-hidden] { opacity: .5; }
+    /* видео карточкаси (бош саҳифа ва блог) */
+    .vgrid { display: grid; gap: 28px 24px; }
+    @media (min-width: 640px) { .vgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 1000px) { .vgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .vcard { display: grid; gap: 12px; align-content: start; text-decoration: none; color: inherit; min-width: 0; }
+    .vthumb { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: #e6e9ed; border: 1px solid var(--line); }
+    .vthumb img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s; }
+    .vcard:hover .vthumb img { transform: scale(1.03); }
+    .vplay { position: absolute; left: 14px; bottom: 14px; display: grid; place-items: center; width: 44px; height: 44px; background: var(--ink); color: #fff; }
+    .vplay svg { width: 18px; height: 18px; fill: currentColor; stroke: none; margin-left: 2px; }
+    .vcard h3 { font-size: 1.02rem; font-weight: 600; line-height: 1.35; }
+    .vcard:hover h3 { color: var(--acc); }
+    .vcard .vk { font: 500 11.5px var(--fm); letter-spacing: .04em; text-transform: uppercase; color: var(--mute); }
+    .vcard p { font-size: 14px; color: var(--ink-2); line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    {% block css %}{% endblock %}
+  </style>
+</head>
+<body>
+<a class="skip" href="#main">Асосий мазмунга ўтиш</a>
+{% include "jobs/_site_header.html" %}
+<main id="main">
+{% block content %}{% endblock %}
+</main>
+{% include "jobs/_site_footer.html" %}
+</body>
+</html>

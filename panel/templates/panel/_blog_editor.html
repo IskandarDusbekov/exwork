@@ -1,0 +1,53 @@
+{% comment %} Мақола/видео тавсифи учун матн майдони: тугмалар (сарлавҳа, рўйхат) ва «Кўриниши» — сайтдаги қоидалар билан
+(сервер ``jobs.site.render_body`` орқали, ҳамма матн экранланади). Параметрлар: name, value, rows, ph. {% endcomment %}
+<div class="be overflow-hidden rounded-lg border border-slate-200 bg-white" data-preview="{% url 'panel:blog_preview' %}">
+  <div class="flex flex-wrap items-center gap-1 border-b border-slate-100 bg-slate-50 px-2 py-1.5 text-xs">
+    <button type="button" data-tab="write" class="be-tab rounded px-2.5 py-1 font-medium bg-white shadow-sm">Ёзиш</button>
+    <button type="button" data-tab="view" class="be-tab rounded px-2.5 py-1 font-medium text-slate-500">Кўриниши</button>
+    <span class="mx-1.5 h-4 w-px bg-slate-200"></span>
+    <button type="button" data-ins="## " title="Бўлим сарлавҳаси" class="be-ins rounded px-2 py-1 font-semibold hover:bg-white">Сарлавҳа</button>
+    <button type="button" data-ins="- " title="Рўйхат банди" class="be-ins rounded px-2 py-1 hover:bg-white">• Рўйхат</button>
+    <span class="ml-auto text-[11px] text-slate-400">Бўш қатор — янги хатбоши</span>
+  </div>
+  <textarea name="{{ name }}" rows="{{ rows|default:16 }}" placeholder="{{ ph|default:'' }}" {% if not can_act %}disabled{% endif %}
+            class="be-text block w-full resize-y border-0 px-4 py-3 text-[15px] leading-relaxed text-slate-900 focus:ring-0">{{ value|default:'' }}</textarea>
+  <div class="be-view prose-panel hidden min-h-[12rem] px-5 py-4 text-[15px] leading-relaxed text-slate-800"></div>
+</div>
+<style>
+  .prose-panel p + p, .prose-panel ul + p, .prose-panel p + ul { margin-top: .9em; }
+  .prose-panel h2 { margin: 1.3em 0 .4em; font-size: 1.15rem; font-weight: 600; }
+  .prose-panel ul { list-style: disc; padding-left: 1.3em; }
+</style>
+<script>
+  (function () {
+    var box = document.currentScript.previousElementSibling.previousElementSibling;
+    var ta = box.querySelector(".be-text"), view = box.querySelector(".be-view");
+    box.querySelectorAll(".be-ins").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var s = ta.selectionStart, start = ta.value.lastIndexOf("\n", s - 1) + 1, mark = b.dataset.ins;
+        if (ta.value.substr(start, mark.length) !== mark) {
+          ta.setRangeText(mark, start, start, "end");
+        }
+        ta.focus();
+      });
+    });
+    box.querySelectorAll(".be-tab").forEach(function (t) {
+      t.addEventListener("click", function () {
+        var write = t.dataset.tab === "write";
+        box.querySelectorAll(".be-tab").forEach(function (x) {
+          var on = x === t;
+          x.classList.toggle("bg-white", on); x.classList.toggle("shadow-sm", on); x.classList.toggle("text-slate-500", !on);
+        });
+        ta.classList.toggle("hidden", !write); view.classList.toggle("hidden", write);
+        if (write) return;
+        view.textContent = "…";
+        var fd = new FormData();
+        fd.append("body", ta.value);
+        fd.append("csrfmiddlewaretoken", box.closest("form").querySelector("[name=csrfmiddlewaretoken]").value);
+        fetch(box.dataset.preview, { method: "POST", body: fd, credentials: "same-origin" })
+          .then(function (r) { return r.text(); })
+          .then(function (html) { view.innerHTML = html || '<p class="text-slate-400">Матн бўш</p>'; });  // сервер экранлаган
+      });
+    });
+  })();
+</script>

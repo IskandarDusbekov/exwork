@@ -170,3 +170,26 @@ class SpeedPageTests(TestCase):
         from jobs.templatetags.narx import dur
         self.assertEqual([dur(None), dur(0.42), dur(9.96), dur(45), dur(200), dur(4000)],
                          ["—", "0,4 с", "10,0 с", "45 с", "3 дақ 20 с", "1 соат 6 дақ"])
+
+
+class PublicPagesTests(TestCase):
+    """Очиқ саҳифалар (landing, кириш, рўйхат): app.css юкланмайди — ранг ўзгарувчилари шу саҳифанинг ўзида бўлиши шарт
+    (2026-11: токенларга ўтказишда ``rgb(var(--ink-900))`` ёзилиб, логотип ва тугмалар рангсиз қолган эди)."""
+
+    def test_no_undefined_css_variables(self):
+        import re
+        for name in ("landing", "login", "register", "reset_request"):
+            html = self.client.get(reverse(name)).content.decode()
+            used = set(re.findall(r"var\(\s*(--[\w-]+)\s*[,)]", html))
+            defined = set(re.findall(r"(--[\w-]+)\s*:", html))
+            self.assertFalse(sorted(used - defined), f"{name}: аниқланмаган CSS ўзгарувчилари")
+
+    def test_head_requests_and_security_headers(self):
+        for name in ("index", "landing", "login"):
+            r = self.client.head(reverse(name))
+            self.assertIn(r.status_code, (200, 302), name)  # 405 эмас: қидирув роботи ва мониторинг HEAD юборади
+        r = self.client.get(reverse("landing"))
+        self.assertIn("camera=()", r.headers["Permissions-Policy"])
+        self.assertEqual(r.headers["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(r.headers["X-Frame-Options"], "DENY")
+        self.assertIn("frame-ancestors 'none'", r.headers["Content-Security-Policy"])

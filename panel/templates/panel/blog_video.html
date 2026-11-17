@@ -1,0 +1,59 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}{% if orig %}{{ video.title }}{% else %}Видео қўшиш{% endif %} — Блог — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<nav class="mb-2 text-sm text-slate-500"><a href="{% url 'panel:blog' %}?tab=videos" class="hover:underline">← Блог: видео дарслар</a></nav>
+<div class="mb-4 flex flex-wrap items-center gap-3">
+  <h1 class="text-2xl font-semibold">{% if orig %}Видеони таҳрирлаш{% else %}Видео қўшиш{% endif %}</h1>
+  {% if orig %}<a href="{% url 'blog_video' orig %}" target="_blank" rel="noopener" class="text-sm text-sky-700 hover:underline">Сайтда кўриш ↗</a>{% endif %}
+</div>
+{% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-700{% endif %}">{{ m }}</div>{% endfor %}
+
+<form method="post" action="{% if orig %}{% url 'panel:blog_video_edit' orig %}{% else %}{% url 'panel:blog_video_new' %}{% endif %}" class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">{% csrf_token %}
+  <div class="grid content-start gap-3">
+    <label class="grid gap-1 text-xs text-slate-500">YouTube ҳаволаси
+      <input name="url" id="v-url" value="{{ url }}" required placeholder="https://youtu.be/…  ёки  https://www.youtube.com/watch?v=…" {% if not can_act %}disabled{% endif %}
+             class="rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-900"></label>
+    <input name="title" value="{{ video.title }}" maxlength="120" required placeholder="Видео номи (масалан: Объект папкасини юклаш)" {% if not can_act %}disabled{% endif %}
+           class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-xl font-semibold text-slate-900 placeholder:text-slate-300">
+    <div>
+      <div class="mb-1 text-xs text-slate-500">Тавсиф — сайтда видео остида чиқади (нимани кўрсатади, қадамлар, маслаҳатлар). Қидирув тизимлари учун ҳам фойдали.</div>
+      {% include "panel/_blog_editor.html" with name="note" value=video.note rows=14 ph="Бу дарсда нима кўрсатилади, қандай қадамлар бор, нимага эътибор бериш керак…" %}
+    </div>
+  </div>
+
+  <aside class="grid content-start gap-3">
+    <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div class="relative aspect-video bg-slate-100" id="v-prev">
+        {% if video.id %}<img src="https://i.ytimg.com/vi/{{ video.id }}/hqdefault.jpg" alt="" class="h-full w-full object-cover">{% else %}
+        <div class="grid h-full place-items-center text-xs text-slate-400">Ҳаволани киритсангиз, расми шу ерда чиқади</div>{% endif %}
+      </div>
+      <div class="grid gap-3 p-4">
+        <label class="grid gap-1 text-xs text-slate-500">Бўлим (иловада шу саҳифадаги «▶ Видео» тугмасида ҳам чиқади)
+          <select name="page" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900">
+            {% for k, label in pages %}<option value="{{ k }}" {% if video.page == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select></label>
+        {% if can_act %}<button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">Сақлаш</button>{% endif %}
+      </div>
+    </div>
+    {% if orig and can_act %}<button form="v-del" class="justify-self-start px-1 text-xs text-rose-600 hover:underline">Видеони ўчириш</button>{% endif %}
+  </aside>
+</form>
+{% if orig and can_act %}
+<form id="v-del" method="post" action="{% url 'panel:blog_video_delete' orig %}" onsubmit="return confirm('Видео рўйхатдан ўчирилсинми? (YouTube’даги видео ўзгармайди)')">{% csrf_token %}</form>
+{% endif %}
+<script>
+  (function () {
+    var inp = document.getElementById("v-url"), box = document.getElementById("v-prev");
+    inp.addEventListener("input", function () {
+      var m = inp.value.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/);
+      if (!m) return;
+      var img = document.createElement("img");
+      img.src = "https://i.ytimg.com/vi/" + m[1] + "/hqdefault.jpg";
+      img.alt = ""; img.className = "h-full w-full object-cover";
+      box.replaceChildren(img);
+    });
+  })();
+</script>
+{% endblock %}

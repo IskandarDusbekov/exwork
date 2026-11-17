@@ -1,11 +1,15 @@
 from django.urls import path
 
-from . import views, views_ofyorta, views_tender
+from . import views, views_ofyorta, views_site, views_tender
 
 urlpatterns = [
     path("", views.index, name="index"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("about/", views.landing, name="landing"),
+    path("blog/", views_site.blog_index, name="blog"),
+    path("blog/video/<str:video_id>/", views_site.blog_video, name="blog_video"),
+    path("blog/c/<slug:slug>/", views_site.blog_category, name="blog_category"),
+    path("blog/<slug:slug>/", views_site.blog_post, name="blog_post"),
     path("help/", views.help_page, name="help"),
     path("calc/", views.calc_page, name="calc"),
     path("guide/seen/", views.guide_seen, name="guide_seen"),

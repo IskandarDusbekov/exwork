@@ -1,0 +1,23 @@
+{% extends "jobs/_public.html" %}
+{% load seo %}
+{% block seo %}{% url 'blog_post' post.slug as here %}{% seo_head title=post.title|add:" — mhisobot" canonical=here description=description %}{% endblock %}
+{% block css %}{% include "jobs/_blog_css.html" %}{% endblock %}
+{% block content %}
+<div class="wrap art">
+  <article class="art-main">
+    <nav class="crumbs" aria-label="Йўл"><a href="{% url 'index' %}">Бош саҳифа</a><span aria-hidden="true">/</span><a href="{% url 'blog' %}">Қўлланма</a><span aria-hidden="true">/</span>{% if post.category %}<a href="{% url 'blog_category' post.category.slug %}">{{ post.category.name }}</a>{% else %}<a href="{% url 'blog' %}#articles">Мақолалар</a>{% endif %}</nav>
+    <h1>{{ post.title }}</h1>
+    <p class="meta">{% if post.category %}{{ post.category.name }} · {% endif %}<time datetime="{{ post.created|date:'Y-m-d' }}">{{ post.created|date:"d.m.Y" }}</time>{% if post.updated|date:"Ymd" != post.created|date:"Ymd" %} · янгиланди {{ post.updated|date:"d.m.Y" }}{% endif %}</p>
+    <div class="prose">{{ body }}</div>
+  </article>
+  <aside class="side">
+    {% if more %}
+    <h2>Бошқа мақолалар</h2>
+    <div class="plist">
+      {% for p in more %}<a class="pitem" href="{% url 'blog_post' p.slug %}"><h3>{{ p.title }}</h3></a>{% endfor %}
+    </div>
+    {% endif %}
+    {% include "jobs/_blog_cta.html" %}
+  </aside>
+</div>
+{% endblock %}

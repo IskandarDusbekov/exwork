@@ -37,6 +37,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "panel.access.AccessLogMiddleware",  # кириш уринишлари (хотирада йиғиб, дақиқада бир ёзади) — энг биринчи
     "django.middleware.security.SecurityMiddleware",
+    "panel.middleware.SecurityHeadersMiddleware",  # Permissions-Policy ва бошқа ҳимоя сарлавҳалари
     "whitenoise.middleware.WhiteNoiseMiddleware",  # static файллар (CSS, admin) — nginx'сиз ҳам
     "panel.middleware.BlockedIPMiddleware",  # блокланган IP — ҳеч нарса очилмайди
     "django.contrib.sessions.middleware.SessionMiddleware",

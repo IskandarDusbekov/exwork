@@ -246,5 +246,6 @@ def videos(page=None) -> list:
     for v in conf.raw("videos", []) or []:
         if isinstance(v, dict) and v.get("id"):
             if page is None or v.get("page", "") == page:
-                out.append({"title": v.get("title", ""), "id": v["id"], "page": v.get("page", ""), "note": v.get("note", "")})
+                out.append({"title": v.get("title", ""), "id": v["id"], "page": v.get("page", ""), "note": v.get("note", ""),
+                            "added": v.get("added", "")})
     return out

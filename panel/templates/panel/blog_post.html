@@ -1,0 +1,46 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}{% if post.pk %}{{ post.title }}{% else %}Янги мақола{% endif %} — Блог — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<nav class="mb-2 text-sm text-slate-500"><a href="{% url 'panel:blog' %}?tab=posts" class="hover:underline">← Блог: мақолалар</a></nav>
+<div class="mb-4 flex flex-wrap items-center gap-3">
+  <h1 class="text-2xl font-semibold">{% if post.pk %}Мақолани таҳрирлаш{% else %}Янги мақола{% endif %}</h1>
+  {% if post.pk %}{% if post.published %}<span class="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">чоп этилган</span>
+  <a href="{% url 'blog_post' post.slug %}" target="_blank" rel="noopener" class="text-sm text-sky-700 hover:underline">Сайтда кўриш ↗</a>
+  {% else %}<span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">қоралама — сайтда кўринмайди</span>{% endif %}{% endif %}
+</div>
+{% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-700{% endif %}">{{ m }}</div>{% endfor %}
+
+<form method="post" action="{% if post.pk %}{% url 'panel:blog_post_edit' post.pk %}{% else %}{% url 'panel:blog_post_new' %}{% endif %}" class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">{% csrf_token %}
+  <div class="grid content-start gap-3">
+    <input name="title" value="{{ post.title }}" maxlength="160" required placeholder="Мақола сарлавҳаси" {% if not can_act %}disabled{% endif %}
+           class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-xl font-semibold text-slate-900 placeholder:text-slate-300">
+    {% include "panel/_blog_editor.html" with name="body" value=post.body rows=22 ph="Мақола матни. Бўш қатор — янги хатбоши, «## » — бўлим сарлавҳаси, «- » — рўйхат банди." %}
+  </div>
+
+  <aside class="grid content-start gap-3">
+    <div class="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <label class="flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="published" value="1" {% if post.published %}checked{% endif %} {% if not can_act %}disabled{% endif %}> Сайтда чоп этиш</label>
+      <label class="grid gap-1 text-xs text-slate-500">Бўлим
+        <select name="category" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900">
+          <option value="">— бўлимсиз —</option>
+          {% for c in cats %}<option value="{{ c.pk }}" {% if post.category_id == c.pk %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+        </select>
+        <a href="{% url 'panel:blog' %}?tab=cats" class="text-[11px] text-sky-700 hover:underline">бўлимлар рўйхати →</a></label>
+      <label class="grid gap-1 text-xs text-slate-500">Қисқа тавсиф <span class="text-[11px] text-slate-400">рўйхатда ва Google натижасида кўринади, 120–160 белги</span>
+        <textarea name="summary" rows="4" maxlength="300" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-900">{{ post.summary }}</textarea></label>
+      <label class="grid gap-1 text-xs text-slate-500">Манзил <span class="text-[11px] text-slate-400">бўш — сарлавҳадан ўзи</span>
+        <input name="slug" value="{{ post.slug }}" maxlength="90" pattern="[a-z0-9\-]*" placeholder="smeta-qanday-narxlanadi" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs text-slate-900"></label>
+      {% if can_act %}<button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">Сақлаш</button>{% endif %}
+    </div>
+    {% if post.pk %}<p class="px-1 text-xs text-slate-500">Ёзилган: <span class="num">{{ post.created|date:"d.m.Y H:i" }}</span>{% if post.author %} · {{ post.author.get_full_name }}{% endif %}<br>Янгиланди: <span class="num">{{ post.updated|date:"d.m.Y H:i" }}</span></p>{% endif %}
+    {% if post.pk and can_act %}
+    <button form="post-del" class="justify-self-start px-1 text-xs text-rose-600 hover:underline">Мақолани ўчириш</button>
+    {% endif %}
+  </aside>
+</form>
+{% if post.pk and can_act %}
+<form id="post-del" method="post" action="{% url 'panel:blog_post_delete' post.pk %}" onsubmit="return confirm('Мақола ўчирилсинми? Қайтариб бўлмайди.')">{% csrf_token %}</form>
+{% endif %}
+{% endblock %}

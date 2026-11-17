@@ -236,13 +236,6 @@ class PricingTests(TestCase):
         self.client.post(reverse("panel:narx_config"), {"enabled": "1"})
         self.assertTrue(Config.get().enabled)
 
-    def test_old_toggle_does_nothing(self):
-        from resbase.models import BaseConfig
-        admin = User.objects.create_superuser("admin@test.uz", PASSWORD, first_name="A", last_name="D")
-        self.client.force_login(admin)
-        self.client.post(reverse("panel:base_toggle"), {"enabled": "1"})
-        self.assertFalse(BaseConfig.get().enabled)
-
 
 # ===================== тузатиш, бирлаштириш, саватча =====================
 from .models import Alias, Log  # noqa: E402

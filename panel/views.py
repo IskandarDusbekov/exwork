@@ -399,8 +399,6 @@ def work(request, kind, work_id):
         ctx["has_result"] = w.status == Job.Status.DONE and bool(w.output_path)
         ctx["n_jobs"] = 1
     ctx["events"] = Event.objects.filter(work_id=w.pk).select_related("actor")[:30]
-    from .views_base import work_base_ctx
-    ctx.update(work_base_ctx(kind, w))
     return render(request, "panel/work.html", _ctx(request, "users", **ctx))
 
 

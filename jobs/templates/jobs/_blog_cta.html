@@ -1,0 +1,7 @@
+<div class="side-cta">
+  <b>mhisobot — муҳандис ҳисобот</b>
+  <p>Локал сметани ресурс нархлари билан бир неча сонияда нархланг: ҳар бир нарх изоҳли, тахминий нарх ёзилмайди.</p>
+  {% if user.is_authenticated %}<a class="btn btn-p" href="{% url 'index' %}">Смета юклаш</a>
+  {% else %}<a class="btn btn-p" href="{% if signup_open %}{% url 'register' %}{% else %}{% url 'login' %}{% endif %}">{% if signup_open %}Ҳисоб очиш{% else %}Тизимга кириш{% endif %}</a>{% endif %}
+  <a class="lnk" href="{% url 'landing' %}">Тизим ҳақида</a>
+</div>

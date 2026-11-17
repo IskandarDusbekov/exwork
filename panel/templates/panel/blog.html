@@ -1,0 +1,130 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Блог: мақола ва видео — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<div class="mb-4 flex flex-wrap items-end gap-3">
+  <div>
+    <h1 class="text-2xl font-semibold">Блог: мақола ва видео</h1>
+    <p class="max-w-3xl text-sm text-slate-500">Сайтдаги «Қўлланма» саҳифаси шу ердан тўлади. Ҳар бир мақола ва видео ўз манзилига эга ва sitemap.xml га ўзи қўшилади.
+      Видео иловадаги «▶ Видео» тугмасида ҳам чиқади (танланган саҳифада).</p>
+  </div>
+  <div class="ml-auto flex flex-wrap gap-2 text-sm">
+    <a href="{% url 'blog' %}" target="_blank" rel="noopener" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50">Сайтда кўриш ↗</a>
+    {% if can_act %}
+    <a href="{% url 'panel:blog_video_new' %}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 font-medium hover:bg-slate-50">{% icon "play" "h-4 w-4" %} Видео қўшиш</a>
+    <a href="{% url 'panel:blog_post_new' %}" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 font-medium text-white hover:bg-slate-800">{% icon "plus" "h-4 w-4" %} Мақола ёзиш</a>
+    {% endif %}
+  </div>
+</div>
+{% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-700{% endif %}">{{ m }}</div>{% endfor %}
+
+<div class="mb-4 grid grid-cols-3 gap-3 sm:max-w-xl">
+  <div class="rounded-xl border border-slate-200 bg-white px-4 py-3"><div class="text-xs text-slate-500">Мақолалар</div><div class="num text-xl font-semibold">{{ n_posts }} <span class="text-sm font-normal text-slate-400">· {{ n_pub }} чоп этилган</span></div></div>
+  <div class="rounded-xl border border-slate-200 bg-white px-4 py-3"><div class="text-xs text-slate-500">Видео дарслар</div><div class="num text-xl font-semibold">{{ n_vids }}</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white px-4 py-3"><div class="text-xs text-slate-500">Бўлимлар</div><div class="num text-xl font-semibold">{{ cats|length }}</div></div>
+</div>
+
+<nav class="mb-3 flex gap-1 border-b border-slate-200 text-sm">
+  {% for k, label in tabs %}
+  <a href="?tab={{ k }}" class="-mb-px border-b-2 px-3 py-2 font-medium {% if btab == k %}border-slate-900 text-slate-900{% else %}border-transparent text-slate-500 hover:text-slate-800{% endif %}">{{ label }}</a>
+  {% endfor %}
+</nav>
+
+{% if btab == "posts" %}
+<section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+  {% if cats %}
+  <div class="flex flex-wrap items-center gap-1.5 border-b border-slate-100 px-4 py-2.5 text-xs">
+    <span class="mr-1 text-slate-500">Бўлим:</span>
+    <a href="?tab=posts" class="rounded-full px-2.5 py-1 {% if not cat %}bg-slate-900 text-white{% else %}bg-slate-100 text-slate-700 hover:bg-slate-200{% endif %}">Ҳаммаси</a>
+    {% for x in cats %}<a href="?tab=posts&cat={{ x.c.pk }}" class="rounded-full px-2.5 py-1 {% if cat == x.c.pk|stringformat:'s' %}bg-slate-900 text-white{% else %}bg-slate-100 text-slate-700 hover:bg-slate-200{% endif %}">{{ x.c.name }} <span class="num opacity-60">{{ x.n }}</span></a>{% endfor %}
+    <a href="?tab=posts&cat=none" class="rounded-full px-2.5 py-1 {% if cat == 'none' %}bg-slate-900 text-white{% else %}bg-slate-100 text-slate-700 hover:bg-slate-200{% endif %}">Бўлимсиз</a>
+  </div>
+  {% endif %}
+  {% if posts %}
+  <table class="w-full text-sm">
+    <thead class="text-left text-xs text-slate-500"><tr class="border-b border-slate-100"><th class="px-4 py-2 font-medium">Сарлавҳа</th><th class="px-2 py-2 font-medium">Бўлим</th><th class="px-2 py-2 font-medium">Ҳолат</th><th class="px-2 py-2 font-medium">Янгиланди</th><th class="px-4 py-2"></th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for p in posts %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-4 py-2.5"><a href="{% url 'panel:blog_post_edit' p.pk %}" class="font-medium hover:underline">{{ p.title }}</a>{% if p.summary %}<div class="max-w-xl truncate text-xs text-slate-500">{{ p.summary }}</div>{% endif %}</td>
+        <td class="px-2 py-2.5 text-slate-600">{{ p.category.name|default:"—" }}</td>
+        <td class="px-2 py-2.5">{% if p.published %}<span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">чоп этилган</span>{% else %}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">қоралама</span>{% endif %}</td>
+        <td class="num px-2 py-2.5 text-xs text-slate-500">{{ p.updated|date:"d.m.Y H:i" }}</td>
+        <td class="whitespace-nowrap px-4 py-2.5 text-right text-xs">
+          {% if p.published %}<a href="{% url 'blog_post' p.slug %}" target="_blank" rel="noopener" class="text-slate-500 hover:underline">сайтда ↗</a>{% endif %}
+          <a href="{% url 'panel:blog_post_edit' p.pk %}" class="ml-3 font-medium text-sky-700 hover:underline">таҳрирлаш</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="px-4 py-10 text-center text-sm text-slate-500">Мақола йўқ.{% if can_act %} <a href="{% url 'panel:blog_post_new' %}" class="font-medium text-sky-700 hover:underline">Биринчисини ёзинг →</a>{% endif %}</div>
+  {% endif %}
+</section>
+
+{% elif btab == "videos" %}
+<section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+  {% if vids %}
+  <ul class="divide-y divide-slate-100">
+    {% for v in vids %}
+    <li class="flex items-center gap-4 px-4 py-3">
+      <a href="{% url 'panel:blog_video_edit' v.id %}" class="block aspect-video w-36 shrink-0 overflow-hidden rounded-md bg-slate-100"><img src="https://i.ytimg.com/vi/{{ v.id }}/mqdefault.jpg" alt="" class="h-full w-full object-cover" loading="lazy"></a>
+      <div class="min-w-0 flex-1">
+        <a href="{% url 'panel:blog_video_edit' v.id %}" class="font-medium hover:underline">{{ v.title }}</a>
+        <div class="mt-0.5 text-xs text-slate-500">{{ v.section }}{% if v.added %} · <span class="num">{{ v.added }}</span>{% endif %}{% if v.note %} · тавсиф бор{% else %} · <span class="text-amber-700">тавсиф йўқ</span>{% endif %}</div>
+      </div>
+      <div class="flex shrink-0 items-center gap-1 text-xs">
+        {% if can_act %}
+        <form method="post" action="{% url 'panel:blog_video_move' v.id 'up' %}">{% csrf_token %}<button class="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50" title="Юқорига" {% if forloop.first %}disabled{% endif %}>↑</button></form>
+        <form method="post" action="{% url 'panel:blog_video_move' v.id 'down' %}">{% csrf_token %}<button class="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50" title="Пастга" {% if forloop.last %}disabled{% endif %}>↓</button></form>
+        {% endif %}
+        <a href="{% url 'blog_video' v.id %}" target="_blank" rel="noopener" class="ml-2 text-slate-500 hover:underline">сайтда ↗</a>
+        <a href="{% url 'panel:blog_video_edit' v.id %}" class="ml-3 font-medium text-sky-700 hover:underline">таҳрирлаш</a>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="px-4 py-10 text-center text-sm text-slate-500">Видео йўқ.{% if can_act %} <a href="{% url 'panel:blog_video_new' %}" class="font-medium text-sky-700 hover:underline">YouTube ҳаволасини қўшинг →</a>{% endif %}</div>
+  {% endif %}
+</section>
+
+{% else %}
+<section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+  <div class="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Мақола бўлимлари</h2>
+      <p class="text-xs text-slate-500">Сайтда мақолалар шу бўлимлар бўйича гуруҳланади; ҳар бўлимнинг ўз саҳифаси бор (/blog/c/…/). Бўлим ўчирилса, мақолалари ўчмайди.</p></div>
+    {% if cats %}
+    <ul class="divide-y divide-slate-100">
+      {% for x in cats %}
+      <li class="px-4 py-2.5">
+        {% if can_act %}
+        <form method="post" action="{% url 'panel:blog_cat_save' %}" class="flex flex-wrap items-center gap-2">{% csrf_token %}
+          <input type="hidden" name="id" value="{{ x.c.pk }}">
+          <input name="order" value="{{ x.c.order }}" inputmode="numeric" title="Тартиб рақами" class="num w-14 rounded-lg border border-slate-200 px-2 py-1 text-sm">
+          <input name="name" value="{{ x.c.name }}" maxlength="80" required class="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-1 text-sm">
+          <input name="slug" value="{{ x.c.slug }}" maxlength="90" pattern="[a-z0-9\-]*" class="w-44 rounded-lg border border-slate-200 px-2 py-1 font-mono text-xs">
+          <span class="num w-20 text-xs text-slate-500">{{ x.n }} мақола</span>
+          <button class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs hover:bg-slate-50">Сақлаш</button>
+          <button form="del-{{ x.c.pk }}" class="text-xs text-rose-600 hover:underline">ўчириш</button>
+        </form>
+        <form id="del-{{ x.c.pk }}" method="post" action="{% url 'panel:blog_cat_delete' x.c.pk %}" onsubmit="return confirm('«{{ x.c.name|escapejs }}» бўлими ўчирилсинми? Мақолалари қолади.')">{% csrf_token %}</form>
+        {% else %}<div class="flex items-center gap-2 text-sm"><b>{{ x.c.name }}</b><span class="text-xs text-slate-500">/blog/c/{{ x.c.slug }}/ · {{ x.n }} мақола</span></div>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="px-4 py-8 text-center text-sm text-slate-500">Ҳали бўлим йўқ.</p>{% endif %}
+  </div>
+  {% if can_act %}
+  <form method="post" action="{% url 'panel:blog_cat_save' %}" class="grid content-start gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">{% csrf_token %}
+    <h2 class="font-semibold">Янги бўлим</h2>
+    <label class="grid gap-1 text-xs text-slate-500">Номи<input name="name" maxlength="80" required placeholder="Масалан: Смета нархлаш" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-900"></label>
+    <label class="grid gap-1 text-xs text-slate-500">Манзил (бўш — номидан ўзи)<input name="slug" maxlength="90" pattern="[a-z0-9\-]*" placeholder="smeta-narxlash" class="rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs text-slate-900"></label>
+    <button class="mt-1 rounded-lg bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-800">Бўлим қўшиш</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -2,10 +2,14 @@
    Tailwind (app.css) бу саҳифаларда юкланмайди — ҳаммаси шу ерда. {% endcomment %}
 <style>
   :root {
-    --paper: rgb(var(--ink-50)); --ink: rgb(var(--ink-900)); --ink-2: rgb(var(--ink-700)); --mute: rgb(var(--ink-500));
-    --line: rgb(var(--ink-200)); --line-2: rgb(var(--ink-300)); --grid: rgba(13, 21, 34, .055);
-    --acc: rgb(var(--ok-700)); --acc-ink: rgb(var(--ok-900)); --acc-soft: rgb(var(--ink-200));
-    --bad: #b42318; --bad-soft: rgb(var(--bad-100)); --warn: #9a5b00; --warn-soft: #fdf2dc;
+    /* Бу саҳифаларда app.css (tokens.css) юкланмайди — ранглар шу ерда тўлиқ ёзилади: rgb(var(--ink-…)) ИШЛАМАЙДИ.
+       frontend/tokens.py convert'га бу файлни берманг. */
+    --paper: #fbfcfc; --ink: #0d1522; --ink-2: #3a4555; --mute: #6b7686;
+    --line: #dfe3e8; --line-2: #c8cfd8; --grid: rgba(13, 21, 34, .055);
+    --acc: #0c7a4c; --acc-ink: #0a5b39; --acc-soft: #e4f3eb;
+    --bad: #b42318; --bad-soft: #fdecea; --warn: #9a5b00; --warn-soft: #fdf2dc;
+    /* умумий бўлаклар (_logo.html, _build_scene.html) токен номи билан ёзилган — уларга керагининг ўзи */
+    --ink-200: 226 232 240; --ink-900: 15 23 42; --ok-400: 52 211 153;
     --ff: "Onest", "Segoe UI", system-ui, -apple-system, sans-serif;
     --fm: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
     --gut: clamp(16px, 4vw, 64px);
@@ -34,13 +38,13 @@
   .btn svg { width: 16px; height: 16px; transition: transform .15s; }
   .btn:hover svg { transform: translateX(3px); }
   .btn-p { background: var(--ink); color: #fff; }
-  .btn-p:hover { background: rgb(var(--ink-800)); }
+  .btn-p:hover { background: #1f2b3d; }
   .lnk { font-weight: 600; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px; }
   .lnk:hover { color: var(--acc); }
 
   /* бренд: белги + ном + домен */
   .brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
-  .brand-mark { display: grid; place-items: center; width: 40px; height: 40px; flex: none; background: var(--ink); color: rgb(var(--ok-400)); border-radius: 3px; }
+  .brand-mark { display: grid; place-items: center; width: 40px; height: 40px; flex: none; background: var(--ink); color: #34d399; border-radius: 3px; }
   .brand-mark svg { width: 30px; height: 30px; }
   .brand-t { display: grid; gap: 4px; line-height: 1; }
   .brand-t b { font: 700 16.5px/1 var(--ff); letter-spacing: -.01em; white-space: nowrap; }
@@ -50,14 +54,23 @@
   .site-h { position: sticky; top: 0; z-index: 1000; background: rgba(251, 252, 252, .92); border-bottom: 1px solid var(--line);
             -webkit-backdrop-filter: saturate(1.4) blur(10px); backdrop-filter: saturate(1.4) blur(10px); }
   .site-h-in { display: flex; align-items: center; gap: 24px; height: 72px; }
-  .site-nav { display: none; gap: 28px; margin-left: 24px; font-size: 14.5px; font-weight: 500; color: var(--ink-2); }
-  .site-nav a { text-decoration: none; padding: 6px 0; border-bottom: 1px solid transparent; }
-  .site-nav a:hover { color: var(--ink); border-bottom-color: var(--ink); }
-  @media (min-width: 960px) { .site-nav { display: flex; } }
+  .site-nav { display: none; gap: clamp(16px, 2vw, 28px); margin-left: clamp(8px, 2vw, 24px); font-size: 14.5px; font-weight: 500; color: var(--ink-2); }
+  .site-nav a { text-decoration: none; padding: 6px 0; border-bottom: 1px solid transparent; white-space: nowrap; }
+  .site-nav a:hover, .site-nav a[aria-current] { color: var(--ink); border-bottom-color: var(--ink); }
+  @media (min-width: 1040px) { .site-nav { display: flex; } }
   .site-act { margin-left: auto; display: flex; align-items: center; gap: 8px 20px; }
   .site-act .btn { height: 40px; padding: 0 16px; font-size: 14px; white-space: nowrap; }
   .site-act .plain { font-size: 14.5px; font-weight: 600; text-decoration: none; }
   .site-act .plain:hover { color: var(--acc); }
+  .m-nav { position: relative; }
+  .m-nav summary { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--line-2); list-style: none; cursor: var(--cur-hand, pointer); }
+  .m-nav summary::-webkit-details-marker { display: none; }
+  .m-nav summary svg { width: 20px; height: 20px; }
+  .m-nav[open] summary { border-color: var(--ink); }
+  .m-nav nav { position: absolute; right: 0; top: calc(100% + 10px); z-index: 1001; display: grid; min-width: 230px; padding: 6px 0; background: #fff; border: 1px solid var(--ink); box-shadow: 0 18px 40px -20px rgba(13, 21, 34, .35); }
+  .m-nav nav a { padding: 11px 18px; text-decoration: none; font-size: 15px; font-weight: 500; }
+  .m-nav nav a:hover { background: var(--acc-soft); }
+  @media (min-width: 1040px) { .m-nav { display: none; } }
   @media (max-width: 520px) { .brand-t span { display: none; } .site-act .hide-s { display: none; } }
 
   /* штамп — чизма варағининг пастки ўнг бурчагидаги жадвал каби */

@@ -50,13 +50,15 @@ class HelpTextsTests(TestCase):
         self.assertEqual(youtube_id("https://youtu.be/dQw4w9WgXcQ"), "dQw4w9WgXcQ")
         self.assertEqual(youtube_id("https://example.com/video.mp4"), "")
         self.client.force_login(self.boss)
-        url = reverse("panel:videos_save")
-        bad = self.client.post(url, {"v_title": ["Хато"], "v_url": ["https://example.com/a"], "v_page": [""], "v_note": [""]}, follow=True)
+        url = reverse("panel:blog_video_new")
+        bad = self.client.post(url, {"title": "Хато", "url": "https://example.com/a"})
         self.assertContains(bad, "YouTube ҳаволаси эмас")
         self.assertEqual(videos(), [])
-        self.client.post(url, {"v_title": ["Юклаш", ""], "v_url": ["https://youtu.be/dQw4w9WgXcQ", ""],
-                               "v_page": ["upload", ""], "v_note": ["<b>қисқа</b>", ""]})
-        self.assertEqual(videos(), [{"title": "Юклаш", "id": "dQw4w9WgXcQ", "page": "upload", "note": "<b>қисқа</b>"}])
+        self.client.post(url, {"title": "Юклаш", "url": "https://youtu.be/dQw4w9WgXcQ", "page": "upload", "note": "<b>қисқа</b>"})
+        from django.utils import timezone
+        today = timezone.localdate().isoformat()  # блог ва қидирув тизими учун: қачон қўшилган
+        self.assertEqual(videos(), [{"title": "Юклаш", "id": "dQw4w9WgXcQ", "page": "upload", "note": "<b>қисқа</b>",
+                                     "added": today}])
         self.client.force_login(self.ali)
         page = self.client.get(reverse("help"))
         self.assertContains(page, 'data-yt="dQw4w9WgXcQ"')
