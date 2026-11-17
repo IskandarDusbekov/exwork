@@ -20,7 +20,7 @@ import xml.etree.ElementTree as ET
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
@@ -34,10 +34,12 @@ from .classify import (
 )
 from .columns import LayoutError, detect_local_columns, num as as_number, prepare_local
 from .detect import _is_numbering_row, cell_value, detect_layout, override_layout
+from .xlfast import lean_load
 from .log_sheet import LOG_TITLE, log_row, write_log
 from .matcher import AMBIGUOUS, EXACT, FUZZY, NOT_FOUND, Match, ResourceIndex
 from .normalize import name_unit_key, norm_cipher, norm_code, norm_name, norm_unit, unit_key
 from .tender import tender_prices
+from .baselookup import BaseLookup
 from .svodka import (
     DEFAULT_PERCENTS, XlError, make_evaluator, parse_text_number, resolve_percents, write_svodka,
 )
@@ -94,11 +96,20 @@ class Options:
     # smart: ресурс базаси {kod: {"price", "n", "unit_key", "category"}} — RES narxlay olmagan qatorlar kod bo'yicha
     base_prices: Optional[Dict[str, dict]] = None
     base_label: str = ""  # «Тошкент ш. · 2026-4» — LOG izohi uchun
+    # smart: базадан қидириш (core.baselookup): тиниш белгиларисиз мослик — нарх ёзилади; ўхшаш ном (0..1, 0 —
+    # ўчиқ) — фақат «яқин ресурс» таклифи. Панел «Созламалар» → «Ресурс базаси»
+    base_loose: bool = True
+    base_near_min: float = 0.0
     # smart: ускуна ва кабель базаси (core.lmbase.LMBase) — L/M таклифи учун (RES бўлими бўлмаганда)
     lm_base: Optional[object] = None
     # moslashtirish natijalari fayli (JSON): qayta hisoblashda RES bilan solishtirish takrorlanmaydi. Natija
     # o'zgarmaydi — RES mazmuni yoki moslashtirish kodi o'zgarsa, saqlangani ishlatilmaydi (matcher.fingerprint)
     match_cache: Optional[Path] = None
+    # жараён: ``progress(босқич, бажарилди, жами)`` — саҳифада «12 400 / 20 855 қатор» (чақирувчи сийраклаштиради)
+    progress: Optional[Callable[[str, int, int], None]] = None
+
+
+READING, PRICING, WRITING, SAVING = "read", "price", "write", "save"
 
 
 @dataclass
@@ -127,6 +138,9 @@ class Result:
     cleared: List[int] = field(default_factory=list)  # smart: «ТОПИЛМАДИ» olib tashlangan qatorlar
     marked: List[int] = field(default_factory=list)  # smart: ulardan sariq belgilanganlari
     checks: List[dict] = field(default_factory=list)  # narxlashdan keyingi tekshiruv: {"row", "problem"} — bo'sh bo'lishi kerak
+    # smart: natija faylini qayta narxlamasdan yamash uchun (``core.patch``): biz yozgan kataklar, formulalar o'qigan
+    # asl qiymatlar, svodka manzillari … Narx o'zgarsa, formulalar shu bilan qayta hisoblanadi
+    calc_kit: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -255,6 +269,8 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     smart = opts.mode == "smart"
     warnings: List[str] = []
     columns: Dict[str, str] = {}
+    progress = opts.progress or (lambda *_a: None)
+    progress(READING, 0, 0)
 
     # --- resurs indeksi (RES yo'q — bo'sh: hamma qator ресурс базасидан yoki qo'lda) ---
     wb_res = load_workbook(res_xlsx, data_only=True, keep_links=False) if res_xlsx else None
@@ -300,7 +316,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     sheet_titles = list(wb.sheetnames)
     # Excel ko'rsatgan qiymatlar: lokal ustunlari shular bo'yicha aniqlanadi, miqdorlar E/F ga keltiriladi
     # (o'qilgan sarlavha boshqacha yozilgan yoki yo'q bo'lsa ham); keyin svodka hisobi ham shu varaqdan
-    wb_vals = load_workbook(local_xlsx, data_only=True, keep_links=False)
+    wb_vals = lean_load(local_xlsx, data_only=True, keep_links=False)  # фақат қийматлар (чегарасиз — тез)
     ws_vals = wb_vals[ws.title]
     local_cols = detect_local_columns(ws_vals, opts.local_columns if smart else None)
     # тендер таҳлили учун сметанинг ўз нархлари — prepare_local G/H ни тозалашидан олдин
@@ -316,7 +332,9 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         priced, ln, lu = _price_smart(ws, index, threshold, opts.ambiguity_delta, warnings, opts.prices, to_clear,
                                       auto_clear=opts.auto_clear,
                                       layout=local_cols.as_layout() if local_cols else None,
-                                      base=opts.base_prices, base_label=opts.base_label)
+                                      base=opts.base_prices, base_label=opts.base_label,
+                                      base_loose=opts.base_loose, base_near_min=opts.base_near_min,
+                                      progress=progress)
     else:
         ln, lu = LOCAL_NAME_COL, LOCAL_NAME_COL + 1
         priced = _price_compat(ws, index, threshold, opts.ambiguity_delta)
@@ -330,10 +348,12 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         # «ОБОРУДОВАНИЕ» da bo'lsa — M, «…МАТЕРИАЛЬНЫЕ/МАТЕРИАЛЫ…» — K, «…МАШИНЫ…» — J,
         # «ТРУДОВЫЕ…» — I, «КАБЕЛ…» — L. Birlik bo'yicha taxmin faqat bo'lim topilmaganda ishlaydi.
         # Ish sarlavhasi va mashinist mehnati (status WORK_HEADER/MACHINIST) 0 bo'lib qoladi.
-        # L/M (kabel, uskuna) o'zi qo'yilmaydi — faqat taklif: smetachi tasdiqlab o'tkazadi.
+        # RES bo'limidagi L/M (kabel, uskuna) o'zi qo'yilmaydi — faqat taklif: smetachi tasdiqlab o'tkazadi.
+        # Ресурс базасидан нархланган қатор эса базадаги турида (L/M ни админ базада бирма-бир ўзи белгилайди) —
+        # дарҳол шу устунга, тасдиқ кутмайди.
         for r, section in priced.sections.items():
             if (start_r <= r <= end_r and priced.status.get(r) not in (WORK_HEADER, MACHINIST)
-                    and section[0] not in (CABLE, EQUIPMENT)):
+                    and (section[0] not in (CABLE, EQUIPMENT) or section[1] == BASE_SECTION)):
                 default_kinds[r] = section[0]
     kinds = dict(default_kinds)
     applied_categories: Dict[int, str] = {}
@@ -350,12 +370,25 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
                 applied_categories[r] = col
         category_hints = _category_hints(ws, priced, default_kinds, ln, opts.lm_base)
 
+    # L…Q (va qo'shilgan) ustunlarda lokalning o'z yozuvi bor kataklar — Excel'ni yamashda ularga tegilmaydi
+    lm_orig = []
+    if smart:
+        lm_cols = [column_index_from_string(c) for c in SUM_COLS[4:]] + [column_index_from_string(c) for c, _n in extra_columns]
+        for r in range(start_r, end_r + 1):
+            for c in lm_cols:
+                cell = ws._cells.get((r, c))
+                if cell is not None and cell.value is not None:
+                    lm_orig.append(f"{get_column_letter(c)}{r}")
+
     # --- yozish ---
+    progress(WRITING, 0, 0)
     w = SheetWriter(ws)
     if smart:
         w.num_fmt = SMART_NUM_FMT
     write_priced_rows(w, start_r, end_r, priced.g, kinds, safe_amount_formula if smart else amount_formula,
-                      skip={r for r, st in priced.status.items() if st == CLEARED}, keep=getattr(priced, "repeats", ()))
+                      skip={r for r, st in priced.status.items() if st == CLEARED}, keep=getattr(priced, "repeats", ()),
+                      progress=lambda done, total: progress(WRITING, done, total))
+    progress(WRITING, 0, 0)  # ramka tayyor — qolgani (LOG, svodka) sonsiz: «20 000 / 20 855» da qotib turmasin
     sum_row = end_r + 1
     write_sum_row(w, sum_row, start_r, end_r, extra=[c for c, _n in extra_columns])
     # compat: svodka darhol sum qatoridan keyin (pastki «СОСТАВИЛ» ustiga tushishi mumkin);
@@ -422,7 +455,14 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         wb.active = target
 
     # --- svodka summalari (Excel saqlagan qiymatlar + biz yozgan formulalar) ---
-    ev = make_evaluator(w.written, lambda a: ws_vals[a].value)
+    looked: Dict[str, object] = {}  # formulalar o'qigan asl qiymatlar (E/F miqdorlar …) — ``calc_kit`` uchun
+
+    def lookup(addr):
+        v = ws_vals[addr].value
+        looked[addr] = v
+        return v
+
+    ev = make_evaluator(w.written, lookup)
     totals = {key: ev.value(addr) for key, addr in svodka_cells.items()}
 
     # Sahifada ko'rsatish uchun: har bir qator Excel'da qanday chiqishi
@@ -481,7 +521,8 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         for col in SUM_COLS + [c for c, _n in extra_columns if c not in SUM_COLS]:
             shown[f"{col}{sum_row}"] = ev.value(f"{col}{sum_row}")
         shown.update({addr: totals[key] for key, addr in svodka_cells.items()})
-        widened = fit_number_columns(ws, shown)
+        ratios: Dict[str, float] = {}
+        widened = fit_number_columns(ws, shown, ratios=ratios)
         if widened:
             columns["widened"] = ", ".join(widened)
 
@@ -492,6 +533,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         _hide_rows_below(ws, _last_content_row(ws) + EMPTY_ROWS_AFTER)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    progress(SAVING, 0, 0)
     wb.save(out_path)
     wb.close()
     restore_header_footer(local_xlsx, out_path, sheet_titles)
@@ -518,6 +560,41 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
                 "picked_name": row[5], "score": row[6], "written": final, "note": note,
                 "suggested_price": priced.suggestions.get(r),
             })
+    base_warnings = list(warnings)  # ``calc_kit``: hisobot qayta tuziladigan asos
+    warnings, checks = final_report(warnings, stats, problems, rows, totals, checks, smart)
+
+    calc_kit = {}
+    if smart:
+        calc_kit = {
+            "version": KIT_VERSION, "sheet": ws.title, "start": start_r, "end": end_r, "sum_row": sum_row,
+            "ln": ln, "lu": lu, "written": dict(w.written), "looked": looked, "cached": cached,
+            "svodka": svodka_cells, "ratios": ratios, "log_title": opts.log_title or LOG_TITLE,
+            "log_rows": {row[0]: i for i, row in enumerate(priced.log_rows, start=2)},
+            "base_warnings": base_warnings, "base": priced.base_state, "repeats": sorted(getattr(priced, "repeats", ())),
+            "kinds0": {r: k for r, k in default_kinds.items()}, "hints": category_hints, "lm_orig": lm_orig,
+            "extra": [list(c) for c in extra_columns], "skip0": sorted(r for r, st in priced.status.items() if st == CLEARED),
+        }
+
+    return Result(
+        output_path=out_path, stats=dict(stats), problems=problems, totals=totals, checks=checks[:200],
+        local_sheet=ws.title, start_row=start_r, end_row=end_r, sum_row=sum_row,
+        svodka_start=svodka_start, log=priced.log_rows, rows=rows, mode=opts.mode,
+        warnings=warnings, columns=columns, percents=percents, categories=applied_categories,
+        cached_values={ws.title: cached},
+        res_sections=[{"kind": k, "column": KIND_COLUMN[k], "title": t} for k, t in index.section_list] if smart else [],
+        extra_columns=extra_columns, tail_removed=tail_removed,
+        prices={r: priced.g[r] for r, st in priced.status.items() if st == MANUAL},
+        cleared=sorted(priced.cleared),
+        marked=sorted(marked) if smart else [],
+        calc_kit=calc_kit,
+    )
+
+
+def final_report(warnings: List[str], stats: Dict[str, int], problems: List[dict], rows: List[dict],
+                 totals: Dict[str, object], checks: List[dict], smart: bool = True) -> Tuple[List[str], List[dict]]:
+    """Narxlash oxiridagi hisobot: narxlanmaganlar soni, nol narx / nol summa tekshiruvi va ogohlantirishlar.
+    Excel'ga to'g'ridan-to'g'ri yozishda (``core.patch``) ham shu — natija to'liq hisobdagidek bo'lsin."""
+    warnings, checks = list(warnings), list(checks)
     stats["NON_NUMERIC"] = len(problems)
     if smart:
         stats["NOT_PRICED"] = len(problems)
@@ -535,21 +612,34 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     if checks:
         warnings.insert(0, f"Текширувдан ўтмади: {len(checks)} та муаммо — натижага ишониб бўлмайди, «Текширув» рўйхатини кўринг")
 
-    return Result(
-        output_path=out_path, stats=dict(stats), problems=problems, totals=totals, checks=checks[:200],
-        local_sheet=ws.title, start_row=start_r, end_row=end_r, sum_row=sum_row,
-        svodka_start=svodka_start, log=priced.log_rows, rows=rows, mode=opts.mode,
-        warnings=warnings, columns=columns, percents=percents, categories=applied_categories,
-        cached_values={ws.title: cached},
-        res_sections=[{"kind": k, "column": KIND_COLUMN[k], "title": t} for k, t in index.section_list] if smart else [],
-        extra_columns=extra_columns, tail_removed=tail_removed,
-        prices={r: priced.g[r] for r, st in priced.status.items() if st == MANUAL},
-        cleared=sorted(priced.cleared),
-        marked=sorted(marked) if smart else [],
-    )
+    return warnings, checks
 
 
-BASE_SECTION = "ресурс базаси"  # нарх ресурс базасидан — бўлими (I/J/K) ускуна/кабель ҳақида гапирмайди
+def row_outcome(value, st: str, note: str, orig: Optional[str], real_unit: bool, clear: bool,
+                manual: Optional[float], suggestion):
+    """Smetachi qarori qatorga: «ТОПИЛМАДИ» olib tashlangan (``clear``) — birligi borida G bo'sh (Excel'da qizil
+    qoladi, narx kutadi), birligi yo'g'ida G va H bo'sh; qo'lda narx (``manual``) — har doim ustun.
+    ``(qiymat, status, izoh, asl status, tozalandimi)``. To'liq narxlash ham, Excel'ni yamash ham shu bilan."""
+    applied = False
+    if clear and st in UNPRICED_STATUSES:
+        applied = True
+        if real_unit:
+            value, note = None, f"«{value}» олиб ташланди — нарх киритинг" + (f"; {note}" if note else "")
+        else:
+            st, value, note = CLEARED, None, "бирлиги йўқ — тозаланди"
+    if manual is not None:
+        # Smetachi narxni o'zi kiritgan yoki taklifni tasdiqlagan
+        accepted = suggestion is not None and _as_price(suggestion) == manual
+        orig = st
+        st, value = MANUAL, manual
+        note = ("таклиф тасдиқланди" if accepted else "нарх қўлда киритилди") + (f" (асли: {note})" if note else "")
+    return value, st, note, orig, applied
+
+
+KIT_VERSION = 2  # ``calc_kit`` tuzilmasi o'zgarsa oshiriladi (eski to'plam bilan yamalmaydi — to'liq hisob)
+
+
+BASE_SECTION = "ресурс базаси"  # нарх ресурс базасидан — тури базадагидек (L/M ҳам), таклиф эмас
 
 
 def _category_hints(ws, priced: "_Priced", default_kinds: Dict[int, str], ln: int, lm_base=None) -> Dict[int, tuple]:
@@ -892,7 +982,8 @@ def _by_code(index: ResourceIndex, ws, r: int, ln: int, local_unit: str, real_un
 
 def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warnings: List[str],
                  prices: Optional[Dict[int, float]] = None, cleared=None, layout=None,
-                 base: Optional[Dict[str, dict]] = None, base_label: str = "", auto_clear: bool = False):
+                 base: Optional[Dict[str, dict]] = None, base_label: str = "", auto_clear: bool = False,
+                 base_loose: bool = True, base_near_min: float = 0.0, progress=None):
     """``base`` — ресурс базаси narxlari (kod bo'yicha): RES aniq narxlay olmagan qator (topilmadi, o'xshash,
     birlik boshqa, narxsiz) kodi va birligi mos kelsa, shu narx bilan BASE bo'ladi; qo'lda narx baribir ustun.
     ``cleared`` — smetachi «ТОПИЛМАДИ» so'zini olib tashlagan qatorlar: birligi borida G bo'sh
@@ -928,6 +1019,7 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
     to_clear = {int(r) for r in (cleared or [])}
     near: Dict[int, dict] = {}
     applied_clear = set()
+    base_state: Dict[int, list] = {}  # tozalash / qo'lda narxdan oldingi holat (``calc_kit``)
     manual_prices = {int(r): float(v) for r, v in (prices or {}).items()}
     for r, v in manual_prices.items():
         if v < 0:
@@ -967,13 +1059,18 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
                 for r, v in zip(rows_, split):
                     variant_pick[r] = targets[v][0]
 
+    lookup = BaseLookup(base) if base else None
     repeats = set()
+    max_col = ws.max_column  # бир марта (``_is_numbering_row`` ҳар қаторда сўрамасин)
+    total = max(0, stop - start)
     for r in range(start, stop):
+        if progress and (r - start) % 250 == 0:
+            progress(PRICING, r - start, total)
         name_raw, unit_raw = _peek(ws, r, ln), _peek(ws, r, lu)
         local_name = norm_name(name_raw)
         if not local_name:
             continue
-        if head_sig and r != head and ((local_name, norm_unit(unit_raw)) == head_sig or _is_numbering_row(ws, r)):
+        if head_sig and r != head and ((local_name, norm_unit(unit_raw)) == head_sig or _is_numbering_row(ws, r, max_col)):
             repeats.add(r)
             continue
         named.append(r)
@@ -1059,14 +1156,19 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
 
         # RES narxlay olmadi — ресурс базасидан, kod va birlik mos kelsa (taklif emas, narx yoziladi)
         # (эски база — миллий код бўйича; янги нарх базаси — номи + бирлиги бўйича)
-        entry = None
-        if base and st in UNPRICED_STATUSES and real_unit:
-            entry = (base.get(norm_code(_peek(ws, r, 2))) if ln > 2 else None) or base.get(name_unit_key(name_raw, unit_raw))
+        entry, loose_note = None, ""
+        if lookup and st in UNPRICED_STATUSES and real_unit:
+            entry = lookup.exact(_peek(ws, r, 2) if ln > 2 else None, name_raw, unit_raw)
+            if entry is None and base_loose:
+                # «КОЛЕНО/ОТВОД 90°/» = «КОЛЕНО(ОТВОД 90°)»: фақат тиниш белгилари бошқа — базада битта бўлса
+                entry, loose_note = lookup.loose(name_raw, unit_raw)
+                if entry is None and loose_note:
+                    note = f"{note}; {loose_note}" if note else loose_note
         if entry and entry["unit_key"] == unit_key(unit_raw):
             orig_status[r] = st
             st, value, suggestion = BASE, entry["price"], None
             note = (f"база: {base_label}, {entry.get('note') or str(entry['n']) + ' та смета медианаси'}"
-                    + (f" (RES: {note})" if note else ""))
+                    + (f"; {loose_note}" if loose_note else "") + (f" (RES: {note})" if note else ""))
             if entry.get("category") in COLUMN_KIND:
                 sections[r] = (COLUMN_KIND[entry["category"]], "ресурс базаси")
             near.pop(r, None)
@@ -1112,25 +1214,29 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
             if sec:
                 near_sections[r] = (sec[0], sec[1], sec_name)
 
+        # базада аниқ ҳам, тинишсиз ҳам йўқ — энг ўхшаш (панелдаги фоиз, бирлиги ва рақамлари бир хил): фақат таклиф
+        if lookup and base_near_min and st == NOT_FOUND and real_unit and r not in near:
+            hit = lookup.near(name_raw, unit_raw, base_near_min)
+            if hit:
+                suggestion = hit["price"]
+                near[r] = {"name": hit.get("name") or "", "unit": hit.get("unit") or "", "price": hit["price"],
+                           "score": hit["score"], "same_unit": True, "res_row": None, "alts": [], "source": "base"}
+                near_note = f"базада яқин: «{hit.get('name') or ''}» {round(hit['score'] * 100)}% — {hit['price']}"
+                note = f"{note}; {near_note}" if note else near_note
+
         # birligi ham, taklifi ham yo'q (bo'lim nomi, izoh) — narxi bo'lmaydi: «ТОПИЛМАДИ» o'zi olinadi
         if auto_clear and not real_unit and st in UNPRICED_STATUSES and r not in near:
             to_clear.add(r)
         # smetachi G dagi yozuvni («ТОПИЛМАДИ», «ТЕКШИРИНГ» …) olib tashlagan: birligi borida G bo'sh
         # (Excel'da qizil qoladi, narx kutadi), birligi yo'g'ida G va H bo'sh
-        if r in to_clear and st in UNPRICED_STATUSES:
+        # smetachi qarori (tozalash, qo'lda narx)dan oldingi holat — Excel'ni yamashda qator shundan qayta tuziladi
+        base_state[r] = [value, st, note, orig_status.get(r), real_unit]
+        value, st, note, orig, cleared_now = row_outcome(value, st, note, orig_status.get(r), real_unit,
+                                                         r in to_clear, manual_prices.get(r), suggestion)
+        if cleared_now:
             applied_clear.add(r)
-            if real_unit:
-                value, note = None, f"«{value}» олиб ташланди — нарх киритинг" + (f"; {note}" if note else "")
-            else:
-                st, value, note = CLEARED, None, "бирлиги йўқ — тозаланди"
-
-        if r in manual_prices:
-            # Smetachi narxni o'zi kiritgan yoki taklifni tasdiqlagan — u har doim ustun
-            manual = manual_prices[r]
-            accepted = suggestion is not None and _as_price(suggestion) == manual
-            orig_status[r] = st
-            st, value = MANUAL, manual
-            note = ("таклиф тасдиқланди" if accepted else "нарх қўлда киритилди") + (f" (асли: {note})" if note else "")
+        if orig is not None:
+            orig_status[r] = orig
 
         g[r], status[r] = value, st
         if note:
@@ -1155,6 +1261,7 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
     p.near = near
     p.near_sections = near_sections
     p.repeats = repeats
+    p.base_state = base_state
     return p, ln, lu
 
 

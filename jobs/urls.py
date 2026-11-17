@@ -62,5 +62,6 @@ urlpatterns = [
     path("job/<uuid:job_id>/state/", views.job_state, name="job_state"),
     path("job/<uuid:job_id>/columns/", views.job_columns, name="job_columns"),
     path("job/<uuid:job_id>/sheet/", views.job_sheet, name="job_sheet"),
+    path("job/<uuid:job_id>/grid/", views.job_grid, name="job_grid"),
     path("job/<uuid:job_id>/download/", views.job_download, name="job_download"),
 ]

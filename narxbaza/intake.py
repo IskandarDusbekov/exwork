@@ -182,6 +182,32 @@ def open_for_work(kind, work, user) -> Intake:
     return it
 
 
+def queue_prices(job, picks, user) -> "Intake | None":
+    """Смета­чи «нархни базага ҳам сақлаш» деб ёзган нархлар — **тўғридан-тўғри базага эмас**, админ текширув
+    навбатига (база хатосиз бўлсин). ``picks`` — ``[(натижа қатори, нарх)]``. Ҳар смета учун битта очиқ навбат
+    («Қўлда киритилган»); шу қатор қайта юборилса — кўрилмаган эски ёзуви янгисига алмашади. Админ тасдиқлагач
+    ресурс базага тушади ва кейинги сметаларда ўзи нархланади."""
+    raw = [{"fi": 0, "sheet": job.local_sheet or "", "row": int(r.get("row") or 0), "name": r.get("name"),
+            "unit": r.get("unit"), "price": price,
+            "qty": r.get("qty_total") if r.get("qty_total") is not None else r.get("qty"),
+            "status": "MANUAL", "src": _job_src(r)} for r, price in picks]
+    rows = _clean(raw)
+    if not rows:
+        return None
+    with transaction.atomic():
+        it = (Intake.objects.select_for_update()
+              .filter(kind=Batch.Kind.MANUAL, work_id=job.pk, status=Intake.Status.OPEN).first())
+        if it is None:
+            it = Intake.objects.create(
+                kind=Batch.Kind.MANUAL, work_id=job.pk, title=f"Смета­чи нархлари: {job.local_name}"[:500],
+                owner_id=job.owner_id, created_by=S._uid(user),
+                files=[{"job": str(job.id), "file": job.local_name[:200], "sheet": job.local_sheet or ""}])
+        it.rows.filter(row__in={r["row"] for r in rows}, state=IntakeRow.State.NEW).delete()
+        _build(it, rows)
+        Intake.objects.filter(pk=it.pk).update(updated=timezone.now())
+    return it
+
+
 def _read_sources(sources, kind, default_category, tick=None) -> tuple:
     """``sources`` — ``[(кўринадиган номи, .xlsx йўли, MEDIA_ROOT ичидаги нисбий йўли)]`` → ``(files, rows, bad)``.
     Ҳар лист — алоҳида «файл»; бузуқ ёки нархсиз файл бошқаларини тўхтатмайди (``bad``)."""

@@ -100,19 +100,32 @@ class SheetWriter:
         for cell in self._cells(start_row, end_row, start_col, end_col):
             cell.fill = PatternFill(fill_type="solid", fgColor=color)
 
-    def frame(self, start_row: int, end_row: int, start_col: str = "A", end_col: str = "H"):
+    def frame(self, start_row: int, end_row: int, start_col: str = "A", end_col: str = "H", progress=None):
         """Tashqi va ichki barcha chiziqlar yupqa (Excel Borders 7..12).
 
         Excel umumiy chegarani bitta katakda saqlaydi: oraliq chetiga chiziq qo'yilganda
         qo'shni katakning qarama-qarshi chizig'i olib tashlanadi. Shuni takrorlaymiz.
+        ``progress(bajarildi, jami)`` — har 500 qatorda (20 ming qatorli smetada bu eng uzoq ish).
         """
-        for cell in self._cells(start_row, end_row, start_col, end_col):
-            old = cell.border
-            cell.border = Border(
-                left=_THIN, right=_THIN, top=_THIN, bottom=_THIN,
-                diagonal=old.diagonal, diagonalUp=old.diagonalUp, diagonalDown=old.diagonalDown,
-                vertical=old.vertical, horizontal=old.horizontal, outline=old.outline,
-            )
+        made = {}  # bir xil eski chegara — bir xil yangisi (har katakka yangi Border yasash sekin)
+        width = column_index_from_string(end_col) - column_index_from_string(start_col) + 1
+        total = end_row - start_row + 1
+        for i, cell in enumerate(self._cells(start_row, end_row, start_col, end_col)):
+            if progress and i % (500 * width) == 0:
+                progress(i // width, total)
+            st = getattr(cell, "_style", None)
+            key = st.borderId if st is not None else None  # kitobdagi chegara raqami: bir xil — bir xil chegara
+            new = made.get(key) if key is not None else None
+            if new is None:
+                old = cell.border
+                new = Border(
+                    left=_THIN, right=_THIN, top=_THIN, bottom=_THIN,
+                    diagonal=old.diagonal, diagonalUp=old.diagonalUp, diagonalDown=old.diagonalDown,
+                    vertical=old.vertical, horizontal=old.horizontal, outline=old.outline,
+                )
+                if key is not None:
+                    made[key] = new
+            cell.border = new
         c1, c2 = column_index_from_string(start_col), column_index_from_string(end_col)
         for c in range(c1, c2 + 1):
             self._clear_side(start_row - 1, c, "bottom")
@@ -144,10 +157,10 @@ def safe_amount_formula(r: int) -> str:
 
 
 def write_priced_rows(w: SheetWriter, start: int, end: int, g_values: Dict[int, object], kinds: Dict[int, str],
-                      formula=amount_formula, skip=(), keep=()):
+                      formula=amount_formula, skip=(), keep=(), progress=None):
     """G..K ustunlarini ``start..end`` oralig'ida to'ldiradi va A–H ramka chizadi.
     ``skip`` qatorlarida G va H bo'sh, kategoriya ustuniga ham hech narsa yozilmaydi.
-    ``keep`` qatorlari (sahifada qaytarilgan sarlavha) — umuman tegilmaydi."""
+    ``keep`` qatorlari (sahifada qaytarilgan sarlavha) — umuman tegilmaydi. ``progress(bajarildi, jami)`` — ramka chizishda."""
     rows = [r for r in range(start, end + 1) if r not in keep]
     for r in rows:
         w.set(f"{PRICE_COL}{r}", g_values.get(r))
@@ -170,7 +183,7 @@ def write_priced_rows(w: SheetWriter, start: int, end: int, g_values: Dict[int, 
     for col in "IJK":
         w.number_format(col, start, end)
 
-    w.frame(start, end, "A", "H")
+    w.frame(start, end, "A", "H", progress=progress)
 
 
 def write_sum_row(w: SheetWriter, sum_row: int, start: int, end: int, extra=()):
@@ -293,8 +306,10 @@ def number_text(v) -> str:
     return "#ЗНАЧ!" if str(v).startswith("#") else ""
 
 
-def fit_number_columns(ws, values: Dict[str, object], first_col: str = "G", last_col: str = "Q") -> List[str]:
-    """``values``: manzil -> hisoblangan qiymat. Sig'maydigan ustunlarni kengaytiradi, ro'yxatini qaytaradi."""
+def fit_number_columns(ws, values: Dict[str, object], first_col: str = "G", last_col: str = "Q",
+                       ratios: Optional[Dict[str, float]] = None) -> List[str]:
+    """``values``: manzil -> hisoblangan qiymat. Sig'maydigan ustunlarni kengaytiradi, ro'yxatini qaytaradi.
+    ``ratios`` berilsa — har ustundagi eng katta shrift nisbati yoziladi (keyin Excel'ni yamashda eni shu bilan)."""
     normal = ws.parent._fonts[0].sz or 11
     need: Dict[int, float] = {}
     lo, hi = column_index_from_string(first_col), column_index_from_string(last_col)
@@ -308,6 +323,9 @@ def fit_number_columns(ws, values: Dict[str, object], first_col: str = "G", last
         cell = ws._cells.get((row, col))
         size = (cell.font.sz if cell is not None and cell.font and cell.font.sz else normal)
         ratio = min(1.5, max(0.8, size / normal))
+        if ratios is not None:
+            letter = get_column_letter(col)
+            ratios[letter] = max(ratios.get(letter, 0), ratio)
         need[col] = max(need.get(col, 0), len(text) * ratio * 1.1 + 2)
     widened = []
     for col, width in sorted(need.items()):

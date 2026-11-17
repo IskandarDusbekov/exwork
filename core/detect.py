@@ -117,9 +117,11 @@ def _as_int(v) -> Optional[int]:
     return None
 
 
-def _is_numbering_row(ws, r: int) -> bool:
-    """«1 2 3 4 5 6»: chapdan o'ngga dastlabki raqamlar 1, 2, 3 …"""
-    vals = [cell_value(ws, r, c) for c in range(1, ws.max_column + 1)]
+def _is_numbering_row(ws, r: int, max_col: Optional[int] = None) -> bool:
+    """«1 2 3 4 5 6»: chapdan o'ngga dastlabki raqamlar 1, 2, 3 …
+    ``max_col`` — қаторма-қатор чақирилганда бир марта олинган ``ws.max_column``: openpyxl уни ҳар сафар бутун
+    листни айланиб ҳисоблайди (20 минг қаторли сметада қайта нархлаш шунинг учун 10 дақиқа кетарди)."""
+    vals = [cell_value(ws, r, c) for c in range(1, (ws.max_column if max_col is None else max_col) + 1)]
     nums = [_as_int(v) for v in vals]
     found = [n for n in nums if n is not None]
     if len(found) >= 3 and found[:3] == [1, 2, 3]:

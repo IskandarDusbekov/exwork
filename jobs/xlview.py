@@ -6,6 +6,7 @@ Natija — tayyor HTML (``<table>``) va listlar ro'yxati; JSON qilib kesh papkag
 """
 import datetime
 import hashlib
+import io
 import json
 import re
 import zipfile
@@ -314,7 +315,9 @@ def render(path: Path, sheet: Optional[str] = None, default: Optional[str] = Non
            max_rows: int = MAX_ROWS) -> dict:
     """``sheet`` → ``default`` → faol list. ``fallback`` — natijasi yo'q formulalar qiymati shu fayldan
     (bir xil list va katak). ``red`` — qizil kataklar (``"G15"``), ``red_sheet`` listida (None — faol list)."""
-    wb = load_workbook(path, data_only=True, keep_links=False)
+    # файл аввал хотирага: openpyxl уни ўқиш давомида (катта сметада ~10 с) очиқ ушлайди ва шу пайт смета­чининг
+    # ўзгариши натижа файлини алмаштира олмасди (Windows)
+    wb = load_workbook(io.BytesIO(Path(path).read_bytes()), data_only=True, keep_links=False)
     try:
         names = [ws.title for ws in wb.worksheets if ws.sheet_state == "visible"] or wb.sheetnames
         title = next((t for t in (sheet, default) if t and t in wb.sheetnames), wb.active.title)

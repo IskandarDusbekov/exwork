@@ -370,24 +370,39 @@
       function show(p, t) { bar.style.width = p + "%"; pc.textContent = Math.round(p) + "%"; if (t) txt.textContent = t; }
       show(3, D.project ? "Навбатга қўйилмоқда…" : "Танловингиз сақланмоқда…");
       prog.scrollIntoView({behavior: "smooth", block: "center"});
-      var finished = false, since = Date.now();
+      var finished = false;
+      // смета ичидаги босқичлар (сервер айтади) ва уларнинг улуши: ўқиш, қаторлар (сони билан), ёзиш, сақлаш.
+      // Босқич ичида сони йўқ бўлса — вақт ўтгани сари секинлашиб силжийди, лекин кейинги босқич чегарасидан ўтмайди
+      var PH = {read: [0, .38], price: [.38, .46], write: [.46, .8], save: [.8, .96], auto: [.96, 1]};
+      var phKey = "", phSince = Date.now(), lastAt = 0;
+      function num(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
       function poll() {
         if (finished || D.project) return;
         fetch(D.progress, {cache: "no-store", credentials: "same-origin"}).then(function (r) { return r.json(); }).then(function (d) {
           if (finished) return;
           if (d.total) {
-            // ҳар бир смета ичида ҳам секин силжийди (узун смета узоқ ўқилади)
-            var inside = Math.min(0.9, (Date.now() - since) / 20000);
-            show(Math.min(97, 5 + 92 * (d.at - 1 + inside) / d.total), d.at + " / " + d.total + " смета нархланяпти: " + d.text);
+            var key = d.at + ":" + (d.phase || "");
+            if (key !== phKey) { phKey = key; phSince = Date.now(); }
+            var span = PH[d.phase] || [0, .38], inside;
+            var counted = (d.phase === "price" || d.phase === "write") && d.rows && d.rows_done;
+            if (counted) inside = d.rows_done / d.rows;
+            else inside = 0.9 * (1 - Math.exp(-(Date.now() - phSince) / 8000));
+            var job = span[0] + (span[1] - span[0]) * inside;
+            var p = 5 + 92 * (d.at - 1 + job) / d.total;
+            lastAt = Math.max(lastAt, p);  // орқага қайтмайди
+            var t = d.at + " / " + d.total + " смета: " + d.text.replace(/^смета нархланяпти:\s*/, "");
+            var what = {read: "Excel ўқилмоқда", price: "қаторлар нархланмоқда", write: "Excel'га ёзилмоқда",
+                        save: "файл сақланмоқда", auto: "таклифлар қўйилмоқда"}[d.phase];
+            if (what) {
+              t += " — " + what;
+              if (counted) t += ": " + num(d.rows_done) + " / " + num(d.rows) + " қатор, қолди " + num(d.rows - d.rows_done);
+              else if (d.rows) t += " (" + num(d.rows) + " қатор)";
+            }
+            show(Math.min(99, lastAt), t);
           }
-          setTimeout(poll, 900);
-        }).catch(function () { setTimeout(poll, 1500); });
+          setTimeout(poll, 1000);
+        }).catch(function () { setTimeout(poll, 2000); });
       }
-      var last = 0;
-      setInterval(function () {  // янги смета бошланса — ичидаги вақт ҳисоби янгидан
-        var m = /^(\d+) \//.exec(txt.textContent);
-        if (m && +m[1] !== last) { last = +m[1]; since = Date.now(); }
-      }, 300);
       setTimeout(poll, 600);
       var fd = new FormData(form);
       fetch(form.action, {method: "POST", body: fd, credentials: "same-origin", headers: {"X-Requested-With": "XMLHttpRequest"}})

@@ -197,6 +197,7 @@ def harvest_job(job) -> int:
     return len(votes)
 
 
+
 def harvest_safe(job) -> None:
     """Нархлашдан кейин: база хатоси нархлашни бузмасин."""
     try:
@@ -248,18 +249,51 @@ def _strong(e: LMEntry) -> bool:
     return same >= conf.get("lm_strong_votes") and not other
 
 
-def load_base() -> Optional[LMBase]:
+def personal_choices(owner_id, exclude_job=None) -> dict:
+    """Смета­чининг ўз танловлари ``{entry_id: категория}`` (``USER`` овозлари — у ўзи кўчирган қаторлар).
+    Бир ресурсни турли сметаларда турлича кўчирган бўлса — охиргиси. ``exclude_job`` — шу смета ўзи ҳисобланмайди
+    (ундаги танлов шу сметанинг ўзида бор; қайтарса — эски танлови таклиф бўлиб қайтиб чиқмасин)."""
+    if not owner_id:
+        return {}
+    out = {}
+    qs = LMVote.objects.filter(owner_id=owner_id, kind=LMVote.Kind.USER)
+    if exclude_job:
+        qs = qs.exclude(job_id=exclude_job)
+    for eid, cat in qs.order_by(
+            "created", "id").values_list("entry_id", "category"):
+        out[eid] = cat
+    return out
+
+
+def load_base(owner_id=None, exclude_job=None) -> Optional[LMBase]:
     """Тури аниқ ёзувлар. Ўхшаш ном бўйича фақат RES далили бор ёки админ ўргатганлари (смета­чилар танлови
-    фақат аниқ номда — бир-бирига ўхшаш номлар орқали тарқалиб кетмасин)."""
+    фақат аниқ номда — бир-бирига ўхшаш номлар орқали тарқалиб кетмасин).
+
+    ``owner_id`` берилса (панелда «L / M: смета­чининг ўз танлови» ёқиқ) — шу смета­чининг ўзи аввал кўчирган
+    ресурслари унинг сметаларида ишончли таклиф бўлади (умумий базага ва бошқа смета­чиларга таъсир қилмайди;
+    админ ўргатгани — устун; фақат аниқ ном / код бўйича)."""
+    from panel import conf
     try:
         rows = list(LMEntry.objects.exclude(category="").only("key", "name", "code", "category", "locked", "votes"))
+        mine = personal_choices(owner_id, exclude_job) if conf.get("lm_personal") else {}
+        if mine:
+            rows += list(LMEntry.objects.filter(id__in=mine, category="", locked=False).only(
+                "key", "name", "code", "category", "locked", "votes"))
     except Exception:  # noqa: BLE001 — жадвал ҳали йўқ (миграция)
         return None
     if not rows:
         return None
-    return LMBase({"key": e.key, "name": e.name, "code": e.code, "category": e.category,
-                   "reason": _reason(e), "strong": _strong(e),
-                   "fuzzy": e.locked or any(not k.startswith("user_") for k in (e.votes or {}))} for e in rows)
+    entries = []
+    for e in rows:
+        cat = mine.get(e.id)
+        if cat and not e.locked and cat != e.category:  # ўзининг танлови биринчи — by_code ҳам шуни олсин
+            entries.insert(0, {"key": e.key, "name": e.name, "code": e.code, "category": cat, "strong": True,
+                               "fuzzy": False, "reason": f"аввал ўзингиз «{LABELS[cat]}» деб танлагансиз"})
+            continue
+        entries.append({"key": e.key, "name": e.name, "code": e.code, "category": e.category,
+                        "reason": _reason(e), "strong": _strong(e) or (cat == e.category and not e.locked),
+                        "fuzzy": e.locked or any(not k.startswith("user_") for k in (e.votes or {}))})
+    return LMBase(entries)
 
 
 # ===================== админ ўргатиши =====================

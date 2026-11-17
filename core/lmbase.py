@@ -44,6 +44,8 @@ class LMBase:
                 self.by_code.setdefault(code, e)
         # ўхшаш ном фақат ишончли манбали ёзувлардан («fuzzy»: RES далили бор ёки админ ўргатган)
         self._choices = [k for k, e in self.by_key.items() if e.get("fuzzy", True)]
+        # сметада бир ном юзлаб қаторда такрорланади: ўхшаш номни қидириш (бутун базани кўриб чиқиш) — бир марта
+        self._fuzzy_seen: Dict[str, Optional[tuple]] = {}
 
     def __len__(self):
         return len(self.by_key)
@@ -66,7 +68,10 @@ class LMBase:
             return self._hit(self.by_key[key], "name")
         if len(key) < 6 or not self._choices:
             return None
-        found = process.extractOne(key, self._choices, scorer=fuzz.token_sort_ratio, score_cutoff=FUZZY_MIN)
+        if key not in self._fuzzy_seen:
+            self._fuzzy_seen[key] = process.extractOne(key, self._choices, scorer=fuzz.token_sort_ratio,
+                                                       score_cutoff=FUZZY_MIN)
+        found = self._fuzzy_seen[key]
         if found:
             return self._hit(self.by_key[found[0]], "fuzzy", found[1])
         return None

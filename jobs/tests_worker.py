@@ -299,6 +299,10 @@ class RecalcQueueTests(TransactionTestCase):
     """Смета ўзгарди (L/M устун, нарх, фоиз…) — сўров ичида қайта нархланмайди: navbat → worker."""
 
     def setUp(self):
+        # навбатнинг ўзи текширилади: Excel'га тўғридан-тўғри ёзиш (``fastpatch``, ўз тестлари бор) ўчирилган
+        patcher = mock.patch("jobs.fastpatch.try_apply", return_value=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.user = User.objects.create_user("ali@test.uz", "Kuchli-parol-2026", first_name="Ali", last_name="V")
         self.client.force_login(self.user)
         local, res = (GOLDEN / "input_local.xlsx").read_bytes(), (GOLDEN / "input_res.xlsx").read_bytes()

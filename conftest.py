@@ -25,5 +25,7 @@ def _recalc_inline(request, monkeypatch):
     except Exception:  # noqa: BLE001 — Django sozlanmagan (core testlari)
         return
     monkeypatch.setattr(recalc, "start", recalc.run_now)
+    from jobs import fastpatch
+    monkeypatch.setattr(fastpatch, "start_warm", fastpatch.warm_now)  # ямашдан кейинги кўриниш ҳам шу ерда
     from texnazor import tasks as tn_tasks
     monkeypatch.setattr(tn_tasks, "start", lambda obj_id: None)  # ofyorta testda ``tasks.run_now`` bilan o'qiladi

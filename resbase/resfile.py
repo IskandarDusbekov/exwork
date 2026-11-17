@@ -162,11 +162,11 @@ def _price_col(texts: dict, skip: tuple) -> Optional[int]:
     return best
 
 
-def _block_at(ws, r: int, max_col: int) -> Optional[_Block]:
+def _block_at(ws, r: int, max_col: int, last: int) -> Optional[_Block]:
     texts = [str(cell_value(ws, r, c) or "").lower().replace("ё", "е") for c in range(1, max_col + 1)]
     if not (any(_NAME_RE.search(t) for t in texts) and any(_is_unit(t) for t in texts)):
         return None
-    numbering = next((x for x in range(r + 1, min(r + 6, ws.max_row) + 1) if _is_numbering_row(ws, x)), None)
+    numbering = next((x for x in range(r + 1, min(r + 6, last) + 1) if _is_numbering_row(ws, x, max_col)), None)
     cols = header_texts(ws, r, (numbering - 1) if numbering else r + 2)
     name_col = next((c for c in sorted(cols) if _NAME_RE.search(cols[c])), None)
     unit_col = next((c for c in sorted(cols) if c != name_col and _is_unit(cols[c])), None)
@@ -209,20 +209,22 @@ def _row_text(ws, r: int, max_col: int) -> str:
 
 
 def _parse_sheet(ws, out: ResFile):
-    max_col = min(ws.max_column, 30)
+    # ``max_row`` / ``max_column`` — бир марта: openpyxl ҳар чақирувда бутун листни айланиб ҳисоблайди
+    # (катта ЛРВ'да ҳар қаторда сўралса — ўқиш дақиқалаб «осилиб» қоларди)
+    max_col, last = min(ws.max_column, 30), ws.max_row
     blocks = []
     r = 1
-    while r <= ws.max_row:
-        b = _block_at(ws, r, max_col)
+    while r <= last:
+        b = _block_at(ws, r, max_col, last)
         if b:
             blocks.append(b)
             r = b.data_start
         else:
             r += 1
-    norms = sum(1 for b in blocks for x in range(b.data_start, ws.max_row + 1)
+    norms = sum(1 for b in blocks for x in range(b.data_start, last + 1)
                 if b.code_col and _NORM_CODE.match(_text(cell_value(ws, x, b.code_col)).upper()))
     if not blocks or norms >= LOCAL_MIN_NORMS:  # narx jadvali emas — ЛРВ (ishlar va normalar) bo'lishi mumkin
-        if not _parse_lrv(ws, out, max_col):
+        if not _parse_lrv(ws, out, max_col, last):
             out.ignored.append((ws.title, "нарх устуни бор ресурс жадвали ҳам, норма шифрлари ҳам топилмади"))
         return
     out.sheets.append(ws.title)
@@ -230,7 +232,7 @@ def _parse_sheet(ws, out: ResFile):
     obj = ""
     # blok sarlavhasidan oldingi «объект - …» qatori ham shu blokka tegishli
     for i, b in enumerate(blocks):
-        stop = blocks[i + 1].header if i + 1 < len(blocks) else ws.max_row + 1
+        stop = blocks[i + 1].header if i + 1 < len(blocks) else last + 1
         b.code_col = _best_code_col(ws, b, stop)
         for x in range(max(1, b.header - 8), b.header):
             m = _OBJECT.match(_row_text(ws, x, max_col))
@@ -288,12 +290,12 @@ def _lrv_name(t: str) -> bool:
     return bool(_NAME_RE.search(t) or re.search(r"иш ва ресурс|ресурс(?:лар)? номи", t))
 
 
-def _lrv_cols(ws, r: int, max_col: int) -> Optional[dict]:
+def _lrv_cols(ws, r: int, max_col: int, last: int) -> Optional[dict]:
     """ЛРВ jadval sarlavhasi: nom, birlik, shifr, «на ед.» (norma) va «по проектным данным» (jami miqdor)."""
     texts = [str(cell_value(ws, r, c) or "").lower().replace("ё", "е") for c in range(1, max_col + 1)]
     if not (any(_lrv_name(t) for t in texts) and any(_is_unit(t) for t in texts)):
         return None
-    numbering = next((x for x in range(r + 1, min(r + 6, ws.max_row) + 1) if _is_numbering_row(ws, x)), None)
+    numbering = next((x for x in range(r + 1, min(r + 6, last) + 1) if _is_numbering_row(ws, x, max_col)), None)
     cols = header_texts(ws, r, (numbering - 1) if numbering else r + 2)
     name = next((c for c in sorted(cols) if _lrv_name(cols[c])), None)
     unit = next((c for c in sorted(cols) if c != name and _is_unit(cols[c])), None)
@@ -318,11 +320,12 @@ def _is_sub(v) -> bool:
     return isinstance(v, str) and bool(re.match(r"^\d+\.\d+$", v.strip()))
 
 
-def _parse_lrv(ws, out: ResFile, max_col: int) -> bool:
+def _parse_lrv(ws, out: ResFile, max_col: int, last: Optional[int] = None) -> bool:
+    last = ws.max_row if last is None else last
     heads = []
     r = 1
-    while r <= ws.max_row:
-        h = _lrv_cols(ws, r, max_col)
+    while r <= last:
+        h = _lrv_cols(ws, r, max_col, last)
         if h and h["code"]:
             heads.append(h)
             r = h["start"]
@@ -332,7 +335,7 @@ def _parse_lrv(ws, out: ResFile, max_col: int) -> bool:
         return False
     found = []
     for i, h in enumerate(heads):
-        stop = heads[i + 1]["header"] if i + 1 < len(heads) else ws.max_row + 1
+        stop = heads[i + 1]["header"] if i + 1 < len(heads) else last + 1
         work, section = None, ""
         for x in range(h["start"], stop):
             name = _text(cell_value(ws, x, h["name"]))

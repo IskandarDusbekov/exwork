@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import time
 import uuid
@@ -40,6 +41,8 @@ from .services import (
     can_undo_file, refresh_file_jobs, undo_batch_file,
 )
 from .templatetags.narx import file_title, pct as pct_text, pct_input, readable, som
+
+logger = logging.getLogger(__name__)
 
 STAT_CARDS = {
     "compat": [
@@ -1225,9 +1228,13 @@ _STEP_RE = re.compile(r"^(\d+)/(\d+)\s*(.*)$")
 def batch_progress(request, batch_id):
     """Нархлаш жараёни (Бошлаш босилгандан кейинги аниқ прогресс): «2/5 смета нархланяпти: …»."""
     batch = _get_work(request, Batch, id=batch_id)
+    from .services import parse_step_tail
     m = _STEP_RE.match(batch.step or "")
+    tail = parse_step_tail(m.group(3) if m else "")
+    # «phase» / «rows_done» / «rows» — шу смета ичида қаерда (нечта қатор ўтди, нечтаси қолди)
     return JsonResponse({"status": batch.status, "at": int(m.group(1)) if m else 0, "total": int(m.group(2)) if m else 0,
-                         "text": m.group(3) if m else "", "done": batch.jobs.filter(status=Job.Status.DONE).count()})
+                         "text": tail["text"], "phase": tail["phase"], "rows_done": tail["done"], "rows": tail["total"],
+                         "done": batch.jobs.filter(status=Job.Status.DONE).count()})
 
 
 @require_POST
@@ -1540,7 +1547,7 @@ def job_detail(request, job_id):
         a = [r["row"] for r in _not_found_stage(job.result.get("rows", []))["group_a"]]
         job.auto_cleared = True
         if a:
-            recalc.request(job, cleared=sorted(set(job.cleared or []) | set(a)))
+            _apply(job, cleared=sorted(set(job.cleared or []) | set(a)))
         else:
             job.save(update_fields=["auto_cleared"])
     elif (job.status == Job.Status.DONE and job.mode == "smart" and job.recalc_seq <= job.recalc_done
@@ -1548,7 +1555,7 @@ def job_detail(request, job_id):
         # «Автоматик» усул: олдин қолиб кетган нарх таклифлари (масалан, бирлиги бошқа) — бир йўла қабул қилинади
         extra = open_suggestions(job)
         if extra:
-            recalc.request(job, prices={**(job.prices or {}), **extra})
+            _apply(job, prices={**(job.prices or {}), **extra})
     if job.status == Job.Status.DONE:
         res = job.result
         totals = res["totals"]
@@ -1556,12 +1563,14 @@ def job_detail(request, job_id):
         labels = column_labels(job) if mode == "smart" else dict(CATEGORY_LABELS)
         res_groups = _res_groups(res, labels) if mode == "smart" else []
         # жадвал нархланган сметанинг ўзидан (Excel кўриниши) очилади
-        view = request.GET.get("view") or ("xl_out" if job.output_path else "res" if res_groups else "local")
-        if view not in XL_FILES and not res_groups:
-            view = "local"
+        view, grid_view = _grid_view_of(job, request, res_groups)
         ctx.update(
             view=view,
-            grid_view="local" if view == "local" or not res_groups else ("res" if view in XL_FILES else view),
+            grid_view=grid_view,
+            grid=_grid_part(_grid_items(res, mode, labels, grid_view, res_groups), 0, GRID_FIRST, mode, labels,
+                            len(labels) + 6),
+            # Excel кўриниши жадвал ҳали юкланмаган бўлса ҳам белгилай олсин
+            grid_selectable=[r["row"] for r in res["rows"] if r.get("name")] if mode == "smart" else [],
             xl_file=XL_FILES.get(view),
             xl_files=[(v, label) for v, (_f, label) in XL_FILES.items() if v != "xl_res" or job.res_path],
             res_groups=res_groups,
@@ -1606,6 +1615,62 @@ def job_detail(request, job_id):
         # саҳифа қайси босқичда очилади: биринчи тугамагани (compat — жадвал)
         ctx["default_tab"] = next((st["n"] for st in ctx["stages"] if st["state"] == "current"), 3 if ctx["stages"] else 2)
     return render(request, "jobs/job.html", ctx)
+
+
+GRID_FIRST = 300  # саҳифа билан бирга келадиган қаторлар (тез очилсин)
+GRID_CHUNK = 2000  # кейинги бўлаклар (``job_grid``)
+
+
+def _grid_items(res, mode, labels, grid_view, res_groups):
+    """Жадвал қаторлари тартибда: ``("h", бўлим)`` — бўлим сарлавҳаси, ``("r", қатор, бўлим)``."""
+    if grid_view == "res" and res_groups:
+        out = []
+        for g in res_groups:
+            out.append(("h", g, None))
+            out.extend(("r", r, g) for r in g["rows"])
+        return out
+    return [("r", r, None) for r in res["rows"]]
+
+
+def _grid_part(items, start, size, mode, labels, grid_span) -> dict:
+    """``items[start:start+size]`` нинг HTML'и; ``next`` — кейинги бўлак боши (охири бўлса None)."""
+    from django.template.loader import get_template
+    from django.utils.safestring import mark_safe
+    from .templatetags.narx import _xl_row
+    head, smart, cols = get_template("jobs/_grid_head.html"), mode == "smart", list(labels.items())
+    html = []
+    for kind, obj, group in items[start:start + size]:
+        html.append(head.render({"group": obj, "grid_span": grid_span}) if kind == "h"
+                    else _xl_row(obj, group, smart, cols))
+    end = start + size
+    return {"html": mark_safe("".join(html)), "next": end if end < len(items) else None,
+            "total": sum(1 for x in items if x[0] == "r")}
+
+
+def _grid_view_of(job, request, res_groups) -> tuple:
+    view = request.GET.get("view") or ("xl_out" if job.output_path else "res" if res_groups else "local")
+    if view not in XL_FILES and not res_groups:
+        view = "local"
+    return view, "local" if view == "local" or not res_groups else ("res" if view in XL_FILES else view)
+
+
+def job_grid(request, job_id):
+    """Жадвалнинг кейинги бўлаги (JSON ``{html, next, total}``): ``?view=…&from=N``."""
+    job = _get_work(request, Job, id=job_id)
+    if job.status != Job.Status.DONE:
+        return JsonResponse({"error": "смета тайёр эмас"}, status=400)
+    try:
+        start = max(0, int(request.GET.get("from") or 0))
+    except ValueError:
+        return JsonResponse({"error": "нотўғри сўров"}, status=400)
+    res = job.result
+    mode = res.get("mode", "compat")
+    labels = column_labels(job) if mode == "smart" else dict(CATEGORY_LABELS)
+    res_groups = _res_groups(res, labels) if mode == "smart" else []
+    _view, grid_view = _grid_view_of(job, request, res_groups)
+    part = _grid_part(_grid_items(res, mode, labels, grid_view, res_groups), start, GRID_CHUNK, mode, labels,
+                      len(labels) + 6)
+    return JsonResponse({"html": str(part["html"]), "next": part["next"], "total": part["total"]})
 
 
 def _sugg_marks(rows):
@@ -1737,8 +1802,19 @@ def job_categories(request, job_id):
             if category in ("L", "M") and known[r].get("suggested_category") == category:
                 accepted.add(r)  # таклифни қабул қилди — ускуна базасига овоз эмас
     job.lm_accepted = sorted(accepted)
-    recalc.request(job, categories=categories)
-    return JsonResponse({"ok": True, "queued": True, "changed": len(rows), "overrides": len(job.categories)})
+    patched = _apply(job, categories=categories)
+    return JsonResponse({"ok": True, "queued": not patched, "patched": patched, "changed": len(rows),
+                         "overrides": len(job.categories)})
+
+
+def _apply(job, **settings) -> bool:
+    """Смета­чи ўзгариши: натижа Excel'нинг ўзида ёзилади (бир-икки сония, ``fastpatch``); бўлмаса — тўлиқ қайта
+    ҳисоб навбатга (фонда). True — ёзилди (навбатсиз)."""
+    from .fastpatch import try_apply
+    if try_apply(job, **settings):
+        return True
+    recalc.request(job, **settings)
+    return False
 
 
 def _as_price(v):
@@ -1786,9 +1862,19 @@ def job_prices(request, job_id):
         for r in rows:
             prices.pop(str(r), None)
     changed = len(rows) - len(skipped)
-    if changed:
-        recalc.request(job, prices=prices)
-    return JsonResponse({"ok": True, "queued": bool(changed), "changed": changed, "skipped": len(skipped)})
+    patched = _apply(job, prices=prices) if changed else False
+    to_base = 0
+    if data.get("to_base") and action != "clear" and changed:
+        # «нархни базага ҳам сақлаш» — админ текширув навбатига (тасдиқлангач кейинги сметалар ўзи нархланади)
+        from narxbaza.intake import queue_prices
+        picks = [(known[r], prices[str(r)]) for r in rows if r not in skipped and _has_unit(known[r])]
+        try:
+            it = queue_prices(job, picks, request.user)
+            to_base = len(picks) if it else 0
+        except Exception:  # noqa: BLE001 — нарх Excel'га ёзилди; навбат хатоси уни бузмасин
+            logger.exception("queue_prices: %s", job.pk)
+    return JsonResponse({"ok": True, "queued": bool(changed) and not patched, "patched": patched,
+                         "changed": changed, "skipped": len(skipped), "to_base": to_base})
 
 
 def _has_unit(row) -> bool:
@@ -1805,6 +1891,33 @@ def _movable(row) -> bool:
     g = row.get("g")
     return (bool(str(row.get("num") or "").strip()) and isinstance(g, (int, float)) and not isinstance(g, bool)
             and g > 0)
+
+
+def _nf_groups(rows) -> list:
+    """Нархланмаган ресурслар **номи + бирлиги** бўйича (``name_unit_key``: катта-кичик ҳарф, бўшлиқ ва
+    кирилл/лотин фарқисиз) — 492 қатор ўрнига «КОЛЕНО… — 490 та қатор». Нарх бир марта ёзилади ва гуруҳдаги
+    ҳамма қаторга тушади. Таклиф — гуруҳнинг ҳамма қаторида бир хил бўлсагина (бир нархли)."""
+    from core.normalize import name_unit_key
+    by = {}
+    for r in rows:
+        by.setdefault(name_unit_key(r.get("name"), r.get("unit")), []).append(r)
+    out = []
+    for key, rs in by.items():
+        codes = list(dict.fromkeys(str(x.get("code")).strip() for x in rs if str(x.get("code") or "").strip()))
+        qtys = [_as_price(x.get("qty")) for x in rs]
+        nears = [x.get("near") for x in rs]
+        same = all(nears) and len({(n.get("name"), _as_price(n.get("price"))) for n in nears}) == 1
+        near = nears[0] if same else None
+        q = sum(v for v in qtys if v is not None) if any(v is not None for v in qtys) else None
+        out.append({
+            "key": key, "name": rs[0].get("name"), "unit": rs[0].get("unit"), "codes": codes,
+            "rows": [x["row"] for x in rs], "count": len(rs), "qty": q, "near": near,
+            "near_sum": q * _as_price(near.get("price")) if near and q is not None and _as_price(near.get("price")) is not None else None,
+            "some_near": sum(1 for n in nears if n), "first": rs[0]["row"],
+            "kind": "bnear" if any(nears) else "bnone",
+        })
+    out.sort(key=lambda g: (-g["count"], g["first"]))
+    return out
 
 
 def _not_found_stage(rows):
@@ -1853,9 +1966,13 @@ def _not_found_stage(rows):
         first = next((x for x in below if x.get("status") == "WORK_HEADER"), below[0] if below else None)
         r["ctx_count"] = len(below)
         r["ctx_first"] = " ".join(str(x).strip() for x in (first.get("num"), first.get("name")) if x) if first else ""
+    groups = _nf_groups([r for r in pending if _has_unit(r)])
     return {
         "pending": len(pending),
         "rows": pending,
+        "groups": groups,
+        # такрорланган ресурс бор — сукут бўйича «ресурслар бўйича» кўриниш
+        "grouped": len(groups) < sum(g["count"] for g in groups),
         "with_unit": [r for r in pending if _has_unit(r)],
         "no_unit": [r for r in pending if not _has_unit(r)],
         # гуруҳлар (смета­чи тилида): A — бирлиги ҳам, таклифи ҳам йўқ; B — бирлиги бор, нарх йўқ (таклифли/таклифсиз)
@@ -1892,8 +2009,8 @@ def job_not_found(request, job_id):
         cleared, marked = cleared - rows, marked | rows
     else:
         cleared, marked = cleared - rows, marked - rows
-    recalc.request(job, cleared=sorted(cleared), marked=sorted(marked))
-    return JsonResponse({"ok": True, "queued": True, "changed": len(rows)})
+    patched = _apply(job, cleared=sorted(cleared), marked=sorted(marked))
+    return JsonResponse({"ok": True, "queued": not patched, "patched": patched, "changed": len(rows)})
 
 
 LM_COLUMNS = ("L", "M")
@@ -2088,9 +2205,9 @@ def job_percents(request, job_id):
         percents = parse_percents({f"pct_{k}": str(v).strip() or "0" for k, v in data["pct"].items()}, job.percents)
     else:
         return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
-    recalc.request(job, percents=percents)
+    patched = _apply(job, percents=percents)
     remember_percents(job.owner_id, job.percents)
-    return JsonResponse({"ok": True, "queued": True})
+    return JsonResponse({"ok": True, "queued": not patched, "patched": patched})
 
 
 def _svodka_payload(job):

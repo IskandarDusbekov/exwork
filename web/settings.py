@@ -292,8 +292,11 @@ NARXLASH_MAX_FILES = 10  # 6-босқич: панелда ўзгаради — �
 NARXLASH_MAX_PROJECT_FILES = 400  # битта папка / архивдаги файллар
 NARXLASH_LM_OWNERS_MIN = 2  # L/M базаси: RES далилисиз — шунча ҳар хил смета­чи бир хил деса
 NARXLASH_LM_STRONG_VOTES = 3  # L/M базаси: шунча бир хил овоз, қарама-қаршиси йўқ — ишончли
+NARXLASH_LM_PERSONAL = True  # L/M: смета­чининг ўзи кўчиргани — унинг сметаларида ишончли таклиф
 NARXLASH_PRICE_STALE_DAYS = 365  # нарх базаси: шунча кундан бери янги нарх келмаса — «эскирган»
 NARXLASH_BASE_PRICE_RATIO = 3  # ресурс базаси: медианадан шунча баравар фарқ қилган нарх — шубҳали
+NARXLASH_BASE_LOOSE = True  # нарх базаси: фақат тиниш белгилари бошқа ном — ўша ресурс (базада битта бўлса)
+NARXLASH_BASE_NEAR_MIN = 92  # нарх базаси: шу фоиздан ўхшаш ном (рақамлари бир хил) — таклиф; 0 — ўчиқ
 # Ro'yxatdan o'tish: open — hamma o'zi ochadi; closed — hisobni faqat admin yaratadi (Django admin)
 NARXLASH_SIGNUP = os.environ.get("NARXLASH_SIGNUP", "open")
 if NARXLASH_SIGNUP not in ("open", "closed"):

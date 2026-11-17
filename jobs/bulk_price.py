@@ -11,6 +11,7 @@ from collections import Counter
 from core.normalize import norm_name, norm_unit
 
 from . import recalc
+from .fastpatch import try_prices
 from .models import Job, Project
 
 
@@ -143,7 +144,9 @@ def apply(project: Project, items: list, undo: bool = False) -> dict:
             else:
                 skipped += 1
         if n:
-            recalc.request(job, prices=prices)
+            # нарх ёзилди ёки бекор қилинди — шу смета Excel'ининг ўзида (бир-икки сония); бўлмаса — тўлиқ ҳисоб
+            if not try_prices(job, prices):
+                recalc.request(job, prices=prices)
             changed_rows += n
             changed_files += 1
     skipped += sum(len(v) for v in wanted.values())  # бошқа папканинг ёки нархлаб бўлмайдиган сметаси

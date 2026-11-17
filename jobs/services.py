@@ -1,5 +1,7 @@
 """Yuklash -> konvertatsiya -> narxlash. Django view'lari faqat shu funksiyalarni chaqiradi."""
 import datetime as dt
+import logging
+import os
 import re
 import shutil
 import time
@@ -11,6 +13,7 @@ from openpyxl import load_workbook
 
 from core import convert
 from core.columns import LayoutError
+from core.xlfast import lean_load
 from core.batch import apply_roles, inspect_workbook, mark_duplicates, memo_payload, plan_pairs, promote_catalogs
 from core.detect import pair_sheets
 from core.normalize import norm_name
@@ -20,6 +23,8 @@ from core.svodka import DEFAULT_PERCENTS, parse_text_number
 from django.utils import timezone
 
 from .models import Batch, Job, Project, Setting, SheetMemo
+
+log = logging.getLogger(__name__)
 
 ALLOWED_EXT = (".xls", ".xlsx", ".xlsm")
 
@@ -169,11 +174,13 @@ def base_options(job: Job) -> dict:
     («Фақат ресурс базаси» yoki juftlikda «Ресурс базаси» tanlangan) smetada."""
     from resbase.lm import load_base
     from resbase.services import period_label, price_map
-    lm = {"lm_base": load_base()} if job.mode == "smart" else {}  # ускуна ва кабель базаси — L/M таклифи
+    lm = {"lm_base": load_base(job.owner_id, job.id)} if job.mode == "smart" else {}  # ускуна ва кабель базаси — L/M таклифи
     if job.res_path:
         return {"base_prices": None, "base_label": "", **lm}
+    from panel import conf
     prices = price_map(job.base_period)
-    return {"base_prices": prices or None, "base_label": period_label(job.base_period) if prices else "", **lm}
+    return {"base_prices": prices or None, "base_label": period_label(job.base_period) if prices else "",
+            "base_loose": bool(conf.get("base_loose")), "base_near_min": conf.get("base_near_min") / 100, **lm}
 
 
 def _fuzzy_default() -> int:
@@ -321,7 +328,7 @@ def recompute(job: Job) -> Job:
             column_names=job.column_names or None, cleared=job.cleared or None, marked=job.marked or None,
             local_columns=job.local_columns or None, res_columns=job.res_columns or None, **base_options(job),
             match_cache=job.abs("match_cache.json"),  # qayta hisoblashda RES bilan solishtirish takrorlanmaydi
-            auto_clear=auto_clear,
+            auto_clear=auto_clear, progress=getattr(job, "progress_cb", None),
         ))
     except Exception as e:  # foydalanuvchiga ko'rsatamiz, server yiqilmasin
         job.status = Job.Status.FAILED
@@ -330,7 +337,9 @@ def recompute(job: Job) -> Job:
         tmp.unlink(missing_ok=True)
         return job
 
-    tmp.replace(out)
+    replace_file(tmp, out)
+    from .fastpatch import save_kit
+    save_kit(job, result.calc_kit)  # qo'lda narx keyin shu fayl ustiga to'g'ridan-to'g'ri yoziladi (jobs/fastpatch.py)
     if auto_clear:
         # bo'lim nomlari o'zi tozalandi — sozlamaga yoziladi (smetachi «қайтариш» qilsa, qayta tozalanmaydi)
         job.cleared, job.auto_cleared = sorted(set(job.cleared or []) | set(result.cleared)), True
@@ -364,10 +373,44 @@ def recompute(job: Job) -> Job:
         "marked": result.marked,
     }
     if auto_clear and auto_apply(job):
-        return recompute(job)  # takliflar va L/M qo'yildi — shu sozlama bilan qayta (auto_cleared endi True: takrorlanmaydi)
+        # takliflar va L/M qo'yildi — Excel'ning o'zida yamaladi (bir-ikki soniya); bo'lmasa — shu sozlama bilan
+        # to'liq qayta (auto_cleared endi True: takrorlanmaydi)
+        if not _patch_now(job):
+            return recompute(job)
     from resbase.lm import harvest_safe
     harvest_safe(job)  # ускуна ва кабель базаси шу сметадан ўрганади (RES бўлимлари, смета­чи танлови)
     return job
+
+
+def replace_file(tmp: Path, out: Path, wait: float = 20.0):
+    """``os.replace``, Windows'да файлни шу пайт ким­дир ўқиётган бўлса (кўриниш тайёрланяпти, юклаб олиняпти)
+    «Отказано в доступе» беради — ўқиш тугашини бир оз кутиб қайта уринамиз."""
+    deadline = time.monotonic() + wait
+    delay = 0.05
+    while True:
+        try:
+            os.replace(tmp, out)
+            return
+        except PermissionError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(delay)
+            delay = min(0.5, delay * 2)
+
+
+def _patch_now(job: Job) -> bool:
+    """Биринчи нархлашдан кейин «Автоматик» қўйган нарх / L / M — тўлиқ қайта ҳисоб ўрнига Excel'нинг ўзида."""
+    if job._state.adding or not job.pk:
+        return False
+    from .fastpatch import _patch
+    progress = getattr(job, "progress_cb", None)
+    if progress:
+        progress("auto", 0, 0)
+    try:
+        return _patch(job)
+    except Exception:  # noqa: BLE001 — тўлиқ ҳисобга ўтилади
+        log.exception("автоматик танловни ямаб бўлмади: %s", job.pk)
+        return False
 
 
 def auto_apply(job: Job) -> bool:
@@ -565,10 +608,11 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
         if not f.get("path"):  # очилмай қолган файл (таҳлил узилган) — листлари йўқ
             continue
         t = time.monotonic()
-        wb = load_workbook(batch.abs(f["path"]), keep_links=False)
+        # фақат ўқиш (таҳлил) — бирлашган катаклар чегараси тикланмайди: катта сметада икки баравар тез
+        wb = lean_load(batch.abs(f["path"]), keep_links=False)
         # нарх устуни кўпинча формула (масалан =VLOOKUP(...RES...)) — формула эмас, ҳисобланган
         # қийматни ўқиш керак, акс ҳолда «нархи йўқ» деб нотўғри белгиланади (data_only)
-        wbd = load_workbook(batch.abs(f["path"]), keep_links=False, data_only=True)
+        wbd = lean_load(batch.abs(f["path"]), keep_links=False, data_only=True)
         try:
             found = inspect_workbook(wb, i, f["name"], batch.roles, batch.columns, recall=recall)
             for info in found:
@@ -851,7 +895,8 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
         if not pair_ready(p):
             continue
         # жонли жараён: папка панели ва юклаш саҳифасидаги аниқ прогресс (``batch_progress``) шуни ўқийди
-        Batch.objects.filter(pk=batch.pk).update(step=f"{len(jobs) + 1}/{todo} смета нархланяпти: {p['label']}"[:300])
+        head = f"{len(jobs) + 1}/{todo} смета нархланяпти: {p['label']}"
+        Batch.objects.filter(pk=batch.pk).update(step=head[:300])
         if batch.project_id:
             Project.objects.filter(pk=batch.project_id).update(heartbeat=timezone.now())
         loc, res = batch.sheet(p["local"]), batch.sheet(p["res"]) if p.get("res") else None  # None — ресурс базасидан
@@ -876,6 +921,7 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
                 shutil.copy2(batch.abs(rf["path"]), res_dst)
             job.res_path = str(res_dst.relative_to(job.dir))
         job.save()
+        job.progress_cb = step_reporter(batch.pk, head)
         run_job(job, None, None, job.fuzzy, job.mode)
         jobs.append(job)
     batch.status = Batch.Status.DONE
@@ -883,6 +929,52 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
         batch.step = ""
     batch.save()
     return jobs
+
+
+# нархлаш босқичлари — саҳифада оддий тилда; «қатор» сони билан (нечтаси ўтди, нечтаси қолди)
+PHASE_TEXT = {"read": "Excel ўқилмоқда", "price": "қаторлар нархланмоқда", "write": "Excel'га ёзилмоқда",
+              "save": "файл сақланмоқда", "auto": "таклифлар қўйилмоқда"}
+_PHASE_TAIL = re.compile(r" — (?P<text>[^—]+?)(?: (?P<done>[\d ]+) / (?P<total>[\d ]+) қатор| · (?P<rows>[\d ]+) қатор)?$")
+
+
+def _n(v: int) -> str:
+    return f"{v:,}".replace(",", " ")
+
+
+def step_reporter(batch_id, head: str, every: float = 1.0):
+    """``Options.progress`` учун: Batch.step'га «… — қаторлар нархланмоқда 12 400 / 20 855 қатор». Босқич
+    алмашганда дарҳол, ичида — ``every`` сонияда бир марта (сервер ва базага юк тушмасин)."""
+    state = {"phase": None, "at": 0.0, "rows": 0}
+
+    def report(phase: str, done: int, total: int):
+        now = time.monotonic()
+        key = (phase, bool(total))  # сонли ↔ сонсиз алмашгани ҳам дарҳол (охирги «12 000 / 20 855» қотиб қолмасин)
+        if key == state["phase"] and now - state["at"] < every:
+            return
+        state["phase"], state["at"] = key, now
+        if total:
+            state["rows"] = total
+            tail = f"{PHASE_TEXT.get(phase, phase)} {_n(done)} / {_n(total)} қатор"
+        else:
+            tail = PHASE_TEXT.get(phase, phase) + (f" · {_n(state['rows'])} қатор" if state["rows"] else "")
+        try:
+            Batch.objects.filter(pk=batch_id).update(step=f"{head[:200]} — {tail}")
+        except Exception:  # noqa: BLE001 — прогресс ёзилмаса ҳам нархлаш давом этади
+            log.warning("прогресс ёзилмади: %s", batch_id, exc_info=True)
+
+    return report
+
+
+def parse_step_tail(text: str) -> dict:
+    """``step_reporter`` ёзган охирги қисм: {"text" (смета номи), "phase", "done", "total"}."""
+    m = _PHASE_TAIL.search(text or "")
+    phase = m and next((k for k, v in PHASE_TEXT.items() if v == m.group("text")), None)
+    if not phase:
+        return {"text": text or "", "phase": "", "done": 0, "total": 0}
+    num = lambda g: int((m.group(g) or "0").replace(" ", ""))
+    total = num("total") or num("rows")
+    # сонсиз босқич («· 20 859 қатор») — done 0: саҳифа «20 859 / 20 859, қолди 0» деб кўрсатмасин
+    return {"text": text[:m.start()], "phase": phase, "done": num("done") if m.group("total") else 0, "total": total}
 
 
 def delete_batch(batch: "Batch"):

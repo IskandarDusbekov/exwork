@@ -148,6 +148,26 @@ class HarvestTests(TestCase):
         lm.harvest_job(_job([_row(1, "Щит распределительный ЩР-12", sec=1)], SECS))
         self.assertEqual(lm.load_base().lookup("Щит распределительный ЩР-14").how, "fuzzy")  # RES далили — тарқалади
 
+    def test_personal_choice_only_for_that_estimator(self):
+        lm.harvest_job(_job([_row(1, "Табло Выход", status="NOT_FOUND")], categories={"1": "M"}, owner=7))
+        self.assertEqual(LMEntry.objects.get().category, "")  # умумий базада — тасдиқлашни кутади
+        self.assertIsNone(lm.load_base())  # бошқаларга ҳам, эгасиз ҳам — ҳеч нарса
+        self.assertIsNone(lm.load_base(8))
+        hit = lm.load_base(7).lookup("ТАБЛО  выход")
+        self.assertEqual((hit.kind, hit.strong, hit.how), (EQUIPMENT, True, "name"))
+        self.assertIn("ўзингиз", hit.reason)
+        self.assertIsNone(lm.load_base(7).lookup("Табло Выход световое"))  # ўхшаш номга тарқалмайди
+        self.assertIsNone(lm.load_base(7, LMVote.objects.get().job_id))  # шу сметанинг ўз танлови ўзига таклиф эмас
+        # кейинги сметасида K га қайтарди — охирги танлови
+        lm.harvest_job(_job([_row(1, "Табло Выход", status="NOT_FOUND", sug="M")], categories={"1": "K"}, owner=7))
+        self.assertEqual(lm.load_base(7).lookup("Табло Выход").kind, OTHER)
+        lm.teach("Табло Выход", "L")
+        self.assertEqual(lm.load_base(7).lookup("Табло Выход").kind, CABLE)  # админ ўргатгани устун
+        with override_settings(NARXLASH_LM_PERSONAL=False):
+            lm.teach("Табло Выход", "M")
+            lm.unlock(LMEntry.objects.get())
+            self.assertIsNone(lm.load_base(7))
+
     def test_accepted_after_recalc_is_not_a_vote(self):
         # қабул қилингандан кейин қайта ҳисобда таклиф йўқолади (қатор аллақачон M да) — lm_accepted эслаб қолади
         j = _job([_row(1, "Табло Выход", status="NOT_FOUND")], categories={"1": "M"}, accepted=[1])

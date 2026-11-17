@@ -31,10 +31,11 @@
     <button type="button" class="pk-compare{% if not p.res %} is-main{% endif %}" title="Локал ва ресурсни ёнма-ён кўриб танлаш">{% icon "columns" "h-4 w-4" %}<span>{% if p.res %}Ёнма-ён кўриш{% else %}Ресурсни танлаш{% endif %}</span></button></div>
 
   {# ---- 2: ресурс файл ---- #}
-  <div class="pk-side pk-res{% if x %} pk-sheet is-resource{% else %} is-empty{% endif %}"{% if x %} data-k="{{ x.key }}"{% endif %}>
-    <div class="pk-band"><span class="pk-band-n">2</span><b>Ресурс</b><span>{% if x.same_file %}нархлар шу файлнинг ўзида{% else %}нархлар шу файлдан олинади{% endif %}</span>{% if x %}<span class="pk-tag">{{ x.tag }}</span>{% endif %}</div>
+  {# ресурс базаси — тўғри танлов (хато эмас): RES картаси рангида, қизил эмас #}
+  <div class="pk-side pk-res{% if x %} pk-sheet is-resource{% elif p.res %} is-resource is-base{% else %} is-empty{% endif %}"{% if x %} data-k="{{ x.key }}"{% endif %}>
+    <div class="pk-band"><span class="pk-band-n">2</span><b>Ресурс</b><span>{% if x.same_file %}нархлар шу файлнинг ўзида{% elif x %}нархлар шу файлдан олинади{% elif p.res %}нархлар ресурс базасидан{% else %}нархлар қаердан олиниши танланмаган{% endif %}</span>{% if x %}<span class="pk-tag">{{ x.tag }}</span>{% endif %}</div>
     <div class="pk-ftile">
-      <span class="pk-fic">{% icon "sheet" "h-6 w-6" "1.6" %}<i>{% if x %}Р{% else %}?{% endif %}</i></span>
+      <span class="pk-fic">{% icon "sheet" "h-6 w-6" "1.6" %}<i>{% if x %}Р{% elif p.res %}Б{% else %}?{% endif %}</i></span>
       <div class="pk-fmeta">
         {% if x %}
         <b class="pk-fname" title="{{ x.file_name }}">{{ x.file_name }}</b>

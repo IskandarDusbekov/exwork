@@ -874,7 +874,7 @@ def price_map(period) -> dict:
         it = s.item
         out[it.key] = {"price": float(price), "n": s.n, "unit_key": it.key.rsplit("|", 1)[-1], "unit": it.unit,
                        "category": it.category if it.category in ("I", "J", "K", "L", "M") else "",
-                       "note": f"{word} нарх, {s.n} та нархдан"}
+                       "note": f"{word} нарх, {s.n} та нархдан", "name": it.name, "item": it.key}
         for akey in aliases.get(it.pk, ()):  # эски / бирлаштирилган номи билан келган қатор ҳам
             out.setdefault(akey, {**out[it.key], "unit_key": akey.rsplit("|", 1)[-1]})
     return out

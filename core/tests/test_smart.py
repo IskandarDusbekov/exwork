@@ -804,6 +804,19 @@ def test_without_res_only_base(tmp_path):
         run(local, None, Options(output_path=tmp_path / "o2.xlsx", mode="compat"))
 
 
+def test_base_equipment_and_cable_placed_at_once(tmp_path):
+    """Ресурс базасида L/M деб белгиланган ресурс — дарҳол шу устунга (таклиф эмас, тасдиқ кутмайди)."""
+    base = {"501": {"price": 1_000.0, "n": 1, "unit_key": "шт", "unit": "ШТ", "category": "M"},
+            "502": {"price": 10.0, "n": 1, "unit_key": "м", "unit": "М", "category": "L"}}
+    local = _coded_local(tmp_path / "l.xlsx", [("501", "ТАБЛО ВЫХОД", "ШТ", 2), ("502", "ВВГНГ 3Х2,5", "М", 5)])
+    r = _run(local, None, tmp_path, base_prices=base)
+    st = {row["row"]: row for row in r.rows}
+    assert (st[3]["category"], st[3]["suggested_category"]) == ("M", None)
+    assert (st[4]["category"], st[4]["suggested_category"]) == ("L", None)
+    ws = load_workbook(tmp_path / "out.xlsx")["БВ"]
+    assert ws["M3"].value == "=H3" and ws["L4"].value == "=H4" and ws["K3"].value is None
+
+
 def test_signature_rows_after_last_resource_not_priced(tmp_path):
     """Smeta oxiridagi imzolar («ГИП», «СОСТАВИЛ») birliksiz — narxlanmaydi, «ТОПИЛМАДИ» yozilmaydi;
     o'rtadagi birliksiz bo'lim nomi esa avvalgidek qoladi."""
@@ -822,3 +835,17 @@ def test_signature_rows_after_last_resource_not_priced(tmp_path):
     wb = load_workbook(tmp_path / "out.xlsx")
     assert wb["БВ"]["G6"].value is None and wb["БВ"]["G7"].value is None
     assert wb["БВ"]["C6"].value.startswith("ГИП")
+
+
+def test_big_local_asks_max_column_once(tmp_path):
+    """20 минг қаторли смета: қаторлар орасида такрорланган сарлавҳани қидиришда ``ws.max_column`` ҳар қаторда
+    сўралса — openpyxl ҳар сафар бутун листни айланади, қайта нархлаш 10 дақиқа кетарди. Қаторлар сонига боғлиқ эмас."""
+    from unittest import mock
+    from openpyxl.worksheet.worksheet import Worksheet
+    rows = [(str(i), f"РЕСУРС № {i}", "Т", 1) for i in range(1, 401)]
+    local = _coded_local(tmp_path / "l.xlsx", rows)
+    real, calls = Worksheet.max_column, []
+    with mock.patch.object(Worksheet, "max_column", property(lambda s: calls.append(1) or real.fget(s))):
+        r = _run(local, None, tmp_path, base_prices=BASE)
+    assert len(r.rows) == 400
+    assert len(calls) < 200, len(calls)  # аввал — ҳар қаторда (400+)

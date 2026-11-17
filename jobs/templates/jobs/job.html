@@ -287,6 +287,93 @@
     <span class="ml-auto text-xs text-slate-500">гуруҳни боссангиз — ўшалар белгиланади</span>
   </div>
 
+  {# ---- кўриниш (ресурслар / қаторлар), устун бўйича излаш, «базага ҳам сақлаш» ---- #}
+  <div class="nf-tools flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2">
+    {% if nf.groups %}
+    <div class="inline-flex overflow-hidden rounded-lg border border-slate-300 text-sm" role="group" aria-label="Кўриниш">
+      <button type="button" class="nf-view px-2.5 py-1" data-view="groups" title="Бир хил номи ва бирлиги бор қаторлар битта ресурс бўлиб кўринади — нарх бир марта ёзилади">Ресурслар бўйича <span class="num">{{ nf.groups|length }}</span></button>
+      <button type="button" class="nf-view border-l border-slate-300 px-2.5 py-1" data-view="rows" title="Ҳар бир қатор алоҳида">Қаторлар бўйича <span class="num">{{ nf_pending }}</span></button>
+    </div>
+    {% endif %}
+    <input type="search" id="nf-f-name" autocomplete="off" placeholder="Номи бўйича излаш…" aria-label="Номи бўйича излаш"
+           class="nf-filter w-56 rounded-lg border border-slate-300 px-2.5 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200">
+    <input type="search" id="nf-f-code" autocomplete="off" placeholder="Шифр / код" aria-label="Шифр бўйича излаш"
+           class="nf-filter w-32 rounded-lg border border-slate-300 px-2.5 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200">
+    <input type="search" id="nf-f-unit" autocomplete="off" placeholder="Бирлик" aria-label="Бирлик бўйича излаш"
+           class="nf-filter w-24 rounded-lg border border-slate-300 px-2.5 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200">
+    <span id="nf-found" class="text-xs text-slate-500"></span>
+    <label class="ml-auto inline-flex cursor-pointer items-center gap-1.5 text-sm text-slate-700"
+           title="Ёзган нархингиз админ текширув навбатига ҳам юборилади. Админ тасдиқлагач — нарх базасига тушади ва кейинги сметаларда шу ресурс ўзи нархланади.">
+      <input type="checkbox" id="nf-to-base" class="h-4 w-4 accent-sky-600" checked> нархни базага ҳам сақлаш
+      <span class="text-xs text-slate-400">(админ тасдиқлагач)</span>
+    </label>
+  </div>
+
+  {% if nf.groups %}
+  <div id="nf-groups-view" class="hidden">
+    <p class="border-b border-slate-100 bg-slate-50 px-4 py-1.5 text-xs text-slate-500">
+      Номи ва бирлиги бир хил қаторлар — битта ресурс. Нархни бир марта ёзинг: у шу ресурснинг <b>ҳамма қаторига</b> G га ёзилади, H = ҳар қаторнинг ўз миқдори × нарх.
+      {% if nf.group_a %}Бирлиги йўқ <b class="num">{{ nf.group_a|length }}</b> та қатор — «Қаторлар бўйича» кўринишида.{% endif %}</p>
+    <div class="max-h-[60vh] overflow-auto">
+      <table class="nf-gtable w-full text-sm">
+        <thead class="sticky top-0 z-10 bg-slate-100 text-xs text-slate-600"><tr>
+          <th class="w-40 px-3 py-2 text-left">Шифр / код</th>
+          <th class="px-2 py-2 text-left">Ресурс номи</th>
+          <th class="w-20 px-2 py-2 text-left">Ед. изм.</th>
+          <th class="w-20 px-2 py-2 text-right" title="Сметада шу ресурс нечта қаторда">Қатор</th>
+          <th class="w-28 px-2 py-2 text-right" title="Ҳамма қаторлардаги миқдор йиғиндиси (локал F, бўш бўлса E)">Жами миқдор</th>
+          <th class="min-w-[220px] px-2 py-2 text-left">Яқин ресурс (таклиф)</th>
+          <th class="w-72 px-2 py-2 text-left">Нарх — ҳамма қаторига</th>
+        </tr></thead>
+        <tbody>
+        {% for g in nf.groups %}
+        <tr class="nf-grp border-t border-slate-100 align-top hover:bg-slate-50" data-kind="{{ g.kind }}" data-rows="{{ g.rows|join:',' }}"
+            data-f="{{ g.name|lower }}" data-c="{{ g.codes|join:' '|lower }}" data-u="{{ g.unit|default_if_none:''|lower }}">
+          <td class="px-3 py-1.5 text-xs text-slate-700">{% for c in g.codes|slice:":3" %}<div>{{ c }}</div>{% endfor %}{% if g.codes|length > 3 %}<div class="text-slate-400">+{{ g.codes|length|add:"-3" }} та</div>{% endif %}</td>
+          <td class="px-2 py-1.5">
+            <div class="font-medium text-slate-900">{{ g.name }}</div>
+            <details class="mt-0.5 text-xs text-slate-500"><summary class="cursor-pointer select-none hover:text-slate-700">{% if g.count > 1 %}<b class="num">{{ g.count }}</b> та қаторда{% else %}{{ g.first }}-қатор{% endif %}</summary>
+              <div class="mt-1 flex flex-wrap gap-1">{% for x in g.rows|slice:":200" %}<button type="button" class="nf-goto num rounded border border-slate-200 bg-white px-1 hover:bg-sky-50" data-row="{{ x }}" title="Жадвалда {{ x }}-қаторни кўрсатиш">{{ x }}</button>{% endfor %}{% if g.count > 200 %}<span>… яна {{ g.count|add:"-200" }} та</span>{% endif %}</div>
+            </details>
+          </td>
+          <td class="px-2 py-1.5">{{ g.unit }}</td>
+          <td class="num px-2 py-1.5 text-right font-semibold {% if g.count > 1 %}text-rose-700{% else %}text-slate-500{% endif %}">{{ g.count }}</td>
+          <td class="num px-2 py-1.5 text-right">{{ g.qty|qty }}</td>
+          <td class="px-2 py-1.5">
+            {% if g.near %}
+            <div class="flex items-start gap-2">
+              <div class="min-w-0 flex-1 text-xs">
+                <div class="leading-snug text-slate-800" title="{{ g.near.name }}">{{ g.near.name|truncatechars:70 }}</div>
+                <div class="mt-0.5 flex flex-wrap items-center gap-x-2">
+                  <span class="{% if g.near.same_unit %}text-slate-500{% else %}font-semibold text-amber-700{% endif %}">{{ g.near.unit }}{% if not g.near.same_unit %} ≠ {{ g.unit }}{% endif %}</span>
+                  <b class="num text-slate-900">{{ g.near.price|som }}</b>
+                  <span class="rounded px-1 {% if g.near.score >= 0.8 %}bg-emerald-100 text-emerald-800{% elif g.near.score >= 0.65 %}bg-amber-100 text-amber-800{% else %}bg-slate-100 text-slate-600{% endif %}" title="Номлар ўхшашлиги">{% widthratio g.near.score 1 100 %}%</span>
+                </div>
+                {% if g.near_sum is not None %}<div class="mt-0.5 text-slate-500">H жами: <span class="num font-semibold text-slate-800">{{ g.near_sum|som }}</span></div>{% endif %}
+              </div>
+              <button type="button" class="nf-grp-accept shrink-0 rounded-md bg-amber-300 px-2 py-1 text-xs font-semibold text-amber-950 hover:bg-amber-400"
+                      title="Шу нархни ҳамма {{ g.count }} та қаторга ёзиш: {{ g.near.price|som }}">ҳаммасига қўйиш</button>
+            </div>
+            {% elif g.some_near %}<span class="text-xs text-slate-500">{{ g.some_near }} та қаторда ҳар хил таклиф — «Қаторлар бўйича» кўринг</span>
+            {% else %}<span class="text-xs text-slate-400">ўхшаши йўқ — нархни ўзингиз ёзинг</span>{% endif %}
+          </td>
+          <td class="px-2 py-1.5">
+            <form class="nf-grp-price inline-flex items-center gap-1.5">
+              <input type="text" inputmode="decimal" autocomplete="off" placeholder="нарх, масалан 26 800" aria-label="{{ g.name }} — нарх"
+                     class="w-36 rounded-lg border border-slate-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200">
+              <button type="submit" class="rounded-lg bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-40">{% if g.count > 1 %}{{ g.count }} та қаторга{% else %}қўйиш{% endif %}</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <p id="nf-g-empty" class="hidden px-4 py-6 text-center text-sm text-slate-500">Излаш бўйича ресурс топилмади.</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <div id="nf-rows-view">
   {# ---- белгиланганлар билан амаллар: биттаси, бир нечтаси ёки ҳаммаси ---- #}
   <div id="nf-act" class="nf-act flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-2">
     <span class="text-sm text-slate-600"><b id="nf-count" class="num text-slate-900">0</b> та белгиланди</span>
@@ -328,7 +415,8 @@
       </tr></thead>
       <tbody>
       {% for r in nf.rows %}
-      <tr class="nf-row border-t border-slate-100 align-top hover:bg-slate-50" data-kind="{% if r.nf_kind == 'nounit' %}{% if r.near %}bnear{% else %}a{% endif %}{% elif r.near %}bnear{% else %}bnone{% endif %}" data-row="{{ r.row }}"{% if r.near %} data-near="1"{% endif %}{% if r.nf_kind == 'unit' %} data-unit="1"{% endif %}>
+      <tr class="nf-row border-t border-slate-100 align-top hover:bg-slate-50" data-kind="{% if r.nf_kind == 'nounit' %}{% if r.near %}bnear{% else %}a{% endif %}{% elif r.near %}bnear{% else %}bnone{% endif %}" data-row="{{ r.row }}"{% if r.near %} data-near="1"{% endif %}{% if r.nf_kind == 'unit' %} data-unit="1"{% endif %}
+          data-f="{{ r.name|lower }}" data-c="{{ r.code|default_if_none:''|lower }}" data-u="{% if r.nf_kind == 'unit' %}{{ r.unit|default_if_none:''|lower }}{% endif %}">
         <td class="px-3 py-1.5"><input type="checkbox" class="nf-check h-4 w-4 accent-rose-600" value="{{ r.row }}"></td>
         <td class="num px-2 py-1.5 text-right text-slate-500">{{ r.row }}</td>
         <td class="num px-2 py-1.5 text-slate-700">{{ r.num|default_if_none:"" }}</td>
@@ -405,6 +493,8 @@
       {% endfor %}
       </tbody>
     </table>
+    <p id="nf-r-empty" class="hidden px-4 py-6 text-center text-sm text-slate-500">Излаш бўйича қатор топилмади.</p>
+  </div>
   </div>
   {% endif %}
 
@@ -452,19 +542,60 @@
       nfRows.forEach(function (tr) { tr.classList.toggle("bg-rose-50", tr.querySelector(".nf-check").checked && tr.style.display !== "none"); });
     }
     // тур танланса — фақат ўша турдагилар кўринади ва ҳаммаси белгиланади; «Ҳаммаси» — белгилар тозаланади
+    // кўринадиганлар: тур (чип) + устун бўйича излаш (номи, шифр, бирлик) — иккала кўринишда ҳам
+    var curKind = "all", grpRows = Array.prototype.slice.call(document.querySelectorAll(".nf-grp"));
+    var fName = document.getElementById("nf-f-name"), fCode = document.getElementById("nf-f-code"), fUnit = document.getElementById("nf-f-unit");
+    function words(inp) { return inp ? inp.value.toLowerCase().split(/\s+/).filter(Boolean) : []; }
+    function has(text, ws) { return ws.every(function (w) { return text.indexOf(w) >= 0; }); }
+    function applyFilter() {
+      var wn = words(fName), wc = words(fCode), wu = words(fUnit), searching = wn.length + wc.length + wu.length > 0;
+      function ok(el) {
+        return (curKind === "all" || el.dataset.kind === curKind) && has(el.dataset.f || "", wn) && has(el.dataset.c || "", wc)
+          && has(el.dataset.u || "", wu);
+      }
+      var nr = 0, ng = 0;
+      nfRows.forEach(function (tr) { var on = ok(tr); tr.style.display = on ? "" : "none"; if (on) nr++; else tr.querySelector(".nf-check").checked = false; });
+      grpRows.forEach(function (tr) { var on = ok(tr); tr.style.display = on ? "" : "none"; if (on) ng++; });
+      var re = document.getElementById("nf-r-empty"), ge = document.getElementById("nf-g-empty"), found = document.getElementById("nf-found");
+      if (re) re.classList.toggle("hidden", nr > 0);
+      if (ge) ge.classList.toggle("hidden", ng > 0);
+      if (found) found.textContent = searching ? (view === "groups" ? ng + " та ресурс" : nr + " та қатор") + " топилди" : "";
+      update();
+    }
     document.querySelectorAll(".nf-pick").forEach(function (b) {
       b.addEventListener("click", function () {
-        var kind = b.dataset.kind;
+        curKind = b.dataset.kind;
         document.querySelectorAll(".nf-pick").forEach(function (x) { x.classList.toggle("is-active", x === b); });
-        nfRows.forEach(function (tr) {
-          var on = kind === "all" || tr.dataset.kind === kind;
-          tr.style.display = on ? "" : "none";
-          tr.querySelector(".nf-check").checked = on && kind !== "all";
-        });
+        applyFilter();
+        // тур танланса — кўринганларнинг ҳаммаси белгиланади; «Ҳаммаси» — белгилар тозаланади
+        visible().forEach(function (tr) { tr.querySelector(".nf-check").checked = curKind !== "all"; });
         if (st) st.textContent = "";
         update();
       });
     });
+    [fName, fCode, fUnit].forEach(function (inp) { if (inp) inp.addEventListener("input", applyFilter); });
+
+    // кўриниш: ресурслар бўйича (бир хил номи + бирлиги — битта) ёки қаторлар бўйича
+    var view = "rows", gView = document.getElementById("nf-groups-view"), rView = document.getElementById("nf-rows-view");
+    function setView(v) {
+      view = gView ? v : "rows";
+      if (gView) gView.classList.toggle("hidden", view !== "groups");
+      if (rView) rView.classList.toggle("hidden", view !== "rows");
+      document.querySelectorAll(".nf-view").forEach(function (b) {
+        var on = b.dataset.view === view;
+        b.classList.toggle("bg-slate-900", on); b.classList.toggle("text-white", on); b.classList.toggle("hover:bg-slate-100", !on);
+      });
+      try { localStorage.setItem("nf_view", view); } catch (e) { /* йўқ */ }
+      applyFilter();
+    }
+    document.querySelectorAll(".nf-view").forEach(function (b) { b.addEventListener("click", function () { setView(b.dataset.view); }); });
+
+    // «нархни базага ҳам сақлаш» — смета­чи танлови эсда қолади
+    var toBase = document.getElementById("nf-to-base");
+    if (toBase) {
+      try { var tb = localStorage.getItem("nf_to_base"); if (tb !== null) toBase.checked = tb === "1"; } catch (e) { /* йўқ */ }
+      toBase.addEventListener("change", function () { try { localStorage.setItem("nf_to_base", toBase.checked ? "1" : "0"); } catch (e) { /* йўқ */ } });
+    }
     if (all) all.addEventListener("change", function () {
       visible().forEach(function (tr) { tr.querySelector(".nf-check").checked = all.checked; });
       update();
@@ -520,11 +651,15 @@
       fetch(PRICE_URL, {
         method: "POST",
         headers: {"Content-Type": "application/json", "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value},
-        body: JSON.stringify(price != null ? {action: "set", rows: rows, price: price} : {action: "accept", rows: rows}),
+        body: JSON.stringify(Object.assign(price != null ? {action: "set", rows: rows, price: price} : {action: "accept", rows: rows},
+                                           {to_base: !!(toBase && toBase.checked)})),
       }).then(function (r) {
         return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; });
       }).then(function (d) {
         if (!d.ok) throw new Error(d.error || "хато");
+        if (d.to_base) try {
+          sessionStorage.setItem("nf_flash", d.to_base + " та қатор нархи базага юборилди — админ тасдиқлагач, кейинги сметаларда ўзи нархланади");
+        } catch (e) { /* йўқ */ }
         location.reload();
       }).catch(function (e) {
         if (window.narxRecalc) narxRecalc.failed(e.message || e);
@@ -537,6 +672,28 @@
     document.querySelectorAll(".nf-alt-accept").forEach(function (b) {
       b.addEventListener("click", function () { acceptNear([Number(b.dataset.row)], b, b.dataset.price); });
     });
+    // ресурс (гуруҳ) бўйича: битта нарх — шу номи ва бирлигидаги ҳамма қаторга
+    function grpRowsOf(el) { return el.closest(".nf-grp").dataset.rows.split(",").map(Number); }
+    document.querySelectorAll(".nf-grp-accept").forEach(function (b) {
+      b.addEventListener("click", function () { acceptNear(grpRowsOf(b), b); });
+    });
+    document.querySelectorAll(".nf-grp-price").forEach(function (f) {
+      f.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var inp = f.querySelector("input"), v = inp.value.trim();
+        var num = parseFloat(v.replace(/\s/g, "").replace(",", "."));
+        if (!v || !(num >= 0)) { inp.focus(); inp.classList.add("border-rose-500"); return; }
+        acceptNear(grpRowsOf(f), f.querySelector("button"), v);
+      });
+    });
+    try {
+      var flash = sessionStorage.getItem("nf_flash");
+      if (flash && st) { st.textContent = flash; sessionStorage.removeItem("nf_flash"); }
+    } catch (e) { /* йўқ */ }
+    var savedView = null;
+    try { savedView = localStorage.getItem("nf_view"); } catch (e) { /* йўқ */ }
+    setView(savedView || "{% if nf.grouped %}groups{% else %}rows{% endif %}");
+
     var nearBulk = document.getElementById("nf-near-bulk");
     if (nearBulk) nearBulk.addEventListener("click", function () {
       acceptNear(checked().filter(function (c) { return c.closest("tr").dataset.near; }).map(function (c) { return Number(c.value); }), nearBulk);
@@ -809,6 +966,7 @@
       var xl = !!FILES[view];
       document.querySelectorAll(".js-grid").forEach(function (el) { el.classList.toggle("hidden", xl); });
       box.classList.toggle("hidden", !xl);
+      if (!xl && window.narxEnsureGrid) window.narxEnsureGrid();
       document.querySelectorAll(".view-btn").forEach(function (b) { b.classList.toggle("is-on", b.dataset.view === view); });
       if (history.replaceState) {
         var u = new URLSearchParams(location.search);
@@ -1301,30 +1459,10 @@
         <th class="xl-extra text-left">Ҳолат</th>
       </tr>
     </thead>
-    <tbody id="rows-body">
-    {% if grid_view == "res" %}
-    {% for group in res_groups %}
-    <tr class="xl-group" data-group-head="{{ group.id }}">
-      <td class="xl-gutter"></td>
-      <td colspan="{{ grid_span }}">
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span class="font-semibold uppercase tracking-wide">{{ group.title }}</span>
-          {% if group.column %}<span class="rounded px-1.5 text-xs font-semibold {{ group.column|cat_class }}" title="Бу бўлим ресурслари шу устунга тегишли">{{ group.column }} · {{ group.label }}</span>{% endif %}
-          <span class="text-xs text-slate-500">{{ group.count }} та қатор{% if group.hint %} · {{ group.hint }}{% endif %}</span>
-          {% if group.to_move %}<button type="button" class="grp-move rounded bg-fuchsia-700 px-2 py-0.5 text-xs font-medium text-white hover:bg-fuchsia-800"
-                  data-rows="{{ group.to_move|join:',' }}" data-move-to="{{ group.column }}"
-                  title="Бу қаторлар RES'да «{{ group.title }}» бўлимида, ҳозир бошқа устунда">{{ group.to_move|length }} таси {{ group.column }} да эмас — {{ group.column }} га ўтказамизми?</button>{% endif %}
-          {% if group.count %}<button type="button" class="grp-select rounded border border-slate-300 bg-white px-2 py-0.5 text-xs hover:bg-slate-100" data-group="{{ group.id }}" title="Бўлимдаги ҳамма қаторларни белгилаш — кейин пастки панелдан устун танланг">белгилаш</button>{% endif %}
-          <span class="num text-sm font-semibold" title="Бўлим бўйича сумма (H)">{{ group.sum|som }}</span>
-        </div>
-      </td>
-    </tr>
-    {% xl_rows group.rows group result_mode grid_columns %}
-    {% endfor %}
-    {% else %}
-    {% xl_rows rows None result_mode grid_columns %}
-    {% endif %}
-    </tbody>
+    {# 20 минг қаторли сметада бутун жадвал бирдан ~17 МБ — браузер қотади. Шунинг учун бу ерда фақат бошидаги
+       қаторлар; қолгани жадвал кўрсатилганда (ёки керак бўлганда) бўлак-бўлак юкланади (``job_grid``). #}
+    <tbody id="rows-body" data-url="{% url 'job_grid' job.id %}?view={{ view|urlencode }}" data-next="{{ grid.next|default_if_none:'' }}"
+           data-total="{{ grid.total }}">{{ grid.html }}</tbody>
   </table>
   </div>
 </section>
@@ -1800,6 +1938,7 @@
   .xl-grid tbody[data-smart="1"] tr[data-selectable] { cursor: cell; }
   .xl-grid tbody[data-smart="1"] { user-select: none; }
 </style>
+{{ grid_selectable|json_script:"grid-selectable" }}
 <script>
   // Фильтр, белгилаш (босиш, судраш, Shift+оралиқ, Ctrl+A) ва устунга ўтказиш
   (function () {
@@ -1840,6 +1979,7 @@
       if (bar) {
         count.textContent = sel.size;
         bar.classList.toggle("hidden", sel.size === 0);
+        if (sel.size && !gridDone) ensureGrid();  // Excel кўринишида белгиланса ҳам — ҳисоблагичлар жадвалдан
         var acc = 0, man = 0;
         sel.forEach(function (r) {
           var t = body.querySelector('tr[data-row="' + r + '"]');
@@ -1861,7 +2001,7 @@
       if (window.narxSelChanged) window.narxSelChanged();
     }
     // Excel кўриниши (натижа файли) шу белгилар билан ишлайди — пастки панел иккаласида бир хил
-    var selectableNums = new Set(rows.filter(function (t) { return t.dataset.selectable; }).map(function (t) { return t.dataset.row; }));
+    var selectableNums = new Set(JSON.parse(document.getElementById("grid-selectable").textContent).map(String));
     window.narxSel = {
       set: sel, render: render,
       selectable: function (r) { return selectableNums.has(String(r)); },
@@ -1900,11 +2040,64 @@
       store(KEY + "-filter", filterKey ? filterKey + "|" + (label || "") : null);
       render();
     }
+    // ---- жадвални бўлак-бўлак юклаш: бошида ~300 қатор; қолгани жадвал керак бўлганда (кўрсатилганда, фильтр,
+    // «кўриб чиқиш», қаторга ўтиш…) фонда, бўлаклар орасида браузерга нафас бериб ----
+    var gridNext = body.dataset.next, gridTotal = Number(body.dataset.total || 0), gridStarted = false, gridWait = [];
+    var gridDone = gridNext === "";
+    function gridProgress() {
+      if (!visibleOut) return;
+      var el = document.getElementById("grid-loading");
+      if (!el && !gridDone) {
+        el = document.createElement("span"); el.id = "grid-loading"; el.className = "ml-1 text-amber-700";
+        visibleOut.parentElement.appendChild(el);
+      }
+      if (el) el.textContent = gridDone ? "" : " · юкланмоқда " + rows.length + " / " + gridTotal;
+    }
+    function adoptNew() {
+      var all = body.querySelectorAll("tr[data-row]");
+      for (var i = rows.length; i < all.length; i++) {
+        var tr = all[i], n = tr.querySelector(".xl-name");
+        tr._text = norm(n ? n.textContent : "");
+        rows.push(tr);
+      }
+    }
+    function ensureGrid() {
+      if (gridDone || gridStarted) return;
+      gridStarted = true;
+      gridProgress();
+      (function step() {
+        fetch(body.dataset.url + "&from=" + gridNext, {credentials: "same-origin"})
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (d.error) throw new Error(d.error);
+            body.insertAdjacentHTML("beforeend", d.html);
+            adoptNew();
+            gridNext = d.next === null ? "" : String(d.next);
+            gridDone = gridNext === "";
+            if (filterKey || (search && search.value.trim()) || gridDone) applyFilter(filterKey, boxName.textContent);
+            else render();
+            gridProgress();
+            if (gridDone) { var w = gridWait; gridWait = []; w.forEach(function (fn) { fn(); }); }
+            else setTimeout(step, 30);
+          })
+          .catch(function (e) {
+            gridStarted = false;
+            var el = document.getElementById("grid-loading");
+            if (el) el.textContent = " · юкланмади: " + (e.message || e) + " — саҳифани янгиланг";
+          });
+      })();
+    }
+    // бутун жадвал керак бўлган амал: юкланиб бўлгач бажарилади
+    function whenGrid(fn) { if (gridDone) fn(); else { gridWait.push(fn); ensureGrid(); } }
+    window.narxEnsureGrid = ensureGrid;
+    window.narxWhenGrid = whenGrid;
+    if (!wrap.classList.contains("hidden")) ensureGrid();
+
     if (search) {
       var searchTimer = null;
       search.addEventListener("input", function () {
         clearTimeout(searchTimer);
-        searchTimer = setTimeout(function () { applyFilter(filterKey, boxName.textContent); }, 120);
+        searchTimer = setTimeout(function () { ensureGrid(); applyFilter(filterKey, boxName.textContent); }, 120);
       });
     }
 
@@ -1957,6 +2150,7 @@
     window.narxShowTab = showTab;
     window.narxGoToRow = function (r) {
       var tr = body.querySelector('tr[data-row="' + r + '"]');
+      if (!tr && !gridDone) { showTab("2"); whenGrid(function () { window.narxGoToRow(r); }); return; }
       if (!tr) return;
       if (search) search.value = "";
       applyFilter(null);
@@ -1976,6 +2170,7 @@
     document.querySelectorAll(".stat-card, .cat-chip").forEach(function (b) {
       b.addEventListener("click", function () {
         var label = b.dataset.label !== undefined ? b.dataset.label : (b.querySelector("div") || b).textContent;
+        if (b.dataset.filter) ensureGrid();
         applyFilter(b.dataset.filter, label);
         if (b.dataset.filter || !b.classList.contains("chip")) scrollToTable();
       });
@@ -2039,11 +2234,11 @@
         selectable(visibleRows()).forEach(function (t) { if (on) sel.add(t.dataset.row); else sel.delete(t.dataset.row); });
         render();
       }
-      selAll.addEventListener("click", function () { selectVisible(selAll.checked); });
+      selAll.addEventListener("click", function () { var on = selAll.checked; whenGrid(function () { selectVisible(on); }); });
       wrap.addEventListener("keydown", function (e) {
         if ((e.ctrlKey || e.metaKey) && (e.key === "a" || e.key === "A" || e.key === "ф" || e.key === "Ф")) {
           e.preventDefault();
-          selectVisible(true);
+          whenGrid(function () { selectVisible(true); });
         }
       });
       document.getElementById("sel-clear").addEventListener("click", function () { sel.clear(); render(); });
@@ -2070,6 +2265,7 @@
       document.querySelectorAll("[data-review]").forEach(function (btn) {
         btn.addEventListener("click", function () {
           if (window.narxShowGrid) window.narxShowGrid();
+          whenGrid(function () {
           var cat = btn.dataset.review;
           rows.forEach(function (t) { if (flags(t).indexOf(" SUGG_" + cat + " ") >= 0) sel.add(t.dataset.row); });
           applyFilter("SUGG_" + cat, btn.dataset.label);
@@ -2079,6 +2275,7 @@
           });
           scrollToTable();
           revealFirst("SUGG_" + cat);
+          });
         });
       });
 
@@ -2165,6 +2362,7 @@
       });
       function setPrice(rows, value) {
         if (!String(value).trim()) { status.textContent = "Нархни ёзинг"; return; }
+        if (!gridDone) { status.textContent = "жадвал юкланмоқда…"; whenGrid(function () { setPrice(rows, value); }); return; }
         var priced = rows.filter(function (r) {
           var t = body.querySelector('tr[data-row="' + r + '"]');
           return t && flags(t).indexOf(" NOT_PRICED ") < 0 && flags(t).indexOf(" MANUAL ") < 0;
@@ -2233,6 +2431,7 @@
       document.querySelectorAll(".lm-review").forEach(function (btn) {
         btn.addEventListener("click", function () {
           if (window.narxShowGrid) window.narxShowGrid();
+          whenGrid(function () {
           var col = btn.dataset.col;
           rows.forEach(function (t) { if (flags(t).indexOf(" LM_" + col + " ") >= 0) sel.add(t.dataset.row); });
           applyFilter("LM_" + col, btn.dataset.label);
@@ -2242,6 +2441,7 @@
           });
           scrollToTable();
           revealFirst("LM_" + col);
+          });
         });
       });
       document.querySelectorAll(".sugg-xl").forEach(function (btn) {
@@ -2277,24 +2477,28 @@
 
     // қайта юкланганда: фильтр, скролл ва ҳозиргина ўтказилган қаторларни ёритиш
     var savedFilter = read(KEY + "-filter");
-    if (savedFilter) {
-      var parts = savedFilter.split("|");
-      applyFilter(parts[0], parts.slice(1).join("|"));
-    }
-    var y = read(KEY + "-scroll");
-    if (y !== null) {
-      var ys = y.split("|");
-      window.scrollTo(0, Number(ys[0]));
-      wrap.scrollTop = Number(ys[1] || 0);
-      store(KEY + "-scroll", null);
-    }
+    var y = read(KEY + "-scroll"), ys = y !== null ? y.split("|") : [];
     var flash = JSON.parse(read(KEY + "-flash") || "[]");
     store(KEY + "-flash", null);
-    flash.forEach(function (r) {
-      var tr = body.querySelector('tr[data-row="' + r + '"]');
-      if (tr) { tr.classList.add("flash"); setTimeout(function () { tr.classList.remove("flash"); }, 2600); }
-    });
-    render();
+    if (y !== null) {
+      window.scrollTo(0, Number(ys[0]));
+      store(KEY + "-scroll", null);
+    }
+    function restore() {
+      if (savedFilter) {
+        var parts = savedFilter.split("|");
+        applyFilter(parts[0], parts.slice(1).join("|"));
+      }
+      if (y !== null) wrap.scrollTop = Number(ys[1] || 0);
+      flash.forEach(function (r) {
+        var tr = body.querySelector('tr[data-row="' + r + '"]');
+        if (tr) { tr.classList.add("flash"); setTimeout(function () { tr.classList.remove("flash"); }, 2600); }
+      });
+      render();
+    }
+    // жадвалдан фильтр / скролл / ёритиш тикланиши керак бўлса — жадвал тўлгач
+    if (savedFilter || flash.length || Number(ys[1] || 0) > 0) whenGrid(restore);
+    else render();
   })();
 </script>
 {% endif %}

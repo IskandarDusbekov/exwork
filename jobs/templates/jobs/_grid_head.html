@@ -1,0 +1,15 @@
+{% load narx %}<tr class="xl-group" data-group-head="{{ group.id }}">
+      <td class="xl-gutter"></td>
+      <td colspan="{{ grid_span }}">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span class="font-semibold uppercase tracking-wide">{{ group.title }}</span>
+          {% if group.column %}<span class="rounded px-1.5 text-xs font-semibold {{ group.column|cat_class }}" title="Бу бўлим ресурслари шу устунга тегишли">{{ group.column }} · {{ group.label }}</span>{% endif %}
+          <span class="text-xs text-slate-500">{{ group.count }} та қатор{% if group.hint %} · {{ group.hint }}{% endif %}</span>
+          {% if group.to_move %}<button type="button" class="grp-move rounded bg-fuchsia-700 px-2 py-0.5 text-xs font-medium text-white hover:bg-fuchsia-800"
+                  data-rows="{{ group.to_move|join:',' }}" data-move-to="{{ group.column }}"
+                  title="Бу қаторлар RES'да «{{ group.title }}» бўлимида, ҳозир бошқа устунда">{{ group.to_move|length }} таси {{ group.column }} да эмас — {{ group.column }} га ўтказамизми?</button>{% endif %}
+          {% if group.count %}<button type="button" class="grp-select rounded border border-slate-300 bg-white px-2 py-0.5 text-xs hover:bg-slate-100" data-group="{{ group.id }}" title="Бўлимдаги ҳамма қаторларни белгилаш — кейин пастки панелдан устун танланг">белгилаш</button>{% endif %}
+          <span class="num text-sm font-semibold" title="Бўлим бўйича сумма (H)">{{ group.sum|som }}</span>
+        </div>
+      </td>
+    </tr>

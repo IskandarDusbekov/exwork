@@ -120,10 +120,27 @@ class BulkPriceTests(TestCase):
                              content_type="application/json")
         self.assertEqual(r.json()["rows"], 0)
 
-    @pytest.mark.recalc_queue
-    def test_priced_but_not_recalculated_row_is_not_offered(self):
+    def test_price_written_into_excel_without_recalc(self):
+        """Нарх ёзиш — смета қайта нархланмайди: натижа Excel'нинг ўзида, дарҳол (навбатсиз)."""
+        from openpyxl import load_workbook
         g = self._groups()[0]
         first = g["files"][0]
+        self.assertEqual(self._post([{"price": "5", "rows": {first["job"]: first["rows"]}}]).json()["rows"], len(first["rows"]))
+        job = Job.objects.get(pk=first["job"])
+        self.assertFalse(job.recalc_pending)
+        ws = load_workbook(job.abs(job.output_path))[job.local_sheet]
+        self.assertTrue(all(ws[f"G{r}"].value == 5 for r in first["rows"]))
+        self.assertTrue(all(x["status"] == "MANUAL" for x in job.result["rows"] if x["row"] in first["rows"]))
+        names = {gg["name"]: {f["job"] for f in gg["files"]} for gg in self._groups()}
+        self.assertNotIn(first["job"], names.get(g["name"], set()))
+
+    @pytest.mark.recalc_queue
+    def test_priced_but_not_recalculated_row_is_not_offered(self):
+        from .fastpatch import KIT_NAME
+        g = self._groups()[0]
+        first = g["files"][0]
+        job = Job.objects.get(pk=first["job"])
+        job.abs(KIT_NAME).unlink()  # ямаш тўплами йўқ (эски смета) — тўлиқ қайта ҳисоб навбатга
         self._post([{"price": "5", "rows": {first["job"]: first["rows"]}}])
         self.assertTrue(Job.objects.get(pk=first["job"]).recalc_pending)
         self.assertEqual(self.client.get(self.url + "?pending=1").json(), {"pending": 1})

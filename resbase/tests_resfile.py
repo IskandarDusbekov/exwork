@@ -202,6 +202,28 @@ class ResFileTests(SimpleTestCase):
                          [("1", "ЗАТРАТЫ ТРУДА РАБОЧИХ-СТРОИТЕЛЕЙ", 34.7, 30.6054, False),
                           ("", "ПЕСЧАНО-ГРАВИЙНАЯ СМЕСЬ", None, 88.2, True)])
 
+    def test_big_lrv_reads_max_row_once(self):
+        """Нархли смета (RES + 20 минг қаторли LRV): ``ws.max_row`` ҳар қаторда сўралса — openpyxl ҳар сафар бутун
+        листни айланади ва ўқиш дақиқалаб «осилиб» қоларди (нарх базасига юклаш тўхтаб қолган). Бир марта сўралади."""
+        from unittest import mock
+        from openpyxl.worksheet.worksheet import Worksheet
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "LRV"
+        ws.append(["№№", "Обоснование", "Наименование работ и ресурсов", "Ед.изм", "Кол-во"])
+        ws.append([None, None, None, None, "на единицу", "по проекту"])
+        ws.append([1, 2, 3, 4, 5, 6])
+        for n in range(1, 301):
+            ws.append([n, "E9-5-2-2", "ИЗГОТОВЛЕНИЕ МЕТАЛЛИЧЕСКИХ ОПОР", "10Т", 0.03484])
+            ws.append([f"{n}.1", "000001", "ЗАТРАТЫ ТРУДА РАБОЧИХ-СТРОИТЕЛЕЙ", "ЧЕЛ-Ч", "16,73", "0,58"])
+        path = self.save(wb)
+        real = Worksheet.max_row
+        calls = []
+        with mock.patch.object(Worksheet, "max_row", property(lambda s: calls.append(1) or real.fget(s))):
+            res = resfile.parse(path)
+        self.assertEqual(len(res.works), 300)
+        self.assertLess(len(calls), 20)  # қаторлар сонига боғлиқ эмас (аввал — ҳар қаторда бир неча марта)
+
     def test_normbook(self):
         from . import normbook
         for raw, want in (("Е0101-197-02 ДОП. 11", ("Е0101-197-02", "Е01")), ("Е01-01-013-11", ("Е01-01-013-11", "Е01")),

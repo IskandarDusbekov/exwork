@@ -258,7 +258,7 @@ class FlowTests(LoggedInTestCase):
         def post(payload):
             # фоиз сақланади, ҳисоб навбатга; янги сводка — ҳолат сўровида (саҳифа шуни кутади)
             self.assertEqual(self.client.post(url, json.dumps(payload), content_type="application/json").json(),
-                             {"ok": True, "queued": True})
+                             {"ok": True, "queued": False, "patched": True})
             state = self.client.get(reverse("job_state", args=[job.id])).json()
             self.assertFalse(state["pending"])
             return {"ok": True, **state["svodka"]}
@@ -318,7 +318,7 @@ class FlowTests(LoggedInTestCase):
         post = lambda payload: self.client.post(url, json.dumps(payload), content_type="application/json")
 
         r = post({"rows": [water, cloth], "category": "M"})
-        self.assertEqual(r.json(), {"ok": True, "queued": True, "changed": 2, "overrides": 2})
+        self.assertEqual(r.json(), {"ok": True, "queued": False, "patched": True, "changed": 2, "overrides": 2})
         job.refresh_from_db()
         self.assertEqual(job.categories, {str(water): "M", str(cloth): "M"})
         rows = {x["row"]: x for x in job.result["rows"]}
@@ -364,10 +364,23 @@ class FlowTests(LoggedInTestCase):
 
         # 10 tasini taklif bo'yicha, bittasini qo'lda, bitta EXACT qatorda taklif yo'q — o'tkazib yuboriladi
         r = post({"rows": red[:10] + [exact], "action": "accept"})
-        self.assertEqual(r.json(), {"ok": True, "queued": True, "changed": 10, "skipped": 1})
+        # нарх ёзиш — қайта нархламасдан, натижа Excel'нинг ўзида
+        self.assertEqual(r.json(), {"ok": True, "queued": False, "patched": True, "changed": 10, "skipped": 1, "to_base": 0})
         r = post({"rows": [red[10]], "action": "set", "price": "4 500 000"})
-        self.assertTrue(r.json()["ok"])
+        self.assertTrue(r.json()["patched"])
         job.refresh_from_db()
+        # ямалган натижа — тўлиқ қайта ҳисобдагидек
+        from .services import recompute
+        patched = json.loads(json.dumps(job.result))
+        full = recompute(Job.objects.get(pk=job.pk)).result
+        for key in ("stats", "problems", "warnings", "checks", "prices", "totals"):
+            self.assertEqual(patched[key], full[key], key)
+        keys = ("row", "g", "h", "status", "manual", "orig_status", "note", "category", "suggested_price")
+        self.assertEqual([{k: x.get(k) for k in keys} for x in patched["rows"]],
+                         [{k: x.get(k) for k in keys} for x in full["rows"]])
+        ws = load_workbook(job.abs(job.output_path), data_only=True)[job.local_sheet]
+        self.assertEqual(ws[f"G{red[10]}"].value, 4_500_000)
+        self.assertAlmostEqual(ws[f"H{red[10]}"].value, next(x["h"] for x in full["rows"] if x["row"] == red[10]))
         self.assertEqual(job.result["stats"]["MANUAL"], 11)
         self.assertEqual(job.result["stats"]["NOT_PRICED"], 1)
         self.assertEqual(job.prices[str(red[10])], 4_500_000)
@@ -401,7 +414,7 @@ class FlowTests(LoggedInTestCase):
 
         url = reverse("job_not_found", args=[job.id])
         post = lambda payload: self.client.post(url, json.dumps(payload), content_type="application/json")
-        self.assertEqual(post({"rows": nf, "action": "clear"}).json(), {"ok": True, "queued": True, "changed": len(nf)})
+        self.assertEqual(post({"rows": nf, "action": "clear"}).json(), {"ok": True, "queued": False, "patched": True, "changed": len(nf)})
         job.refresh_from_db()
         self.assertEqual(job.cleared, nf)
         self.assertEqual(job.result["cleared"], nf)

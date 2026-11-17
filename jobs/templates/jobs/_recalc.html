@@ -95,8 +95,10 @@
       saving: function (title) {
         setBusy(true);
         if (!window.narxProgress) return;
-        np = narxProgress.start({title: title || "Смета янгиланмоқда", typical: typical,
-          steps: ["Ўзгариш сақланмоқда", "Смета қайта ҳисобланмоқда", "Жадвал янгиланмоқда"]});
+        // одатда Excel'нинг ўзи ямалади (бир-икки сония) — тўлиқ ҳисоб вақти («~1:44») бу ерда кўрсатилмайди;
+        // тўлиқ ҳисобга ўтилса, саҳифа янгилангач ойна ўша вақт билан давом этади
+        np = narxProgress.start({title: title || "Смета янгиланмоқда",
+          steps: ["Ўзгариш сақланмоқда", "Excel'га ёзилмоқда", "Жадвал янгиланмоқда"]}).auto(1);
       },
       failed: function (msg) { setBusy(false); if (np) { np.fail("Сақланмади: " + msg); np = null; } },
     };
