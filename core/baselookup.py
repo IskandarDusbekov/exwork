@@ -41,7 +41,8 @@ class BaseLookup:
             item = e.get("item") or key
             self._loose.setdefault(f"{_PUNCT.sub('', name)}|{unit}", {})[item] = e
             if key == item:  # эски номлар (alias) ўхшаш қидирувда такрорланмасин
-                self._by_unit.setdefault(unit, []).append((name, key))
+                # калитда бўшлиқ ва белгилар йўқ (name_core) — ўхшашликни асл номи бўйича ҳисоблаймиз
+                self._by_unit.setdefault(unit, []).append((fold_name(norm_name(e.get("name") or name)), key))
 
     def exact(self, code, name, unit) -> Optional[dict]:
         return (self.base.get(norm_code(code)) if code is not None else None) or self.base.get(name_unit_key(name, unit))

@@ -280,9 +280,9 @@ class EditMergeTrashTests(TestCase):
     def test_rename_keeps_old_name_as_alias(self):
         p = self.manual("ЦЕМЕНТ М-400", 1_000_000)
         it = p.item
-        services.edit_item(it, name="Цемент М400", category="K", user=self.admin)
+        services.edit_item(it, name="Цемент марки М400", category="K", user=self.admin)
         self.assertEqual(Alias.objects.get().item, it)
-        p2 = self.manual("цемент  м-400", 1_100_000)  # эски ном билан келди — ўша ресурсга
+        p2 = self.manual("цемент  м.400", 1_100_000)  # эски ном билан (белгилари бошқача) келди — ўша ресурсга
         self.assertEqual(p2.item_id, it.pk)
         other = self.manual("Цемент М500", 1_300_000).item
         with self.assertRaises(services.Conflict):
@@ -400,7 +400,10 @@ class Stage2Tests(TestCase):
 
     def test_duplicates_and_ignore(self):
         a = self.manual("Агрегаты окрасочные высокого давления", 100).item
-        b = self.manual("Агрегаты окрасочные высокогодавления", 110).item
+        b = self.manual("Агрегаты окрасочные высокого давлении", 110).item
+        self.manual("Агрегаты окрасочные высокого давления.", 120)  # фақат нуқта — ўша ресурсга (калити бир хил)
+        self.manual("Арматура класса A-II", 100)
+        self.manual("Арматура класса A-III", 100)  # синфи бошқа — икки нусха эмас
         self.manual("Лист толщ 5мм", 100)
         self.manual("Лист толщ 6мм", 100)  # рақами бошқа — икки нусха эмас
         self.manual("Агрегаты окрасочные высокого давления", 100, unit="шт")  # бирлиги бошқа
@@ -413,7 +416,7 @@ class Stage2Tests(TestCase):
 
     def test_merge_from_queue_returns_back(self):
         a = self.manual("Агрегаты окрасочные высокого давления", 100).item
-        b = self.manual("Агрегаты окрасочные высокогодавления", 110).item
+        b = self.manual("Агрегаты окрасочные высокого давлении", 110).item
         back = reverse("panel:narx_check") + "?s=dup"
         r = self.client.post(reverse("panel:narx_item_merge", args=[a.pk]), {"source": b.pk, "next": back})
         self.assertRedirects(r, back)

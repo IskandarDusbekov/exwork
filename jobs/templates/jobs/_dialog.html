@@ -119,12 +119,13 @@
 
   // <form data-confirm="…"> — юборишдан олдин сўралади
   document.addEventListener("submit", function (e) {
-    var form = e.target;
-    if (!form.matches || !form.matches("form[data-confirm]") || form.dataset.confirmed === "1") return;
+    var form = e.target, btn = e.submitter;
+    // тугманинг ўз data-confirm'и бўлса — шуники (бир формада турли саволли тугмалар)
+    var src = btn && btn.hasAttribute && btn.hasAttribute("data-confirm") ? btn : form;
+    if (!form.matches || !src.matches("[data-confirm]") || form.dataset.confirmed === "1") return;
     e.preventDefault();
-    var btn = e.submitter;
-    window.narxDialog.confirm(form.dataset.confirm, {title: form.dataset.confirmTitle, ok: form.dataset.confirmOk,
-                                                     danger: form.hasAttribute("data-danger")}).then(function (yes) {
+    window.narxDialog.confirm(src.dataset.confirm, {title: src.dataset.confirmTitle, ok: src.dataset.confirmOk,
+                                                    danger: src.hasAttribute("data-danger")}).then(function (yes) {
       if (!yes) return;
       form.dataset.confirmed = "1";
       if (form.requestSubmit) form.requestSubmit(btn || undefined); else form.submit();

@@ -103,7 +103,7 @@ def narx_list(request):
     f = _list_filters(request.GET)
     qs = services.live_items().annotate(n=Count("prices", filter=Q(prices__batch__deleted_at=None)))
     for w in f["q"].split():
-        qs = qs.filter(Q(name__icontains=w) | Q(key__icontains=services.fold_name(services.norm_name(w))))
+        qs = qs.filter(Q(name__icontains=w) | Q(key__icontains=services.name_core(w)))
     st = Stat.objects.filter(item=OuterRef("pk"))
     if f["region"]:
         st = st.filter(region=f["region"])
@@ -189,13 +189,26 @@ def narx_item(request, pk):
         s.pick = v if v is not None else (s.mid if s.mid is not None else s.low)
         s.pick_level = lv if v is not None else ("mid" if s.mid is not None else "low")
         s.example = s.pick * 10
+    # айнан бир хил нархлар (қиймати, вилояти, йили, ҳолати) — битта карта, қолганлари «яна N та жойда» ичида
+    groups = {}
     for p in prices:
         p.n_files = len(p.places or [])
+        p.used = services.counted(p)
+        k = (p.price, p.region, p.year, p.excluded, p.outlier, p.pin, p.batch.kind == "manual")
+        if k in groups:
+            groups[k].same.append(p)
+            groups[k].n_all += p.n_files or 1
+        else:
+            p.same, p.n_all = [], p.n_files or 1
+            groups[k] = p
+    n_prices = len(prices)
+    prices = list(groups.values())
     return render(request, "panel/narx_item.html", _nctx(
-        request, "list", it=it, prices=prices, stats=stats, variants=variants, aliases=aliases, mq=mq,
+        request, "list", n_prices=n_prices, delete_word=DELETE_WORD, it=it, prices=prices, stats=stats, variants=variants, aliases=aliases, mq=mq,
         dyn=dyn, level=lv, level_label=LEVEL_LABELS[lv], compact=True, n_names=len(aliases) + len(variants),
         similar=similar, logs=list(it.logs.select_related("user", "price")[:100]),
-        n_live=sum(1 for p in prices if not p.excluded and not p.outlier),
+        n_live=sum(1 + len(p.same) for p in prices if p.used),
+        pin_choices=list(services.PIN_LABELS.items()),
         last_region=prices[0].region if prices else ""))
 
 
@@ -278,12 +291,38 @@ def narx_alias_delete(request, pk, alias):
 @superuser_required
 def narx_price(request, pk, action):
     p = get_object_or_404(Price, pk=pk)
+    back = _back(request, reverse("panel:narx_item", args=[p.item_id]))
+    if action == "pin":
+        pin = request.POST.get("pin", "")
+        services.set_pin(p, pin, user=request.user)
+        audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: {p.item.name} — {p.price} "
+              + (f"«{services.PIN_LABELS[pin]}» нарх қилиб белгиланди" if pin in services.PIN_LABELS else "белгиси олинди"))
+        messages.success(request, f"{services.fmt(p.price)} сўм — {services.PIN_LABELS[pin]} нарх қилиб белгиланди."
+                         if pin in services.PIN_LABELS else "Белги олинди — нарх яна умумий қоида бўйича ҳисобланади.")
+        return back
+    group = list(services.twins(p)) if request.POST.get("one") != "1" else [p]
+    if action == "delete":
+        if services.counted(p) and _norm_word(request.POST.get("confirm")) != _norm_word(DELETE_WORD):
+            messages.error(request, "Бу нарх ҳисобда ишлатилади — ўчириш учун тасдиқлаш сўзини ёзинг.")
+            return back
+        n = services.delete_prices(group, user=request.user)
+        audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: {p.item.name} — {p.price} ўчирилди ({n} та)")
+        messages.success(request, f"{services.fmt(p.price)} сўм нарх ўчирилди" + (f" ({n} та жойдан)." if n > 1 else "."))
+        return back
     if action not in ("exclude", "include"):
         raise Http404
-    services.set_excluded(p, action == "exclude", request.POST.get("note", "").strip(), user=request.user)
+    for x in group:
+        services.set_excluded(x, action == "exclude", request.POST.get("note", "").strip(), user=request.user)
     audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: {p.item.name} — {p.price} "
           f"{'ҳисобдан чиқарилди' if action == 'exclude' else 'ҳисобга қайтарилди'}")
     return _back(request, reverse("panel:narx_item", args=[p.item_id]))
+
+
+DELETE_WORD = "ЎЧИРИШ"
+
+
+def _norm_word(v) -> str:
+    return " ".join(str(v or "").upper().replace("Ё", "Е").split())
 
 
 @require_POST
@@ -707,15 +746,37 @@ def narx_check(request):
         sec = next((k for k, *_ in CHECKS if counts[k]), "dup")
     ctx = {}
     if sec == "dup":
-        page = Paginator(services.duplicate_pairs(), 25).get_page(request.GET.get("page"))
+        dq = " ".join(request.GET.get("q", "").split())[:100]
+        band = request.GET.get("r", "")
+        allp = services.duplicate_pairs()
+        if band in DUP_BANDS:
+            lo, hi = DUP_BANDS[band][1:]
+            allp = [x for x in allp if lo <= x[0] <= hi]
+        if dq:
+            hit = set(services.live_items().filter(
+                *[Q(name__icontains=w) | Q(key__icontains=services.name_core(w)) for w in dq.split()]).values_list("pk", flat=True))
+            allp = [x for x in allp if x[1] in hit or x[2] in hit]
+        page = Paginator(allp, 25).get_page(request.GET.get("page"))
         ids = {i for _, a, b in page for i in (a, b)}
         items = {i.pk: i for i in Item.objects.filter(pk__in=ids)}
         n = dict(Price.objects.filter(item_id__in=ids).values_list("item_id").annotate(c=Count("id")))
         best = services.best_stat(list(ids))
         for i in items.values():
             i.n, i.st = n.get(i.pk, 0), best.get(i.pk)
-        ctx["pairs"] = [(r, items[a], items[b], ((items[a], items[b]), (items[b], items[a])))
-                        for r, a, b in page if a in items and b in items]
+            i.show = None if i.st is None else (i.st.mid if i.st.mid is not None else i.st.low)
+        pairs = []
+        for r, a, b in page:
+            if a not in items or b not in items:
+                continue
+            x, y = items[a], items[b]
+            x.words, y.words = _word_diff(x.name, y.name)
+            keep = x if (x.n, x.verified, -x.pk) >= (y.n, y.verified, -y.pk) else y
+            gap = None
+            if x.show and y.show:
+                gap = round(abs(float(x.show) - float(y.show)) / float(min(x.show, y.show)) * 100)
+            pairs.append({"r": r, "a": x, "b": y, "keep": keep, "gap": gap, "sides": ((x, y), (y, x))})
+        counts_band = {k: sum(1 for x in services.duplicate_pairs() if v[1] <= x[0] <= v[2]) for k, v in DUP_BANDS.items()}
+        ctx.update(pairs=pairs, dq=dq, band=band, bands=[(k, v[0], counts_band[k]) for k, v in DUP_BANDS.items()])
     elif sec == "outlier":
         page = Paginator(Price.objects.filter(outlier=True, excluded=False).select_related("item", "batch")
                          .order_by("item__name", "-date"), 30).get_page(request.GET.get("page"))
@@ -745,6 +806,58 @@ def narx_check(request):
         page = Paginator(services.stale_items(), 50).get_page(request.GET.get("page"))
     return render(request, "panel/narx_check.html", _nctx(
         request, "check", sec=sec, page=page, checks=[(k, t, d, counts[k]) for k, t, d in CHECKS], **ctx))
+
+
+DUP_BANDS = {"100": ("100%", 100, 100), "95": ("95–99%", 95, 99), "90": ("90–94%", 90, 94), "86": ("86–89%", 0, 89)}
+
+
+def _word_diff(a, b):
+    """Икки номнинг сўзлари: ``[(сўз, бошқами)]`` — фарқ қилган сўзлар ажратиб кўрсатилади (белгилар ҳисобга олинмайди)."""
+    from difflib import SequenceMatcher
+    wa, wb = a.split(), b.split()
+    ka, kb = [services.name_core(w) for w in wa], [services.name_core(w) for w in wb]
+    da, db = [True] * len(wa), [True] * len(wb)
+    for blk in SequenceMatcher(None, ka, kb, autojunk=False).get_matching_blocks():
+        for k in range(blk.size):
+            da[blk.a + k] = db[blk.b + k] = False
+    return list(zip(wa, da)), list(zip(wb, db))
+
+
+@require_POST
+@superuser_required
+def narx_check_bulk(request):
+    """«Эҳтимол икки нусха»да белгиланган жуфтлар: ҳаммасини кўп нархлисига бирлаштириш ёки «бошқа-бошқа»."""
+    action = request.POST.get("action", "")
+    pairs = []
+    for v in request.POST.getlist("pair")[:200]:
+        a, _, b = v.partition("-")
+        if a.isdigit() and b.isdigit():
+            pairs.append((int(a), int(b)))
+    back = _back(request, reverse("panel:narx_check") + "?s=dup")
+    if not pairs or action not in ("merge", "ignore"):
+        messages.error(request, "Жуфтлар танланмаган.")
+        return back
+    done = 0
+    if action == "ignore":
+        for a, b in pairs:
+            services.ignore_pair(a, b, request.user)
+            done += 1
+        messages.success(request, f"{done} та жуфт «бошқа-бошқа» деб белгиланди.")
+        return back
+    for a, b in pairs:
+        items = {i.pk: i for i in Item.objects.filter(pk__in=(a, b))}
+        if len(items) < 2:
+            continue  # олдинги жуфтда бирлаштирилиб кетган
+        n = dict(Price.objects.filter(item_id__in=(a, b)).values_list("item_id").annotate(c=Count("id")))
+        x, y = sorted(items.values(), key=lambda i: (-n.get(i.pk, 0), not i.verified, i.pk))
+        try:
+            services.merge_items(x, y, user=request.user)
+            done += 1
+        except ValueError as e:
+            messages.error(request, f"«{y.name[:60]}»: {e}")
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: {done} та жуфт бирлаштирилди (текширувдан)")
+    messages.success(request, f"{done} та жуфт бирлаштирилди — ҳар бирида нархи кўпроғига.")
+    return back
 
 
 @require_POST
@@ -1150,6 +1263,8 @@ def narx_verify(request):
 def narx_backup(request):
     from narxbaza import backup as B
     return render(request, "panel/narx_backup.html", _nctx(request, "list", counts=B.counts(), saved=B.saved()[:20],
+                                                           n_saved=len(B.saved()), delete_word=DELETE_WORD,
+                                                           files_size=sum((B._media() / r).stat().st_size for r in B._media_files()),
                                                            rules=B.MERGE_RULES, compact=1))
 
 
@@ -1168,9 +1283,11 @@ def narx_backup_download(request):
     stamp = timezone.localtime().strftime("%Y-%m-%d_%H-%M")
     fd, name = tempfile.mkstemp(suffix=".zip", dir=tmp)
     os.close(fd)
-    B.export(Path(name))
-    audit(request, Event.Kind.ADMIN_BASE, detail="нарх базаси: тўлиқ нусха юклаб олинди")
-    return FileResponse(open(name, "rb"), as_attachment=True, filename=f"narx-bazasi_{stamp}.zip")
+    full = request.GET.get("files") != "0"
+    B.export(Path(name), with_files=full)
+    audit(request, Event.Kind.ADMIN_BASE, detail="нарх базаси: " + ("тўлиқ нусха" if full else "нусха (файлларсиз)") + " юклаб олинди")
+    return FileResponse(open(name, "rb"), as_attachment=True,
+                        filename=f"narx-bazasi_{stamp}{'' if full else '_faylsiz'}.zip")
 
 
 @superuser_required
@@ -1182,6 +1299,29 @@ def narx_backup_saved(request, name):
     if "/" in name or "\\" in name or not name.endswith(".zip") or not p.is_file():
         raise Http404
     return FileResponse(open(p, "rb"), as_attachment=True, filename=name)
+
+
+@require_POST
+@superuser_required
+def narx_backup_delete(request):
+    """Серверда сақланган нусхани (ёки ҳаммасини) бутунлай ўчириш — тасдиқлаш сўзи билан."""
+    from narxbaza import backup as B
+    if _norm_word(request.POST.get("confirm")) != _norm_word(DELETE_WORD):
+        messages.error(request, "Нусха ўчирилмади: тасдиқлаш учун «" + DELETE_WORD + "» деб ёзинг.")
+        return redirect("panel:narx_backup")
+    names = [s["name"] for s in B.saved()]
+    want = names if request.POST.get("all") == "1" else [n for n in request.POST.getlist("name") if n in names]
+    if not want:
+        messages.error(request, "Ўчириладиган нусха топилмади.")
+        return redirect("panel:narx_backup")
+    size = 0
+    for n in want:  # фақат рўйхатдагилар (номи текширилган) — бошқа файлга йўл йўқ
+        p = B.backups_dir() / n
+        size += p.stat().st_size
+        p.unlink(missing_ok=True)
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: {len(want)} та сақланган нусха ўчирилди ({', '.join(want)[:300]})")
+    messages.success(request, f"{len(want)} та нусха ўчирилди, {size / 1048576:.1f} МБ бўшади.")
+    return redirect("panel:narx_backup")
 
 
 @require_POST
@@ -1282,3 +1422,87 @@ def narx_backup_merge_cancel(request):
     if p is not None:
         p.unlink(missing_ok=True)
     return redirect("panel:narx_backup")
+
+
+# ===================== тозалаш: файллар ва ишлатилмайдиган нархлар =====================
+CLEAN_KINDS = {"": "Иккаласи", "out": "Четда (3 баробар фарқ)", "exc": "Ҳисобдан чиқарилган"}
+
+
+def _unused(G):
+    """Ҳисобга кирмайдиган нархлар (четда ёки ҳисобдан чиқарилган, белгиланмаган) — фильтр бўйича."""
+    qs = Price.objects.filter(pin="").filter(Q(outlier=True) | Q(excluded=True))
+    k = G.get("k", "")
+    if k == "out":
+        qs = qs.filter(outlier=True, excluded=False)
+    elif k == "exc":
+        qs = qs.filter(excluded=True)
+    if G.get("region") in REGION_LABELS:
+        qs = qs.filter(region=G["region"])
+    if (G.get("year") or "").isdigit():
+        qs = qs.filter(year=int(G["year"]))
+    if (G.get("before") or "").isdigit():
+        qs = qs.filter(year__lt=int(G["before"]))
+    for w in (G.get("q") or "").split()[:6]:  # ресурслар рўйхатидаги каби: ҳар сўз, катта-кичик ҳарфсиз (калит бўйича)
+        qs = qs.filter(Q(item__name__icontains=w) | Q(item__key__icontains=services.name_core(w)))
+    return qs
+
+
+@superuser_required
+def narx_clean(request):
+    from narxbaza import storage
+    G = request.GET
+    qs = _unused(G).select_related("item", "batch").order_by("item__name", "region", "-year", "-price")
+    page = Paginator(qs, 100).get_page(G.get("page"))
+    stats = {(s.item_id, s.region, s.year): s for s in Stat.objects.filter(
+        item_id__in={p.item_id for p in page}, region__in={p.region for p in page}, year__in={p.year for p in page})}
+    for p in page:
+        p.stat = stats.get((p.item_id, p.region, p.year))
+    years = sorted(set(Price.objects.values_list("year", flat=True)), reverse=True)
+    keep = G.copy()
+    keep.pop("page", None)
+    files = storage.plan()
+    files["total_h"], files["free_h"] = storage.human(files["total"]), storage.human(files["free"])
+    for r in files["rows"]:
+        r["h"] = storage.human(r["size"])
+    return render(request, "panel/narx_clean.html", _nctx(
+        request, "clean", files=files, page=page, total=qs.count(),
+        all_unused=Price.objects.filter(pin="").filter(Q(outlier=True) | Q(excluded=True)).count(),
+        kinds=CLEAN_KINDS, years=years, f=G, qkeep=keep.urlencode(), compact=1, delete_word=DELETE_WORD))
+
+
+@require_POST
+@superuser_required
+def narx_clean_files(request):
+    from narxbaza import storage
+    keys = request.POST.getlist("key")
+    if not keys:
+        messages.error(request, "Нимани тозалашни белгиланг.")
+        return redirect("panel:narx_clean")
+    got = storage.cleanup(keys)
+    freed = sum(got.values())
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: файллар тозаланди — {storage.human(freed)}")
+    messages.success(request, f"Тозаланди: {storage.human(freed)} бўшади.")
+    return redirect("panel:narx_clean")
+
+
+@require_POST
+@superuser_required
+def narx_clean_prices(request):
+    P = request.POST
+    back = reverse("panel:narx_clean") + (("?" + P["qs"]) if P.get("qs") else "") + "#prices"
+    if P.get("all") == "1":
+        if _norm_word(P.get("confirm")) != _norm_word(DELETE_WORD):
+            messages.error(request, "Ҳаммасини ўчириш учун тасдиқлаш сўзини ёзинг.")
+            return redirect(back)
+        prices = list(_unused(P))
+    else:
+        ids = [int(x) for x in P.getlist("id") if x.isdigit()]
+        prices = list(_unused({}).filter(pk__in=ids))
+    back = reverse("panel:narx_clean") + (("?" + P["qs"]) if P.get("qs") else "") + "#prices"
+    if not prices:
+        messages.error(request, "Ўчириладиган нарх танланмаган.")
+        return redirect(back)
+    n = services.delete_prices(prices, user=request.user)
+    audit(request, Event.Kind.ADMIN_BASE, detail=f"нарх базаси: {n} та ишлатилмайдиган нарх ўчирилди")
+    messages.success(request, f"{n} та нарх ўчирилди. Паст / ўрта / юқори қайта ҳисобланди.")
+    return redirect(back)

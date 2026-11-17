@@ -1,7 +1,9 @@
 {% extends "panel/base.html" %}
 {% load narx %}
-{% block title %}Захира нусха — Нарх базаси{% endblock %}
-{% block page_head %}{% endblock %}
+{% block title %}Захира нусха — Нарх базаси{% include "texnazor/_confirm2.html" %}
+{% endblock %}
+{% block page_head %}{% include "texnazor/_confirm2.html" %}
+{% endblock %}
 {% block panel %}
 {% include "panel/_narx_tabs.html" %}
 <a href="{% url 'panel:narx' %}" class="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">{% icon "arrow-left" "h-4 w-4" %} Ресурслар</a>
@@ -16,7 +18,11 @@
       <dt class="text-slate-500">Текширувлар</dt><dd class="num text-right font-semibold">{{ counts.intake }}</dd>
       <dt class="text-slate-500">Тарих ёзувлари</dt><dd class="num text-right font-semibold">{{ counts.log }}</dd>
     </dl>
-    <a href="{% url 'panel:narx_backup_download' %}" class="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">{% icon "download" "h-4 w-4" %} Тўлиқ нусхани юклаб олиш (.zip)</a>
+    <div class="mt-4 flex flex-wrap gap-2">
+      <a href="{% url 'panel:narx_backup_download' %}?files=0" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">{% icon "download" "h-4 w-4" %} Маълумот (файлларсиз)</a>
+      <a href="{% url 'panel:narx_backup_download' %}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">{% icon "download" "h-4 w-4" %} Тўлиқ — Excel файллари билан{% if files_size %} <span class="num text-xs text-slate-500">(+{{ files_size|filesizeformat }})</span>{% endif %}</a>
+    </div>
+    <p class="mt-2 text-xs text-slate-500"><b>Маълумот</b> — нархлар, ресурслар, тарих: бир неча МБ, кундалик захира учун шу етарли. <b>Тўлиқ</b> — юкланган Excel'лар ҳам (манбани очиб кўриш учун); бошқа серверга кўчирганда керак.</p>
   </section>
 
   <section class="rounded-xl border border-emerald-200 bg-white p-5 shadow-sm">
@@ -39,13 +45,25 @@
       <button class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700">Тиклаш</button>
     </form>
     {% if saved %}
-    <h3 class="mt-5 text-sm font-semibold text-slate-700">Олдин сақланган ҳолатлар</h3>
+    <div class="mt-5 flex flex-wrap items-center gap-2">
+      <h3 class="text-sm font-semibold text-slate-700">Олдин сақланган ҳолатлар <span class="font-normal text-slate-500">· {{ n_saved }} та</span></h3>
+      {% if n_saved > 1 %}<form method="post" action="{% url 'panel:narx_backup_delete' %}" class="ml-auto">{% csrf_token %}<input type="hidden" name="all" value="1"><input type="hidden" name="confirm">
+        <button type="button" class="rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50" data-confirm2
+          data-title="Ҳамма сақланган нусхаларни ўчириш" data-msg="Серверда сақланган {{ n_saved }} та нусха бутунлай ўчади. Нарх базасининг ҳозирги ҳолати ўзгармайди."
+          data-list="{% for s in saved %}{{ s.time|date:'d.m.Y H:i' }} — {{ s.size|filesizeformat }}{% if not forloop.last %}|{% endif %}{% endfor %}"
+          data-warn="Кейин бу ҳолатлардан тиклаб бўлмайди. Керак бўлса — олдин юклаб олинг." data-word="{{ delete_word }}" data-ok="Ҳаммасини ўчириш">Ҳаммасини ўчириш</button></form>{% endif %}
+    </div>
     <ul class="mt-1 divide-y divide-slate-100 text-sm">
       {% for s in saved %}<li class="flex items-center gap-3 py-1.5"><span class="num min-w-0 flex-1 truncate text-slate-700">{{ s.time|date:"d.m.Y H:i" }} <span class="text-xs text-slate-400">· {% if "qoshish" in s.name %}қўшишдан олдин{% else %}тиклашдан олдин{% endif %}</span></span>
         <span class="num text-xs text-slate-500">{{ s.size|filesizeformat }}</span>
-        <a href="{% url 'panel:narx_backup_saved' s.name %}" class="text-xs font-semibold text-sky-700 hover:underline">юклаб олиш</a></li>{% endfor %}
+        <a href="{% url 'panel:narx_backup_saved' s.name %}" class="text-xs font-semibold text-sky-700 hover:underline">юклаб олиш</a>
+        <form method="post" action="{% url 'panel:narx_backup_delete' %}">{% csrf_token %}<input type="hidden" name="name" value="{{ s.name }}"><input type="hidden" name="confirm">
+          <button type="button" class="text-xs text-rose-600 hover:underline" data-confirm2 data-title="Сақланган нусхани ўчириш"
+            data-msg="{{ s.time|date:'d.m.Y H:i' }} даги ҳолат ({% if 'qoshish' in s.name %}қўшишдан олдин{% else %}тиклашдан олдин{% endif %}, {{ s.size|filesizeformat }}) серверда бутунлай ўчади. Нарх базасининг ҳозирги ҳолати ўзгармайди."
+            data-warn="Кейин бу ҳолатдан тиклаб бўлмайди. Керак бўлса — олдин юклаб олинг." data-word="{{ delete_word }}" data-ok="Ўчириш">ўчириш</button></form></li>{% endfor %}
     </ul>
     {% endif %}
   </section>
 </div>
+{% include "texnazor/_confirm2.html" %}
 {% endblock %}

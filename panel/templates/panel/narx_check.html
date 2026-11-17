@@ -14,6 +14,14 @@
   {% endfor %}
 </div>
 
+{% if sec == "dup" %}
+<form method="get" class="mb-3 flex flex-wrap items-center gap-2 text-sm"><input type="hidden" name="s" value="dup">
+  <a href="?s=dup{% if dq %}&q={{ dq|urlencode }}{% endif %}" class="rounded-full border px-2.5 py-0.5 text-xs {% if not band %}border-sky-500 bg-sky-50{% else %}border-slate-300 bg-white{% endif %}">ҳаммаси</a>
+  {% for k, label, n in bands %}{% if n %}<a href="?s=dup&r={{ k }}{% if dq %}&q={{ dq|urlencode }}{% endif %}" class="rounded-full border px-2.5 py-0.5 text-xs {% if band == k %}border-sky-500 bg-sky-50{% else %}border-slate-300 bg-white{% endif %}">{{ label }} <span class="num text-slate-500">{{ n }}</span></a>{% endif %}{% endfor %}
+  {% if band %}<input type="hidden" name="r" value="{{ band }}">{% endif %}
+  <input type="search" name="q" value="{{ dq }}" placeholder="номи бўйича (масалан: арматура)" class="ml-auto w-64 rounded-lg border border-slate-300 px-2.5 py-1 text-sm">
+</form>
+{% endif %}
 <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
 {% if not page.object_list %}
   <div class="px-4 py-10 text-center text-sm text-slate-500">Бу бўлимда текширадиган нарса йўқ ✓</div>
@@ -57,32 +65,60 @@
     });
   })();</script>
 {% elif sec == "dup" %}
-  <p class="border-b border-slate-100 px-4 py-2.5 text-xs text-slate-500">Иккаласи бир ресурс бўлса — қайси номи тўғри бўлса, ўшанга қўшинг: иккинчисининг нархлари ўтади, номи «бошқа номи» бўлиб қолади. Бошқа-бошқа ресурс бўлса — «Булар бошқа-бошқа» ни босинг, қайта кўрсатилмайди.</p>
+  <p class="border-b border-slate-100 bg-slate-50 px-4 py-2.5 text-xs text-slate-600">Номи жуда ўхшаш, бирлиги ва ўлчамлари (рақамлар, «A-II / A-III» каби синф) бир хил ресурслар. <b>Фарқ қилган сўзлар сариқ</b> билан ажратилган.
+    Бир ресурс бўлса — бирлаштиринг: нархлари бир жойга ўтади, иккинчи номи «бошқа номи» бўлиб қолади ва кейин шу ном билан келганлар ҳам шу ресурсга тушади.
+    Бошқа-бошқа бўлса — «Булар бошқа-бошқа». Фақат нуқта, вергул, бўшлиқ ёки лотин/кирилл ҳарфи билан фарқ қиладиганлар бу ерга тушмайди — улар ўзи битта ресурс.</p>
+  <form method="post" action="{% url 'panel:narx_check_bulk' %}" id="dup-form">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+  {% if can_act %}
+  <div class="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b border-slate-100 bg-white/95 px-4 py-2 text-sm backdrop-blur">
+    <label class="flex items-center gap-2 text-slate-600"><input type="checkbox" id="dup-all" class="h-4 w-4"> шу саҳифадагиларни белгилаш</label>
+    <span class="text-xs text-slate-500">белгиланди: <b class="num" id="dup-n">0</b></span>
+    <span class="ml-auto flex flex-wrap gap-2">
+      <button name="action" value="ignore" class="dup-act rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40" disabled
+        data-confirm="Белгиланган жуфтлар «бошқа-бошқа ресурс» деб белгилансинми? Навбатда қайта кўрсатилмайди.">Белгиланганлар бошқа-бошқа</button>
+      <button name="action" value="merge" class="dup-act rounded-lg bg-sky-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-800 disabled:opacity-40" disabled
+        data-confirm="Белгиланган жуфтлар бирлаштирилсинми? Ҳар жуфтда ★ белгили ресурс қолади (нархи кўпроғи), иккинчисининг нархлари унга ўтади, номи «бошқа номи» бўлиб қолади." data-confirm-ok="Бирлаштириш">Белгиланганларни бирлаштириш (★ га)</button>
+    </span>
+  </div>
+  {% endif %}
   <ul class="divide-y divide-slate-100">
-    {% for r, a, b, sides in pairs %}
-    <li class="px-4 py-3">
-      <div class="mb-2 text-xs text-slate-400">{{ r }}% ўхшаш · {{ a.unit }}</div>
+    {% for p in pairs %}
+    <li class="px-4 py-3 has-[.dup-one:checked]:bg-sky-50/40">
+      <div class="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        {% if can_act %}<input type="checkbox" name="pair" value="{{ p.a.pk }}-{{ p.b.pk }}" class="dup-one h-4 w-4" aria-label="Жуфтни белгилаш">{% endif %}
+        <span class="rounded-full px-2 py-0.5 font-semibold {% if p.r >= 98 %}bg-emerald-100 text-emerald-800{% elif p.r >= 92 %}bg-sky-100 text-sky-800{% else %}bg-slate-100 text-slate-700{% endif %}">{{ p.r }}% ўхшаш</span>
+        <span class="text-slate-500">бирлиги: <b class="text-slate-700">{{ p.a.unit }}</b></span>
+        {% if p.gap is not None %}<span class="{% if p.gap > 50 %}font-semibold text-rose-700{% elif p.gap > 15 %}text-amber-700{% else %}text-slate-500{% endif %}" title="Икки ресурснинг ҳисобдаги нархи орасидаги фарқ">нархи {% if p.gap == 0 %}бир хил{% else %}{{ p.gap }}% фарқ{% endif %}{% if p.gap > 50 %} — бошқа ресурс бўлиши мумкин{% endif %}</span>{% endif %}
+      </div>
       <div class="grid gap-2 md:grid-cols-2">
-        {% for x, y in sides %}
-        <div class="flex min-w-0 flex-col rounded-lg border border-slate-200 p-2.5">
-          <a href="{% url 'panel:narx_item' x.pk %}" class="break-words text-sm font-medium text-slate-900 hover:underline">{{ x.name }}</a>
-          <div class="mt-0.5 text-xs text-slate-500">{% include "panel/_narx_cat.html" with c=x.category label=x.get_category_display %} · {{ x.n }} та нарх{% if x.st %} · {{ region_labels|get_item:x.st.region }} {{ x.st.year }}: <b class="num">{% if x.st.mid is not None %}{{ x.st.mid|som }}{% else %}{{ x.st.low|som }}{% endif %}</b>{% endif %}</div>
+        {% for x, y in p.sides %}
+        <div class="flex min-w-0 flex-col rounded-lg border p-2.5 {% if x == p.keep %}border-sky-300 bg-sky-50/50{% else %}border-slate-200{% endif %}">
+          <a href="{% url 'panel:narx_item' x.pk %}" class="break-words text-sm font-medium text-slate-900 hover:underline">{% for w, d in x.words %}{% if d %}<mark class="rounded bg-amber-200 px-0.5 text-slate-900">{{ w }}</mark>{% else %}{{ w }}{% endif %} {% endfor %}</a>
+          <div class="mt-1 text-xs text-slate-500">{% if x == p.keep %}<span class="font-semibold text-sky-800" title="Белгиланганларни бирлаштиришда шу ресурс қолади">★ қолади</span> · {% endif %}{% include "panel/_narx_cat.html" with c=x.category label=x.get_category_display %} · {{ x.n }} та нарх{% if x.verified %} · <span class="text-emerald-700">тасдиқланган</span>{% endif %}{% if x.st %} · {{ region_labels|get_item:x.st.region }} {{ x.st.year }}: <b class="num text-slate-800">{{ x.show|som }}</b>{% endif %}</div>
           {% if can_act %}
-          <form method="post" action="{% url 'panel:narx_item_merge' x.pk %}" class="mt-2" data-confirm="«{{ y.name|truncatechars:60 }}» нинг {{ y.n }} та нархи «{{ x.name|truncatechars:60 }}» га ўтсинми?">{% csrf_token %}
-            <input type="hidden" name="source" value="{{ y.pk }}"><input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <button class="rounded-lg border border-sky-300 px-2.5 py-1 text-xs text-sky-800 hover:bg-sky-50">Шу номга бирлаштириш</button></form>
+          <button form="m{{ x.pk }}-{{ y.pk }}" class="mt-2 self-start rounded-lg border border-sky-300 px-2.5 py-1 text-xs text-sky-800 hover:bg-sky-50">Шу номга бирлаштириш</button>
           {% endif %}
         </div>
         {% endfor %}
       </div>
-      {% if can_act %}
-      <form method="post" action="{% url 'panel:narx_check_ignore' %}" class="mt-2">{% csrf_token %}
-        <input type="hidden" name="a" value="{{ a.pk }}"><input type="hidden" name="b" value="{{ b.pk }}"><input type="hidden" name="next" value="{{ request.get_full_path }}">
-        <button class="rounded-lg border border-slate-300 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50">Булар бошқа-бошқа</button></form>
-      {% endif %}
+      {% if can_act %}<button form="i{{ p.a.pk }}-{{ p.b.pk }}" class="mt-2 rounded-lg border border-slate-300 px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50">Булар бошқа-бошқа</button>{% endif %}
     </li>
     {% endfor %}
   </ul>
+  </form>
+  {% if can_act %}{% for p in pairs %}{% for x, y in p.sides %}
+  <form method="post" action="{% url 'panel:narx_item_merge' x.pk %}" id="m{{ x.pk }}-{{ y.pk }}" data-confirm="«{{ y.name|truncatechars:60 }}» нинг {{ y.n }} та нархи «{{ x.name|truncatechars:60 }}» га ўтсинми?">{% csrf_token %}
+    <input type="hidden" name="source" value="{{ y.pk }}"><input type="hidden" name="next" value="{{ request.get_full_path }}"></form>{% endfor %}
+  <form method="post" action="{% url 'panel:narx_check_ignore' %}" id="i{{ p.a.pk }}-{{ p.b.pk }}">{% csrf_token %}
+    <input type="hidden" name="a" value="{{ p.a.pk }}"><input type="hidden" name="b" value="{{ p.b.pk }}"><input type="hidden" name="next" value="{{ request.get_full_path }}"></form>
+  {% endfor %}{% endif %}
+  <script>(function () {
+    var all = document.getElementById("dup-all"); if (!all) return;
+    var ones = document.querySelectorAll(".dup-one"), acts = document.querySelectorAll(".dup-act"), n = document.getElementById("dup-n");
+    function upd() { var c = 0; ones.forEach(function (x) { if (x.checked) c++; }); n.textContent = c; acts.forEach(function (b) { b.disabled = !c; }); all.checked = c > 0 && c === ones.length; }
+    all.addEventListener("change", function () { ones.forEach(function (x) { x.checked = all.checked; }); upd(); });
+    ones.forEach(function (x) { x.addEventListener("change", upd); });
+  })();</script>
 
 {% elif sec == "outlier" %}
   <p class="border-b border-slate-100 px-4 py-2.5 text-xs text-slate-500">Бу нархлар ҳисобга кирмаяпти. Хато ёзилган бўлса — паспортда «тузатиш»; керак бўлмаса — «ҳисобдан чиқариш» (навбатдан чиқади).</p>

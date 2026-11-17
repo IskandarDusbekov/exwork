@@ -18,7 +18,7 @@ from decimal import Decimal, InvalidOperation
 from django.db import transaction
 from django.utils import timezone
 
-from core.normalize import fold_name, name_unit_key, norm_name, unit_key
+from core.normalize import fold_name, name_core, name_unit_key, norm_name, unit_key
 from jobs.models import Batch as JobBatch, Job, Project
 from resbase import services as old
 
@@ -366,6 +366,65 @@ def set_excluded(price: Price, excluded: bool, note="", user=None):
          detail=f"{fmt(price.price)} сўм, {price.get_region_display()}, {price.date:%d.%m.%Y}" + (f" — {note}" if note else ""))
 
 
+PIN_LABELS = {"low": "паст", "mid": "ўрта", "high": "юқори"}
+
+
+def set_pin(price: Price, pin: str, user=None):
+    """Нархни шу вилоят/йилнинг паст / ўрта / юқори нархи қилиб белгилаш (``""`` — белгини олиш). Айнан шу қийматли
+    нархларнинг (``twins``) ҳаммасига қўйилади; белгиланган нарх ҳисобга қайтади; шу гуруҳдаги шу белгили бошқа
+    қийматлардан белги олинади."""
+    pin = pin if pin in PIN_LABELS else ""
+    if price.pin == pin and not (pin and price.excluded):
+        return
+    with transaction.atomic():
+        group = list(twins(price).values_list("pk", flat=True)) or [price.pk]
+        if pin:
+            Price.objects.filter(item_id=price.item_id, region=price.region, year=price.year, pin=pin).exclude(
+                pk__in=group).update(pin="")
+        old = price.pin
+        Price.objects.filter(pk__in=group).update(pin=pin, **({"excluded": False} if pin else {}))
+        price.pin, price.excluded = pin, (False if pin else price.excluded)
+        recalc({(price.item_id, price.region, price.year)})
+        what = f"{PIN_LABELS[pin]} нарх қилиб белгиланди" if pin else f"«{PIN_LABELS.get(old, old)}» белгиси олинди"
+        _log(Log.Action.PIN, user, item=price.item, price=price, data={"old": old, "new": pin, "n": len(group)},
+             detail=f"{fmt(price.price)} сўм, {price.get_region_display()}, {price.date:%d.%m.%Y} — {what}")
+
+
+def twins(price: Price):
+    """Шу ресурснинг шу вилоят/йилдаги айнан шу қийматли ва ҳолатли нархлари (ўзи ҳам) — ҳисобда бир хил,
+    паспортда битта бўлиб кўринади ва амаллар ҳаммасига бирдан қўлланади."""
+    return Price.objects.filter(item_id=price.item_id, region=price.region, year=price.year, price=price.price,
+                                excluded=price.excluded, outlier=price.outlier, pin=price.pin)
+
+
+def counted(price: Price) -> bool:
+    """Нарх паст / ўрта / юқорини ҳисоблашда ишлатиладими."""
+    return bool(price.pin) or not (price.excluded or price.outlier)
+
+
+def delete_prices(prices, user=None) -> int:
+    """Нархларни бутунлай ўчириш (тарихда ёзуви қолади), кейин шу гуруҳлар қайта ҳисобланади.
+    Тўплами бўшаб қолса — тўплам ҳам ўчади (қўлда киритилганлар учун)."""
+    prices = list(prices)
+    if not prices:
+        return 0
+    with transaction.atomic():
+        keys = {(p.item_id, p.region, p.year) for p in prices}
+        batches = {p.batch_id for p in prices}
+        items = {i.pk: i for i in Item.all_objects.filter(pk__in={p.item_id for p in prices})}
+        for p in prices:
+            it = items.get(p.item_id)
+            Log.objects.create(action=Log.Action.PRICE_DEL, item=it, batch_id=p.batch_id, user=_uid(user),
+                               title=(it.name if it else p.name)[:500],
+                               detail=f"{fmt(p.price)} сўм, {p.get_region_display()}, {p.date:%d.%m.%Y}"
+                                      + (" (четда)" if p.outlier else " (ҳисобдан чиқарилган)" if p.excluded else ""),
+                               data={"price": str(p.price), "region": p.region, "date": p.date.isoformat(), "name": p.name})
+        Price.all_objects.filter(pk__in=[p.pk for p in prices]).delete()
+        recalc(keys)
+        Batch.all_objects.filter(pk__in=batches, kind=Batch.Kind.MANUAL, prices__isnull=True).delete()
+    return len(prices)
+
+
 # ===================== тарих =====================
 def fmt(v) -> str:
     """1200000.5000 → «1 200 000,5»."""
@@ -505,26 +564,27 @@ def similar_items(it: Item, q="", limit=8) -> list:
 
     from django.db.models import Q
     qs = Item.objects.exclude(pk=it.pk).filter(key__endswith="|" + it.unit_key)
-    me = _name_part(it.key_before or it.key)
+    me = name_core(it.name)
     if q:
         for w in q.split():
-            qs = qs.filter(Q(key__icontains=fold_name(norm_name(w))) | Q(name__icontains=w))
+            qs = qs.filter(Q(key__icontains=name_core(w)) | Q(name__icontains=w))
         cands = list(qs[:200])
     else:
-        words = sorted({w for w in re.split(r"\W+", me) if len(w) >= 3}, key=len, reverse=True)[:2]
+        words = sorted({name_core(w) for w in re.split(r"[\W_]+", fold_name(norm_name(it.name))) if len(w) >= 3},
+                       key=len, reverse=True)[:2]
         if not words:
             return []
         cond = Q()
         for w in words:
             cond |= Q(key__contains=w)
         cands = list(qs.filter(cond)[:300])
-    scored = [(SequenceMatcher(None, me, _name_part(c.key)).ratio(), c) for c in cands]
+    scored = [(SequenceMatcher(None, me, name_core(c.name)).ratio(), c) for c in cands]
     scored = [(r, c) for r, c in scored if q or r >= 0.5]
     scored.sort(key=lambda t: (-t[0], t[1].name))
-    out, digits = [], set(re.findall(r"\d+", me))
+    out, spec = [], _spec(it.name)
     for r, c in scored[:limit]:
         c.similarity = round(100 * r)
-        c.digits_differ = set(re.findall(r"\d+", _name_part(c.key))) != digits  # 5ММ ва 6ММ — бошқа ресурс
+        c.digits_differ = _spec(c.name) != spec  # 5ММ ва 6ММ, AII ва AIII — бошқа ресурс
         out.append(c)
     return out
 
@@ -732,21 +792,31 @@ def _money(v) -> Decimal:
 
 
 def recalc(keys):
-    """keys — {(item_id, region, year)}: шу гуруҳларнинг нархи қайта ҳисобланади, «четда» белгиси янгиланади."""
+    """keys — {(item_id, region, year)}: шу гуруҳларнинг нархи қайта ҳисобланади, «четда» белгиси янгиланади.
+    Админ белгилаган (``pin``) нархлар ҳисобга аралашмайди — ҳисобдан кейин паст / ўрта / юқори ўрнига қўйилади."""
     for item_id, region, year in keys:
         qs = Price.objects.filter(item_id=item_id, region=region, year=year)
-        rows = list(qs.filter(excluded=False).values_list("id", "price", "date", "places", "seen"))
-        live = [(i, p, d) for i, p, d, _, _ in rows]
-        low, mid, high, out = three([p for _, p, _ in live], [_sources(i, pl, sn) for i, _, _, pl, sn in rows])
+        rows = list(qs.filter(excluded=False).values_list("id", "price", "date", "places", "seen", "pin"))
+        pins = {}
+        for i, p, _, _, _, pin in sorted(rows, key=lambda r: r[0]):  # бир хил белги иккита бўлса — кейингиси
+            if pin:
+                pins[pin] = p
+        free = [r for r in rows if not r[5]]
+        live = [(i, p, d) for i, p, d, *_ in free]
+        low, mid, high, out = three([p for _, p, _ in live], [_sources(i, pl, sn) for i, _, _, pl, sn, _ in free])
+        if low is None and pins:
+            low, mid, high, _ = three(list(pins.values()))
         qs.exclude(outlier=False).update(outlier=False)
         if out:
             qs.filter(id__in=[i for i, p, _ in live if p in out]).update(outlier=True)
         if low is None:
             Stat.objects.filter(item_id=item_id, region=region, year=year).delete()
             continue
+        low, mid, high = pins.get("low", low), pins.get("mid", mid), pins.get("high", high)
+        n = len(live) - sum(1 for _, p, _ in live if p in out) + sum(1 for r in rows if r[5])
         Stat.objects.update_or_create(item_id=item_id, region=region, year=year, defaults={
-            "low": _money(low), "mid": _money(mid) if mid is not None else None, "high": _money(high), "n": len(live) - sum(1 for _, p, _ in live if p in out),
-            "last_date": max(d for _, _, d in live)})
+            "low": _money(low), "mid": _money(mid) if mid is not None else None, "high": _money(high), "n": n,
+            "last_date": max(d for _, _, d, *_ in rows)})
 
 
 def recalc_all():
@@ -952,31 +1022,41 @@ def stale_days() -> int:
 DUP_MIN = 0.86  # номлари шунчалик ўхшаш ва рақамлари бир хил бўлса — эҳтимол икки нусха
 
 
-def _digits(s) -> tuple:
-    return tuple(sorted(re.findall(r"\d+", s)))
+_ROMAN = re.compile(r"[a-zа-я]{0,2}(i{1,3}|iv|vi{0,3}|ix|xi{0,3})")
+
+
+def _spec(name) -> tuple:
+    """Номдаги «ўлчам ва синф» белгилари: рақамли сўзлар ва рим рақамли синф («A-II», «III сорта») — улар бошқача
+    бўлса, номи ўхшаш бўлса ҳам бошқа ресурс («8 мм» ≠ «10 мм», «AII» ≠ «AIII»)."""
+    words = re.split(r"[\W_]+", fold_name(norm_name(name)))
+    return tuple(sorted(w for w in words if w and (any(c.isdigit() for c in w) or _ROMAN.fullmatch(w))))
 
 
 def duplicate_pairs() -> list:
-    """Эҳтимол бир ресурснинг икки нусхаси: бирлиги бир хил, номи ≥86% ўхшаш, номидаги рақамлар бир хил,
-    «бошқа-бошқа» деб белгиланмаган. [(ўхшашлик %, a, b)] — энг ўхшаши олдин. 1 соат кешланади."""
+    """Эҳтимол бир ресурснинг икки нусхаси: бирлиги бир хил, номи ≥86% ўхшаш, номидаги ўлчам ва синф белгилари
+    (``_spec``) бир хил, «бошқа-бошқа» деб белгиланмаган. [(ўхшашлик %, a, b)] — энг ўхшаши олдин. 1 соат кешланади.
+    Фақат нуқта / вергул / бўшлиқ / лотин-кирилл ҳарфи билан фарқ қилганлар бу ерга тушмайди — калити бир хил,
+    ўзи бирлашади."""
     from difflib import SequenceMatcher
 
     from django.core.cache import cache
     from django.db.models import Max
 
+    from core.normalize import name_core
+
     from .models import DupIgnore
     live = live_items()
-    stamp = (live.count(), live.aggregate(m=Max("updated"))["m"], Log.objects.aggregate(m=Max("id"))["m"],
+    stamp = (2, live.count(), live.aggregate(m=Max("updated"))["m"], Log.objects.aggregate(m=Max("id"))["m"],
              DupIgnore.objects.count())
     ck = "narxbaza:dups:" + hashlib.md5(repr(stamp).encode()).hexdigest()
     got = cache.get(ck)
     if got is None:
         groups = {}
-        for pk, key in live.values_list("pk", "key"):
-            name, _, unit = key.rpartition("|")
-            words = [w for w in re.split(r"\W+", name) if len(w) >= 3 and not w.isdigit()]
+        for pk, name, key in live.values_list("pk", "name", "key"):
+            unit = key.rpartition("|")[2]
+            words = [w for w in re.split(r"[\W_]+", fold_name(norm_name(name))) if len(w) >= 3 and not w.isdigit()]
             if words:
-                groups.setdefault((unit, words[0]), []).append((pk, name, _digits(name)))
+                groups.setdefault((unit, words[0]), []).append((pk, name_core(name), _spec(name)))
         ignored = set(DupIgnore.objects.values_list("a_id", "b_id"))
         got = []
         for g in groups.values():
@@ -1043,3 +1123,80 @@ def bulk_merge(target, items, user=None) -> tuple:
         moved += merge_items(target, it, user)
         done += 1
     return done, moved, skipped
+
+
+# ===================== калитларни янгилаш =====================
+@transaction.atomic
+def rekey_all(user=None) -> dict:
+    """Ном калити қоидаси ўзгарганда (``core.normalize.name_core``): ҳамма ресурс, бошқа номи ва текширув қаторининг
+    калити қайта ҳисобланади. Энди бир хил калитли бўлиб қолган ресурслар (фақат нуқта, вергул, бўшлиқ ёки
+    лотин/кирилл ҳарфи билан фарқ қилганлар) кўп нархлисига бирлаштирилади. ``{merged, items, aliases, rows}``."""
+    from collections import defaultdict
+
+    from django.db.models import Count
+
+    from .models import IntakeRow
+    out = {"merged": 0, "items": 0, "aliases": 0, "rows": 0}
+    if not Item.all_objects.exists():
+        return out
+    groups = defaultdict(list)
+    for it in Item.all_objects.filter(deleted_at=None):
+        groups[item_key(it.name, it.unit)].append(it)
+    n = dict(Price.all_objects.values_list("item_id").annotate(c=Count("id")))
+    for g in groups.values():
+        if len(g) < 2:
+            continue
+        g.sort(key=lambda i: (-n.get(i.pk, 0), not i.verified, i.pk))
+        for src in g[1:]:
+            src.refresh_from_db()
+            merge_items(g[0], src, user=user)
+            out["merged"] += 1
+    # ресурслар: аввал вақтинча калит (unique бузилмасин), кейин янгиси
+    live = list(Item.all_objects.filter(deleted_at=None))
+    want = {it.pk: item_key(it.name, it.unit) for it in live}
+    changed = [it for it in live if it.key != want[it.pk]]
+    for it in changed:
+        it.key = f"~rk~{it.pk}"
+    Item.all_objects.bulk_update(changed, ["key"], batch_size=500)
+    for it in changed:
+        it.key = want[it.pk]
+    Item.all_objects.bulk_update(changed, ["key"], batch_size=500)
+    out["items"] = len(changed)
+    trashed = list(Item.all_objects.exclude(deleted_at=None).exclude(key_before=""))
+    for it in trashed:
+        it.key_before = item_key(it.name, it.unit)
+    Item.all_objects.bulk_update(trashed, ["key_before"], batch_size=500)
+    # бошқа номлар: ресурснинг ўз калити ёки бошқа ресурс калити бўлиб қолса — керак эмас
+    taken = set(want.values())
+    keep, drop, seen = [], [], set()
+    for a in Alias.objects.all():
+        k = item_key(a.name, a.unit)
+        if k in taken or k in seen:
+            drop.append(a.pk)
+        else:
+            seen.add(k)
+            if a.key != k:
+                a.key = k
+                keep.append(a)
+    Alias.objects.filter(pk__in=drop).delete()
+    for a in keep:
+        a.key, a.new = f"~rk~{a.pk}", a.key
+    Alias.objects.bulk_update(keep, ["key"], batch_size=500)
+    for a in keep:
+        a.key = a.new
+    Alias.objects.bulk_update(keep, ["key"], batch_size=500)
+    out["aliases"] = len(keep) + len(drop)
+    owner = {k: pk for pk, k in want.items()}
+    owner.update({k: a for k, a in Alias.objects.values_list("key", "item_id") if k not in owner})
+    rows = []
+    for r in IntakeRow.objects.only("pk", "key", "name", "unit", "item_id").iterator(chunk_size=2000):
+        k = item_key(r.name, r.unit)
+        if r.key != k or (r.item_id is None and k in owner):
+            r.key = k
+            if r.item_id is None:  # бирлаштирилган ресурс ўчди — қатор энди асосийсига тегишли
+                r.item_id = owner.get(k)
+            rows.append(r)
+    IntakeRow.objects.bulk_update(rows, ["key", "item"], batch_size=1000)
+    out["rows"] = len(rows)
+    log.info("narxbaza: калитлар янгиланди — %s", out)
+    return out

@@ -119,6 +119,9 @@ class Price(models.Model):
     seen = models.PositiveIntegerField(default=1)  # шу тўпламда шу нарх неча қаторда учраган (2 та нархда — ўрта шу бўйича)
     excluded = models.BooleanField(default=False)  # админ ҳисобдан чиқарган — ҳисобга кирмайди
     outlier = models.BooleanField(default=False)  # бошқалардан 3 баробар фарқ — ҳисобга кирмайди (recalc)
+    # админ белгилагани: шу вилоят/йилда паст / ўрта / юқори нарх айнан шу бўлади (четда бўлса ҳам; ҳисобдан кейин қўйилади)
+    pin = models.CharField(max_length=4, blank=True, default="",
+                           choices=[("low", "паст"), ("mid", "ўрта"), ("high", "юқори")])
     edited = models.BooleanField(default=False)  # админ тузатган (эски қиймати — Log'да)
     note = models.CharField(max_length=300, blank=True)
     created = models.DateTimeField(auto_now_add=True)
@@ -185,6 +188,8 @@ class Log(models.Model):
         TRASH = "trash", "Саватчага ташланди"
         RESTORE = "restore", "Саватчадан тикланди"
         PURGE = "purge", "Бутунлай ўчирилди"
+        PIN = "pin", "Нарх белгиланди"
+        PRICE_DEL = "price_del", "Нарх ўчирилди"
 
     action = models.CharField(max_length=12, choices=Action.choices)
     item = models.ForeignKey(Item, null=True, blank=True, on_delete=models.SET_NULL, related_name="logs")

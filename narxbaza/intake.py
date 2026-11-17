@@ -355,6 +355,11 @@ def read_upload(pk) -> None:
             it.progress = {"bad": [list(b) for b in bad], "root": pr.get("root"), "src": pr.get("src") or []}
             it.save(update_fields=["files", "status", "progress", "updated"])
         log.info("narxbaza: юклаш «%s» ўқилди — %s та файл, %s та қатор", it.title, len(files), len(rows))
+        try:  # архивлар (ичидаги PDF ва б.), .xls асллари, нархсиз файллар — серверда жой эгалламасин
+            from .storage import prune_upload
+            prune_upload(it)
+        except Exception:  # noqa: BLE001
+            log.exception("narxbaza: «%s» — керакмас файлларни ўчириб бўлмади", it.title)
     except Exception as e:  # noqa: BLE001
         log.exception("narxbaza: юклашни ўқиб бўлмади (%s)", pk)
         msg = str(e) if isinstance(e, ValueError) else f"Файлни ўқиб бўлмади: {e}"
@@ -575,7 +580,7 @@ def commit(intake: Intake, *, region, day: _date, note="", user=None, fis=None) 
         if len(names) > 1 and len(names) < len({f["file"] for f in files}):
             title = f"{intake.title} ({len(names)} та файл)"
         b = S.add_batch(intake.kind, work, grouped, region=region, day=day, user=user, note=note,
-                        title=title[:500], file_path=intake.file_path if len(fis) == len(files) else "")
+                        title=title[:500], file_path=_batch_file(intake, fis))
         if work is None and intake.work_id:
             Batch.objects.filter(pk=b.pk).update(work_id=intake.work_id, owner_id=intake.owner_id)
         now = timezone.now()
@@ -604,6 +609,20 @@ def commit(intake: Intake, *, region, day: _date, note="", user=None, fis=None) 
     intake.save(update_fields=["files", "region", "batch", "status", "updated"])
     log.info("narxbaza: текширув «%s» — %s та файл, %s та қатор базага", intake.title, len(fis), len(ok))
     return b
+
+
+def _batch_file(intake: Intake, fis) -> str:
+    """Тўплам кўрсатадиган файл: битта файлдан бўлса — унинг Excel кўриниши, ҳамма файл бўлса — асл юкланган файл
+    (у ўчирилган бўлса — бўш)."""
+    from pathlib import Path
+
+    from django.conf import settings
+    files = intake.files or []
+    if len(fis) == 1 and files[fis[0]].get("path"):
+        return files[fis[0]]["path"]
+    if len(fis) == len(files) and intake.file_path and (Path(settings.MEDIA_ROOT) / intake.file_path).is_file():
+        return intake.file_path
+    return ""
 
 
 def cancel(intake: Intake) -> None:

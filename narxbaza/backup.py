@@ -68,12 +68,13 @@ def counts() -> dict:
     return {m._meta.model_name: m._base_manager.count() for m in MODELS}
 
 
-def export(dest: Path) -> dict:
-    """Тўлиқ нусхани ``dest`` (.zip) га ёзади; manifest'ни қайтаради."""
+def export(dest: Path, with_files=True) -> dict:
+    """Нусхани ``dest`` (.zip) га ёзади; manifest'ни қайтаради. ``with_files=False`` — фақат маълумот (нархлар,
+    ресурслар, тарих …), юкланган Excel файлларсиз: бир неча МБ. Тиклашда сервердаги файллар ўчмайди."""
     dest.parent.mkdir(parents=True, exist_ok=True)
-    files = _media_files()
+    files = _media_files() if with_files else []
     manifest = {"app": APP, "version": VERSION, "created": timezone.now().isoformat(),
-                "migration": _last_migration(), "counts": counts(), "files": len(files),
+                "migration": _last_migration(), "counts": counts(), "files": len(files), "with_files": with_files,
                 # бошқа серверда фойдаланувчи рақамлари бошқача — почтаси бўйича топилади
                 "users": {str(pk): email for pk, email in get_user_model().objects.values_list("pk", "email")}}
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as z:
@@ -139,7 +140,7 @@ def restore(zpath: Path, user=None) -> dict:
     m = read_manifest(zpath)
     stamp = timezone.localtime().strftime("%Y%m%d-%H%M%S")
     safety = backups_dir() / f"tiklashdan-oldin-{stamp}.zip"
-    export(safety)
+    export(safety, with_files=False)  # файллар серверда қолади — нусхага керак эмас
     umap = _user_map(m)
     root = _media().resolve()
     with zipfile.ZipFile(zpath) as z:
@@ -233,7 +234,7 @@ def merge(zpath: Path, user=None, dry_run=False) -> dict:
         rep["intakes_skipped"] = len(by[Intake])
         if not dry_run:
             safety = backups_dir() / f"qoshishdan-oldin-{stamp}.zip"
-            export(safety)
+            export(safety, with_files=False)  # файллар серверда қолади — нусхага керак эмас
         try:
             with transaction.atomic():
                 _merge_rows(by, rep, umap, user, files_to_copy, S, Decimal, defaultdict)
@@ -346,7 +347,7 @@ def _merge_rows(by, rep, umap, user, files_to_copy, S, Decimal, defaultdict):
             files_to_copy.append((nb.pk, b.file_path))
         Price.all_objects.bulk_create([
             Price(item_id=iid, batch=nb, price=p.price, qty=p.qty, region=p.region, date=p.date, year=p.year,
-                  name=p.name, unit=p.unit, places=p.places, seen=p.seen, excluded=p.excluded, edited=p.edited,
+                  name=p.name, unit=p.unit, places=p.places, seen=p.seen, excluded=p.excluded, edited=p.edited, pin=p.pin,
                   note=p.note) for p, iid in new], batch_size=1000)
         touched.update((iid, p.region, p.year) for p, iid in new)
         rep["batches_new"] += 1

@@ -60,6 +60,13 @@
   .pp-state { border-radius: .6rem; padding: .45rem .7rem; font-size: .8rem; }
   .pp-state.ok { background: rgb(var(--ok-50)); color: rgb(var(--ok-800)); }
   .pp-state.warn { background: rgb(var(--warn-50)); color: rgb(var(--warn-800)); }
+  .pp-state.pin { background: rgb(var(--brand-50)); color: rgb(var(--brand-800)); }
+  .pp-badge.pin { background: rgb(var(--brand-100)); color: rgb(var(--brand-800)); }
+  .pp-pin { display: inline-flex; align-items: center; height: 1.85rem; border: 1px solid rgb(var(--ink-300)); border-radius: .5rem; overflow: hidden; font-size: .76rem; background: #fff; }
+  .pp-pin span { padding: 0 .5rem; color: rgb(var(--ink-500)); }
+  .pp-pin button { height: 100%; padding: 0 .55rem; border-left: 1px solid rgb(var(--ink-200)); color: rgb(var(--ink-700)); }
+  .pp-pin button:hover { background: rgb(var(--ink-50)); }
+  .pp-pin button.on { background: rgb(var(--brand-600)); color: #fff; font-weight: 600; }
   .pp-state.off { background: rgb(var(--ink-100)); color: rgb(var(--ink-600)); }
   .pp-more > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: .6rem; padding: .85rem 1.1rem; }
   .pp-more > summary::-webkit-details-marker { display: none; }
@@ -86,7 +93,7 @@
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="pb" data-modal="narx-edit-item" title="Номи ва тоифасини ўзгартириш">{% icon "pencil" "h-4 w-4" %} Таҳрирлаш</button>
       <button type="button" class="pb primary" data-modal="narx-add" title="Қўлда янги нарх киритиш">{% icon "plus" "h-4 w-4" %} Нарх қўшиш</button>
-      <form method="post" action="{% url 'panel:narx_item_delete' it.pk %}" data-confirm="«{{ it.name|truncatechars:60 }}» саватчага ташлансинми? Унинг {{ prices|length }} та нархи ҳисобдан чиқади. Саватчадан қайта тиклаш мумкин." data-danger>{% csrf_token %}
+      <form method="post" action="{% url 'panel:narx_item_delete' it.pk %}" data-confirm="«{{ it.name|truncatechars:60 }}» саватчага ташлансинми? Унинг {{ n_prices }} та нархи ҳисобдан чиқади. Саватчадан қайта тиклаш мумкин." data-danger>{% csrf_token %}
         <button class="pb danger" title="Саватчага — кейин тиклаш мумкин">{% icon "trash" "h-4 w-4" %} Саватчага</button></form>
     </div>
     {% endif %}
@@ -155,17 +162,18 @@
 
 {# ================= 2. нарх қаердан келган ================= #}
 <section class="pp-card mb-4 p-5">
-  <div class="pp-h"><span class="pp-step">2</span><h2>Бу нарх қаердан олинган</h2><span class="pp-count">{{ prices|length }} та</span>
+  <div class="pp-h"><span class="pp-step">2</span><h2>Бу нарх қаердан олинган</h2><span class="pp-count">{{ n_prices }} та{% if n_prices != prices|length %} · {{ prices|length }} хил{% endif %}</span>
     <p>Базага тушган ҳар бир нарх. Юқоридаги нарх фақат <b>«ҳисобга киради»</b> деганларидан ҳисобланади.</p></div>
 
   <ul class="mt-4 space-y-3">
     {% for p in prices %}
-    <li class="pp-src {% if p.excluded or p.outlier %}dim{% endif %}">
+    <li class="pp-src {% if not p.pin and p.excluded or not p.pin and p.outlier %}dim{% endif %}">
       <div class="flex flex-wrap items-start gap-3">
         <div class="min-w-0 flex-1" style="flex-basis:16rem">
           <div class="flex flex-wrap items-baseline gap-x-2">
             <span class="pp-srcprice num">{{ p.price|som }}</span><span class="text-sm text-slate-500">сўм / 1 {{ it.unit }}</span>
-            {% if p.excluded or p.outlier %}<span class="pp-badge off">ҳисобга кирмайди</span>{% else %}<span class="pp-badge ok">ҳисобга киради</span>{% endif %}
+            {% if p.pin %}<span class="pp-badge pin" title="Админ белгилаган">{{ p.get_pin_display }} нарх — белгиланган</span>{% elif p.excluded or p.outlier %}<span class="pp-badge off">ҳисобга кирмайди</span>{% else %}<span class="pp-badge ok">ҳисобга киради</span>{% endif %}
+            {% if p.same %}<span class="rounded bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-700" title="Айнан шу нарх бир неча файл / тўпламдан келган — битта қилиб кўрсатилди">× {{ p.same|length|add:1 }} жойда</span>{% endif %}
             {% if p.edited %}<span class="rounded bg-sky-100 px-1.5 text-[11px] font-semibold text-sky-800" title="Админ тузатган — пастда «Ўзгаришлар тарихи»">тузатилган</span>{% endif %}
           </div>
           <div class="pp-meta mt-2">
@@ -180,9 +188,9 @@
         </div>
         {% if can_act %}
         <div class="flex flex-wrap gap-1.5">
-          <button type="button" class="pb sm" data-edit-price title="Нарх, миқдори, вилоят ёки санани тузатиш"
+          {% if not p.same %}<button type="button" class="pb sm" data-edit-price title="Нарх, миқдори, вилоят ёки санани тузатиш"
             data-url="{% url 'panel:narx_price_edit' p.pk %}" data-price="{{ p.price|stringformat:'s' }}" data-qty="{% if p.qty is not None %}{{ p.qty|stringformat:'s' }}{% endif %}"
-            data-region="{{ p.region }}" data-date="{{ p.date|date:'Y-m-d' }}" data-label="{{ p.date|date:'d.m.Y' }}, {{ p.get_region_display }}, {{ p.price|som }} сўм">{% icon "pencil" %} Тузатиш</button>
+            data-region="{{ p.region }}" data-date="{{ p.date|date:'Y-m-d' }}" data-label="{{ p.date|date:'d.m.Y' }}, {{ p.get_region_display }}, {{ p.price|som }} сўм">{% icon "pencil" %} Тузатиш</button>{% endif %}
           {% if p.excluded %}
           <form method="post" action="{% url 'panel:narx_price' p.pk 'include' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
             <button class="pb sm" title="Нарх яна паст / ўрта / юқорига киради">{% icon "undo" %} Ҳисобга қайтариш</button></form>
@@ -190,12 +198,28 @@
           <button type="button" class="pb sm danger" data-exclude-price data-url="{% url 'panel:narx_price' p.pk 'exclude' %}" data-label="{{ p.date|date:'d.m.Y' }}, {{ p.get_region_display }}, {{ p.price|som }} сўм"
             title="Нарх паспортда қолади, лекин паст / ўрта / юқорига кирмайди">{% icon "minus" %} Ҳисобдан чиқариш</button>
           {% endif %}
+          <form method="post" action="{% url 'panel:narx_price' p.pk 'pin' %}" class="pp-pin" title="Шу вилоят ва йилда паст / ўрта / юқори нарх айнан шу бўлсин (четда бўлса ҳам)">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <span>Шу нархни:</span>
+            {% for k, label in pin_choices %}<button name="pin" value="{% if p.pin == k %}{% else %}{{ k }}{% endif %}" class="{% if p.pin == k %}on{% endif %}" title="{% if p.pin == k %}Белгини олиш{% else %}{{ label }} нарх қилиш{% endif %}">{{ label }}{% if p.pin == k %} ✕{% endif %}</button>{% endfor %}
+          </form>
+          {% if p.used %}
+          <form method="post" action="{% url 'panel:narx_price' p.pk 'delete' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><input type="hidden" name="confirm">
+            <button type="button" class="pb sm danger" title="Базадан бутунлай ўчириш" data-confirm2 data-title="Ҳисобдаги нархни ўчириш"
+              data-msg="Бу нарх паст / ўрта / юқорини ҳисоблашда ишлатилади. Ўчирилса, {{ p.get_region_display }}, {{ p.year }} йил учун нарх ўзгаради ва шу базадан нархланадиган сметаларга таъсир қилади."
+              data-list="{{ p.price|som }} сўм / 1 {{ it.unit }}|{{ p.get_region_display }}, {{ p.date|date:'d.m.Y' }}{% if p.same %}|айнан шу нарх {{ p.same|length|add:1 }} та жойда — ҳаммаси ўчади{% endif %}"
+              data-warn="Нархни вақтинча олиб қўйиш учун «Ҳисобдан чиқариш» етарли — уни қайтариш мумкин. Ўчиришни қайтариб бўлмайди."
+              data-word="{{ delete_word }}" data-ok="Ўчириш">{% icon "trash" %} Ўчириш</button></form>
+          {% else %}
+          <form method="post" action="{% url 'panel:narx_price' p.pk 'delete' %}" data-danger data-confirm-ok="Ўчириш" data-confirm="{{ p.date|date:'d.m.Y' }}, {{ p.get_region_display }}, {{ p.price|som }} сўм{% if p.same %} ({{ p.same|length|add:1 }} та жойда){% endif %} — бу нарх ҳисобга кирмайди. Базадан бутунлай ўчирилсинми? Тарихда ёзуви қолади.">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="pb sm danger" title="Базадан бутунлай ўчириш">{% icon "trash" %} Ўчириш</button></form>
+          {% endif %}
         </div>
         {% endif %}
       </div>
 
-      {% if p.excluded %}<div class="pp-state off mt-3"><b>Ҳисобга кирмайди</b> — админ ҳисобдан чиқарган.{% if p.note and p.batch.kind != "manual" %} Сабаби: {{ p.note }}{% endif %}</div>
-      {% elif p.outlier %}<div class="pp-state warn mt-3"><b>Ҳисобга кирмайди</b> — шу вилоят ва йилдаги бошқа нархлардан 3 баробардан кўп фарқ қилади. Тўғри бўлса — «Тузатиш» эмас, бошқа нархлар хато бўлиши мумкин.</div>
+      {% if p.pin %}<div class="pp-state pin mt-3"><b>{{ p.get_pin_display|capfirst }} нарх — админ белгилаган.</b> {{ p.get_region_display }}, {{ p.year }} йил учун {{ p.get_pin_display }} нарх шу; бошқа нархлар ҳисобига аралашмайди.</div>
+      {% elif p.excluded %}<div class="pp-state off mt-3"><b>Ҳисобга кирмайди</b> — админ ҳисобдан чиқарган.{% if p.note and p.batch.kind != "manual" %} Сабаби: {{ p.note }}{% endif %}</div>
+      {% elif p.outlier %}<div class="pp-state warn mt-3"><b>Ҳисобга кирмайди</b> — шу вилоят ва йилдаги бошқа нархлардан 3 баробардан кўп фарқ қилади. Тўғри нарх бўлса — «Шу нархни» дан <b>паст / ўрта / юқори</b> қилиб белгиланг; кераги бўлмаса — «Ўчириш».</div>
       {% endif %}
 
       <div class="mt-3 border-t border-slate-100 pt-3 text-sm">
@@ -218,6 +242,18 @@
             <div class="mt-1 text-slate-400">Тасдиқлади: {{ p.batch.added_by.get_full_name|default:"—" }}</div>
           </details>
           {% endif %}
+        {% endif %}
+        {% if p.same %}
+        <details class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          <summary class="cursor-pointer font-medium hover:text-slate-800">Айнан шу нарх яна {{ p.same|length }} та жойдан келган — кўриш</summary>
+          <ul class="mt-2 space-y-1.5">
+            {% for q in p.same %}<li class="flex flex-wrap items-baseline gap-x-2">{% icon "file" "h-3 w-3 shrink-0 self-center" %}
+              {% if q.batch.kind == "manual" %}<span>қўлда киритилган{% if q.note %}: {{ q.note|truncatechars:60 }}{% endif %}</span>
+              {% else %}<a href="{% url 'panel:narx_batch' q.batch_id %}" class="text-sky-700 hover:underline">{{ q.batch.title|truncatechars:80 }}</a>
+              {% for pl in q.places|slice:":1" %}<span class="text-slate-400">{% if pl.sheet %}«{{ pl.sheet|truncatechars:20 }}» листи{% endif %}{% if pl.row %}, {{ pl.row }}-қатор{% endif %}</span>{% endfor %}{% endif %}
+              <span class="num text-slate-400">· {{ q.date|date:"d.m.Y" }}</span></li>{% endfor %}
+          </ul>
+        </details>
         {% endif %}
       </div>
     </li>
@@ -389,4 +425,5 @@
 </script>
 {% endif %}
 {% include "panel/_narx_modals.html" with default_region=last_region %}
+{% if can_act %}{% include "texnazor/_confirm2.html" %}{% endif %}
 {% endblock %}
