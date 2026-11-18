@@ -65,6 +65,7 @@
       <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Всего с НДС</div>
       <div id="side-snds" class="text-xl font-semibold leading-tight num {% if s_nds|is_error %}text-rose-600{% endif %}">{{ s_nds|som }}</div>
       <div class="text-xs text-slate-500">без НДС <span id="side-bez" class="num">{{ bez_nds|som }}</span></div>
+      {% if job.rows %}<div class="text-xs text-slate-500" title="Сметадаги жами қатор ва шулардан ишлов берилгани (ресурс деб танилиб нархлашдан ўтгани)"><span class="num font-medium text-slate-700">{{ job.rows_done|default:0|som }}</span> / <span class="num">{{ job.rows|som }}</span> қатор ишланди</div>{% endif %}
     </div>
     {% if not_priced %}
     <button type="button" data-filter="NOT_PRICED" data-label="Нархланмади" title="Жадвалда фақат нархланмаганларни кўрсатиш"

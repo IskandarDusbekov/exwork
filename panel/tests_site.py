@@ -62,7 +62,7 @@ class SiteTests(TestCase):
 
     def test_blog_sections_video_page_and_sitemap(self):
         conf.put("videos", VIDEOS, self.boss)
-        r = self.client.get(reverse("blog"))
+        r = self.client.get(reverse("guide"))
         self.assertContains(r, 'id="v-upload"')
         self.assertContains(r, 'id="v-texnazor"')
         self.assertNotContains(r, 'id="v-smeta"')  # видеоси йўқ бўлим кўрсатилмайди
@@ -82,7 +82,8 @@ class SiteTests(TestCase):
         cat = Category.objects.get()
         self.assertEqual(cat.slug, "smeta-narxlash")
         body = "Кириш.\n\n## Бўлим\n- биринчи\n- <img src=x onerror=alert(1)>"
-        r = self.client.post(reverse("panel:blog_post_new"), {"title": "Смета қандай нархланади?", "body": body, "summary": "Қисқа",
+        html = "<p>Кириш.</p><h2>Бўлим</h2><ul><li>биринчи</li><li><img src=x onerror=alert(1)></li></ul><script>x</script>"
+        r = self.client.post(reverse("panel:blog_post_new"), {"title": "Смета қандай нархланади?", "body": html, "summary": "Қисқа",
                                                                "category": str(cat.pk)})
         p = Post.objects.get()
         self.assertRedirects(r, reverse("panel:blog_post_edit", args=[p.pk]))
@@ -97,12 +98,12 @@ class SiteTests(TestCase):
         p.save()
         r = self.client.get(reverse("blog_post", args=[p.slug]))
         self.assertContains(r, "<h2>Бўлим</h2>", html=True)
-        self.assertContains(r, "&lt;img src=x onerror=alert(1)&gt;")
-        self.assertNotContains(r, "<img src=x")
+        self.assertNotContains(r, "<img src=x")  # муҳаррир HTML'и тозаланган: рухсатсиз расм ва скрипт йўқ
+        self.assertNotContains(r, "<script>x")
         self.assertContains(r, '"@type": "Article"')
         self.assertContains(r, reverse("blog_category", args=[cat.slug]))
         self.assertContains(self.client.get(reverse("blog_category", args=[cat.slug])), "Смета қандай нархланади?")
-        self.assertContains(self.client.get(reverse("blog")), 'id="c-smeta-narxlash"')
+        self.assertContains(self.client.get(reverse("blog")), '?c=smeta-narxlash')
         sm = self.client.get(reverse("sitemap_xml")).content.decode()
         self.assertIn(f"/blog/{p.slug}/", sm)
         self.assertIn("/blog/c/smeta-narxlash/", sm)

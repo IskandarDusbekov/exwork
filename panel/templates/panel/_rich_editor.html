@@ -1,0 +1,336 @@
+{% comment %} Word'га ўхшаш матн муҳаррири (мақола, «Биз ҳақимизда», «Шартлар»). Параметрлар: name — форма майдони,
+value — HTML, minh — баландлик (px), draft — қоралама калити (бўш бўлмаса браузерда сақланади).
+Ёзилгани серверда ``jobs.richtext.sanitize`` дан ўтади: бу ердаги тозалаш — фақат кўриниш учун. {% endcomment %}
+<div class="rte" data-upload="{% url 'panel:blog_upload' %}"{% if draft %} data-draft="rte:{{ draft }}"{% endif %}>
+  <div class="rte-bar" role="toolbar" aria-label="Матн услуби">
+    <div class="rte-g">
+      <button type="button" data-cmd="undo" title="Бекор қилиш (Ctrl+Z)"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+      <button type="button" data-cmd="redo" title="Қайтариш (Ctrl+Y)"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+    </div>
+    <div class="rte-g">
+      <select data-block title="Матн тури" class="rte-sel w-36">
+        <option value="p">Оддий матн</option><option value="h2">Сарлавҳа 1</option><option value="h3">Сарлавҳа 2</option>
+        <option value="h4">Сарлавҳа 3</option><option value="blockquote">Иқтибос</option><option value="pre">Код</option>
+      </select>
+      <select data-font title="Шрифт" class="rte-sel w-32">
+        <option value="">Шрифт</option><option value="Inter">Inter</option><option value="Arial">Arial</option>
+        <option value="Georgia">Georgia</option><option value="Times New Roman">Times New Roman</option><option value="Courier New">Courier New</option>
+      </select>
+      <select data-size title="Ҳарф ўлчами" class="rte-sel w-24">
+        <option value="">Ўлчам</option>
+        <option>12</option><option>14</option><option>16</option><option>18</option><option>20</option><option>24</option><option>28</option><option>32</option><option>40</option>
+      </select>
+    </div>
+    <div class="rte-g">
+      <button type="button" data-cmd="bold" title="Қалин (Ctrl+B)"><b>B</b></button>
+      <button type="button" data-cmd="italic" title="Ётиқ (Ctrl+I)"><i class="font-serif">I</i></button>
+      <button type="button" data-cmd="underline" title="Таги чизилган (Ctrl+U)"><u>U</u></button>
+      <button type="button" data-cmd="strikeThrough" title="Устидан чизилган"><s>S</s></button>
+      <label class="rte-color" title="Ҳарф ранги"><span class="rte-a">A<i data-swatch="fore" style="background:#dc2626"></i></span><input type="color" data-color="foreColor" value="#dc2626"></label>
+      <label class="rte-color" title="Белгилаш (фон ранги)"><svg viewBox="0 0 24 24"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg><i data-swatch="back" style="background:#fde047"></i><input type="color" data-color="hiliteColor" value="#fde047"></label>
+    </div>
+    <div class="rte-g">
+      <button type="button" data-cmd="justifyLeft" title="Чапга"><svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h12M3 18h16"/></svg></button>
+      <button type="button" data-cmd="justifyCenter" title="Ўртага"><svg viewBox="0 0 24 24"><path d="M3 6h18M6 12h12M4 18h16"/></svg></button>
+      <button type="button" data-cmd="justifyRight" title="Ўнгга"><svg viewBox="0 0 24 24"><path d="M3 6h18M9 12h12M5 18h16"/></svg></button>
+      <button type="button" data-cmd="justifyFull" title="Икки томонга"><svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    </div>
+    <div class="rte-g">
+      <button type="button" data-cmd="insertUnorderedList" title="Рўйхат"><svg viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg></button>
+      <button type="button" data-cmd="insertOrderedList" title="Рақамли рўйхат"><svg viewBox="0 0 24 24"><path d="M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></button>
+      <button type="button" data-cmd="outdent" title="Чегинишни камайтириш"><svg viewBox="0 0 24 24"><path d="M21 6H11M21 12H11M21 18H11M7 8l-4 4 4 4"/></svg></button>
+      <button type="button" data-cmd="indent" title="Чегиниш"><svg viewBox="0 0 24 24"><path d="M21 6H11M21 12H11M21 18H11M3 8l4 4-4 4"/></svg></button>
+    </div>
+    <div class="rte-g">
+      <button type="button" data-act="link" title="Ҳавола (Ctrl+K)"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></button>
+      <button type="button" data-act="image" title="Расм қўйиш (ёки расмни шу ерга ташланг / Ctrl+V)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg></button>
+      <span class="rte-tblw"><button type="button" data-act="table" title="Жадвал"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg></button>
+        <span class="rte-tblpick hidden" data-tblpick><span data-grid></span><b data-tbllabel>1 × 1</b></span></span>
+      <button type="button" data-cmd="insertHorizontalRule" title="Ажратувчи чизиқ"><svg viewBox="0 0 24 24"><path d="M3 12h18"/></svg></button>
+    </div>
+    <div class="rte-g">
+      <button type="button" data-act="clear" title="Услубни тозалаш"><svg viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/><path d="m3 3 18 18"/></svg></button>
+      <button type="button" data-act="source" title="HTML кўриниши"><svg viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></button>
+      <button type="button" data-act="full" title="Тўлиқ экран"><svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
+    </div>
+  </div>
+  <div class="rte-img hidden" data-imgbar>
+    <span>Расм:</span>
+    <button type="button" data-w="25%">25%</button><button type="button" data-w="50%">50%</button><button type="button" data-w="75%">75%</button><button type="button" data-w="100%">100%</button>
+    <i></i>
+    <button type="button" data-fl="left" title="Чапда, матн ёнида">◧ чап</button><button type="button" data-fl="none" title="Алоҳида қатор">▭ ўрта</button><button type="button" data-fl="right" title="Ўнгда, матн ёнида">◨ ўнг</button>
+    <i></i>
+    <button type="button" data-img="caption">Изоҳ</button><button type="button" data-img="alt">Тавсиф (alt)</button><button type="button" data-img="del" class="text-rose-600">Ўчириш</button>
+  </div>
+  <div class="rte-page"><div class="rte-ed prose-panel" contenteditable="{% if can_act %}true{% else %}false{% endif %}" spellcheck="true" style="min-height: {{ minh|default:420 }}px"></div></div>
+  <textarea name="{{ name }}" class="rte-src hidden" spellcheck="false">{{ value|default:'' }}</textarea>
+  <div class="rte-foot"><span data-count>0 сўз</span><span data-state></span><span class="ml-auto">Расмни судраб ташланг ёки Ctrl+V · Word'дан кўчирилгани тозаланади</span></div>
+  <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple class="hidden" data-file>
+</div>
+{% include "panel/_rich_css.html" %}
+<script>
+(function () {
+  var box = document.querySelector(".rte:not([data-ready])");
+  box.dataset.ready = "1";
+  var ed = box.querySelector(".rte-ed"), src = box.querySelector(".rte-src"), form = box.closest("form");
+  var bar = box.querySelector(".rte-bar"), imgbar = box.querySelector("[data-imgbar]"), file = box.querySelector("[data-file]");
+  var stateEl = box.querySelector("[data-state]"), countEl = box.querySelector("[data-count]");
+  var csrf = form && form.querySelector("[name=csrfmiddlewaretoken]");
+  var saved = null, dirty = false, srcMode = false, curImg = null;
+  ed.innerHTML = src.value;
+  try { document.execCommand("defaultParagraphSeparator", false, "p"); } catch (e) {}
+
+  // қоралама: браузерда сақланган, сақланмай қолган матн
+  var dkey = box.dataset.draft;
+  if (dkey) {
+    try {
+      var d = localStorage.getItem(dkey);
+      if (d && d !== src.value && d.length > 20) {
+        var note = document.createElement("div");
+        note.className = "rte-draft";
+        note.innerHTML = "Сақланмай қолган қоралама бор. <button type=button data-y>Тиклаш</button> <button type=button data-n>Ташлаш</button>";
+        box.insertBefore(note, box.querySelector(".rte-page"));
+        note.querySelector("[data-y]").onclick = function () { ed.innerHTML = d; note.remove(); changed(); };
+        note.querySelector("[data-n]").onclick = function () { localStorage.removeItem(dkey); note.remove(); };
+      }
+    } catch (e) {}
+  }
+
+  function inEd(node) { return node && (node === ed || ed.contains(node)); }
+  document.addEventListener("selectionchange", function () {
+    var s = getSelection();
+    if (s.rangeCount && inEd(s.anchorNode)) { saved = s.getRangeAt(0).cloneRange(); syncBar(); }
+  });
+  function restore() {
+    ed.focus();
+    if (saved) { var s = getSelection(); s.removeAllRanges(); s.addRange(saved); }
+  }
+  function exec(cmd, val) {
+    restore();
+    // ранг — span style билан; қалин/ётиқ — <b>/<i> теглари
+    try { document.execCommand("styleWithCSS", false, cmd === "foreColor" || cmd === "hiliteColor"); } catch (e) {}
+    document.execCommand(cmd, false, val == null ? null : val);
+    changed();
+  }
+  function count() {
+    var words = (ed.innerText || "").trim().split(/\s+/).filter(Boolean).length;
+    countEl.textContent = words + " сўз · " + Math.max(1, Math.round(words / 180)) + " дақиқада ўқилади";
+  }
+  function changed() {
+    dirty = true;
+    count();
+    stateEl.textContent = "сақланмаган";
+    if (dkey) { clearTimeout(changed.t); changed.t = setTimeout(function () { try { localStorage.setItem(dkey, ed.innerHTML); } catch (e) {} }, 800); }
+  }
+  // font/size: <font> орқали, кейин span'га
+  function wrapStyle(prop, val) {
+    restore();
+    try { document.execCommand("styleWithCSS", false, false); } catch (e) {}
+    document.execCommand(prop === "font-size" ? "fontSize" : "fontName", false, prop === "font-size" ? "7" : "__rte__");
+    ed.querySelectorAll(prop === "font-size" ? 'font[size="7"]' : 'font[face="__rte__"]').forEach(function (f) {
+      var sp = document.createElement("span");
+      sp.style.setProperty(prop, val);
+      while (f.firstChild) sp.appendChild(f.firstChild);
+      f.replaceWith(sp);
+    });
+    changed();
+  }
+
+  bar.addEventListener("mousedown", function (e) { if (e.target.closest("button")) e.preventDefault(); });
+  bar.querySelectorAll("[data-cmd]").forEach(function (b) { b.addEventListener("click", function () { exec(b.dataset.cmd); }); });
+  bar.querySelector("[data-block]").addEventListener("change", function (e) { exec("formatBlock", "<" + e.target.value + ">"); });
+  bar.querySelector("[data-font]").addEventListener("change", function (e) {
+    if (e.target.value) wrapStyle("font-family", e.target.value === "Inter" ? "Inter, system-ui, sans-serif" : "'" + e.target.value + "'");
+    e.target.value = "";
+  });
+  bar.querySelector("[data-size]").addEventListener("change", function (e) { if (e.target.value) wrapStyle("font-size", e.target.value + "px"); e.target.value = ""; });
+  bar.querySelectorAll("[data-color]").forEach(function (inp) {
+    inp.addEventListener("input", function () {
+      exec(inp.dataset.color, inp.value);
+      inp.parentNode.querySelector("[data-swatch]").style.background = inp.value;
+    });
+    inp.addEventListener("mousedown", function () { var s = getSelection(); if (s.rangeCount && inEd(s.anchorNode)) saved = s.getRangeAt(0).cloneRange(); });
+  });
+  var states = ["bold", "italic", "underline", "strikeThrough", "insertUnorderedList", "insertOrderedList", "justifyLeft", "justifyCenter", "justifyRight", "justifyFull"];
+  function syncBar() {
+    states.forEach(function (c) {
+      var b = bar.querySelector('[data-cmd="' + c + '"]');
+      try { b.classList.toggle("on", document.queryCommandState(c)); } catch (e) {}
+    });
+    var v = "";
+    try { v = String(document.queryCommandValue("formatBlock") || "").toLowerCase().replace(/[<>]/g, ""); } catch (e) {}
+    var sel = bar.querySelector("[data-block]");
+    sel.value = ["h2", "h3", "h4", "blockquote", "pre"].indexOf(v) >= 0 ? v : "p";
+  }
+
+  // ҳавола
+  function link() {
+    restore();
+    var a = saved && (saved.startContainer.parentNode.closest ? saved.startContainer.parentNode.closest("a") : null);
+    var url = prompt("Ҳавола манзили (https://… ёки /blog/…). Бўш — ҳаволани олиб ташлаш:", a ? a.getAttribute("href") : "https://");
+    if (url === null) return;
+    url = url.trim();
+    if (!url || url === "https://") { exec("unlink"); return; }
+    if (!/^(https?:\/\/|\/|mailto:|tel:|#)/i.test(url)) url = "https://" + url;
+    if (saved && saved.collapsed && !a) exec("insertHTML", '<a href="' + url.replace(/"/g, "&quot;") + '">' + url.replace(/</g, "&lt;") + "</a>");
+    else exec("createLink", url);
+  }
+  // расм юклаш
+  function upload(files) {
+    Array.prototype.forEach.call(files, function (f) {
+      if (!/^image\/(png|jpe?g|gif|webp)$/.test(f.type)) { alert("Фақат PNG, JPG, GIF ёки WEBP расм"); return; }
+      var id = "up" + Math.random().toString(36).slice(2);
+      exec("insertHTML", '<p><img src="' + URL.createObjectURL(f) + '" alt="" data-up="' + id + '" style="width: 100%; opacity: .45"></p>');
+      stateEl.textContent = "расм юкланяпти…";
+      var fd = new FormData();
+      fd.append("file", f, f.name || "image.png");
+      if (csrf) fd.append("csrfmiddlewaretoken", csrf.value);
+      fetch(box.dataset.upload, { method: "POST", body: fd, credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          var im = ed.querySelector('[data-up="' + id + '"]');
+          if (!im) return;
+          if (j.url) { im.src = j.url; im.removeAttribute("data-up"); im.style.opacity = ""; changed(); }
+          else { im.remove(); alert("Расм юкланмади: " + (j.error || "хато")); }
+        })
+        .catch(function () { var im = ed.querySelector('[data-up="' + id + '"]'); if (im) im.remove(); alert("Расм юкланмади: тармоқ хатоси"); });
+    });
+  }
+  file.addEventListener("change", function () { upload(file.files); file.value = ""; });
+  ed.addEventListener("dragover", function (e) { if (e.dataTransfer.types.indexOf("Files") >= 0) { e.preventDefault(); ed.classList.add("drop"); } });
+  ed.addEventListener("dragleave", function () { ed.classList.remove("drop"); });
+  ed.addEventListener("drop", function (e) {
+    ed.classList.remove("drop");
+    if (!e.dataTransfer.files.length) return;
+    e.preventDefault();
+    if (document.caretRangeFromPoint) { var r = document.caretRangeFromPoint(e.clientX, e.clientY); if (r) saved = r; }
+    upload(e.dataTransfer.files);
+  });
+
+  // кўчириб қўйиш: Word / сайтдан келган HTML тозаланади
+  var OK = { P: 1, BR: 1, H2: 1, H3: 1, H4: 1, STRONG: 1, B: 1, EM: 1, I: 1, U: 1, S: 1, STRIKE: 1, DEL: 1, SUB: 1, SUP: 1, UL: 1, OL: 1, LI: 1,
+             BLOCKQUOTE: 1, A: 1, IMG: 1, FIGURE: 1, FIGCAPTION: 1, HR: 1, TABLE: 1, THEAD: 1, TBODY: 1, TR: 1, TH: 1, TD: 1, SPAN: 1, MARK: 1, CODE: 1, PRE: 1 };
+  var MAP = { H1: "H2", H5: "H4", H6: "H4", DIV: "P" };
+  var DROP = { SCRIPT: 1, STYLE: 1, META: 1, LINK: 1, TITLE: 1, IFRAME: 1, OBJECT: 1, svg: 1, XML: 1 };
+  var KEEP = ["color", "background-color", "text-align", "font-weight", "font-style", "text-decoration", "font-size"];
+  function cleanNode(n, out) {
+    n.childNodes.forEach(function (c) {
+      if (c.nodeType === 3) { out.appendChild(document.createTextNode(c.nodeValue)); return; }
+      if (c.nodeType !== 1 || DROP[c.nodeName] || DROP[c.nodeName.toUpperCase()]) return;
+      var tag = MAP[c.nodeName] || c.nodeName;
+      if (!OK[tag]) { cleanNode(c, out); return; }
+      var el = document.createElement(tag);
+      if (tag === "A" && c.getAttribute("href") && /^(https?:|\/|mailto:|#)/i.test(c.getAttribute("href"))) el.setAttribute("href", c.getAttribute("href"));
+      if (tag === "IMG") { var s = c.getAttribute("src") || ""; if (!/^(data:image|https:|\/img\/)/.test(s)) return; el.setAttribute("src", s); el.setAttribute("alt", c.getAttribute("alt") || ""); }
+      if (c.style) KEEP.forEach(function (p) {
+        var v = c.style.getPropertyValue(p);
+        if (v && !(p === "background-color" && /transparent|white|#fff/i.test(v)) && !(p === "font-weight" && /normal|400/.test(v))) el.style.setProperty(p, v);
+      });
+      ["colspan", "rowspan"].forEach(function (k) { if (c.getAttribute(k)) el.setAttribute(k, c.getAttribute(k)); });
+      cleanNode(c, el);
+      out.appendChild(el);
+    });
+    return out;
+  }
+  ed.addEventListener("paste", function (e) {
+    var cd = e.clipboardData;
+    if (!cd) return;
+    var imgs = Array.prototype.filter.call(cd.files || [], function (f) { return /^image\//.test(f.type); });
+    var html = cd.getData("text/html");
+    if (imgs.length && !html) { e.preventDefault(); upload(imgs); return; }
+    if (!html) return;
+    e.preventDefault();
+    html = html.replace(/<!--[\s\S]*?-->/g, "");
+    var doc = new DOMParser().parseFromString(html, "text/html");
+    var frag = cleanNode(doc.body, document.createElement("div"));
+    var datas = [];
+    frag.querySelectorAll("img").forEach(function (im) { if (/^data:/.test(im.getAttribute("src"))) datas.push(im); });
+    frag.querySelectorAll("p,span,li").forEach(function (x) { if (!x.textContent.trim() && !x.querySelector("img,br")) x.remove(); });
+    exec("insertHTML", frag.innerHTML);
+    datas.forEach(function (im) {  // буфердаги расм (data:) — серверга юкланади
+      fetch(im.getAttribute("src")).then(function (r) { return r.blob(); }).then(function (b) {
+        var found = Array.prototype.find.call(ed.querySelectorAll("img"), function (x) { return x.getAttribute("src") === im.getAttribute("src"); });
+        if (found) { saved = document.createRange(); saved.selectNode(found); found.remove(); upload([new File([b], "paste.png", { type: b.type })]); }
+      });
+    });
+  });
+
+  // жадвал танлагич
+  var pick = box.querySelector("[data-tblpick]"), grid = pick.querySelector("[data-grid]"), tl = pick.querySelector("[data-tbllabel]");
+  for (var i = 0; i < 48; i++) { var c = document.createElement("i"); c.dataset.r = Math.floor(i / 8) + 1; c.dataset.c = i % 8 + 1; grid.appendChild(c); }
+  grid.addEventListener("mouseover", function (e) {
+    var t = e.target.dataset; if (!t.r) return;
+    grid.querySelectorAll("i").forEach(function (x) { x.classList.toggle("on", +x.dataset.r <= +t.r && +x.dataset.c <= +t.c); });
+    tl.textContent = t.r + " × " + t.c;
+  });
+  grid.addEventListener("mousedown", function (e) {
+    e.preventDefault();
+    var t = e.target.dataset; if (!t.r) return;
+    var h = "<table><thead><tr>";
+    for (var c2 = 0; c2 < t.c; c2++) h += "<th>Устун " + (c2 + 1) + "</th>";
+    h += "</tr></thead><tbody>";
+    for (var r = 1; r < t.r; r++) { h += "<tr>"; for (c2 = 0; c2 < t.c; c2++) h += "<td>&nbsp;</td>"; h += "</tr>"; }
+    exec("insertHTML", h + "</tbody></table><p><br></p>");
+    pick.classList.add("hidden");
+  });
+  document.addEventListener("mousedown", function (e) { if (!e.target.closest(".rte-tblw")) pick.classList.add("hidden"); });
+
+  bar.querySelectorAll("[data-act]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var a = b.dataset.act;
+      if (a === "link") link();
+      else if (a === "image") file.click();
+      else if (a === "table") pick.classList.toggle("hidden");
+      else if (a === "clear") { exec("removeFormat"); exec("formatBlock", "<p>"); }
+      else if (a === "full") { box.classList.toggle("full"); document.body.classList.toggle("overflow-hidden", box.classList.contains("full")); b.classList.toggle("on"); }
+      else if (a === "source") {
+        srcMode = !srcMode; b.classList.toggle("on", srcMode);
+        if (srcMode) { src.value = ed.innerHTML; src.style.minHeight = ed.offsetHeight + "px"; }
+        else { ed.innerHTML = src.value; changed(); }
+        src.classList.toggle("hidden", !srcMode); box.querySelector(".rte-page").classList.toggle("hidden", srcMode);
+      }
+    });
+  });
+
+  // расм танланганда — ўлчам, жойлашув, изоҳ
+  ed.addEventListener("click", function (e) {
+    var im = e.target.closest("img");
+    ed.querySelectorAll("img.sel").forEach(function (x) { if (x !== im) x.classList.remove("sel"); });
+    curImg = im || null;
+    imgbar.classList.toggle("hidden", !im);
+    if (im) { im.classList.add("sel"); saved = document.createRange(); saved.selectNode(im); }
+  });
+  imgbar.addEventListener("mousedown", function (e) { e.preventDefault(); });
+  imgbar.addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b || !curImg) return;
+    var host = curImg.parentNode.nodeName === "FIGURE" ? curImg.parentNode : curImg;
+    if (b.dataset.w) { host.style.width = b.dataset.w; if (host !== curImg) curImg.style.width = "100%"; else curImg.style.width = b.dataset.w; }
+    if (b.dataset.fl) { host.style.float = b.dataset.fl === "none" ? "" : b.dataset.fl; if (b.dataset.fl === "none") { host.style.marginLeft = host.style.marginRight = ""; } }
+    if (b.dataset.img === "del") { host.remove(); imgbar.classList.add("hidden"); curImg = null; }
+    if (b.dataset.img === "alt") { var t = prompt("Расм тавсифи (кўзи ожизлар ва Google учун):", curImg.alt || ""); if (t !== null) curImg.alt = t; }
+    if (b.dataset.img === "caption" && host === curImg) {
+      var fig = document.createElement("figure");
+      fig.style.width = curImg.style.width || "100%"; if (curImg.style.float) fig.style.float = curImg.style.float;
+      curImg.style.width = "100%"; curImg.style.float = "";
+      curImg.replaceWith(fig); fig.appendChild(curImg);
+      var cap = document.createElement("figcaption"); cap.textContent = "Расм изоҳи"; fig.appendChild(cap);
+      var r = document.createRange(); r.selectNodeContents(cap); var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    }
+    changed();
+  });
+
+  ed.addEventListener("input", changed);
+  ed.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); link(); }
+    if (e.key === "Tab" && !e.shiftKey && getSelection().anchorNode && getSelection().anchorNode.parentNode.closest("li")) { e.preventDefault(); exec("indent"); }
+    if (e.key === "Tab" && e.shiftKey && getSelection().anchorNode && getSelection().anchorNode.parentNode.closest("li")) { e.preventDefault(); exec("outdent"); }
+  });
+  if (form) form.addEventListener("submit", function () {
+    if (!srcMode) { ed.querySelectorAll("img.sel").forEach(function (x) { x.classList.remove("sel"); }); src.value = ed.innerHTML; }
+    dirty = false;
+    if (dkey) try { localStorage.removeItem(dkey); } catch (e) {}
+  });
+  addEventListener("beforeunload", function (e) { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+  count();
+})();
+</script>

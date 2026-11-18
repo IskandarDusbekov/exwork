@@ -2,8 +2,8 @@
 {% comment %}Чап меню. Катта экранда — тўлиқ (15rem) ёки фақат белгилар (4rem, иш саҳифаларида — папка дарахтига жой қолсин);
    кичик экранда — ☰ билан очиладиган суғурма. Ҳолати: html[data-side], танлов localStorage'да.{% endcomment %}
 <div class="side-backdrop" data-side-close></div>
-<aside id="app-side" class="app-side flex-col border-r border-slate-200 bg-white" aria-label="Бўлимлар">
-  <div class="flex h-[61px] shrink-0 items-center gap-2.5 border-b border-slate-100 px-3.5">
+<aside id="app-side" class="app-side flex-col" aria-label="Бўлимлар">
+  <div class="flex h-[61px] shrink-0 items-center gap-2.5 border-b border-slate-200 bg-white px-3.5">
     <a href="{% url 'index' %}" class="flex min-w-0 items-center gap-2.5 text-slate-900" title="mhisobot — муҳандис ҳисобот">
       <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-900">{% include "jobs/_logo.html" with cls="h-7 w-7" %}</span>
       <span class="side-label min-w-0 leading-none">
@@ -21,13 +21,15 @@
     {% include "jobs/_side_link.html" with key="settings" url="user_settings" ic="sliders" label="Созламалар" %}
     <div class="side-cap">Ёрдам</div>
     {% include "jobs/_side_link.html" with key="help" url="help" ic="help" label="Йўриқнома" %}
+    {% include "jobs/_side_link.html" with key="guide" url="guide" ic="play" label="Видео қўлланма" %}
     {% if not request.viewing_owner %}{# саҳифа эмас — бурчакдаги суҳбат ойнасини очади (support/_widget.html) #}
     <button type="button" data-support-open class="side-link w-full" title="Ёрдам хизмати">{% icon "message" "h-5 w-5 shrink-0" %}<span class="side-label">Ёрдам хизмати</span><span id="sup-side-badge" class="side-badge{% if not support_unread %} hidden{% endif %}" title="Янги жавоблар">{{ support_unread|default:"" }}</span></button>
     {% endif %}
     {% include "jobs/_side_link.html" with key="landing" url="landing" ic="monitor" label="Тизим ҳақида" %}
+    {% include "jobs/_side_link.html" with key="about_us" url="about_us" ic="users" label="Биз ҳақимизда" %}
     {% if user.is_staff %}{% include "jobs/_side_link.html" with key="panel" url="panel:overview" ic="shield" label="Панел" %}{% endif %}
   </nav>
-  <div class="side-nav shrink-0 border-t border-slate-100 p-2.5">
+  <div class="side-nav shrink-0 border-t border-slate-200 p-2.5">
     <div class="side-user">
       <span class="side-ava" title="{{ user.email }}">{{ user.first_name|first|default:user.email|first|upper }}{{ user.last_name|first|upper }}</span>
       <span class="side-label min-w-0 flex-1 leading-tight">

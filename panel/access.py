@@ -159,9 +159,16 @@ def _write(items):
     from django.db import transaction
     from django.db.models import F
 
+    from django.contrib.auth import get_user_model
+
     from .models import AccessStat
+    # тўплангандан кейин ўчирилган фойдаланувчи — меҳмон каби ёзилади (акс ҳолда FK хатоси билан ёзувлар
+    # ҳеч қачон базага тушмай, хотирада қайта-қайта айланарди)
+    uids = {key[6] for key in items if key[6]}
+    alive = set(get_user_model().objects.filter(pk__in=uids).values_list("pk", flat=True)) if uids else set()
     with transaction.atomic():  # савепоинт: хато бўлса бошқа транзакцияни бузмайди
         for (hour, ip, kind, method, path, status, uid, host), (n, first, last, ua) in items.items():
+            uid = uid if uid in alive else None
             where = dict(hour=hour, ip=ip, kind=kind, method=method, path=path, status=status, user_id=uid, host=host)
             done = AccessStat.objects.filter(**where).update(count=F("count") + n, last_seen=last, user_agent=ua)
             if not done:

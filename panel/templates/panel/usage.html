@@ -1,0 +1,80 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Қатор ҳисоби — Панел{% endblock %}
+{% block page_title %}Қатор ҳисоби{% endblock %}
+{% block page_desc %}Ким қанча смета қаторига ишлов берди. Ҳар нархланган смета бир марта, биринчи нархланган кунида саналади: қайта ҳисоблаш иккинчи марта санамайди, смета ўчирилса ҳам ҳисоб қолади. Келажакда тўлов шу рақамларга қараб ҳисобланади.{% endblock %}
+{% block page_actions %}
+  <div class="inline-flex flex-wrap rounded-lg bg-white p-1 text-sm ring-1 ring-inset ring-slate-200" aria-label="Давр">
+    {% for k, l in periods %}<a href="?p={{ k }}" class="rounded-md px-3 py-1 font-medium {% if k == key %}bg-slate-900 text-white{% else %}text-slate-500 hover:text-slate-900{% endif %}">{{ l }}</a>{% endfor %}
+  </div>
+{% endblock %}
+{% block panel %}
+<style>
+  .us-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+  @media (max-width: 1023.98px) { .us-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .us-kpi { border: 1px solid rgb(var(--ink-200)); border-radius: .9rem; background: #fff; padding: .85rem 1rem; }
+  .us-kpi .l { font-size: .78rem; color: rgb(var(--ink-500)); }
+  .us-kpi .v { margin-top: .2rem; font-size: 1.5rem; font-weight: 700; color: rgb(var(--ink-900)); font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .us-kpi .s { margin-top: .15rem; font-size: .74rem; color: rgb(var(--ink-500)); font-variant-numeric: tabular-nums; }
+  .us-bar { height: .35rem; overflow: hidden; border-radius: 999px; background: rgb(var(--ink-100)); }
+  .us-bar i { display: block; height: 100%; border-radius: inherit; background: rgb(var(--brand-500)); }
+  .us-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: .75rem; align-items: start; margin-top: .75rem; }
+  @media (max-width: 1023.98px) { .us-wrap { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+{# бугун / ҳафта / ой / жами — ҳамма фойдаланувчилар бирга #}
+<div class="us-kpis">
+  {% for k, l, a in now_cards %}
+  <a href="?p={{ k }}" class="us-kpi hover:border-slate-300">
+    <div class="l">{{ l }}</div>
+    <div class="v">{{ a.done|som|default:"0" }} <span class="text-sm font-normal text-slate-400">қатор</span></div>
+    <div class="s">жами {{ a.total|som|default:"0" }} қатордан · {{ a.n }} смета</div>
+  </a>
+  {% endfor %}
+</div>
+
+<div class="us-wrap">
+  <section class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 px-4 py-3">
+      <h2 class="font-semibold">{{ label }}</h2>
+      <span class="num text-sm text-slate-500"><b class="text-slate-900">{{ total.done|som|default:"0" }}</b> / {{ total.total|som|default:"0" }} қатор · {{ total.n }} смета · {{ rows|length }} киши</span>
+    </div>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm" style="min-width: 40rem">
+      <thead class="border-b border-slate-100 bg-slate-50 text-left text-xs text-slate-500">
+        <tr><th class="px-4 py-2 font-medium">Фойдаланувчи</th>
+          <th class="px-3 py-2 text-right font-medium">Ишлов берилган<span class="block font-normal text-slate-400">қатор</span></th>
+          <th class="px-3 py-2 text-right font-medium">Жами<span class="block font-normal text-slate-400">сметалардаги қатор</span></th>
+          <th class="px-3 py-2 text-right font-medium">Смета</th>
+          <th class="px-3 py-2 text-right font-medium">Иш<span class="block font-normal text-slate-400">папка/объект</span></th></tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for r in rows %}
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-2"><a href="{% url 'panel:user' r.user.pk %}" class="block min-w-0">
+            <span class="block truncate font-medium text-slate-900 hover:underline">{{ r.user.get_full_name|default:r.user.email }}</span>
+            <span class="us-bar mt-1 block" style="max-width: 14rem"><i style="width: {{ r.share }}%"></i></span></a></td>
+          <td class="num px-3 py-2 text-right font-semibold text-slate-900">{{ r.done|som|default:"0" }}</td>
+          <td class="num px-3 py-2 text-right text-slate-600">{{ r.total|som|default:"0" }}</td>
+          <td class="num px-3 py-2 text-right text-slate-600">{{ r.n }}</td>
+          <td class="num px-3 py-2 text-right text-slate-500">{{ r.works }}</td>
+        </tr>
+        {% empty %}<tr><td colspan="5" class="px-4 py-10 text-center text-slate-400">Бу даврда нархланган смета йўқ</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <aside class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Ойлар бўйича</h2><p class="text-xs text-slate-500">охирги 12 ой · ойни босинг</p></div>
+    <ul class="divide-y divide-slate-100">
+      {% for m in months %}
+      <li><a href="?p={{ m.key }}" class="flex items-center justify-between gap-3 px-4 py-2 text-sm hover:bg-slate-50 {% if key == m.key %}bg-slate-50 font-semibold{% endif %}">
+        <span>{{ m.label }}</span><span class="num text-right"><b class="text-slate-900">{{ m.done|som }}</b><span class="block text-[11px] text-slate-400">{{ m.n }} смета</span></span></a></li>
+      {% empty %}<li class="px-4 py-8 text-center text-sm text-slate-400">Ҳали йўқ</li>{% endfor %}
+    </ul>
+  </aside>
+</div>
+
+<p class="mt-3 text-xs leading-relaxed text-slate-500"><b>Ишлов берилган қатор</b> — сметада ресурс деб танилиб нархлашдан ўтган қаторлар (бўш қатор ва сарлавҳалар саналмайди). <b>Жами</b> — сметалар жадвалидаги ҳамма қаторлар. Ҳафта душанбадан, ой 1-кундан бошланади (Тошкент вақти).</p>
+{% endblock %}

@@ -594,7 +594,7 @@ def save_timings(clock: FileClock, owner_id, project_id=None, batch=None, job=No
 
 
 def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optional[dict] = None,
-                  timings: Optional[dict] = None) -> "Batch":
+                  timings: Optional[dict] = None, on_file=None) -> "Batch":
     """Listlar turini aniqlaydi (``roles`` / ``columns`` — smetachining qo'lda tuzatishlari: list turi
     va ustunlar), nusxalarni ajratadi va juftliklarni taklif qiladi."""
     prev_pairs = list(batch.pairs or [])
@@ -607,6 +607,8 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
     for i, f in enumerate(batch.files):
         if not f.get("path"):  # очилмай қолган файл (таҳлил узилган) — листлари йўқ
             continue
+        if on_file:  # жонли жараён: «3/19 файл таҳлил қилиняпти: …»
+            on_file(i, len(batch.files), f["name"])
         t = time.monotonic()
         # фақат ўқиш (таҳлил) — бирлашган катаклар чегараси тикланмайди: катта сметада икки баравар тез
         wb = lean_load(batch.abs(f["path"]), keep_links=False)
@@ -896,7 +898,7 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
             continue
         # жонли жараён: папка панели ва юклаш саҳифасидаги аниқ прогресс (``batch_progress``) шуни ўқийди
         head = f"{len(jobs) + 1}/{todo} смета нархланяпти: {p['label']}"
-        Batch.objects.filter(pk=batch.pk).update(step=head[:300])
+        Batch.objects.filter(pk=batch.pk).update(step=head[:300], step_since=timezone.now())
         if batch.project_id:
             Project.objects.filter(pk=batch.project_id).update(heartbeat=timezone.now())
         loc, res = batch.sheet(p["local"]), batch.sheet(p["res"]) if p.get("res") else None  # None — ресурс базасидан

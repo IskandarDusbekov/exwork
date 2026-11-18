@@ -19,10 +19,11 @@
 </div>
 {% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-700{% endif %}">{{ m }}</div>{% endfor %}
 
-<div class="mb-4 grid grid-cols-3 gap-3 sm:max-w-xl">
+<div class="mb-4 grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); max-width: 60rem">
   <div class="rounded-xl border border-slate-200 bg-white px-4 py-3"><div class="text-xs text-slate-500">Мақолалар</div><div class="num text-xl font-semibold">{{ n_posts }} <span class="text-sm font-normal text-slate-400">· {{ n_pub }} чоп этилган</span></div></div>
-  <div class="rounded-xl border border-slate-200 bg-white px-4 py-3"><div class="text-xs text-slate-500">Видео дарслар</div><div class="num text-xl font-semibold">{{ n_vids }}</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white px-4 py-3"><div class="text-xs text-slate-500">Видео қўлланма</div><div class="num text-xl font-semibold">{{ n_vids }}</div></div>
   <div class="rounded-xl border border-slate-200 bg-white px-4 py-3"><div class="text-xs text-slate-500">Бўлимлар</div><div class="num text-xl font-semibold">{{ cats|length }}</div></div>
+  <div class="rounded-xl border border-slate-200 bg-white px-4 py-3" title="Бир одам 6 соатда бир марта; админлар ва ботлар ҳисобланмайди"><div class="text-xs text-slate-500">Кўрилишлар</div><div class="num text-xl font-semibold">{{ views_posts|add:views_vids }} <span class="text-sm font-normal text-slate-400">· мақола {{ views_posts }} · видео {{ views_vids }}</span></div></div>
 </div>
 
 <nav class="mb-3 flex gap-1 border-b border-slate-200 text-sm">
@@ -43,13 +44,14 @@
   {% endif %}
   {% if posts %}
   <table class="w-full text-sm">
-    <thead class="text-left text-xs text-slate-500"><tr class="border-b border-slate-100"><th class="px-4 py-2 font-medium">Сарлавҳа</th><th class="px-2 py-2 font-medium">Бўлим</th><th class="px-2 py-2 font-medium">Ҳолат</th><th class="px-2 py-2 font-medium">Янгиланди</th><th class="px-4 py-2"></th></tr></thead>
+    <thead class="text-left text-xs text-slate-500"><tr class="border-b border-slate-100"><th class="px-4 py-2 font-medium">Сарлавҳа</th><th class="px-2 py-2 font-medium">Бўлим</th><th class="px-2 py-2 font-medium">Ҳолат</th><th class="px-2 py-2 text-right font-medium">Кўрилди</th><th class="px-2 py-2 font-medium">Янгиланди</th><th class="px-4 py-2"></th></tr></thead>
     <tbody class="divide-y divide-slate-100">
       {% for p in posts %}
       <tr class="hover:bg-slate-50">
         <td class="px-4 py-2.5"><a href="{% url 'panel:blog_post_edit' p.pk %}" class="font-medium hover:underline">{{ p.title }}</a>{% if p.summary %}<div class="max-w-xl truncate text-xs text-slate-500">{{ p.summary }}</div>{% endif %}</td>
         <td class="px-2 py-2.5 text-slate-600">{{ p.category.name|default:"—" }}</td>
         <td class="px-2 py-2.5">{% if p.published %}<span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">чоп этилган</span>{% else %}<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">қоралама</span>{% endif %}</td>
+        <td class="num px-2 py-2.5 text-right text-slate-700">{{ p.views }}</td>
         <td class="num px-2 py-2.5 text-xs text-slate-500">{{ p.updated|date:"d.m.Y H:i" }}</td>
         <td class="whitespace-nowrap px-4 py-2.5 text-right text-xs">
           {% if p.published %}<a href="{% url 'blog_post' p.slug %}" target="_blank" rel="noopener" class="text-slate-500 hover:underline">сайтда ↗</a>{% endif %}
@@ -73,7 +75,7 @@
       <a href="{% url 'panel:blog_video_edit' v.id %}" class="block aspect-video w-36 shrink-0 overflow-hidden rounded-md bg-slate-100"><img src="https://i.ytimg.com/vi/{{ v.id }}/mqdefault.jpg" alt="" class="h-full w-full object-cover" loading="lazy"></a>
       <div class="min-w-0 flex-1">
         <a href="{% url 'panel:blog_video_edit' v.id %}" class="font-medium hover:underline">{{ v.title }}</a>
-        <div class="mt-0.5 text-xs text-slate-500">{{ v.section }}{% if v.added %} · <span class="num">{{ v.added }}</span>{% endif %}{% if v.note %} · тавсиф бор{% else %} · <span class="text-amber-700">тавсиф йўқ</span>{% endif %}</div>
+        <div class="mt-0.5 text-xs text-slate-500">{{ v.section }} · <span class="num">{{ v.views }}</span> марта кўрилди{% if v.added %} · <span class="num">{{ v.added }}</span>{% endif %}{% if v.note %} · тавсиф бор{% else %} · <span class="text-amber-700">тавсиф йўқ</span>{% endif %}</div>
       </div>
       <div class="flex shrink-0 items-center gap-1 text-xs">
         {% if can_act %}

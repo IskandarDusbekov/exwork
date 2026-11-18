@@ -1,0 +1,19 @@
+{% load narx %}{# сарлавҳадаги қўнғироқча: охирги эълонлар; ўқилмаганлари — нуқта ва сони. Бирини боссангиз — тўлиқ ойнада очилади #}
+{% if news %}
+<div class="nw-bell" data-nw-bell>
+  <button type="button" class="nw-bell-btn" aria-haspopup="true" aria-expanded="false" title="Билдиришномалар" data-nw-bell-btn>
+    {% icon "bell" "h-5 w-5" "1.9" %}<span class="nw-badge num" data-nw-badge{% if not news.unread %} hidden{% endif %}>{{ news.unread }}</span></button>
+  <div class="nw-pop" hidden data-nw-pop role="menu">
+    <div class="nw-pop-h"><b>Билдиришномалар</b>{% if news.unread %}<span class="nw-pop-n" data-nw-pop-n>{{ news.unread }} та янги</span>{% endif %}</div>
+    <ul class="nw-list">
+      {% for a in news.items %}
+      <li><button type="button" class="nw-item{% if a.unread %} is-new{% endif %}" data-nw-open="{{ a.pk }}">
+        <span class="nw-dot nw-dot-{{ a.style }}">{% if a.style == "celebrate" %}{% icon "gift" "h-4 w-4" %}{% elif a.style == "serious" %}{% icon "alert-circle" "h-4 w-4" %}{% else %}{% icon "megaphone" "h-4 w-4" %}{% endif %}</span>
+        <span class="min-w-0 flex-1"><span class="nw-item-t">{{ a.title }}</span>
+          <span class="nw-item-s">{{ a.get_style_display }} · {{ a.published_at|date:"d.m.Y" }}</span></span>
+      </button></li>
+      {% empty %}<li class="nw-empty">{% icon "bell" "h-6 w-6" %}<span>Ҳозирча билдиришнома йўқ</span></li>{% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}

@@ -1,0 +1,111 @@
+{% extends "jobs/_public.html" %}
+{% load narx seo %}
+{% comment %} Видео қўлланма (/qollanma/): тепада — видеолар бўлимлари бўйича (панел «Блог» → «Видео»), кейин қисқа
+иш тартиби ва смета ёзувлари изоҳи (йиғиладиган). Мақолалар — алоҳида «Блог» саҳифасида. {% endcomment %}
+{% block seo %}{% url 'guide' as here %}{% seo_head title="Видео қўлланма — mhisobot" canonical=here description=description %}{% endblock %}
+{% block css %}{% include "jobs/_blog_css.html" %}{% endblock %}
+{% block content %}
+<header class="ghead">
+  <div class="wrap ghead-in">
+    <div>
+      <nav class="crumbs" aria-label="Йўл"><a href="{% url 'index' %}">Бош саҳифа</a><span aria-hidden="true">/</span><span>Видео қўлланма</span></nav>
+      <h1>Видео қўлланма</h1>
+      <p class="lead">Тизимни қисқа видеоларда ўрганинг: смета юклашдан тайёр Excel файлни олишгача — ҳар бир қадам ҳақиқий смета мисолида.</p>
+    </div>
+    <dl class="gstat">
+      <div><dt>Видео</dt><dd>{{ video_count }}</dd></div>
+      <div><dt>Қадам</dt><dd>{{ flow|length }}</dd></div>
+      <div><dt>Изоҳ</dt><dd>{{ term_count }}</dd></div>
+    </dl>
+  </div>
+</header>
+
+<nav class="gtabs" aria-label="Саҳифа бўлимлари">
+  <div class="wrap gtabs-in">
+    <a href="#videos">{% icon "play" "gti" %}Видеолар{% if video_count %} <b>{{ video_count }}</b>{% endif %}</a>
+    <a href="#start">Иш тартиби</a>
+    <a href="#terms">Ёзувлар изоҳи</a>
+    {% if post_count %}<a href="{% url 'blog' %}" class="gtabs-out">Блог: мақолалар <b>{{ post_count }}</b> →</a>{% endif %}
+  </div>
+</nav>
+
+<div class="wrap gpage">
+  <section class="gsec" id="videos" aria-labelledby="h-videos">
+    <div class="gsec-h"><span class="gn">01</span><div><h2 id="h-videos">Видеолар</h2><p>Видеони босинг — у ўз саҳифасида очилади. Тизим ичида ҳам ҳар саҳифанинг тепасидаги «▶ Видео» тугмаси шу саҳифага оид дарсни кўрсатади.</p></div></div>
+    {% for s in sections %}
+    <div class="vsec" id="v-{{ s.slug }}">
+      <h3 class="vsec-h">{{ s.label }} <span>{{ s.videos|length }} та видео</span></h3>
+      <div class="vgrid">
+        {% for v in s.videos %}
+        <a class="vcard" href="{% url 'blog_video' v.id %}">
+          <span class="vthumb"><img src="https://i.ytimg.com/vi/{{ v.id }}/hqdefault.jpg" alt="" loading="lazy" width="480" height="360"><span class="vplay">{% icon "play" "h-4 w-4" %}</span></span>
+          <span class="vk">{{ forloop.counter }}-видео{% if v.views %} · {{ v.views }} марта кўрилди{% endif %}</span>
+          <h3>{{ v.title }}</h3>
+          {% if v.note %}<p>{{ v.note }}</p>{% endif %}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% empty %}
+    <p class="soon">Видеолар тайёрланмоқда — қўшилиши билан шу ерда бўлимлари бўйича чиқади.</p>
+    {% endfor %}
+  </section>
+
+  <section class="gsec" id="start" aria-labelledby="h-start">
+    <div class="gsec-h"><span class="gn">02</span><div><h2 id="h-start">Иш тартиби</h2><p>Биринчи сметангизни нархлаш учун шу қадамлар етарли.</p></div></div>
+    <ol class="steps">
+      {% for n, title, text, tip in flow %}
+      <li class="step">
+        <span class="step-n">{{ n|stringformat:"02d" }}</span>
+        <div>
+          <h3>{{ title }}</h3>
+          <p>{{ text }}</p>
+          {% if tip %}<p class="tip"><b>Маслаҳат</b>{{ tip }}</p>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section class="gsec" id="terms" aria-labelledby="h-terms">
+    <div class="gsec-h"><span class="gn">03</span><div><h2 id="h-terms">Ёзувлар изоҳи</h2><p>Смета қаторларида чиқадиган ёзувлар: нимани билдиради ва нима қилиш керак. Бўлимни босиб очинг.</p></div></div>
+    <div class="tfold">
+      {% for g in groups %}
+      <details class="tgroup" id="{{ g.slug }}"{% if forloop.first %} open{% endif %}>
+        <summary><span>{{ g.title }}</span><b>{{ g.items|length }}</b></summary>
+        <dl class="terms">
+          {% for h in g.items %}
+          <div class="term" id="h-{{ h.key }}">
+            <dt>{{ h.title }}</dt>
+            <dd>{{ h.what }}</dd>
+            {% if h.todo %}<dd class="todo"><b>Нима қилиш керак</b>{{ h.todo }}</dd>{% endif %}
+          </div>
+          {% endfor %}
+        </dl>
+      </details>
+      {% endfor %}
+    </div>
+  </section>
+  <div class="gcta">{% include "jobs/_blog_cta.html" %}</div>
+</div>
+<script>
+  /* #h-калит билан келса — ўша изоҳ ёпиқ бўлимда бўлса ҳам очилади */
+  (function () {
+    function openHash() {
+      var el = location.hash && document.getElementById(location.hash.slice(1));
+      var d = el && el.closest("details");
+      if (d) { d.open = true; el.scrollIntoView(); }
+    }
+    openHash(); addEventListener("hashchange", openHash);
+    var tabs = document.querySelectorAll(".gtabs a[href^='#']");
+    if (!("IntersectionObserver" in window)) return;
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        tabs.forEach(function (a) { a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id); });
+      });
+    }, { rootMargin: "-140px 0px -60% 0px" });
+    tabs.forEach(function (a) { var s = document.querySelector(a.getAttribute("href")); if (s) io.observe(s); });
+  })();
+</script>
+{% endblock %}

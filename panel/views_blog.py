@@ -3,13 +3,13 @@
 иловадаги «▶ Видео» тугмаси шуни ишлатади). Ҳар бир ўзгариш журналга ёзилади."""
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from jobs import site
+from jobs import pages, richtext, site
 from jobs.guide import VIDEO_PAGES, videos, youtube_id
 
 from . import conf
@@ -20,7 +20,7 @@ from .views import _ctx, staff_required, superuser_required
 MAX_POSTS = 500
 MAX_VIDEOS = 120
 MAX_CATS = 40
-TABS = (("posts", "Мақолалар"), ("videos", "Видео дарслар"), ("cats", "Бўлимлар"))
+TABS = (("posts", "Мақолалар"), ("videos", "Видео қўлланма"), ("cats", "Бўлимлар"))
 
 
 def _back(tab, **extra):
@@ -41,10 +41,17 @@ def blog_page(request):
     labels = dict(VIDEO_PAGES)
     vids = [{**v, "section": labels.get(v["page"], "Умумий") if v["page"] else "Умумий дарслар"} for v in videos()]
     counts = {c.pk: c.posts.count() for c in cats}
+    posts = list(posts[:MAX_POSTS])
+    pv = pages.counts("post", [p.pk for p in posts])
+    vv = pages.counts("video", [v["id"] for v in vids])
+    for p in posts:
+        p.views = pv[str(p.pk)]
+    for v in vids:
+        v["views"] = vv[v["id"]]
     return render(request, "panel/blog.html", _ctx(
         request, "blog", btab=btab, tabs=TABS, cats=[{"c": c, "n": counts[c.pk]} for c in cats], cat=cat,
-        posts=posts[:MAX_POSTS], n_posts=Post.objects.count(), n_pub=Post.objects.filter(published=True).count(),
-        vids=vids, n_vids=len(vids)))
+        posts=posts, n_posts=Post.objects.count(), n_pub=Post.objects.filter(published=True).count(),
+        vids=vids, n_vids=len(vids), views_posts=sum(pv.values()), views_vids=sum(vv.values())))
 
 
 # ===================== мақолалар =====================
@@ -55,28 +62,38 @@ def post_edit(request, post_id=None):
         if not request.user.is_superuser:
             raise PermissionDenied("Фақат суперфойдаланувчи")
         return _post_save(request, post)
-    return render(request, "panel/blog_post.html", _ctx(request, "blog", post=post, cats=Category.objects.all()))
+    return _post_form(request, post)
+
+
+def _post_form(request, post):
+    """Муҳаррирга: эски оддий матнли мақола HTML'га айлантириб берилади (сақлангач — "html" бўлади)."""
+    html = post.body if post.fmt == "html" else "".join([site.render_body(post.body)])  # оддий str: textarea’да экранлансин
+    return render(request, "panel/blog_post.html", _ctx(
+        request, "blog", post=post, cats=Category.objects.all(), body_html=html,
+        views=pages.count("post", post.pk) if post.pk else 0))
 
 
 def _post_save(request, post):
     title = " ".join(request.POST.get("title", "").split())[:160]
-    body = request.POST.get("body", "").replace("\r", "").strip()[:60000]
+    body = richtext.sanitize(request.POST.get("body", ""))
     slug = site.slugify(request.POST.get("slug") or title)
     err = ""
-    if not title or not body:
+    if not title or not richtext.plain(body) and "<img" not in body:
         err = "сарлавҳа ва матн бўш бўлмасин"
     elif not slug or slug in site.RESERVED_SLUGS:
         err = "манзил (лотин ҳарфлар) бўш ёки банд сўз — бошқасини ёзинг"
     elif Post.objects.filter(slug=slug).exclude(pk=post.pk).exists():
         err = f"«{slug}» манзили бошқа мақолада бор"
-    post.title, post.slug, post.body = title, slug, body
+    post.title, post.slug, post.body, post.fmt = title, slug, body, "html"
+    cover = request.POST.get("cover", "").strip()
+    post.cover = cover if cover.startswith("/img/") and richtext.IMG_NAME.match(cover[5:]) else ""
     post.summary = " ".join(request.POST.get("summary", "").split())[:300]
     post.published = request.POST.get("published") == "1"
     cid = request.POST.get("category", "")
     post.category = Category.objects.filter(pk=cid).first() if cid.isdigit() else None
     if err:  # ёзилгани йўқолмасин — формани шу ҳолида қайта кўрсатамиз
         messages.error(request, f"Мақола сақланмади: {err}")
-        return render(request, "panel/blog_post.html", _ctx(request, "blog", post=post, cats=Category.objects.all()))
+        return _post_form(request, post)
     post.save()
     audit(request, Event.Kind.ADMIN_SETTINGS, detail=f"Блог: «{title[:120]}» {'чоп этилди' if post.published else 'қоралама'}")
     messages.success(request, f"Мақола сақланди: «{title}»" + ("" if post.published else " (қоралама — сайтда кўринмайди)"))
@@ -99,6 +116,21 @@ def post_delete(request, post_id):
 def preview(request):
     """Матн қандай кўринишини кўрсатади (сайтдаги қоидалар билан, ҳамма матн экранланган)."""
     return HttpResponse(site.render_body(request.POST.get("body", "")[:60000]))
+
+
+@require_POST
+@superuser_required
+def upload(request):
+    """Муҳаррирдан расм: {"url": "/img/…"} ёки {"error": "…"}."""
+    f = request.FILES.get("file")
+    if not f:
+        return JsonResponse({"error": "файл йўқ"}, status=400)
+    try:
+        url = richtext.save_image(f)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    audit(request, Event.Kind.ADMIN_SETTINGS, detail=f"Сайт: расм юкланди {url}")
+    return JsonResponse({"url": url})
 
 
 # ===================== видео дарслар =====================

@@ -5,7 +5,8 @@
     <b>{{ j.batch_label|readable }}</b>
     <small><span><i class="t-l">Л</i> {{ j.local_sheet }}</span><span><i class="t-r">Р</i> {{ j.res_name }}</span>
       {% if j.status != "done" %}<span class="rs-bad">хато: {{ j.error|truncatechars:90 }}</span>
-      {% elif j.result.stats.NOT_PRICED %}<span class="rs-bad">{{ j.result.stats.NOT_PRICED }} та қатор нархланмади</span>{% endif %}</small>
+      {% elif j.result.stats.NOT_PRICED %}<span class="rs-bad">{{ j.result.stats.NOT_PRICED }} та қатор нархланмади</span>{% endif %}
+      {% if j.rows %}<span class="rs-rows num" title="Ишлов берилган / жами қатор">{{ j.rows_done|default:0|som }} / {{ j.rows|som }} қатор</span>{% endif %}</small>
   </div>
   <b class="rs-sum num">{% if j.status == "done" %}{{ j.result.totals.s_nds|som }}{% else %}—{% endif %}</b>
   <div class="rs-btns">

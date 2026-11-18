@@ -46,6 +46,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     # кўрилган саҳифа қўлланмалари (jobs.guide.GUIDE_PAGES): янги фойдаланувчига ҳар бири бир марта ўзи очилади
     guides_seen = models.JSONField("Кўрилган қўлланмалар", default=list, blank=True)
     quota_mb = models.PositiveIntegerField("Диск чегараси (МБ)", null=True, blank=True)  # бўш — умумий (панел созламаси)
+    # рўйхатдан ўтишда «Фойдаланиш шартлари»га рози бўлган вақт ва шартлар таҳрири (``jobs.pages.terms``)
+    terms_accepted_at = models.DateTimeField("Шартларга рози бўлган", null=True, blank=True)
+    terms_version = models.PositiveIntegerField("Шартлар таҳрири", null=True, blank=True)
 
     objects = UserManager()
 

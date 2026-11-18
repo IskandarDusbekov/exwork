@@ -1,0 +1,16 @@
+{% load narx %}{# битта эълон (a): ойнада, қўнғироқчадан очилганда ва панелдаги намунада бир хил кўриниш; услуби — nw-news / nw-serious / nw-celebrate #}
+<article class="nw-card nw-{{ a.style }}">
+  <div class="nw-top">
+    <span class="nw-ic">{% if a.style == "celebrate" %}{% icon "gift" "h-6 w-6" "1.8" %}{% elif a.style == "serious" %}{% icon "alert-circle" "h-6 w-6" "1.8" %}{% else %}{% icon "megaphone" "h-6 w-6" "1.8" %}{% endif %}</span>
+    <span class="nw-kind" data-nw-kind>{{ a.get_style_display }}</span>
+    <time class="nw-date" data-nw-date>{{ a.published_at|default:a.created|date:"d.m.Y" }}</time>
+  </div>
+  <div class="nw-main">
+    <h2 class="nw-title" data-nw-title>{{ a.title }}</h2>
+    <div class="nw-body" data-nw-body>{% for kind, val in a.blocks %}{% if kind == "ul" %}<ul>{% for x in val %}<li>{{ x }}</li>{% endfor %}</ul>{% else %}<p>{{ val|linebreaksbr }}</p>{% endif %}{% endfor %}</div>
+  </div>
+  <div class="nw-acts">
+    <a href="{{ a.link_url|default:'#' }}" class="nw-link" data-nw-link{% if not a.link_url %} hidden{% endif %}>{{ a.link_text|default:"Батафсил" }} {% icon "arrow-right" "h-4 w-4" %}</a>
+    <button type="button" class="nw-ok" data-nw-close>{% if a.style == "celebrate" %}Раҳмат!{% else %}Тушунарли{% endif %}</button>
+  </div>
+</article>

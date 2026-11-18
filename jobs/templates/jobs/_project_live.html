@@ -1,0 +1,10 @@
+{% load narx %}{# ишланаётган қисм ичида нима бўляпти: «Файллар очиляпти 9 / 19 файл», нархлашда — қатор сони; ўтган вақт сониялаб юради (қотиб қолмаганини кўрсатади) #}
+{% if live %}<div class="pl-live" data-since="{{ live.since|date:'U' }}" data-now="{% now 'U' %}">
+  <div class="pl-top">
+    <span class="pl-what">{% if part_name %}<b>{{ part_name }}</b> · {% endif %}{{ live.what }}{% if live.of %} <b class="num">{{ live.at }} / {{ live.of }}</b> {{ live.unit }}{% endif %}{% if live.rows %} · {% if live.phase_text %}{{ live.phase_text }} {% endif %}<b class="num">{% if live.rows_done %}{{ live.rows_done|som }} / {% endif %}{{ live.rows|som }}</b> қатор{% elif live.phase_text %} · {{ live.phase_text }}{% endif %}</span>
+    <span class="pl-sec num" data-elapsed title="Шу қадам бошланганидан бери"></span>
+  </div>
+  {% if live.name %}<small class="pl-name" title="{{ live.name }}">{{ live.name }}</small>{% endif %}
+  {% if live.rows and live.rows_done %}<div class="pl-bar"><i style="width: {% widthratio live.rows_done live.rows 100 %}%"></i></div>
+  {% elif live.of > 1 %}<div class="pl-bar"><i style="width: {% widthratio live.at|add:-1 live.of 100 %}%"></i></div>{% endif %}
+</div>{% endif %}

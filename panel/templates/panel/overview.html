@@ -46,6 +46,8 @@
     <div class="mt-2 flex items-baseline gap-2"><span class="num text-3xl font-semibold">{{ jobs_priced }}</span><span class="text-sm text-slate-400">/ {{ jobs_total }}</span></div>
     <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width: {% widthratio jobs_priced jobs_total 100 %}%"></div></div>
     <div class="mt-1 text-xs text-slate-500">ҳамма сметалардан (папка ва объект ичидагилари ҳам){% if jobs_failed %} · <span class="text-rose-600">{{ jobs_failed }} хато</span>{% endif %}</div>
+    <a href="{% url 'panel:usage' %}" class="mt-2 block border-t border-slate-100 pt-2 text-xs text-slate-500 hover:text-slate-900" title="Ишлов берилган смета қаторлари — Қатор ҳисоби">
+      Қатор: ҳафта <b class="num text-slate-800">{{ use.week.done|som }}</b> · ой <b class="num text-slate-800">{{ use.month.done|som }}</b> · жами <span class="num">{{ use.all.done|som }}</span> →</a>
   </div>
   <a href="{% url 'panel:texnazor' %}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300">
     <div class="flex items-center gap-2 text-xs font-medium text-slate-500">{% icon "building" "h-4 w-4" %} Техназор объектлари</div>

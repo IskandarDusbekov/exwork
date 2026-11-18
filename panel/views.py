@@ -117,12 +117,18 @@ def overview(request):
         jobs_total=jobs.count(),
         jobs_priced=jobs.filter(status=Job.Status.DONE).count(),
         jobs_failed=jobs.filter(status=Job.Status.FAILED).count(),
+        use=_usage_summary(),
         disk=data.disk_total(),
         reg_days=data.per_day(users, "date_joined"),
         upload_days=data.uploads_per_day(),
         top=[{"user": names.get(uid), **c} for uid, c in top if uid in names and c["jobs"]],
         events=Event.objects.select_related("actor", "target")[:12],
     ))
+
+
+def _usage_summary():
+    from jobs import usage
+    return usage.summary()
 
 
 def _tn_count():
@@ -206,7 +212,11 @@ def users(request):
     tn = _tn_by_user()
     last = _last_sessions([u.pk for u in page])
     online = sessions.online_since()
+    from jobs import usage
+    st = usage.period_starts()
+    u_week, u_month = usage.by_user(st["week"]), usage.by_user(st["month"])
     rows = [{"user": u, "c": counts.get(u.pk, {}), "tn": tn.get(u.pk, 0), "disk": disk.get(u.pk, 0), "s": last.get(u.pk),
+             "rw": u_week.get(u.pk, {}).get("done", 0), "rm": u_month.get(u.pk, {}).get("done", 0),
              "online": bool(last.get(u.pk) and not last[u.pk].ended and last[u.pk].last_seen >= online)} for u in page]
     return render(request, "panel/users.html", _ctx(request, "users", page=page, rows=rows, q=q, status=status,
                                                     total=User.objects.count(), here=request.get_full_path()))
@@ -236,6 +246,9 @@ def user_detail(request, pk):
                online=_last_sessions([u.pk]).get(u.pk))
     s = ctx["online"]
     ctx["is_online"] = bool(s and not s.ended and s.last_seen >= sessions.online_since())
+    from jobs import usage
+    ctx["use"], ctx["use_months"] = usage.summary(u), usage.by_month(u, months=6)
+    ctx["use_periods"] = (("day", "Бугун"), ("week", "Шу ҳафта"), ("month", "Шу ой"), ("all", "Бутун вақт"))
     if tab == "works":
         ctx.update(items=_panel_items(u), tn=_tn_rows(u))
     elif tab == "files":

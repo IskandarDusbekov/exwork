@@ -224,9 +224,27 @@ class Post(models.Model):
     updated = models.DateTimeField(auto_now=True)
     author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.SET_NULL, related_name="posts")
+    # "html" — панелдаги муҳаррир (``jobs.richtext.sanitize`` дан ўтган); "text" — эски оддий матн (``render_body``)
+    fmt = models.CharField(max_length=8, default="text")
+    cover = models.CharField(max_length=200, blank=True)  # /img/… — рўйхатдаги расм (бўш — матндаги биринчи расм)
 
     class Meta:
         ordering = ["-created"]
 
     def __str__(self):
         return self.title
+
+
+class ViewCount(models.Model):
+    """Очиқ саҳифа неча марта кўрилди: kind="post" (key — мақола id) ёки "video" (key — YouTube id).
+    Бир одам (IP + браузер) 6 соат ичида қайта очса — қўшилмайди; бот ва админлар ҳисобланмайди (``jobs.pages.hit``)."""
+    kind = models.CharField(max_length=10)
+    key = models.CharField(max_length=40)
+    n = models.PositiveIntegerField(default=0)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["kind", "key"], name="viewcount_kind_key")]
+
+    def __str__(self):
+        return f"{self.kind}:{self.key}={self.n}"

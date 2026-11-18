@@ -348,8 +348,8 @@
 <section class="sec" id="lessons" aria-labelledby="ls-h">
   <div class="wrap">
     <div class="sec-h">
-      <div><p class="eyebrow">Видео дарслар</p><h2 id="ls-h">Тизимни қисқа видеоларда кўринг</h2></div>
-      <p>Ҳар бир қадам амалда кўрсатилган. Ҳамма дарслар бўлимлари билан «Қўлланма» саҳифасида.</p>
+      <div><p class="eyebrow">Видео қўлланма</p><h2 id="ls-h">Тизимни қисқа видеоларда кўринг</h2></div>
+      <p>Ҳар бир қадам амалда кўрсатилган. Ҳамма видеолар бўлимлари билан «Видео қўлланма» саҳифасида.</p>
     </div>
     <div class="vgrid">
       {% for v in videos %}
@@ -361,7 +361,7 @@
       </a>
       {% endfor %}
     </div>
-    <a class="lnk more-l" href="{% url 'blog' %}">Ҳамма дарслар ва мақолалар {% icon "arrow-right" "h-4 w-4" %}</a>
+    <a class="lnk more-l" href="{% url 'guide' %}">Ҳамма видеолар {% icon "arrow-right" "h-4 w-4" %}</a>
   </div>
 </section>
 {% endif %}

@@ -5,7 +5,7 @@
 <div class="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
 <nav class="hidden text-sm lg:block" aria-label="Йўриқнома бўлимлари">
   <div class="sticky top-4 space-y-1">
-    {% if videos %}<a href="#videos" class="block rounded-md px-2 py-1.5 text-slate-700 hover:bg-white">Видео дарслар</a>{% endif %}
+    {% if videos %}<a href="#videos" class="block rounded-md px-2 py-1.5 text-slate-700 hover:bg-white">Видео қўлланма</a>{% endif %}
     <a href="#flow" class="block rounded-md px-2 py-1.5 text-slate-700 hover:bg-white">Иш тартиби</a>
     <a href="#method" class="block rounded-md px-2 py-1.5 text-slate-700 hover:bg-white">Қайси усулни танлай?</a>
     {% for title, items in groups %}<a href="#g{{ forloop.counter }}" class="block rounded-md px-2 py-1.5 text-slate-700 hover:bg-white">{{ title }}</a>{% endfor %}
@@ -28,7 +28,7 @@
   {# ================= видео дарслар (панел → «Ёрдам матнлари ва видео») ================= #}
   {% if videos %}
   <section id="videos" class="scroll-mt-4">
-    <h2 class="mb-4 text-lg font-semibold">Видео дарслар</h2>
+    <h2 class="mb-4 text-lg font-semibold">Видео қўлланма</h2>
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {% for v in videos %}
       <figure class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

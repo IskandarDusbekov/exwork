@@ -1,13 +1,13 @@
 {% extends "jobs/_public.html" %}
 {% load narx seo %}
-{% block seo %}{% url 'blog_video' video.id as here %}{% seo_head title=video.title|add:" — видео дарс · mhisobot" canonical=here description=description %}{% endblock %}
+{% block seo %}{% url 'blog_video' video.id as here %}{% seo_head title=video.title|add:" — видео қўлланма · mhisobot" canonical=here description=description image=thumb og_type="video.other" %}{% endblock %}
 {% block css %}{% include "jobs/_blog_css.html" %}{% endblock %}
 {% block content %}
 <div class="wrap art">
   <article class="art-main">
-    <nav class="crumbs" aria-label="Йўл"><a href="{% url 'index' %}">Бош саҳифа</a><span aria-hidden="true">/</span><a href="{% url 'blog' %}">Қўлланма</a><span aria-hidden="true">/</span><a href="{% url 'blog' %}#v-{{ section.slug }}">{{ section.label }}</a></nav>
+    <nav class="crumbs" aria-label="Йўл"><a href="{% url 'index' %}">Бош саҳифа</a><span aria-hidden="true">/</span><a href="{% url 'guide' %}">Видео қўлланма</a><span aria-hidden="true">/</span><a href="{% url 'guide' %}#v-{{ section.slug }}">{{ section.label }}</a></nav>
     <h1>{{ video.title }}</h1>
-    <p class="meta">Видео дарс · {{ section.label }}</p>
+    <p class="meta">Видео қўлланма · {{ section.label }}{% if views %} · {{ views }} марта кўрилди{% endif %}</p>
     {# YouTube фақат босилганда юкланади (cookie'сиз манзил): саҳифа тез очилади, олдиндан кузатув йўқ #}
     <div class="player" id="player">
       <button type="button" data-src="https://www.youtube-nocookie.com/embed/{{ video.id }}?autoplay=1&amp;rel=0" aria-label="Видеони ўйнатиш: {{ video.title }}">
@@ -19,12 +19,12 @@
   </article>
   <aside class="side">
     {% if more %}
-    <h2>Шу бўлимдаги бошқа дарслар</h2>
+    <h2>Шу бўлимдаги бошқа видеолар</h2>
     <div class="vgrid">
       {% for v in more %}
       <a class="vcard" href="{% url 'blog_video' v.id %}">
         <span class="vthumb"><img src="https://i.ytimg.com/vi/{{ v.id }}/mqdefault.jpg" alt="" loading="lazy" width="320" height="180"><span class="vplay">{% icon "play" "h-4 w-4" %}</span></span>
-        <h3>{{ v.title }}</h3>
+        <h3>{{ v.title }}</h3>{% if v.views %}<span class="vk">{{ v.views }} марта кўрилди</span>{% endif %}
       </a>
       {% endfor %}
     </div>

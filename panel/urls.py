@@ -2,7 +2,7 @@ from django.urls import path
 
 from . import (views, views_access, views_help, views_lm, views_mail, views_memo, views_narx,
                views_blog, views_seo, views_site,
-               views_settings, views_support, views_tender, views_tn, views_track)
+               views_settings, views_support, views_tender, views_tn, views_track, views_usage, views_news, views_pages)
 
 app_name = "panel"
 
@@ -11,6 +11,10 @@ urlpatterns = [
     path("live/", views.live, name="live"),
     path("stats/", views.stats, name="stats"),
     path("speed/", views.speed, name="speed"),
+    path("usage/", views_usage.usage_page, name="usage"),
+    path("news/", views_news.news_page, name="news"),
+    path("news/save/", views_news.news_save, name="news_save"),
+    path("news/<int:pk>/delete/", views_news.news_delete, name="news_delete"),
     path("ip/", views.ip_block, name="ip_block"),
     path("users/", views.users, name="users"),
     path("users/<int:pk>/", views.user_detail, name="user"),
@@ -36,6 +40,9 @@ urlpatterns = [
     path("blog/post/<int:post_id>/", views_blog.post_edit, name="blog_post_edit"),
     path("blog/post/<int:post_id>/delete/", views_blog.post_delete, name="blog_post_delete"),
     path("blog/preview/", views_blog.preview, name="blog_preview"),
+    path("blog/upload/", views_blog.upload, name="blog_upload"),
+    path("pages/", views_pages.pages_page, name="pages"),
+    path("pages/save/", views_pages.pages_save, name="pages_save"),
     path("blog/video/new/", views_blog.video_edit, name="blog_video_new"),
     path("blog/video/<str:vid>/", views_blog.video_edit, name="blog_video_edit"),
     path("blog/video/<str:vid>/delete/", views_blog.video_delete, name="blog_video_delete"),

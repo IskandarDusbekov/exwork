@@ -6,7 +6,7 @@
 <header class="ghead">
   <div class="wrap ghead-in">
     <div>
-      <nav class="crumbs" aria-label="Йўл"><a href="{% url 'index' %}">Бош саҳифа</a><span aria-hidden="true">/</span><a href="{% url 'blog' %}">Қўлланма</a><span aria-hidden="true">/</span><span>{{ cat.name }}</span></nav>
+      <nav class="crumbs" aria-label="Йўл"><a href="{% url 'index' %}">Бош саҳифа</a><span aria-hidden="true">/</span><a href="{% url 'blog' %}">Блог</a><span aria-hidden="true">/</span><span>{{ cat.name }}</span></nav>
       <h1>{{ cat.name }}</h1>
     </div>
     <dl class="gstat"><div><dt>Мақола</dt><dd>{{ posts|length }}</dd></div></dl>
@@ -16,11 +16,7 @@
   <div class="gmain">
     <div class="plist wide">
       {% for p in posts %}
-      <a class="pitem" href="{% url 'blog_post' p.slug %}">
-        <time datetime="{{ p.created|date:'Y-m-d' }}">{{ p.created|date:"d.m.Y" }}</time>
-        <div><h3>{{ p.title }}</h3>{% if p.summary %}<p>{{ p.summary }}</p>{% endif %}</div>
-        <span class="go">Ўқиш →</span>
-      </a>
+          {% include "jobs/_post_item.html" %}
       {% endfor %}
     </div>
     <div class="gcta">{% include "jobs/_blog_cta.html" %}</div>

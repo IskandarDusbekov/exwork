@@ -1,0 +1,128 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Биз ҳақимизда ва шартлар — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<div class="mb-4 flex flex-wrap items-center gap-3">
+  <h1 class="text-2xl font-semibold">Биз ҳақимизда ва шартлар</h1>
+  <a href="{% if ptab == 'terms' %}{% url 'terms' %}{% else %}{% url 'about_us' %}{% endif %}" target="_blank" rel="noopener" class="text-sm text-sky-700 hover:underline">Сайтда кўриш ↗</a>
+</div>
+{% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-700{% endif %}">{{ m }}</div>{% endfor %}
+
+<nav class="mb-4 flex gap-1 border-b border-slate-200 text-sm">
+  {% for k, label in tabs %}
+  <a href="?tab={{ k }}" class="-mb-px border-b-2 px-3 py-2 font-medium {% if ptab == k %}border-slate-900 text-slate-900{% else %}border-transparent text-slate-500 hover:text-slate-800{% endif %}">{{ label }}</a>
+  {% endfor %}
+</nav>
+
+<form method="post" action="{% url 'panel:pages_save' %}" class="pg-grid">{% csrf_token %}
+  <input type="hidden" name="tab" value="{{ ptab }}">
+  {% if ptab == "terms" %}
+  <div class="grid content-start gap-3 min-w-0">
+    {% include "panel/_rich_editor.html" with name="body" value=t.body minh=520 draft="terms" %}
+  </div>
+  <aside class="grid content-start gap-3">
+    <div class="pg-card">
+      <b class="pg-h">Рўйхатдан ўтишда</b>
+      {% for k, label in modes %}
+      <label class="pg-radio"><input type="radio" name="mode" value="{{ k }}" {% if t.mode == k %}checked{% endif %} {% if not can_act %}disabled{% endif %}><span>{{ label }}</span></label>
+      {% endfor %}
+      <p class="text-[11px] leading-snug text-slate-400">Белгилаш шарт бўлса — катакча белгиланмаса ҳисоб очилмайди. Ҳар икки ҳолатда ҳам рози бўлган вақт фойдаланувчи саҳифасида сақланади.</p>
+    </div>
+    <div class="pg-card">
+      <b class="pg-h">Таҳрир</b>
+      <div class="text-sm text-slate-700">Ҳозир: <b class="num">{{ t.version }}</b>-таҳрир{% if t.updated %} · <span class="num">{{ t.updated }}</span>{% endif %}</div>
+      <label class="pg-radio"><input type="checkbox" name="bump" value="1" {% if not can_act %}disabled{% endif %}><span>Муҳим ўзгариш — <b>янги таҳрир</b> сифатида сақлаш ({{ t.version|add:1 }}-таҳрир)</span></label>
+      <div class="text-xs text-slate-500">Рози бўлганлар: <b class="num text-slate-700">{{ accepted }}</b> / <span class="num">{{ n_users }}</span> · шу таҳрирга: <b class="num text-slate-700">{{ accepted_now }}</b></div>
+    </div>
+    {% if can_act %}<button class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">Шартларни сақлаш</button>{% endif %}
+  </aside>
+  {% else %}
+  <div class="grid content-start gap-4 min-w-0">
+    <label class="grid gap-1 text-xs font-medium text-slate-500">Қисқа таништирув <span class="font-normal text-slate-400">сарлавҳа остида ва Google тавсифида</span>
+      <textarea name="lead" rows="2" maxlength="400" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-300 px-3 py-2 text-[15px] text-slate-900">{{ a.lead }}</textarea></label>
+    <div class="grid gap-1 text-xs font-medium text-slate-500">Асосий матн <span class="font-normal text-slate-400">лойиҳа, мақсад, тарих — расм ва жадвал қўйса бўлади</span>
+      {% include "panel/_rich_editor.html" with name="body" value=a.body minh=360 draft="about" %}
+    </div>
+
+    <section class="pg-card">
+      <div class="flex items-center gap-2"><b class="pg-h">Жамоа</b><span class="text-xs text-slate-400">сурат, исм, вазифа, қисқача</span>
+        {% if can_act %}<button type="button" data-team-add class="ml-auto rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium hover:bg-slate-50">+ Одам қўшиш</button>{% endif %}</div>
+      <div class="grid gap-2" data-team>
+        {% for m in a.team %}{% include "panel/_team_row.html" %}{% endfor %}
+      </div>
+      <template data-team-tpl>{% include "panel/_team_row.html" with m=None %}</template>
+      <p class="text-xs text-slate-400" data-team-empty {% if a.team %}hidden{% endif %}>Ҳали ҳеч ким қўшилмаган — сайтда «Жамоа» бўлими кўринмайди.</p>
+    </section>
+  </div>
+  <aside class="grid content-start gap-3">
+    <div class="pg-card">
+      <b class="pg-h">Рақамлар</b><span class="text-[11px] text-slate-400">сарлавҳа ёнида: «1 200+» — «нархланган смета»</span>
+      {% for f in facts6 %}
+      <div class="pg-fact">
+        <input name="f_num" value="{{ f.0|default:'' }}" maxlength="20" placeholder="рақам" {% if not can_act %}disabled{% endif %} class="pg-in num">
+        <input name="f_label" value="{{ f.1|default:'' }}" maxlength="50" placeholder="изоҳ" {% if not can_act %}disabled{% endif %} class="pg-in">
+      </div>{% endfor %}
+    </div>
+    <div class="pg-card">
+      <b class="pg-h">Алоқа</b>
+      <label class="pg-l">Телефон<input name="c_phone" value="{{ a.contacts.phone }}" maxlength="40" placeholder="+998 90 000 00 00" {% if not can_act %}disabled{% endif %} class="pg-in"></label>
+      <label class="pg-l">Email<input name="c_email" value="{{ a.contacts.email }}" maxlength="120" {% if not can_act %}disabled{% endif %} class="pg-in"></label>
+      <label class="pg-l">Telegram<input name="c_telegram" value="{{ a.contacts.telegram }}" maxlength="80" placeholder="@username" {% if not can_act %}disabled{% endif %} class="pg-in"></label>
+      <label class="pg-l">Манзил<input name="c_address" value="{{ a.contacts.address }}" maxlength="200" {% if not can_act %}disabled{% endif %} class="pg-in"></label>
+    </div>
+    {% if can_act %}<button class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">Сақлаш</button>{% endif %}
+  </aside>
+  {% endif %}
+</form>
+<style>
+  .pg-grid { display: grid; gap: 16px; align-items: start; }
+  @media (min-width: 1200px) { .pg-grid { grid-template-columns: minmax(0, 1fr) 22rem; } }
+  .pg-fact { display: grid; grid-template-columns: 6rem minmax(0, 1fr); gap: 6px; }
+  .pg-card { display: grid; gap: 10px; padding: 16px; border: 1px solid rgb(var(--ink-300)); border-radius: 12px; background: #fff; box-shadow: 0 1px 2px rgb(15 23 42 / .05); }
+  .pg-h { font-size: 14px; font-weight: 600; color: rgb(var(--ink-900)); }
+  .pg-radio { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; line-height: 1.45; color: rgb(var(--ink-700)); cursor: pointer; }
+  .pg-radio input { margin-top: 3px; }
+  .pg-in { width: 100%; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid rgb(var(--ink-300)); border-radius: 8px; font-size: 13.5px; color: rgb(var(--ink-900)); background: #fff; }
+  .pg-l { display: grid; gap: 4px; font-size: 12px; color: rgb(var(--ink-500)); }
+  .tm-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px; border: 1px solid rgb(var(--ink-200)); border-radius: 10px; background: rgb(var(--ink-50)); }
+  .tm-ph { position: relative; display: grid; place-items: center; width: 64px; height: 64px; overflow: hidden; border-radius: 999px; background: rgb(var(--ink-200)); color: rgb(var(--ink-500)); font-size: 11px; cursor: pointer; }
+  .tm-ph img { width: 100%; height: 100%; object-fit: cover; }
+  .tm-ph:hover::after { content: "алмаштириш"; position: absolute; inset: 0; display: grid; place-items: center; background: rgb(15 23 42 / .55); color: #fff; font-size: 10px; }
+  .tm-x { width: 28px; height: 28px; border-radius: 8px; color: rgb(var(--bad-600)); }
+  .tm-x:hover { background: rgb(var(--bad-50)); }
+  [data-team-empty][hidden] { display: none; }
+</style>
+{% if ptab == "about" and can_act %}
+<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" id="tm-file">
+<script>
+  (function () {
+    var list = document.querySelector("[data-team]"), tpl = document.querySelector("[data-team-tpl]"), empty = document.querySelector("[data-team-empty]");
+    var file = document.getElementById("tm-file"), target = null;
+    function sync() { empty.hidden = !!list.children.length; }
+    document.querySelector("[data-team-add]").onclick = function () {
+      list.appendChild(tpl.content.cloneNode(true)); sync();
+      list.lastElementChild.querySelector("[name=t_name]").focus();
+    };
+    list.addEventListener("click", function (e) {
+      var row = e.target.closest(".tm-row"); if (!row) return;
+      if (e.target.closest(".tm-x")) { row.remove(); sync(); }
+      else if (e.target.closest(".tm-up")) { if (row.previousElementSibling) list.insertBefore(row, row.previousElementSibling); }
+      else if (e.target.closest(".tm-ph")) { target = row; file.click(); }
+    });
+    file.onchange = function () {
+      if (!file.files[0] || !target) return;
+      var ph = target.querySelector(".tm-ph"), inp = target.querySelector("[name=t_photo]");
+      var fd = new FormData(); fd.append("file", file.files[0]);
+      fd.append("csrfmiddlewaretoken", document.querySelector("[name=csrfmiddlewaretoken]").value);
+      ph.textContent = "…";
+      fetch("{% url 'panel:blog_upload' %}", { method: "POST", body: fd, credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (j) {
+        if (!j.url) { ph.textContent = "сурат"; alert("Сурат юкланмади: " + (j.error || "хато")); return; }
+        inp.value = j.url; ph.innerHTML = ""; var i = document.createElement("img"); i.src = j.url; ph.appendChild(i);
+      });
+      file.value = "";
+    };
+  })();
+</script>
+{% endif %}
+{% endblock %}

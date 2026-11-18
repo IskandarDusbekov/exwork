@@ -21,7 +21,7 @@ PASSWORD = "Kuchli-parol-2026"
 class RegisterTests(TestCase):
     def _post(self, **over):
         data = {"first_name": "Ali", "last_name": "Valiyev", "email": "Ali@Mail.UZ",
-                "password1": PASSWORD, "password2": PASSWORD, **over}
+                "password1": PASSWORD, "password2": PASSWORD, "agree": "on", **over}
         return self.client.post(reverse("register"), data)
 
     def test_register_creates_user_and_logs_in(self):
@@ -401,7 +401,7 @@ class VerifyEmailTests(TestCase):
 
     def _register(self):
         return self.client.post(reverse("register"), {"first_name": "Ali", "last_name": "Valiyev", "email": "ali@mail.uz",
-                                                      "password1": PASSWORD, "password2": PASSWORD})
+                                                      "password1": PASSWORD, "password2": PASSWORD, "agree": "on"})
 
     def _code_link(self, i=-1):
         import re

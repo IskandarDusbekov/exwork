@@ -8,6 +8,7 @@ qism «Текширинг» bo'lib qoladi, smetachi obyekt sahifasida o'zi tanla
 """
 import logging
 import os
+import re
 import shutil
 import threading
 import time
@@ -486,6 +487,45 @@ def _step(part: Batch, text: str):
     Project.objects.filter(id=part.project_id).update(heartbeat=now)
 
 
+_LIVE_RE = re.compile(r"^(\d+)/(\d+) (файл очиляпти|файл таҳлил қилиняпти|смета нархланяпти): (.*)$", re.S)
+# нархлаш босқичлари бир смета ичида қанча вазн олади (ўқиш тез, нархлаш ва ёзиш — асосий вақт)
+_PHASE_SPAN = {"read": (0.0, 0.08), "price": (0.08, 0.72), "write": (0.8, 0.15), "save": (0.95, 0.03), "auto": (0.98, 0.02)}
+
+
+def live_step(part: Batch) -> dict:
+    """Ишланаётган қисм ичида қаерда: ``Batch.step`` матнидан (``_step`` / ``step_reporter`` ёзади).
+    {"frac": 0..1 — қисмнинг қанчаси бўлди, "what": «Файллар очиляпти», "at"/"of": 9/19, "unit": «файл»,
+    "name": жорий файл/смета, "rows_done"/"rows": қатор сони (нархлашда), "since": қадам бошланган пайт}.
+    Битта файл юклагандаги каби — папкада ҳам нима иш кетаётгани ва қанчаси қолгани кўринсин."""
+    from .services import parse_step_tail
+    out = {"frac": 0.0, "what": "", "at": 0, "of": 0, "unit": "", "name": "", "rows_done": 0, "rows": 0,
+           "phase": "", "since": part.step_since}
+    m = _LIVE_RE.match(part.step or "")
+    if not m:
+        if (part.step or "").startswith("листлар таҳлил"):
+            out.update(frac=0.6, what="Листлар таҳлил қилиняпти")
+        elif part.step:
+            out["what"] = part.step
+        return out
+    at, of, kind, rest = int(m.group(1)), max(int(m.group(2)), 1), m.group(3), m.group(4)
+    out.update(at=at, of=of)
+    if kind == "файл очиляпти":  # очиш — қисм вақтининг ~60%, таҳлил — қолгани
+        out.update(frac=0.6 * (at - 1) / of, what="Файллар очиляпти", unit="файл", name=rest)
+    elif kind == "файл таҳлил қилиняпти":
+        out.update(frac=0.6 + 0.4 * (at - 1) / of, what="Листлар таҳлил қилиняпти", unit="файл", name=rest)
+    else:
+        tail = parse_step_tail(rest)
+        lo, span = _PHASE_SPAN.get(tail["phase"], (0.0, 0.0))
+        inner = lo + (span * tail["done"] / tail["total"] if tail["total"] and tail["done"] else 0)
+        out.update(frac=((at - 1) + inner) / of, what="Сметалар нархланяпти", unit="смета",
+                   name=tail["text"].strip(), phase=tail["phase"], rows_done=tail["done"], rows=tail["total"])
+        if tail["phase"]:
+            from .services import PHASE_TEXT
+            out["phase_text"] = PHASE_TEXT[tail["phase"]]
+    out["frac"] = max(0.0, min(out["frac"], 0.99))
+    return out
+
+
 def ready_stage(part: Batch):
     """Juftliklar bo'yicha qism holati (narxlashdan oldin): tayyor / resurs tanlang / smeta emas."""
     ready = [p for p in part.pairs if pair_ready(p)]
@@ -538,7 +578,8 @@ def analyze_part(part: Batch):
         _set(part, Batch.Stage.CONVERTING)
         convert_files(part, clock)
         _step(part, f"листлар таҳлил қилиняпти ({len(part.files)} та файл)")
-        analyze_batch(part, timings=seconds)
+        analyze_batch(part, timings=seconds,
+                      on_file=lambda i, n, name: _step(part, f"{i + 1}/{n} файл таҳлил қилиняпти: {name}"))
         clock.analyzed(seconds)
         # Papkada bitta resurs bo'lsa — juftsiz qolgan lokallar shu bilan narxlanadi
         # (smetachi har bir smetani o'z papkasiga «…_lokal» + «…_res» qilib qo'yadi)
@@ -628,6 +669,7 @@ def build_tree(project: Project, parts):
         jobs = list(p.jobs.all())
         node["part"] = {"batch": p, "jobs": jobs, "state": part_state(p, jobs),
                         "not_priced": sum(j.result.get("stats", {}).get("NOT_PRICED", 0) for j in jobs),
+                        "rows": sum(j.rows or 0 for j in jobs), "rows_done": sum(j.rows_done or 0 for j in jobs),
                         "total": sum(t for j in jobs for t in [j.result.get("totals", {}).get("s_nds")]
                                      if isinstance(t, (int, float))),
                         # jadval uchun: qaysi lokal fayl qaysi resurs bilan narxlandi

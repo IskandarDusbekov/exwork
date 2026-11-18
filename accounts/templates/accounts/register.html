@@ -7,6 +7,12 @@
 <p class="auth-sub">Рўйхатдан ўтиш ёпиқ: ҳисобни тизим администратори очади. Ҳисоб керак бўлса — администраторга мурожаат қилинг.</p>
 {% else %}
 <p class="auth-sub">Ҳар бир смета­чининг ишлари фақат ўзига кўринади.</p>
+{% if promo.videos or promo.posts %}
+<div class="promo">
+  {% if promo.videos %}<a href="{% url 'guide' %}" target="_blank" rel="noopener"><span class="promo-ic promo-v">▶</span><span><b>Видео қўлланма</b><small>Тизимни {{ promo.videos }} та қисқа видеода кўринг</small></span></a>{% endif %}
+  {% if promo.posts %}<a href="{% url 'blog' %}" target="_blank" rel="noopener"><span class="promo-ic">✎</span><span><b>Блог</b><small>{{ promo.posts }} та мақола: смета ва нархлар ҳақида</small></span></a>{% endif %}
+</div>
+{% endif %}
 {% if error %}<div class="msg msg-err" role="alert">{{ error }}</div>{% endif %}
 <form method="post" novalidate>
   {% csrf_token %}
@@ -17,8 +23,31 @@
   {% include "accounts/_field.html" with field=form.email %}
   {% include "accounts/_field.html" with field=form.password1 hint="Камида 10 белги; фақат рақам ва оддий сўз бўлмасин." %}
   {% include "accounts/_field.html" with field=form.password2 %}
+  {% if form.terms.mode == "checkbox" %}
+  <div class="f agree{% if form.agree.errors %} has-err{% endif %}">
+    <label class="agree-l"><input type="checkbox" name="agree" value="on" id="id_agree" required{% if form.agree.value %} checked{% endif %}>
+      <span><a href="{% url 'terms' %}" target="_blank" rel="noopener">Фойдаланиш шартлари</a> билан танишдим ва уларга розиман</span></label>
+    {% for e in form.agree.errors %}<p class="f-e">{{ e }}</p>{% endfor %}
+  </div>
+  {% endif %}
   <button type="submit" class="btn btn-p">Рўйхатдан ўтиш</button>
+  {% if form.terms.mode == "note" %}<p class="agree-note">«Рўйхатдан ўтиш» тугмасини босиб, сиз <a href="{% url 'terms' %}" target="_blank" rel="noopener">фойдаланиш шартлари</a>га рози бўласиз.</p>{% endif %}
 </form>
+<style>
+  .promo { display: grid; gap: 8px; margin-top: 18px; }
+  @media (min-width: 520px) { .promo { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); } }
+  .promo a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line-2); background: #fff; color: inherit; text-decoration: none; transition: border-color .15s; }
+  .promo a:hover { border-color: var(--ink); }
+  .promo b { display: block; font-size: 13.5px; }
+  .promo small { display: block; font-size: 12px; line-height: 1.35; color: var(--mute); }
+  .promo-ic { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 999px; background: var(--acc-soft); color: var(--acc); font-size: 14px; }
+  .promo-ic.promo-v { background: #dc2626; color: #fff; font-size: 11px; }
+  .agree-l { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); cursor: pointer; }
+  .agree-l input { width: 18px; height: 18px; margin-top: 2px; flex: none; accent-color: var(--acc); }
+  .agree-l a, .agree-note a { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+  .agree.has-err .agree-l { color: var(--bad); }
+  .agree-note { margin-top: 14px; font-size: 13px; line-height: 1.55; color: var(--mute); text-align: center; }
+</style>
 {% endif %}
 <p class="auth-alt">Ҳисобингиз борми? <a href="{% url 'login' %}">Кириш</a></p>
 {% endblock %}

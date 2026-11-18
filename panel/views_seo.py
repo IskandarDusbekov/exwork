@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_not_required
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils.html import escape
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import cache_control
 from django.views.decorators.http import require_GET, require_POST
@@ -26,10 +27,11 @@ def public_pages():
     # блог: видео дарслар (бўлимлари билан) ва мақолалар — қидирув тизими ҳар бирини алоҳида саҳифа сифатида кўради
     from jobs import site
     from .models import Category, Post
-    pages.append((reverse("blog"), "0.8"))
+    pages += [(reverse("guide"), "0.8"), (reverse("blog"), "0.8"), (reverse("about_us"), "0.6"), (reverse("terms"), "0.3")]
     for sec in site.video_sections():
-        pages += [(reverse("blog_video", args=[v["id"]]), "0.6") for v in sec["videos"]]
-    pages += [(reverse("blog_post", args=[slug]), "0.7") for slug in Post.objects.filter(published=True).values_list("slug", flat=True)]
+        pages += [(reverse("blog_video", args=[v["id"]]), "0.6", v.get("added") or "") for v in sec["videos"]]
+    pages += [(reverse("blog_post", args=[slug]), "0.7", upd.date().isoformat())
+              for slug, upd in Post.objects.filter(published=True).values_list("slug", "updated")]
     pages += [(reverse("blog_category", args=[slug]), "0.6") for slug in
               Category.objects.filter(posts__published=True).distinct().values_list("slug", flat=True)]
     return pages
@@ -54,7 +56,7 @@ def seo_page(request):
         request, "seo", groups=groups, v=v, checks=checks, base=base, host=request.get_host(),
         robots_url=base + reverse("robots_txt"), sitemap_url=base + reverse("sitemap_xml"),
         image_url=reverse("og_image") if seo.image_path() else "", image_custom=bool(seo.uploaded_image()), updated=parse_datetime(v["updated"] or "") if v["updated"] else None,
-        pages=[base + p for p, _ in public_pages()]))
+        pages=[base + p[0] for p in public_pages()]))
 
 
 @require_POST
@@ -106,9 +108,10 @@ def sitemap_xml(request):
     v = seo.values()
     lastmod = (v["updated"] or "")[:10]
     items = []
-    for path, prio in (public_pages() if v["index"] else []):
-        items.append(f"  <url><loc>{request.build_absolute_uri(path)}</loc>"
-                     + (f"<lastmod>{lastmod}</lastmod>" if lastmod else "") + f"<priority>{prio}</priority></url>")
+    for path, prio, *own in (public_pages() if v["index"] else []):
+        mod = (own[0] if own and own[0] else lastmod)[:10]  # мақола — ўзи янгиланган кун
+        items.append(f"  <url><loc>{escape(request.build_absolute_uri(path))}</loc>"
+                     + (f"<lastmod>{mod}</lastmod>" if mod else "") + f"<priority>{prio}</priority></url>")
     body = ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
             + "\n".join(items) + "\n</urlset>\n")
     return HttpResponse(body, content_type="application/xml; charset=utf-8")

@@ -19,6 +19,7 @@ urlpatterns = [
     path(settings.PANEL_URL, include("panel.urls")),
     path("texnazor/", include("texnazor.urls")),
     path("support/", include("support.urls")),
+    path("news/", include("news.urls")),
     path("", include("accounts.urls")),
     path("", include("jobs.urls")),
 ]

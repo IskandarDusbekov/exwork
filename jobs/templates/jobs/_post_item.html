@@ -1,0 +1,7 @@
+{% load narx %}{# мақолалар рўйхатидаги бир қатор: сана, ўқиш вақти, кўрилишлар, расм (бўлса) #}
+<a class="pitem{% if p.cover_url %} has-cover{% endif %}" href="{% url 'blog_post' p.slug %}">
+  <span class="pmeta"><time datetime="{{ p.created|date:'Y-m-d' }}">{{ p.created|date:"d.m.Y" }}</time><span>{% icon "clock" "pmi" %}{{ p.minutes }} дақ.</span>{% if p.views %}<span title="Кўрилишлар">{% icon "eye" "pmi" %}{{ p.views }}</span>{% endif %}</span>
+  <div><h3>{{ p.title }}</h3>{% if p.summary %}<p>{{ p.summary }}</p>{% endif %}</div>
+  {% if p.cover_url %}<span class="pcover"><img src="{{ p.cover_url }}" alt="" loading="lazy"></span>{% endif %}
+  <span class="go">Ўқиш →</span>
+</a>

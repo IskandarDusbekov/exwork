@@ -1,0 +1,166 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Эълонлар — Панел{% endblock %}
+{% block page_title %}Эълонлар ва табриклар{% endblock %}
+{% block page_desc %}Янгилик, жиддий хабар ёки табрик ёзинг. Чоп этилгач ҳар бир фойдаланувчи кирганда уни бир марта ойнада кўради, кейин эса у сарлавҳадаги қўнғироқчада (билдиришномалар) туради.{% endblock %}
+{% block panel %}
+{% include "news/_styles.html" %}
+<style>
+  .nwp { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 520px); gap: 1.25rem; align-items: start; }
+  @media (max-width: 1100px) { .nwp { grid-template-columns: minmax(0, 1fr); } }
+  .nwp-f { display: grid; gap: .9rem; border: 1px solid rgb(var(--ink-200)); border-radius: 1rem; background: #fff; padding: 1.1rem; }
+  .nwp-f label > span { display: block; margin-bottom: .3rem; font-size: .8rem; font-weight: 600; color: rgb(var(--ink-700)); }
+  .nwp-f input[type=text], .nwp-f input[type=datetime-local], .nwp-f textarea { width: 100%; border: 1px solid rgb(var(--ink-300)); border-radius: .6rem; padding: .5rem .7rem; font-size: .9rem; outline: none; }
+  .nwp-f input:focus, .nwp-f textarea:focus { border-color: rgb(var(--brand-500)); box-shadow: 0 0 0 3px rgb(var(--brand-100)); }
+  .nwp-f textarea { min-height: 9rem; resize: vertical; line-height: 1.5; }
+  .nwp-styles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+  .nwp-st { position: relative; cursor: pointer; border: 2px solid rgb(var(--ink-200)); border-radius: .85rem; padding: .7rem; transition: border-color .15s; }
+  .nwp-st input { position: absolute; opacity: 0; }
+  .nwp-st:has(input:checked) { border-color: rgb(var(--ink-900)); box-shadow: 0 4px 14px rgb(15 23 42 / .1); }
+  .nwp-st .sw { display: block; height: 2.1rem; border-radius: .55rem; margin-bottom: .45rem; }
+  .nwp-st b { display: block; font-size: .85rem; color: rgb(var(--ink-900)); }
+  .nwp-st small { display: block; font-size: .72rem; line-height: 1.35; color: rgb(var(--ink-500)); }
+  .sw-news { background: linear-gradient(135deg, rgb(var(--brand-700)), rgb(56 189 248)); }
+  .sw-serious { background: linear-gradient(180deg, rgb(var(--ink-900)) 70%, rgb(var(--warn-400)) 70%); }
+  .sw-celebrate { background: linear-gradient(120deg, rgb(124 58 237), rgb(219 39 119), rgb(245 158 11)); }
+  .nwp-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+  @media (max-width: 640px) { .nwp-row, .nwp-styles { grid-template-columns: minmax(0, 1fr); } }
+  .nwp-prev { position: sticky; top: 1rem; border-radius: 1.2rem; background: rgb(15 23 42 / .55); padding: 1.4rem; }
+  .nwp-prev > p { margin-bottom: .7rem; font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgb(255 255 255 / .75); }
+  .nwp-prev .nw-card { box-shadow: 0 20px 50px rgb(0 0 0 / .3); }
+  .nwp-btns { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding-top: .3rem; border-top: 1px solid rgb(var(--ink-100)); }
+  .nwp-b { display: inline-flex; align-items: center; gap: .4rem; height: 2.4rem; padding: 0 1rem; border-radius: .65rem; font-size: .875rem; font-weight: 600; border: 1px solid rgb(var(--ink-300)); background: #fff; color: rgb(var(--ink-800)); }
+  .nwp-b:hover { border-color: rgb(var(--ink-900)); }
+  .nwp-b.is-go { border-color: rgb(var(--ok-600)); background: rgb(var(--ok-600)); color: #fff; }
+  .nwp-b.is-go:hover { background: rgb(var(--ok-700)); }
+  .nwp-list { margin-top: 1.25rem; overflow: hidden; border: 1px solid rgb(var(--ink-200)); border-radius: 1rem; background: #fff; }
+  .nwp-it { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .75rem 1rem; }
+  .nwp-it + .nwp-it { border-top: 1px solid rgb(var(--ink-100)); }
+  .nwp-it.is-on { background: rgb(var(--brand-50) / .5); }
+  .nwp-tag { border-radius: 999px; padding: .05rem .55rem; font-size: .72rem; font-weight: 700; }
+</style>
+
+<div class="nwp">
+  <form method="post" action="{% url 'panel:news_save' %}" class="nwp-f" id="nwp-form">{% csrf_token %}
+    {% if edit %}<input type="hidden" name="id" value="{{ edit.pk }}">{% endif %}
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 class="font-semibold text-slate-900">{% if edit %}Таҳрирлаш{% if edit.published %} <span class="nwp-tag bg-emerald-100 text-emerald-800">чоп этилган</span>{% else %} <span class="nwp-tag bg-slate-100 text-slate-600">қоралама</span>{% endif %}{% else %}Янги эълон{% endif %}</h2>
+      {% if edit %}<a href="{% url 'panel:news' %}" class="text-sm text-slate-500 hover:text-slate-900">+ Янгисини ёзиш</a>{% endif %}
+    </div>
+    <div>
+      <span class="mb-1.5 block text-xs font-semibold text-slate-700">Кўриниши</span>
+      <div class="nwp-styles">
+        {% for k, label in styles %}
+        <label class="nwp-st"><input type="radio" name="style" value="{{ k }}" {% if draft.style == k %}checked{% endif %}>
+          <span class="sw sw-{{ k }}"></span><b>{{ label }}</b><small>{{ style_hints|get_item:k }}</small></label>
+        {% endfor %}
+      </div>
+    </div>
+    <label><span>Сарлавҳа</span><input type="text" name="title" maxlength="160" value="{% if edit %}{{ edit.title }}{% endif %}" placeholder="Масалан: Янги йил билан табриклаймиз!" required data-in="title"></label>
+    <label><span>Матн <small class="font-normal text-slate-400">— бўш қатор янги хатбоши; «- » билан бошланган қаторлар рўйхат бўлади</small></span>
+      <textarea name="body" maxlength="5000" data-in="body" placeholder="Нима ўзгарди, нимага эътибор бериш керак…">{% if edit %}{{ edit.body }}{% endif %}</textarea></label>
+    <div class="nwp-row">
+      <label><span>Тугма ҳаволаси <small class="font-normal text-slate-400">ихтиёрий: /help/ ёки https://…</small></span><input type="text" name="link_url" value="{{ edit.link_url|default:'' }}" data-in="link_url" placeholder="/help/"></label>
+      <label><span>Тугма матни</span><input type="text" name="link_text" maxlength="60" value="{{ edit.link_text|default:'' }}" data-in="link_text" placeholder="Батафсил"></label>
+    </div>
+    <div class="nwp-row">
+      <label class="flex items-start gap-2 text-sm text-slate-700" style="align-self: end"><input type="checkbox" name="show_modal" value="1" class="mt-1" {% if draft.show_modal %}checked{% endif %}>
+        <span style="margin: 0; font-weight: 500">Кирганда ойнада бир марта кўрсатиш<small class="block text-xs font-normal text-slate-400">ўчирилса — фақат қўнғироқчада туради</small></span></label>
+      <label><span>Кўрсатиш муддати <small class="font-normal text-slate-400">ихтиёрий — шу пайтдан кейин яширинади</small></span>
+        <input type="datetime-local" name="ends_at" value="{{ edit.ends_at|date:'Y-m-d\TH:i'|default:'' }}"></label>
+    </div>
+    {% if can_act %}
+    <div class="nwp-btns">
+      {% if not edit.published %}<button name="action" value="publish" class="nwp-b is-go">{% icon "send" "h-4 w-4" %} Чоп этиш</button>{% endif %}
+      <button name="action" value="{% if edit.published %}save{% else %}draft{% endif %}" class="nwp-b">{% if edit.published %}Ўзгаришни сақлаш{% else %}Қоралама сифатида сақлаш{% endif %}</button>
+      {% if edit.published %}<button name="action" value="unpublish" class="nwp-b">Яшириш</button>{% endif %}
+      <span class="ml-auto text-xs text-slate-500">Чоп этилгани {{ users_n }} та фаол фойдаланувчига кўринади</span>
+    </div>
+    {% else %}<p class="text-xs text-slate-500">Ёзиш — фақат суперфойдаланувчи.</p>{% endif %}
+  </form>
+
+  <div class="nwp-prev">
+    <p>Фойдаланувчи шундай кўради</p>
+    <div id="nwp-card">{% with a=draft %}{% include "news/_card.html" %}{% endwith %}</div>
+    {% if can_act %}<button type="button" id="nwp-try" class="mt-3 w-full rounded-lg bg-white/15 py-2 text-sm font-semibold text-white hover:bg-white/25">Ойнада синаб кўриш</button>{% endif %}
+  </div>
+</div>
+
+<section class="nwp-list">
+  <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Ҳамма эълонлар <span class="num text-sm font-normal text-slate-400">· {{ items|length }} та</span></h2></div>
+  {% for a in items %}
+  <div class="nwp-it {% if edit and edit.pk == a.pk %}is-on{% endif %}">
+    <span class="nw-dot nw-dot-{{ a.style }}" style="display:grid;place-items:center;width:30px;height:30px;border-radius:9px">{% if a.style == "celebrate" %}{% icon "gift" "h-4 w-4" %}{% elif a.style == "serious" %}{% icon "alert-circle" "h-4 w-4" %}{% else %}{% icon "megaphone" "h-4 w-4" %}{% endif %}</span>
+    <a href="?edit={{ a.pk }}" class="min-w-0 flex-1"><b class="block truncate text-sm text-slate-900 hover:underline">{{ a.title }}</b>
+      <span class="block text-xs text-slate-500">{{ a.get_style_display }} · {% if a.published %}чоп этилган {{ a.published_at|date:"d.m.Y H:i" }}{% else %}қоралама{% endif %}{% if a.ends_at %} · {{ a.ends_at|date:"d.m.Y" }} гача{% endif %}{% if not a.show_modal %} · фақат қўнғироқчада{% endif %}</span></a>
+    <span class="num text-right text-xs text-slate-500" title="Ойнани ёпган ёки қўнғироқчада очган фойдаланувчилар">кўрди: <b class="text-slate-800">{{ a.n_read }}</b> / {{ users_n }}</span>
+    {% if a.published %}<span class="nwp-tag bg-emerald-100 text-emerald-800">чоп этилган</span>{% else %}<span class="nwp-tag bg-slate-100 text-slate-600">қоралама</span>{% endif %}
+    {% if can_act %}<form method="post" action="{% url 'panel:news_delete' a.pk %}" data-confirm="«{{ a.title }}» ўчирилсинми? Қўнғироқчадан ҳам йўқолади." data-danger>{% csrf_token %}
+      <button class="rounded-md p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Ўчириш">{% icon "trash" "h-4 w-4" %}</button></form>{% endif %}
+  </div>
+  {% empty %}<p class="px-4 py-10 text-center text-sm text-slate-400">Ҳали эълон йўқ. Юқорида биринчисини ёзинг.</p>{% endfor %}
+</section>
+
+{# «Ойнада синаб кўриш» — фойдаланувчи кўрадиган ойна (ўқилди деб белгиланмайди) #}
+<dialog class="nw-dlg" id="nwp-dlg"><button type="button" class="nw-x" data-nw-close aria-label="Ёпиш">{% icon "x" "h-4 w-4" "2.5" %}</button><div data-slot></div></dialog>
+<div id="nwp-icons" hidden>
+  <span data-k="news">{% icon "megaphone" "h-6 w-6" "1.8" %}</span><span data-k="serious">{% icon "alert-circle" "h-6 w-6" "1.8" %}</span><span data-k="celebrate">{% icon "gift" "h-6 w-6" "1.8" %}</span>
+</div>
+<script>
+(function () {
+  const form = document.getElementById("nwp-form"), F = form.elements, box = document.getElementById("nwp-card");
+  const KIND = {news: "Янгилик", serious: "Жиддий", celebrate: "Табрик"};
+  const ICONS = {};
+  // учала услуб белгиси — сервер чизгандан олинади (биттаси ҳозир кўриниб турибди, қолганлари — яширин нусхадан)
+  document.querySelectorAll("#nwp-icons [data-k]").forEach(el => ICONS[el.dataset.k] = el.innerHTML);
+  const esc = s => s.replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  function body(text) {
+    return text.replace(/\r\n/g, "\n").split(/\n\s*\n/).map(ch => {
+      const lines = ch.split("\n").map(x => x.trim()).filter(Boolean);
+      if (!lines.length) return "";
+      if (lines.every(x => /^[-•*] /.test(x))) return "<ul>" + lines.map(x => "<li>" + esc(x.slice(2).trim()) + "</li>").join("") + "</ul>";
+      return "<p>" + lines.map(esc).join("<br>") + "</p>";
+    }).join("");
+  }
+  function draw() {
+    const card = box.querySelector(".nw-card"), st = (form.querySelector('[name="style"]:checked') || {}).value || "news";
+    card.className = "nw-card nw-" + st;
+    card.querySelector("[data-nw-kind]").textContent = KIND[st];
+    card.querySelector(".nw-ic").innerHTML = ICONS[st] || "";
+    card.querySelector("[data-nw-title]").textContent = F.title.value.trim() || "Сарлавҳа шу ерда кўринади";
+    card.querySelector("[data-nw-body]").innerHTML = body(F.body.value);
+    const link = card.querySelector("[data-nw-link]"), url = F.link_url.value.trim();
+    link.hidden = !url;
+    link.firstChild.textContent = (F.link_text.value.trim() || "Батафсил") + " ";
+    card.querySelector("[data-nw-close]").textContent = st === "celebrate" ? "Раҳмат!" : "Тушунарли";
+  }
+  form.addEventListener("input", draw);
+  form.addEventListener("change", draw);
+  draw();
+  const dlg = document.getElementById("nwp-dlg"), tryBtn = document.getElementById("nwp-try");
+  if (tryBtn && dlg.showModal) {
+    tryBtn.addEventListener("click", () => {
+      const slot = dlg.querySelector("[data-slot]");
+      slot.innerHTML = box.innerHTML;
+      dlg.showModal();
+      const st = (form.querySelector('[name="style"]:checked') || {}).value;
+      if (st === "celebrate" && window.nwConfetti) window.nwConfetti();
+    });
+    dlg.addEventListener("click", e => { if (e.target === dlg || e.target.closest("[data-nw-close]")) { e.preventDefault(); dlg.close(); } });
+  }
+  window.nwConfetti = function () {
+    const wrap = document.createElement("div"), colors = ["#7c3aed", "#db2777", "#f59e0b", "#10b981", "#3b82f6", "#fde047"];
+    wrap.className = "nw-confetti";
+    for (let i = 0; i < 90; i++) {
+      const c = document.createElement("i");
+      c.style.left = Math.random() * 100 + "vw"; c.style.background = colors[i % colors.length];
+      c.style.setProperty("--dx", (Math.random() * 30 - 15) + "vw"); c.style.setProperty("--r", (Math.random() * 900 - 450) + "deg");
+      c.style.animationDuration = (2.2 + Math.random() * 2) + "s"; c.style.animationDelay = Math.random() * .6 + "s";
+      if (i % 3 === 0) { c.style.width = "7px"; c.style.height = "7px"; c.style.borderRadius = "999px"; }
+      wrap.appendChild(c);
+    }
+    document.body.appendChild(wrap); setTimeout(() => wrap.remove(), 5200);
+  };
+})();
+</script>
+{% endblock %}

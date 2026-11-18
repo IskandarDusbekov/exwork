@@ -4,7 +4,7 @@
   {% if v.keywords %}<meta name="keywords" content="{{ v.keywords }}">{% endif %}
   <meta name="robots" content="{% if v.index %}index, follow, max-image-preview:large{% else %}noindex, nofollow{% endif %}">
   <link rel="canonical" href="{{ url }}">
-  <meta property="og:type" content="website">
+  <meta property="og:type" content="{{ og_type|default:'website' }}">
   <meta property="og:site_name" content="{{ v.site_name }}">
   <meta property="og:title" content="{{ title }}">
   <meta property="og:description" content="{{ v.description }}">

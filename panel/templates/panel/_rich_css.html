@@ -1,0 +1,63 @@
+<style>
+  .rte { position: relative; display: grid; border: 1px solid rgb(var(--ink-300)); border-radius: 12px; background: rgb(var(--ink-100)); overflow: hidden; box-shadow: 0 1px 2px rgb(15 23 42 / .05); }
+  .rte.full { position: fixed; inset: 0; z-index: 60; border-radius: 0; grid-template-rows: auto auto 1fr auto; }
+  .rte.full .rte-page { overflow-y: auto; }
+  .rte-bar { position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 2px; padding: 6px 8px; background: #fff; border-bottom: 1px solid rgb(var(--ink-200)); }
+  .rte-g { display: flex; align-items: center; gap: 2px; padding-right: 6px; margin-right: 4px; border-right: 1px solid rgb(var(--ink-200)); }
+  .rte-g:last-child { border-right: 0; }
+  .rte-bar button, .rte-color { position: relative; display: inline-grid; place-items: center; min-width: 32px; height: 32px; padding: 0 6px; border-radius: 8px; color: rgb(var(--ink-700)); font-size: 15px; cursor: pointer; }
+  .rte-bar button:hover, .rte-color:hover { background: rgb(var(--ink-100)); }
+  .rte-bar button.on { background: rgb(var(--brand-50)); color: rgb(var(--brand-700)); box-shadow: inset 0 0 0 1px rgb(var(--brand-200)); }
+  .rte-bar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .rte-sel { height: 32px; padding: 0 26px 0 8px; border: 1px solid rgb(var(--ink-200)); border-radius: 8px; background-color: #fff; font-size: 13px; color: rgb(var(--ink-800)); }
+  .rte-color input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .rte-color i { position: absolute; left: 7px; right: 7px; bottom: 4px; height: 3px; border-radius: 2px; }
+  .rte-a { font-weight: 700; font-size: 15px; line-height: 1; padding-bottom: 4px; }
+  .rte-tblw { position: relative; }
+  .rte-tblpick { position: absolute; left: 0; top: 36px; z-index: 5; display: grid; gap: 6px; padding: 8px; background: #fff; border: 1px solid rgb(var(--ink-300)); border-radius: 10px; box-shadow: 0 12px 30px rgb(15 23 42 / .15); }
+  .rte-tblpick.hidden { display: none; }
+  .rte-tblpick [data-grid] { display: grid; grid-template-columns: repeat(8, 16px); gap: 3px; }
+  .rte-tblpick [data-grid] i { width: 16px; height: 16px; border: 1px solid rgb(var(--ink-300)); border-radius: 3px; cursor: pointer; }
+  .rte-tblpick [data-grid] i.on { background: rgb(var(--brand-100)); border-color: rgb(var(--brand-500)); }
+  .rte-tblpick b { font-size: 12px; text-align: center; color: rgb(var(--ink-600)); }
+  .rte-img { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 10px; background: rgb(var(--brand-50)); border-bottom: 1px solid rgb(var(--brand-200)); font-size: 12.5px; color: rgb(var(--ink-700)); }
+  .rte-img.hidden { display: none; }
+  .rte-img > span { font-weight: 600; margin-right: 4px; }
+  .rte-img button { height: 28px; padding: 0 9px; border-radius: 7px; background: #fff; border: 1px solid rgb(var(--ink-200)); }
+  .rte-img button:hover { border-color: rgb(var(--brand-400)); }
+  .rte-img i { width: 1px; height: 18px; margin: 0 4px; background: rgb(var(--brand-200)); }
+  .rte-page { padding: 22px clamp(10px, 3vw, 36px); }
+  .rte-page.hidden { display: none; }
+  .rte-ed { max-width: 820px; margin: 0 auto; padding: 44px clamp(20px, 5vw, 64px); background: #fff; border: 1px solid rgb(var(--ink-200)); border-radius: 4px;
+            box-shadow: 0 2px 10px rgb(15 23 42 / .08); outline: none; font-size: 16px; line-height: 1.75; color: rgb(var(--ink-900)); overflow-wrap: anywhere; }
+  .rte-ed:empty::before { content: "Мақола матнини шу ерга ёзинг ёки Word'дан кўчириб қўйинг…"; color: rgb(var(--ink-400)); }
+  .rte-ed.drop { box-shadow: 0 0 0 3px rgb(var(--brand-400)); }
+  .rte-ed img { cursor: pointer; }
+  .rte-ed img.sel { outline: 3px solid rgb(var(--brand-500)); outline-offset: 2px; }
+  .rte-ed table td, .rte-ed table th { min-width: 60px; }
+  .rte-src { display: block; width: 100%; min-height: 420px; padding: 16px; border: 0; background: rgb(var(--ink-900)); color: rgb(var(--ink-100)); font: 13px/1.6 ui-monospace, Consolas, monospace; }
+  .rte-src.hidden { display: none; }
+  .rte-foot { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 6px 12px; background: #fff; border-top: 1px solid rgb(var(--ink-200)); font-size: 12px; color: rgb(var(--ink-500)); }
+  .rte-foot [data-state] { color: rgb(var(--warn-600)); font-weight: 600; }
+  .rte-draft { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgb(var(--warn-50)); border-bottom: 1px solid rgb(var(--warn-200)); font-size: 13px; color: rgb(var(--warn-800)); }
+  .rte-draft button { padding: 2px 10px; border-radius: 6px; background: #fff; border: 1px solid rgb(var(--warn-300)); font-weight: 600; }
+  /* матн кўриниши — сайтдагидек (jobs/_blog_css.html .prose.rich) */
+  .prose-panel > * + * { margin-top: .9em; }
+  .prose-panel h2 { margin-top: 1.4em; font-size: 1.5rem; font-weight: 700; line-height: 1.25; }
+  .prose-panel h3 { margin-top: 1.3em; font-size: 1.2rem; font-weight: 650; }
+  .prose-panel h4 { margin-top: 1.2em; font-size: 1.03rem; font-weight: 650; }
+  .prose-panel ul { list-style: disc; padding-left: 1.4em; }
+  .prose-panel ol { list-style: decimal; padding-left: 1.4em; }
+  .prose-panel a { color: rgb(var(--brand-700)); text-decoration: underline; }
+  .prose-panel blockquote { padding: 12px 18px; border-left: 3px solid rgb(var(--ok-500)); background: rgb(var(--ok-50)); }
+  .prose-panel pre { padding: 12px 14px; background: rgb(var(--ink-900)); color: rgb(var(--ink-100)); font: 13px/1.6 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+  .prose-panel img { max-width: 100%; height: auto; }
+  .prose-panel figure { margin-inline: 0; } .prose-panel figure img { display: block; margin-inline: auto; }
+  .prose-panel figcaption { margin-top: 6px; text-align: center; font-size: 13px; color: rgb(var(--ink-500)); }
+  .prose-panel hr { border: 0; border-top: 1px solid rgb(var(--ink-300)); margin-block: 1.6em; }
+  .prose-panel table { width: 100%; border-collapse: collapse; }
+  .prose-panel th, .prose-panel td { padding: 6px 10px; border: 1px solid rgb(var(--ink-300)); vertical-align: top; }
+  .prose-panel th { background: rgb(var(--ink-50)); font-weight: 600; }
+  .prose-panel [style*="float: left"] { margin: 4px 20px 10px 0; } .prose-panel [style*="float: right"] { margin: 4px 0 10px 20px; }
+  .prose-panel::after { content: ""; display: table; clear: both; }
+</style>

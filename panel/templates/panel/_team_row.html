@@ -1,0 +1,13 @@
+{# «Биз ҳақимизда» → жамоа: бир одам (m — {name, role, bio, photo} ёки None — бўш қатор андозаси) #}
+<div class="tm-row">
+  <span class="tm-ph" title="Суратни танлаш">{% if m.photo %}<img src="{{ m.photo }}" alt="">{% else %}сурат{% endif %}</span>
+  <input type="hidden" name="t_photo" value="{{ m.photo|default:'' }}">
+  <div class="grid gap-1.5">
+    <div class="grid gap-1.5 sm:grid-cols-2">
+      <input name="t_name" value="{{ m.name|default:'' }}" maxlength="80" placeholder="Исм фамилия" class="pg-in font-medium" {% if not can_act %}disabled{% endif %}>
+      <input name="t_role" value="{{ m.role|default:'' }}" maxlength="80" placeholder="Вазифаси (масалан: асосчи, дастурчи)" class="pg-in" {% if not can_act %}disabled{% endif %}>
+    </div>
+    <textarea name="t_bio" rows="2" maxlength="600" placeholder="Қисқача: тажрибаси, нима билан шуғулланади" class="pg-in py-1.5" style="height:auto" {% if not can_act %}disabled{% endif %}>{{ m.bio|default:'' }}</textarea>
+  </div>
+  {% if can_act %}<div class="grid gap-1"><button type="button" class="tm-x" title="Олиб ташлаш">✕</button><button type="button" class="tm-up tm-x" style="color:rgb(var(--ink-500))" title="Юқорига">↑</button></div>{% endif %}
+</div>

@@ -41,7 +41,7 @@
 
   <section class="rs-hero{% if jobs_fix %} is-fix{% endif %}">
     <div class="rs-total">
-      <span>Всего с НДС · {{ jobs|length }} та смета</span>
+      <span>Всего с НДС · {{ jobs|length }} та смета{% if rows_total %} · {{ rows_done|som }} / {{ rows_total|som }} қатор{% endif %}</span>
       <b class="num">{{ grand_total|som }}</b>
       <div class="rs-chips">
         <span class="rs-chip is-ok">{% icon "check" "h-4 w-4" "3" %} {{ jobs_ok|length }} тайёр</span>
@@ -686,27 +686,34 @@
   .pk-again > summary i, .rs-group h2 i { font-style: normal; font-weight: 800; color: rgb(var(--ink-400)); }
   .pk-again > summary span { font-weight: 400; font-size: 13px; color: rgb(var(--ink-400)); }
   /* натижа саҳифаси */
-  .rs-group { display: grid; gap: 8px; }
-  .rs-group h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 18px; font-weight: 800; }
-  .rs-group h2.is-fix { color: rgb(var(--bad-700)); } .rs-group h2.is-ok { color: rgb(var(--ok-700)); }
-  .rs-group h2 small { flex-basis: 100%; font-size: 13px; font-weight: 400; color: rgb(var(--ink-500)); }
-  .rs-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px;
-    border: 1px solid rgb(var(--ink-200)); border-left: 6px solid rgb(var(--ok-500)); background: #fff; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
-  .rs-row:hover { box-shadow: 0 6px 18px rgba(15, 23, 42, .08); border-color: rgb(var(--ink-300)); border-left-color: rgb(var(--ok-600)); }
-  .rs-row.is-fix { border-left-color: rgb(var(--bad-500)); background: rgb(var(--ink-50)); }
-  .rs-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: rgb(var(--ok-100)); color: rgb(var(--ok-600)); }
-  .rs-row.is-fix .rs-ic { background: rgb(var(--bad-100)); color: rgb(var(--bad-600)); }
-  .rs-n b { display: block; font-size: 16px; color: rgb(var(--ink-900)); overflow-wrap: anywhere; }
-  .rs-n small { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 2px; font-size: 12px; color: rgb(var(--ink-500)); }
-  .rs-n small i { font-style: normal; font-weight: 700; } .rs-n .t-l { color: rgb(var(--ok-600)); } .rs-n .t-r { color: rgb(var(--brand-600)); }
-  .rs-n .rs-bad { color: rgb(var(--bad-700)); font-weight: 700; }
-  .rs-sum { text-align: right; font-size: 17px; font-weight: 800; color: rgb(var(--ink-900)); white-space: nowrap; }
-  .rs-btns { display: flex; gap: 6px; }
-  .rs-open { display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 16px; border-radius: 12px; border: 2px solid rgb(var(--ok-600)); color: rgb(var(--ok-700)); font-weight: 700; }
-  .rs-open:hover { background: rgb(var(--ok-50)); }
-  .rs-row.is-fix .rs-open { border-color: rgb(var(--bad-500)); background: rgb(var(--bad-500)); color: #fff; }
-  .rs-get { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; border: 1px solid rgb(var(--ink-300)); color: rgb(var(--ink-700)); }
+  /* сметалар рўйхати — битта оқ жадвал каби: қаторлар чизиқ билан ажралган, ранг фақат ҳолат нуқтасида */
+  .rs-group { display: grid; overflow: hidden; border: 1px solid rgb(var(--ink-300)); border-radius: 14px; background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, .06); }
+  .rs-group h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 10px 14px; border-bottom: 1px solid rgb(var(--ink-100));
+    background: rgb(var(--ink-100) / .7); font-size: 14px; font-weight: 700; color: rgb(var(--ink-800)); }
+  .rs-group h2 svg { width: 16px; height: 16px; }
+  .rs-group h2.is-fix svg { color: rgb(var(--bad-600)); } .rs-group h2.is-ok svg { color: rgb(var(--ok-600)); }
+  .rs-group h2 small { flex-basis: 100%; font-size: 12px; font-weight: 400; color: rgb(var(--ink-500)); }
+  .rs-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 9px 14px;
+    background: #fff; cursor: pointer; transition: background .15s; }
+  .rs-row + .rs-row { border-top: 1px solid rgb(var(--ink-200)); }
+  .rs-row:hover { background: rgb(var(--ink-50)); }
+  .rs-ic { display: block; width: 8px; height: 8px; border-radius: 999px; background: rgb(var(--ok-500)); }
+  .rs-ic svg { display: none; }
+  .rs-row.is-fix .rs-ic { background: rgb(var(--bad-500)); box-shadow: 0 0 0 3px rgb(var(--bad-100)); }
+  .rs-n b { display: block; font-size: 14px; font-weight: 600; color: rgb(var(--ink-900)); overflow-wrap: anywhere; }
+  .rs-n small { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 1px; font-size: 12px; color: rgb(var(--ink-500)); }
+  .rs-n small i { font-style: normal; font-weight: 700; } .rs-n .t-l, .rs-n .t-r { color: rgb(var(--ink-400)); }
+  .rs-n .rs-bad { color: rgb(var(--bad-700)); font-weight: 600; }
+  .rs-n .rs-rows { color: rgb(var(--ink-500)); }
+  .rs-sum { text-align: right; font-size: 14.5px; font-weight: 700; color: rgb(var(--ink-900)); white-space: nowrap; }
+  .rs-btns { display: flex; gap: 4px; }
+  .rs-open { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 9px; border: 1px solid rgb(var(--ink-300)); color: rgb(var(--ink-800)); font-size: 13px; font-weight: 600; }
+  .rs-open:hover { border-color: rgb(var(--ink-900)); background: rgb(var(--ink-900)); color: #fff; }
+  .rs-row.is-fix .rs-open { border-color: rgb(var(--bad-300)); color: rgb(var(--bad-700)); background: #fff; }
+  .rs-row.is-fix .rs-open:hover { background: rgb(var(--bad-600)); border-color: rgb(var(--bad-600)); color: #fff; }
+  .rs-get { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; border: 1px solid rgb(var(--ink-200)); color: rgb(var(--ink-600)); }
   .rs-get:hover { border-color: rgb(var(--ink-900)); }
+  @media (max-width: 640px) { .rs-row { grid-template-columns: auto minmax(0, 1fr); } .rs-sum, .rs-btns { grid-column: 2; justify-self: start; } }
   .rs-none { padding: 14px; color: rgb(var(--ink-500)); }
   .rs-files ul { display: grid; gap: 6px; }
   .rs-files li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgb(var(--ink-50)); font-size: 14px; }

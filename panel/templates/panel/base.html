@@ -60,11 +60,14 @@
 
         <div class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Таҳлил</div>
         {% include "panel/_side_link.html" with key="stats" url="panel:stats" ic="chart" label="Статистика" hint="Юклашлар, нархлашлар, киришлар — давр бўйича" %}
+        {% include "panel/_side_link.html" with key="usage" url="panel:usage" ic="table" label="Қатор ҳисоби" hint="Ким қанча қатор ишлади — ҳафта, ой (тўлов учун)" %}
         {% include "panel/_side_link.html" with key="track" url="panel:track" ic="activity" label="Фойдаланувчи йўли" hint="Юклашдан натижагача: ким қаерга етди, қаерда тўхтади, қайтиб келдими" %}
         {% include "panel/_side_link.html" with key="speed" url="panel:speed" ic="clock" label="Тезлик" hint="Файл очиш ва нархлаш вақти" %}
 
         <div class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Сайт ва контент</div>
+        {% include "panel/_side_link.html" with key="news" url="panel:news" ic="bell" label="Эълонлар ва табриклар" hint="Янгилик, жиддий хабар ёки табрик — кирганда бир марта ойнада, кейин қўнғироқчада" %}
         {% include "panel/_side_link.html" with key="blog" url="panel:blog" ic="play" label="Блог: мақола ва видео" hint="Мақолалар, видео дарслар ва бўлимлар — сайтдаги «Қўлланма» саҳифаси" %}
+        {% include "panel/_side_link.html" with key="pages" url="panel:pages" ic="users" label="Биз ҳақимизда ва шартлар" hint="«Биз ҳақимизда» саҳифаси (жамоа, алоқа) ва рўйхатдан ўтишдаги фойдаланиш шартлари" %}
         {% include "panel/_side_link.html" with key="site" url="panel:site" ic="file" label="Бош саҳифа матнлари" hint="Бош саҳифа матнлари ва блог мақолалари — коддан ўзгартирмасдан" %}
         {% include "panel/_side_link.html" with key="help_texts" url="panel:help_texts" ic="help" label="Ёрдам матнлари (?)" hint="«?» изоҳлари ва йўриқнома матнлари, видео дарслар — коддан ўзгартирмасдан" %}
         {% include "panel/_side_link.html" with key="seo" url="panel:seo" ic="search" label="SEO" hint="Google, Yandex: сарлавҳа, тасдиқлаш коди, статистика" %}

@@ -12,7 +12,7 @@
       {% if is_online %}<span class="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" title="Онлайн"></span>{% endif %}</span>
     <div class="min-w-0 flex-1">
       <h1 class="truncate text-2xl font-semibold text-slate-900">{{ u.get_full_name|default:u.email }}</h1>
-      <p class="text-sm text-slate-500">{{ u.email }} · рўйхатдан {{ u.date_joined|date:"d.m.Y" }} · {% if is_online %}<span class="font-medium text-emerald-600">ҳозир онлайн</span>{% else %}охирги кириш {{ u.last_login|date:"d.m.Y H:i"|default:"—" }}{% endif %}{% if online %}
+      <p class="text-sm text-slate-500">{{ u.email }} · рўйхатдан {{ u.date_joined|date:"d.m.Y" }} · {% if u.terms_accepted_at %}<span title="Фойдаланиш шартларига рози бўлган вақт">шартлар: {{ u.terms_version }}-таҳрир, {{ u.terms_accepted_at|date:"d.m.Y H:i" }}</span>{% else %}<span class="text-slate-400">шартларга розилик йўқ</span>{% endif %} · {% if is_online %}<span class="font-medium text-emerald-600">ҳозир онлайн</span>{% else %}охирги кириш {{ u.last_login|date:"d.m.Y H:i"|default:"—" }}{% endif %}{% if online %}
         · <span title="{{ online.user_agent }}">охирги қурилма: <span class="num">{{ online.ip|default:"—" }}</span> · {{ online.browser }} · {{ online.os }}</span>{% endif %}</p>
       <div class="mt-2 flex flex-wrap gap-1.5 text-xs">
         {% if u.is_active %}<span class="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">Фаол</span>{% else %}<span class="rounded-full bg-rose-100 px-2 py-0.5 font-medium text-rose-700">Блокланган — кира олмайди</span>{% endif %}
@@ -43,6 +43,21 @@
     <div class="rounded-lg bg-slate-50 px-3 py-2"><dt class="text-[11px] text-slate-500">Техназор объектлари</dt><dd class="num text-xl font-semibold">{{ tn_n }}</dd><dd class="text-[11px] text-slate-400">офёрталар</dd></div>
     <div class="rounded-lg bg-slate-50 px-3 py-2"><dt class="text-[11px] text-slate-500">Дискда</dt><dd class="num text-xl font-semibold">{{ disk|hsize }}</dd><dd class="text-[11px] text-slate-400">ҳамма файллари</dd></div>
   </dl>
+
+  {# қатор ҳисоби (тўлов учун): ишлов берилган / жами қатор — давр бўйича ва ойлар #}
+  <div class="mt-4 rounded-lg border border-slate-200 px-4 py-3">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <h3 class="text-sm font-semibold text-slate-800">Қатор ҳисоби <span class="font-normal text-slate-400">· ишлов берилган / жами қатор</span></h3>
+      <a href="{% url 'panel:usage' %}" class="text-xs text-slate-500 hover:text-slate-900">Ҳамма фойдаланувчилар →</a>
+    </div>
+    <dl class="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {% for k, l in use_periods %}{% with a=use|get_item:k %}
+      <div><dt class="text-[11px] text-slate-500">{{ l }}</dt><dd class="num text-lg font-semibold">{{ a.done|som }}<span class="text-sm font-normal text-slate-400"> / {{ a.total|som }}</span></dd><dd class="text-[11px] text-slate-400">{{ a.n }} смета</dd></div>
+      {% endwith %}{% endfor %}
+    </dl>
+    {% if use_months %}<div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-2 text-xs text-slate-500">
+      {% for m in use_months %}<span>{{ m.month|date:"m.Y" }}: <b class="num text-slate-800">{{ m.done|som }}</b> қатор · {{ m.n }} смета</span>{% endfor %}</div>{% endif %}
+  </div>
 </section>
 
 {# ================= бўлимлар ================= #}

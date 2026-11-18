@@ -1,0 +1,68 @@
+{% extends "jobs/_public.html" %}
+{% load narx seo %}
+{% block seo %}{% url 'about_us' as here %}{% seo_head title="Биз ҳақимизда — mhisobot" canonical=here description=description %}{% endblock %}
+{% block css %}{% include "jobs/_blog_css.html" %}
+  .ab-facts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border: 1px solid var(--line-2); background: #fff; }
+  .ab-facts div { padding: 16px 22px; min-width: 9rem; }
+  .ab-facts div + div { border-left: 1px solid var(--line); }
+  @media (max-width: 640px) { .ab-facts { grid-auto-flow: row; } .ab-facts div { min-width: 0; } .ab-facts div + div { border-left: 0; border-top: 1px solid var(--line); } }
+  .ab-facts b { display: block; font: 600 clamp(20px, 1.2rem + .8vw, 28px)/1.1 var(--fm); color: var(--ink); }
+  .ab-facts span { display: block; margin-top: 6px; font: 500 11.5px var(--fm); letter-spacing: .04em; text-transform: uppercase; color: var(--mute); }
+  .ab { display: grid; gap: clamp(48px, 6vw, 88px); padding-block: clamp(36px, 5vw, 64px) clamp(56px, 7vw, 96px); }
+  .ab .prose { margin-top: 0; }
+  .team { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .tm { display: grid; align-content: start; gap: 4px; padding: 22px; background: #fff; border: 1px solid var(--line-2); }
+  .tm-ph { width: 84px; height: 84px; margin-bottom: 12px; border-radius: 999px; overflow: hidden; display: grid; place-items: center;
+           background: var(--ink); color: #34d399; font: 600 26px var(--fm); }
+  .tm-ph img { width: 100%; height: 100%; object-fit: cover; }
+  .tm b { font-size: 1.05rem; font-weight: 600; }
+  .tm .role { font: 500 12px var(--fm); letter-spacing: .04em; text-transform: uppercase; color: var(--acc); }
+  .tm p { margin-top: 8px; font-size: 14.5px; line-height: 1.6; color: var(--ink-2); }
+  .contacts { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); background: var(--line); border: 1px solid var(--line); }
+  .contacts > * { display: flex; gap: 12px; align-items: center; padding: 18px 20px; background: #fff; color: inherit; text-decoration: none; min-width: 0; }
+  .contacts a:hover { color: var(--acc); }
+  .contacts svg { width: 20px; height: 20px; flex: none; color: var(--acc); }
+  .contacts small { display: block; font: 500 11px var(--fm); letter-spacing: .05em; text-transform: uppercase; color: var(--mute); }
+  .contacts span { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+{% endblock %}
+{% block content %}
+<header class="ghead">
+  <div class="wrap ghead-in">
+    <div>
+      <nav class="crumbs" aria-label="Йўл"><a href="{% url 'index' %}">Бош саҳифа</a><span aria-hidden="true">/</span><span>Биз ҳақимизда</span></nav>
+      <h1>Биз ҳақимизда</h1>
+      <p class="lead">{{ a.lead }}</p>
+    </div>
+    {% if a.facts %}<div class="ab-facts">{% for f in a.facts %}<div><b>{{ f.0 }}</b><span>{{ f.1 }}</span></div>{% endfor %}</div>{% endif %}
+  </div>
+</header>
+<div class="wrap ab">
+  {% if a.body %}<div class="prose rich">{{ a.body|safe }}</div>{% endif %}
+  {% if a.team %}
+  <section aria-labelledby="h-team">
+    <div class="gsec-h"><span class="gn">01</span><div><h2 id="h-team">Жамоа</h2><p>Лойиҳа устида ишлаётганлар.</p></div></div>
+    <div class="team">
+      {% for m in a.team %}
+      <div class="tm">
+        <span class="tm-ph">{% if m.photo %}<img src="{{ m.photo }}" alt="{{ m.name }}" loading="lazy">{% else %}{{ m.name|first|upper }}{% endif %}</span>
+        <b>{{ m.name }}</b>{% if m.role %}<span class="role">{{ m.role }}</span>{% endif %}
+        {% if m.bio %}<p>{{ m.bio|linebreaksbr }}</p>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+  {% if a.contacts.phone or a.contacts.email or a.tg_url or a.contacts.address %}
+  <section aria-labelledby="h-contact">
+    <div class="gsec-h"><span class="gn">{% if a.team %}02{% else %}01{% endif %}</span><div><h2 id="h-contact">Алоқа</h2></div></div>
+    <div class="contacts">
+      {% if a.contacts.phone %}<a href="tel:{{ a.contacts.phone|cut:' ' }}">{% icon "phone" %}<span><small>Телефон</small>{{ a.contacts.phone }}</span></a>{% endif %}
+      {% if a.contacts.email %}<a href="mailto:{{ a.contacts.email }}">{% icon "mail" %}<span><small>Email</small>{{ a.contacts.email }}</span></a>{% endif %}
+      {% if a.tg_url %}<a href="{{ a.tg_url }}" target="_blank" rel="noopener">{% icon "send" %}<span><small>Telegram</small>{{ a.contacts.telegram }}</span></a>{% endif %}
+      {% if a.contacts.address %}<div>{% icon "building" %}<span><small>Манзил</small>{{ a.contacts.address }}</span></div>{% endif %}
+    </div>
+  </section>
+  {% endif %}
+  <div class="gcta">{% include "jobs/_blog_cta.html" %}</div>
+</div>
+{% endblock %}

@@ -1,43 +1,101 @@
 {% load narx %}
 {% comment %}«Ёрдам» тугмаси (ўнг пастда, доим кўринади) ва суҳбат ойнаси. Хабарлар JSON билан келади ва фақат
-   textContent билан чизилади — HTML сифатида ҳеч қачон қўйилмайди (XSS йўқ). CSRF — <meta name="csrf-token"> дан.{% endcomment %}
-<button type="button" id="sup-btn" class="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-3 text-base font-semibold text-white shadow-lg shadow-emerald-900/20 hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-300"
-        aria-haspopup="dialog" aria-controls="sup-box" title="Саволингиз бўлса — администраторга ёзинг">
-  {% icon "message" "h-6 w-6" %}<span>Ёрдам</span>
+   textContent билан чизилади — HTML сифатида ҳеч қачон қўйилмайди (XSS йўқ). CSRF — <meta name="csrf-token"> дан.
+   Қулайликлар: тез мавзу тугмалари, кунлар бўйича ажратиш, скриншотни Ctrl+V билан қўйиш, файлни судраб ташлаш,
+   Enter — юбориш (Shift+Enter — янги қатор), расм олдиндан кўринади.{% endcomment %}
+<style>
+  .sup-fab { position: fixed; right: 20px; bottom: 20px; z-index: 40; display: inline-flex; align-items: center; gap: 8px; height: 48px; padding: 0 18px 0 14px; border-radius: 999px;
+    background: rgb(var(--ok-600)); color: #fff; font-size: 15px; font-weight: 700; box-shadow: 0 10px 28px -6px rgb(var(--ok-700) / .55); transition: transform .15s, background .15s; }
+  .sup-fab:hover { background: rgb(var(--ok-700)); transform: translateY(-1px); }
+  .sup-fab:focus-visible { outline: 4px solid rgb(var(--ok-200)); }
+  .sup-fab .sup-fab-ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 999px; background: rgb(255 255 255 / .18); }
+  @media (max-width: 640px) { .sup-fab { right: 14px; bottom: 14px; height: 52px; width: 52px; padding: 0; justify-content: center; } .sup-fab .sup-fab-t { display: none; } .sup-fab .sup-fab-ic { background: none; } }
+  .sup-box { position: fixed; right: 0; bottom: 0; z-index: 65; display: none; height: 100dvh; width: 100%; flex-direction: column; overflow: hidden; background: #fff; }
+  .sup-box.is-open { display: flex; animation: sup-in .22s ease-out; }
+  @media (min-width: 640px) { .sup-box { right: 20px; bottom: 20px; width: 410px; height: min(660px, calc(100dvh - 40px)); border: 1px solid rgb(var(--ink-300)); border-radius: 20px; box-shadow: 0 24px 60px -12px rgb(15 23 42 / .35); } }
+  @keyframes sup-in { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+  .sup-head { display: flex; flex-shrink: 0; align-items: center; gap: 12px; padding: 14px 14px 14px 16px; color: #fff; background: linear-gradient(135deg, rgb(var(--ok-700)), rgb(var(--ok-500))); }
+  .sup-ava { position: relative; display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border-radius: 999px; background: rgb(255 255 255 / .2); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .35); }
+  .sup-ava::after { content: ""; position: absolute; right: 0; bottom: 0; width: 11px; height: 11px; border-radius: 999px; background: rgb(134 239 172); box-shadow: 0 0 0 2px rgb(var(--ok-600)); }
+  .sup-head b { display: block; font-size: 16px; }
+  .sup-head small { display: block; font-size: 12.5px; color: rgb(255 255 255 / .85); }
+  .sup-x { display: grid; place-items: center; width: 36px; height: 36px; margin-left: auto; flex-shrink: 0; border-radius: 10px; }
+  .sup-x:hover { background: rgb(255 255 255 / .18); }
+  .sup-log { flex: 1; overflow-y: auto; padding: 14px; background: rgb(var(--ink-50)); display: flex; flex-direction: column; gap: 8px; }
+  .sup-intro { border: 1px solid rgb(var(--ink-200)); border-radius: 16px; background: #fff; padding: 14px; font-size: 14px; line-height: 1.55; color: rgb(var(--ink-700)); }
+  .sup-intro b { display: block; margin-bottom: 2px; font-size: 15px; color: rgb(var(--ink-900)); }
+  .sup-topics { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .sup-topic { border: 1px solid rgb(var(--ok-200)); border-radius: 999px; background: rgb(var(--ok-50)); padding: 5px 11px; font-size: 13px; font-weight: 600; color: rgb(var(--ok-800)); }
+  .sup-topic:hover { border-color: rgb(var(--ok-500)); background: rgb(var(--ok-100)); }
+  .sup-day { align-self: center; margin: 6px 0 2px; border-radius: 999px; background: rgb(var(--ink-200) / .7); padding: 2px 10px; font-size: 11.5px; font-weight: 600; color: rgb(var(--ink-600)); }
+  .sup-row { display: flex; align-items: flex-end; gap: 8px; }
+  .sup-row.is-me { justify-content: flex-end; }
+  .sup-mini { display: grid; place-items: center; width: 26px; height: 26px; flex-shrink: 0; border-radius: 999px; background: rgb(var(--ok-600)); color: #fff; }
+  .sup-b { max-width: 82%; border-radius: 16px; padding: 8px 12px; font-size: 14.5px; line-height: 1.5; }
+  .sup-row:not(.is-me) .sup-b { border: 1px solid rgb(var(--ink-200)); border-bottom-left-radius: 5px; background: #fff; color: rgb(var(--ink-800)); }
+  .sup-row.is-me .sup-b { border-bottom-right-radius: 5px; background: rgb(var(--ok-600)); color: #fff; }
+  .sup-who { margin-bottom: 1px; font-size: 11.5px; font-weight: 700; color: rgb(var(--ok-700)); }
+  .sup-txt { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .sup-img { display: block; margin-top: 6px; max-height: 220px; max-width: 100%; border-radius: 10px; border: 1px solid rgb(var(--ink-200)); background: #fff; }
+  .sup-file { display: flex; align-items: center; gap: 8px; margin-top: 6px; border-radius: 10px; padding: 6px 9px; font-size: 13px; text-decoration: none; }
+  .sup-row:not(.is-me) .sup-file { background: rgb(var(--ink-50)); border: 1px solid rgb(var(--ink-200)); color: rgb(var(--ink-800)); }
+  .sup-row.is-me .sup-file { background: rgb(255 255 255 / .16); color: #fff; }
+  .sup-file span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sup-file small { margin-left: auto; flex-shrink: 0; opacity: .75; }
+  .sup-meta { margin-top: 2px; text-align: right; font-size: 11px; }
+  .sup-row:not(.is-me) .sup-meta { color: rgb(var(--ink-400)); }
+  .sup-row.is-me .sup-meta { color: rgb(255 255 255 / .8); }
+  .sup-note { align-self: center; border-radius: 10px; background: rgb(var(--ink-200) / .6); padding: 6px 12px; text-align: center; font-size: 13px; color: rgb(var(--ink-600)); }
+  .sup-form { flex-shrink: 0; border-top: 1px solid rgb(var(--ink-200)); background: #fff; padding: 10px; }
+  .sup-err { margin-bottom: 8px; border-radius: 10px; background: rgb(var(--bad-50)); padding: 7px 10px; font-size: 13px; color: rgb(var(--bad-800)); }
+  .sup-att { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; border: 1px solid rgb(var(--ink-200)); border-radius: 12px; background: rgb(var(--ink-50)); padding: 6px 8px; font-size: 13px; color: rgb(var(--ink-700)); }
+  .sup-att img { width: 44px; height: 44px; flex-shrink: 0; border-radius: 8px; object-fit: cover; }
+  .sup-att .n { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sup-att button { flex-shrink: 0; border-radius: 8px; padding: 4px 8px; color: rgb(var(--bad-700)); }
+  .sup-att button:hover { background: rgb(var(--bad-50)); }
+  .sup-comp { display: flex; align-items: flex-end; gap: 6px; border: 1px solid rgb(var(--ink-300)); border-radius: 16px; padding: 5px; transition: border-color .15s, box-shadow .15s; }
+  .sup-comp:focus-within { border-color: rgb(var(--ok-500)); box-shadow: 0 0 0 3px rgb(var(--ok-100)); }
+  .sup-comp textarea { min-width: 0; flex: 1; max-height: 140px; resize: none; border: 0; background: transparent; padding: 7px 4px; font-size: 15px; line-height: 1.4; outline: none; box-shadow: none; }
+  .sup-ib { display: grid; place-items: center; width: 38px; height: 38px; flex-shrink: 0; border-radius: 11px; color: rgb(var(--ink-500)); cursor: pointer; }
+  .sup-ib:hover { background: rgb(var(--ink-100)); color: rgb(var(--ink-800)); }
+  .sup-send { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; background: rgb(var(--ok-600)); color: #fff; }
+  .sup-send:hover { background: rgb(var(--ok-700)); }
+  .sup-send:disabled { opacity: .5; }
+  .sup-hint { margin-top: 5px; padding: 0 4px; font-size: 11px; color: rgb(var(--ink-400)); }
+  .sup-drop { position: absolute; inset: 0; z-index: 3; display: none; place-items: center; margin: 8px; border: 2px dashed rgb(var(--ok-500)); border-radius: 16px; background: rgb(var(--ok-50) / .92); font-size: 15px; font-weight: 700; color: rgb(var(--ok-800)); }
+  .sup-box.is-drag .sup-drop { display: grid; }
+  .sup-fab.hidden, .sup-att.hidden, .sup-err.hidden { display: none; }
+</style>
+
+<button type="button" id="sup-btn" class="sup-fab" aria-haspopup="dialog" aria-controls="sup-box" title="Саволингиз бўлса — администраторга ёзинг">
+  <span class="sup-fab-ic">{% icon "message" "h-5 w-5" %}</span><span class="sup-fab-t">Ёрдам</span>
   <span id="sup-badge" class="{% if not support_unread %}hidden {% endif %}absolute -right-1 -top-1 grid h-6 min-w-6 place-items-center rounded-full bg-rose-600 px-1.5 text-xs font-bold text-white ring-2 ring-white" aria-label="Янги жавоблар">{{ support_unread|default:"" }}</span>
 </button>
 
-<div id="sup-box" role="dialog" aria-modal="false" aria-labelledby="sup-title"
-     class="fixed bottom-0 right-0 z-[65] hidden h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl sm:bottom-5 sm:right-5 sm:h-[min(640px,calc(100dvh-2.5rem))] sm:w-[400px] sm:rounded-2xl sm:border sm:border-slate-200"
+<div id="sup-box" class="sup-box" role="dialog" aria-modal="false" aria-labelledby="sup-title"
      data-messages="{% url 'support:messages' %}" data-send="{% url 'support:send' %}" data-unread="{% url 'support:unread' %}">
-  <div class="flex shrink-0 items-center gap-3 bg-emerald-600 px-4 py-3 text-white">
-    <span class="grid h-10 w-10 place-items-center rounded-full bg-white/20">{% icon "message" "h-5 w-5" %}</span>
-    <div class="min-w-0 flex-1 leading-tight">
-      <div id="sup-title" class="text-lg font-semibold">Ёрдам хизмати</div>
-      <div class="text-sm text-emerald-50">Администраторга ёзинг — шу ерда жавоб берамиз</div>
-    </div>
-    <button type="button" id="sup-close" class="grid h-10 w-10 place-items-center rounded-full hover:bg-white/20" aria-label="Ёпиш" title="Ёпиш">{% icon "x" "h-6 w-6" %}</button>
+  <div class="sup-head">
+    <span class="sup-ava">{% icon "message" "h-5 w-5" %}</span>
+    <div class="min-w-0 leading-tight"><b id="sup-title">Ёрдам хизмати</b><small>Администратор шу ерда жавоб беради</small></div>
+    <button type="button" id="sup-close" class="sup-x" aria-label="Ёпиш" title="Ёпиш (Esc)">{% icon "x" "h-5 w-5" %}</button>
   </div>
-  <div id="sup-log" class="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4" aria-live="polite">
+  <div id="sup-log" class="sup-log" aria-live="polite">
     <p id="sup-loading" class="py-6 text-center text-slate-500">Юкланмоқда…</p>
   </div>
-  <form id="sup-form" class="shrink-0 border-t border-slate-200 bg-white p-3" enctype="multipart/form-data" novalidate>
-    <p id="sup-err" class="mb-2 hidden rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800" role="alert"></p>
-    <label for="sup-text" class="sr-only">Хабарингиз</label>
-    <textarea id="sup-text" name="text" rows="3" maxlength="4000" placeholder="Саволингизни шу ерга ёзинг…"
-              class="w-full resize-none rounded-xl border border-slate-300 px-3 py-2 text-base focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"></textarea>
-    <div id="sup-file-row" class="mt-1 hidden items-center gap-2 text-sm text-slate-700">
-      {% icon "paperclip" "h-4 w-4 shrink-0 text-slate-400" %}<span id="sup-fname" class="min-w-0 flex-1 truncate"></span>
-      <button type="button" id="sup-file-x" class="rounded px-2 py-0.5 text-rose-700 hover:bg-rose-50">Олиб ташлаш</button>
-    </div>
-    <div class="mt-2 flex items-center gap-2">
-      <label class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50" title="Скриншот, расм ёки файл (энг кўпи 10 МБ)">
-        {% icon "paperclip" "h-5 w-5" %}<span>Файл</span>
+  <form id="sup-form" class="sup-form" enctype="multipart/form-data" novalidate>
+    <p id="sup-err" class="sup-err hidden" role="alert"></p>
+    <div id="sup-file-row" class="sup-att hidden"><img id="sup-thumb" alt="" hidden>{% icon "paperclip" "h-4 w-4 shrink-0 text-slate-400" %}<span id="sup-fname" class="n"></span>
+      <button type="button" id="sup-file-x">Олиб ташлаш</button></div>
+    <div class="sup-comp">
+      <label class="sup-ib" title="Скриншот, расм ёки файл (энг кўпи 10 МБ)">{% icon "paperclip" "h-5 w-5" %}
         <input type="file" id="sup-file" name="file" class="sr-only" accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.xls,.xlsx,.xlsm,.doc,.docx,.txt,.zip,.rar"></label>
-      <button type="submit" id="sup-send" class="ml-auto inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-base font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
-        {% icon "send" "h-5 w-5" %}<span>Юбориш</span></button>
+      <label for="sup-text" class="sr-only">Хабарингиз</label>
+      <textarea id="sup-text" name="text" rows="1" maxlength="4000" placeholder="Саволингизни ёзинг…"></textarea>
+      <button type="submit" id="sup-send" class="sup-send" title="Юбориш" aria-label="Юбориш">{% icon "send" "h-5 w-5" %}</button>
     </div>
+    <p class="sup-hint">Enter — юбориш · Shift+Enter — янги қатор · скриншотни Ctrl+V билан қўйинг</p>
   </form>
+  <div class="sup-drop">Файлни шу ерга ташланг</div>
 </div>
 
 <script>
@@ -46,9 +104,10 @@
       log = document.getElementById("sup-log"), form = document.getElementById("sup-form"),
       text = document.getElementById("sup-text"), file = document.getElementById("sup-file"),
       err = document.getElementById("sup-err"), badge = document.getElementById("sup-badge"),
-      sendBtn = document.getElementById("sup-send");
+      sendBtn = document.getElementById("sup-send"), thumb = document.getElementById("sup-thumb");
   var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
-  var last = 0, loaded = false, timer = null, isOpen = false, status = "open";
+  var last = 0, loaded = false, timer = null, isOpen = false, status = "open", lastDay = "";
+  var TOPICS = ["Файл очилмаяпти", "Нарх нотўғри чиқди", "Ресурс топилмади", "Офёрта / далолатнома", "Таклиф ёки фикр"];
 
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
   function size(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + " МБ" : Math.max(1, Math.round(n / 1024)) + " КБ"; }
@@ -57,46 +116,64 @@
     [badge, sideBadge].forEach(function (b) { if (b) { b.textContent = n || ""; b.classList.toggle("hidden", !n); } });
   }
   function showErr(msg) { err.textContent = msg || ""; err.classList.toggle("hidden", !msg); }
+  function pad(n) { return ("0" + n).slice(-2); }
+  function dayName(d) {  // «18.11.2026» → «Бугун» / «Кеча» / сана
+    var now = new Date(), y = new Date(Date.now() - 864e5);
+    if (d === pad(now.getDate()) + "." + pad(now.getMonth() + 1) + "." + now.getFullYear()) return "Бугун";
+    if (d === pad(y.getDate()) + "." + pad(y.getMonth() + 1) + "." + y.getFullYear()) return "Кеча";
+    return d;
+  }
+  function grow() { text.style.height = "auto"; text.style.height = Math.min(text.scrollHeight, 140) + "px"; }
 
   function intro() {
-    var d = el("div", "rounded-xl border border-emerald-100 bg-white p-4 text-[15px] leading-relaxed text-slate-700", null);
-    d.id = "sup-intro";
-    d.appendChild(el("p", "font-semibold text-slate-900", "Ассалому алайкум!"));
-    d.appendChild(el("p", "mt-1", "Саволингиз ёки муаммонгизни ёзинг. Керак бўлса, экран расмини (скриншот) ёки файлни бириктиринг."));
-    d.appendChild(el("p", "mt-1", "Администратор жавоб берганда «Ёрдам» тугмасида қизил белги чиқади{% if user.email_verified %} ва почтангизга хат келади{% endif %}."));
+    var d = el("div", "sup-intro"); d.id = "sup-intro";
+    d.appendChild(el("b", null, "Ассалому алайкум!"));
+    d.appendChild(el("p", null, "Саволингиз ёки муаммонгизни ёзинг. Керак бўлса экран расмини (скриншот) ёки файлни бириктиринг — шунда тезроқ тушунамиз."));
+    d.appendChild(el("p", "mt-1 text-sm text-slate-500", "Жавоб берилганда «Ёрдам» тугмасида қизил белги чиқади{% if user.email_verified %} ва почтангизга хат келади{% endif %}."));
+    var t = el("div", "sup-topics");
+    TOPICS.forEach(function (name) {
+      var b = el("button", "sup-topic", name); b.type = "button";
+      b.addEventListener("click", function () { text.value = name + ": " + text.value.replace(/^[^:\n]{1,40}:\s*/, ""); grow(); text.focus(); text.setSelectionRange(text.value.length, text.value.length); });
+      t.appendChild(b);
+    });
+    d.appendChild(t);
     return d;
   }
   function closedNote() {
-    var d = el("p", "rounded-lg bg-slate-100 px-3 py-2 text-center text-sm text-slate-600", "Аввалги саволингиз ҳал қилинди. Янги савол ёзсангиз, администратор яна кўради.");
+    var d = el("p", "sup-note", "Аввалги саволингиз ҳал қилинди. Янги савол ёзсангиз, администратор яна кўради.");
     d.id = "sup-closed";
     return d;
   }
 
   function bubble(m) {
-    var row = el("div", "flex " + (m.staff ? "" : "justify-end"));
-    var b = el("div", "max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed " +
-      (m.staff ? "rounded-bl-sm border border-slate-200 bg-white text-slate-800" : "rounded-br-sm bg-emerald-600 text-white"));
-    if (m.staff) b.appendChild(el("div", "mb-0.5 text-xs font-semibold text-emerald-700", "Администратор"));
-    if (m.text) b.appendChild(el("div", "whitespace-pre-wrap break-words", m.text));
+    var parts = (m.time || "").split(" "), day = parts[0] || "", hm = parts[1] || "";
+    var frag = document.createDocumentFragment();
+    if (day && day !== lastDay) { frag.appendChild(el("div", "sup-day", dayName(day))); lastDay = day; }
+    var row = el("div", "sup-row" + (m.staff ? "" : " is-me"));
+    if (m.staff) { var av = el("span", "sup-mini"); av.textContent = "А"; row.appendChild(av); }
+    var b = el("div", "sup-b");
+    if (m.staff) b.appendChild(el("div", "sup-who", "Администратор"));
+    if (m.text) b.appendChild(el("div", "sup-txt", m.text));
     if (m.file) {
       if (m.file.image) {
         var a = el("a"); a.href = m.file.url; a.target = "_blank"; a.rel = "noopener";
-        var img = el("img", "mt-2 max-h-56 rounded-lg border border-slate-200 bg-white"); img.src = m.file.url; img.alt = m.file.name; img.loading = "lazy";
+        var img = el("img", "sup-img"); img.src = m.file.url; img.alt = m.file.name; img.loading = "lazy";
+        img.addEventListener("load", function () { log.scrollTop = log.scrollHeight; });
         a.appendChild(img); b.appendChild(a);
       }
-      var f = el("a", "mt-1 block text-sm underline break-all", "📎 " + m.file.name + " (" + size(m.file.size) + ")");
-      f.href = m.file.url + "?dl=1";
+      var f = el("a", "sup-file"); f.href = m.file.url + "?dl=1";
+      f.appendChild(el("span", null, "📎 " + m.file.name)); f.appendChild(el("small", null, size(m.file.size)));
       b.appendChild(f);
     }
-    b.appendChild(el("div", "mt-1 text-xs " + (m.staff ? "text-slate-400" : "text-emerald-100"),
-      m.time + (m.staff ? "" : (m.read ? " · ўқилди" : " · юборилди"))));
+    b.appendChild(el("div", "sup-meta", hm + (m.staff ? "" : (m.read ? " · ✓✓ ўқилди" : " · ✓ юборилди"))));
     row.appendChild(b);
-    return row;
+    frag.appendChild(row);
+    return frag;
   }
 
   function render(list, replace) {
     var loading = document.getElementById("sup-loading"); if (loading) loading.remove();
-    if (replace) { log.textContent = ""; log.appendChild(intro()); }
+    if (replace) { log.textContent = ""; lastDay = ""; log.appendChild(intro()); }
     list.forEach(function (m) { if (m.id > last) { log.appendChild(bubble(m)); last = m.id; } });
     var cn = document.getElementById("sup-closed"); if (cn) cn.remove();
     if (status === "closed") log.appendChild(closedNote());
@@ -107,7 +184,7 @@
     var url = box.dataset.messages + "?seen=1" + (full ? "" : "&after=" + last);
     return fetch(url, {credentials: "same-origin", headers: {"Accept": "application/json"}})
       .then(function (r) { if (!r.ok) throw r; return r.json(); })
-      .then(function (d) { status = d.status; render(d.messages, full); setBadge(d.unread); loaded = true; })
+      .then(function (d) { status = d.status; if (full) last = 0; render(d.messages, full); setBadge(d.unread); loaded = true; })
       .catch(function () { if (full) { log.textContent = ""; log.appendChild(el("p", "py-6 text-center text-rose-700", "Юклаб бўлмади. Интернетни текширинг ва яна очинг.")); } });
   }
 
@@ -122,30 +199,56 @@
   }
 
   function open() {
-    isOpen = true; box.classList.remove("hidden"); box.classList.add("flex"); btn.classList.add("hidden");
+    isOpen = true; box.classList.add("is-open"); btn.classList.add("hidden");
     load(!loaded).then(function () { text.focus(); });
     schedule();
   }
   function close() {
-    isOpen = false; box.classList.add("hidden"); box.classList.remove("flex"); btn.classList.remove("hidden");
+    isOpen = false; box.classList.remove("is-open"); btn.classList.remove("hidden");
     schedule(); btn.focus();
   }
   btn.addEventListener("click", open);
   document.getElementById("sup-close").addEventListener("click", close);
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isOpen) close(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isOpen && !document.querySelector("dialog[open]")) close(); });
   document.querySelectorAll("[data-support-open]").forEach(function (a) {
     a.addEventListener("click", function (e) { e.preventDefault(); document.documentElement.classList.remove("side-open"); open(); });
   });
 
+  // бириктирилган файл: номи, ҳажми, расм бўлса — кичик кўриниши
+  var thumbUrl = null;
   file.addEventListener("change", function () {
     var f = file.files[0], row = document.getElementById("sup-file-row");
     showErr("");
     if (f && f.size > 10 * 1048576) { showErr("Файл жуда катта (" + size(f.size) + "). Энг кўпи — 10 МБ."); file.value = ""; f = null; }
-    document.getElementById("sup-fname").textContent = f ? f.name + " (" + size(f.size) + ")" : "";
-    row.classList.toggle("hidden", !f); row.classList.toggle("flex", !!f);
+    document.getElementById("sup-fname").textContent = f ? f.name + " · " + size(f.size) : "";
+    if (thumbUrl) { URL.revokeObjectURL(thumbUrl); thumbUrl = null; }
+    if (f && /^image\//.test(f.type)) { thumbUrl = URL.createObjectURL(f); thumb.src = thumbUrl; thumb.hidden = false; } else thumb.hidden = true;
+    row.classList.toggle("hidden", !f);
   });
   document.getElementById("sup-file-x").addEventListener("click", function () { file.value = ""; file.dispatchEvent(new Event("change")); });
-  text.addEventListener("keydown", function (e) { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) form.requestSubmit(); });
+  function attach(f) {
+    try { var dt = new DataTransfer(); dt.items.add(f); file.files = dt.files; file.dispatchEvent(new Event("change")); } catch (e) {}
+  }
+  // скриншотни Ctrl+V билан қўйиш
+  text.addEventListener("paste", function (e) {
+    var items = (e.clipboardData && e.clipboardData.files) || [];
+    if (items.length) { e.preventDefault(); attach(items[0]); }
+  });
+  // файлни ойнага судраб ташлаш
+  var depth = 0;
+  box.addEventListener("dragenter", function (e) { if (e.dataTransfer && [].indexOf.call(e.dataTransfer.types, "Files") >= 0) { depth++; box.classList.add("is-drag"); } });
+  box.addEventListener("dragleave", function () { if (--depth <= 0) { depth = 0; box.classList.remove("is-drag"); } });
+  box.addEventListener("dragover", function (e) { if (box.classList.contains("is-drag")) e.preventDefault(); });
+  box.addEventListener("drop", function (e) {
+    if (!box.classList.contains("is-drag")) return;
+    e.preventDefault(); depth = 0; box.classList.remove("is-drag");
+    if (e.dataTransfer.files[0]) attach(e.dataTransfer.files[0]);
+  });
+
+  text.addEventListener("input", grow);
+  text.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); }
+  });
 
   form.addEventListener("submit", function (e) {
     e.preventDefault();
@@ -157,10 +260,10 @@
       .then(function (d) {
         if (d.error) { showErr(d.error); return; }
         status = "open"; render([d.message], false);
-        text.value = ""; file.value = ""; file.dispatchEvent(new Event("change"));
+        text.value = ""; grow(); file.value = ""; file.dispatchEvent(new Event("change"));
       })
       .catch(function () { showErr("Юбориб бўлмади. Интернетни текширинг ва яна уриниб кўринг."); })
-      .then(function () { sendBtn.disabled = false; });
+      .then(function () { sendBtn.disabled = false; text.focus(); });
   });
 
   // хатдаги ҳавола (/support/ → #support) — ойна ўзи очилади

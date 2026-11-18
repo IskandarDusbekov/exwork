@@ -50,7 +50,16 @@ def _period(obj, request, data=None) -> Period:
 
 
 def index(request):
-    return render(request, "texnazor/index.html", {"nav": "texnazor", "cards": services.object_cards(request.user),
+    cards = services.object_cards(request.user)
+    ready = [c for c in cards if c["o"].status == SiteObject.Status.READY]
+    for c in cards:  # рўйхатдаги фильтр учун ҳолат: тугаган / жараёнда / бошланмаган / эътибор (офёрта ўқилмаган)
+        c["state"] = ("attn" if c["o"].status != SiteObject.Status.READY else
+                      "done" if c["pct"] >= 99.995 else "run" if c["done"] else "new")
+    tot = {"contract": sum(c["contract"] or 0 for c in ready), "done": sum(c["done"] or 0 for c in ready)}
+    tot["left"] = tot["contract"] - tot["done"]
+    tot["pct"] = 100 * tot["done"] / tot["contract"] if tot["contract"] else 0.0
+    counts = {k: sum(1 for c in cards if c["state"] == k) for k in ("run", "done", "new", "attn")}
+    return render(request, "texnazor/index.html", {"nav": "texnazor", "cards": cards, "tot": tot, "counts": counts,
                                                     "my_ofyorta": conf.get("my_ofyorta")})
 
 

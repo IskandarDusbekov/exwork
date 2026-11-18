@@ -100,11 +100,19 @@ class RegisterForm(forms.Form):
                                 widget=forms.PasswordInput(attrs=_new_pw()))
     password2 = forms.CharField(label="Паролни такрорланг", max_length=128, strip=False,
                                 widget=forms.PasswordInput(attrs=_repeat_pw()))
+    agree = forms.BooleanField(label="Фойдаланиш шартларига розиман", required=False)
 
     def __init__(self, *args, **kwargs):
+        from jobs.pages import terms
+        self.terms = terms()
         super().__init__(*args, **kwargs)
         for f in self.fields.values():
             f.error_messages["required"] = "Тўлдиринг."
+        if self.terms["mode"] == "checkbox":
+            self.fields["agree"].required = True
+            self.fields["agree"].error_messages["required"] = "Рўйхатдан ўтиш учун шартларга рози бўлинг."
+        else:
+            del self.fields["agree"]
         self.fields["email"].error_messages["invalid"] = "Email нотўғри ёзилган."
 
     def clean_email(self):
@@ -127,5 +135,9 @@ class RegisterForm(forms.Form):
 
     def save(self) -> User:
         d = self.cleaned_data
+        from django.utils import timezone
+        agreed = self.terms["mode"] != "off"  # белгилади ёки «рўйхатдан ўтиш билан рози бўласиз» огоҳлантиришини кўрди
         return User.objects.create_user(d["email"], d["password1"], first_name=d["first_name"].strip(),
-                                        last_name=d["last_name"].strip())
+                                        last_name=d["last_name"].strip(),
+                                        terms_accepted_at=timezone.now() if agreed else None,
+                                        terms_version=self.terms["version"] if agreed else None)

@@ -1,0 +1,98 @@
+{% load narx %}{# эълонлар ойнаси: ўқилмаган (кирганда бир марта) ёки қўнғироқчадан танлангани. Ёпилганда — «ўқилди» #}
+{% if news %}
+{% include "news/_styles.html" %}
+<style>
+  .nw-bell { position: relative; flex-shrink: 0; }
+  .nw-bell-btn { position: relative; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; border: 1px solid rgb(var(--ink-200)); background: #fff; color: rgb(var(--ink-600)); transition: background .15s, color .15s; }
+  .nw-bell-btn:hover, .nw-bell-btn[aria-expanded="true"] { background: rgb(var(--ink-50)); color: rgb(var(--ink-900)); border-color: rgb(var(--ink-300)); }
+  .nw-badge { position: absolute; right: -6px; top: -6px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 999px; border: 2px solid #fff; background: rgb(var(--bad-600)); color: #fff; font-size: 10.5px; font-weight: 800; line-height: 15px; text-align: center; }
+  .nw-bell.is-new .nw-bell-btn svg { animation: nw-ring 1.4s ease-in-out 2; transform-origin: 50% 10%; }
+  @keyframes nw-ring { 0%, 60%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(14deg); } 20%, 40% { transform: rotate(-12deg); } }
+  .nw-pop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 70; width: min(360px, calc(100vw - 24px)); overflow: hidden; border: 1px solid rgb(var(--ink-200)); border-radius: 16px; background: #fff; box-shadow: 0 18px 50px rgb(15 23 42 / .18); }
+  .nw-pop-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; border-bottom: 1px solid rgb(var(--ink-100)); font-size: 14px; color: rgb(var(--ink-900)); }
+  .nw-pop-n { border-radius: 999px; background: rgb(var(--bad-50)); padding: 1px 8px; font-size: 12px; font-weight: 700; color: rgb(var(--bad-700)); }
+  .nw-list { max-height: 60vh; overflow-y: auto; }
+  .nw-list li + li { border-top: 1px solid rgb(var(--ink-100)); }
+  .nw-item { display: flex; width: 100%; align-items: flex-start; gap: 10px; padding: 11px 14px; text-align: left; transition: background .12s; }
+  .nw-item:hover { background: rgb(var(--ink-50)); }
+  .nw-item.is-new { background: rgb(var(--brand-50) / .6); }
+  .nw-item.is-new .nw-item-t { font-weight: 700; color: rgb(var(--ink-900)); }
+  .nw-item.is-new .nw-item-t::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 999px; background: rgb(var(--brand-600)); vertical-align: middle; }
+  .nw-item-t { display: block; font-size: 13.5px; font-weight: 500; line-height: 1.35; color: rgb(var(--ink-700)); overflow-wrap: anywhere; }
+  .nw-item-s { display: block; margin-top: 2px; font-size: 11.5px; color: rgb(var(--ink-400)); }
+  .nw-dot { display: grid; place-items: center; width: 30px; height: 30px; flex-shrink: 0; border-radius: 9px; }
+  .nw-dot-news { background: rgb(var(--brand-50)); color: rgb(var(--brand-600)); }
+  .nw-dot-serious { background: rgb(var(--ink-900)); color: rgb(var(--warn-300)); }
+  .nw-dot-celebrate { background: linear-gradient(135deg, rgb(237 233 254), rgb(252 231 243)); color: rgb(219 39 119); }
+  .nw-empty { display: grid; justify-items: center; gap: 6px; padding: 28px 14px; font-size: 13px; color: rgb(var(--ink-400)); }
+</style>
+<dialog class="nw-dlg" id="nw-dlg" aria-label="Эълон">
+  <button type="button" class="nw-x" data-nw-close aria-label="Ёпиш">{% icon "x" "h-4 w-4" "2.5" %}</button>
+  <div data-nw-slot></div>
+</dialog>
+{% for a in news.items %}<template id="nw-tpl-{{ a.pk }}" data-style="{{ a.style }}">{% include "news/_card.html" %}</template>{% endfor %}
+<script>
+(function () {
+  var dlg = document.getElementById("nw-dlg"); if (!dlg || !dlg.showModal) return;
+  var slot = dlg.querySelector("[data-nw-slot]"), bell = document.querySelector("[data-nw-bell]");
+  var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
+  var current = null;
+  function markRead(ids) {
+    if (!ids.length) return;
+    var fd = new FormData(); ids.forEach(function (i) { fd.append("ids", i); });
+    fetch("{% url 'news:read' %}", {method: "POST", body: fd, headers: {"X-CSRFToken": csrf}, credentials: "same-origin"}).catch(function () {});
+    ids.forEach(function (i) {
+      var it = document.querySelector('[data-nw-open="' + i + '"]'); if (it) it.classList.remove("is-new");
+    });
+    var left = document.querySelectorAll(".nw-item.is-new").length, badge = document.querySelector("[data-nw-badge]"), n = document.querySelector("[data-nw-pop-n]");
+    if (badge) { badge.textContent = left; badge.hidden = !left; }
+    if (n) { n.textContent = left + " та янги"; n.hidden = !left; }
+    if (bell && !left) bell.classList.remove("is-new");
+  }
+  function confetti() {
+    var box = document.createElement("div"), colors = ["#7c3aed", "#db2777", "#f59e0b", "#10b981", "#3b82f6", "#fde047"];
+    box.className = "nw-confetti";
+    for (var i = 0; i < 90; i++) {
+      var c = document.createElement("i");
+      c.style.left = Math.random() * 100 + "vw";
+      c.style.background = colors[i % colors.length];
+      c.style.setProperty("--dx", (Math.random() * 30 - 15) + "vw");
+      c.style.setProperty("--r", (Math.random() * 900 - 450) + "deg");
+      c.style.animationDuration = (2.2 + Math.random() * 2) + "s";
+      c.style.animationDelay = Math.random() * .6 + "s";
+      if (i % 3 === 0) { c.style.width = "7px"; c.style.height = "7px"; c.style.borderRadius = "999px"; }
+      box.appendChild(c);
+    }
+    document.body.appendChild(box);
+    setTimeout(function () { box.remove(); }, 5200);
+  }
+  function open(id) {
+    var tpl = document.getElementById("nw-tpl-" + id); if (!tpl) return;
+    slot.innerHTML = ""; slot.appendChild(tpl.content.cloneNode(true));
+    current = String(id);
+    if (!dlg.open) dlg.showModal();
+    if (tpl.dataset.style === "celebrate") confetti();
+  }
+  dlg.addEventListener("click", function (e) {
+    if (e.target === dlg || e.target.closest("[data-nw-close]")) dlg.close();
+  });
+  dlg.addEventListener("close", function () { if (current) markRead([current]); current = null; });
+  window.narxNews = {open: open};
+  // қўнғироқча
+  if (bell) {
+    var btn = bell.querySelector("[data-nw-bell-btn]"), pop = bell.querySelector("[data-nw-pop]");
+    if (document.querySelector(".nw-item.is-new")) bell.classList.add("is-new");
+    function toggle(show) { pop.hidden = !show; btn.setAttribute("aria-expanded", show ? "true" : "false"); }
+    btn.addEventListener("click", function (e) { e.stopPropagation(); toggle(pop.hidden); });
+    document.addEventListener("click", function (e) { if (!bell.contains(e.target)) toggle(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") toggle(false); });
+    pop.addEventListener("click", function (e) {
+      var it = e.target.closest("[data-nw-open]"); if (!it) return;
+      toggle(false); open(it.dataset.nwOpen);
+    });
+  }
+  // кирганда — ўқилмаган эълон бир марта ойнада
+  {% if news.modal %}setTimeout(function () { if (!document.querySelector("dialog[open]")) open({{ news.modal.pk }}); }, 600);{% endif %}
+})();
+</script>
+{% endif %}

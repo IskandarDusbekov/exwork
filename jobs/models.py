@@ -163,6 +163,7 @@ class Job(models.Model):
     error = models.TextField(blank=True)
     duration = models.FloatField(null=True, blank=True)  # oxirgi narxlash necha soniya davom etdi
     rows = models.PositiveIntegerField(null=True, blank=True)  # nechta qator ko'rib chiqildi (100/1000 qator tezligi)
+    rows_done = models.PositiveIntegerField(null=True, blank=True)  # шулардан ишлов берилгани (ресурс қатори, ҳолати бор)
     # ``result``дан қисқа жамлама (рўйхат ва дашборд учун): катта JSON ҳар сафар ўқилмасин — save() ўзи тўлдиради
     sum_total = models.FloatField(null=True, blank=True)  # result.totals.s_nds
     sum_not_priced = models.PositiveIntegerField(default=0)  # result.stats.NOT_PRICED
@@ -182,10 +183,10 @@ class Job(models.Model):
         # рўйхат учун тўлиқ (covering) индекс: SQLite жадвал қаторига тегмайди — катта ``result`` орқали
         # охирги устунларга (sum_*) етиб бориш учун уни бутун ўқиб чиқмайди (views.light_jobs)
         indexes = [models.Index(fields=["batch", "id", "created", "status", "owner", "batch_order", "local_name",
-                                        "local_sheet", "sum_total", "sum_not_priced", "sum_checks"],
-                                name="job_list_cover")]
+                                        "local_sheet", "sum_total", "sum_not_priced", "sum_checks", "rows", "rows_done"],
+                                name="job_list_cover2")]
 
-    SUMMARY_FIELDS = ["sum_total", "sum_not_priced", "sum_checks"]
+    SUMMARY_FIELDS = ["sum_total", "sum_not_priced", "sum_checks", "rows_done"]
 
     @property
     def recalc_pending(self) -> bool:
@@ -197,14 +198,21 @@ class Job(models.Model):
         self.sum_total = float(total) if isinstance(total, (int, float)) else None
         self.sum_not_priced = int((res.get("stats") or {}).get("NOT_PRICED") or 0)
         self.sum_checks = bool(res.get("checks"))
+        if res.get("rows") is not None:
+            from .usage import processed_rows
+            self.rows_done = processed_rows(res)
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
-        if "result" not in self.get_deferred_fields() and (update_fields is None or "result" in update_fields):
+        result_saved = "result" not in self.get_deferred_fields() and (update_fields is None or "result" in update_fields)
+        if result_saved:
             self.fill_summary()
             if update_fields is not None:
                 kwargs["update_fields"] = [*update_fields, *self.SUMMARY_FIELDS]
         super().save(*args, **kwargs)
+        if result_saved and self.status == self.Status.DONE and self.rows:
+            from .usage import record
+            record(self)  # қатор ҳисоби (тўлов учун) — смета ўчирилса ҳам қолади
 
     def __str__(self):
         return f"{self.local_name} ({self.get_status_display()})"
@@ -406,3 +414,28 @@ class TenderFactor(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class RowUsage(models.Model):
+    """Қатор ҳисоби — келажакда тўлов шунга қараб: ҳар нархланган смета (Job) — битта ёзув.
+    Смета ўчирилса ҳам ёзув қолади (``job_id`` — FK эмас). Қайта нархланса ёки қайта ҳисобланса сонлари
+    янгиланади, лекин сана — биринчи нархланган пайт — ўзгармайди: бир сметани қайта-қайта ҳисоблаш
+    иккинчи марта санаб кетилмайди. ``rows_total`` — сметадаги жами қатор, ``rows_done`` — ишлов берилгани."""
+
+    job_id = models.UUIDField(unique=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="row_usage")
+    created = models.DateTimeField(db_index=True)  # биринчи марта нархланган пайт
+    updated = models.DateTimeField(auto_now=True)
+    kind = models.CharField(max_length=10, default="smeta")  # smeta | object | folder
+    work_id = models.UUIDField(null=True, blank=True)  # смета / объект / папка
+    title = models.CharField(max_length=255, blank=True)
+    rows_total = models.PositiveIntegerField(default=0)
+    rows_done = models.PositiveIntegerField(default=0)
+    runs = models.PositiveIntegerField(default=1)  # неча марта нархланди / қайта ҳисобланди (маълумот учун)
+
+    class Meta:
+        ordering = ["-created"]
+        indexes = [models.Index(fields=["owner", "created"])]
+
+    def __str__(self):
+        return f"{self.title} · {self.rows_done}/{self.rows_total}"

@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "narxbaza",
     "texnazor",
     "support",
+    "news",
 ]
 
 MIDDLEWARE = [
@@ -67,6 +68,7 @@ TEMPLATES = [
             "django.contrib.messages.context_processors.messages",
             "accounts.context.signup",
             "support.context.support",
+            "news.context.news",
             "jobs.context.ui",
         ]},
     },

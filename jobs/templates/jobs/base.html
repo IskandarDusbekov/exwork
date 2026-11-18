@@ -17,17 +17,20 @@
     {% include "jobs/_cursor_css.html" %}
     /* чап меню (jobs/_side.html) */
     .side-link { position: relative; display: flex; align-items: center; gap: .75rem; border-radius: .625rem; padding: .55rem .7rem; font-weight: 500; white-space: nowrap; }
-    .side-nav .side-link { color: rgb(var(--ink-600)); }
+    .app-side { background: linear-gradient(180deg, #fff, rgb(var(--ink-50)) 85%); box-shadow: 1px 0 0 rgb(var(--ink-200)), 6px 0 24px -18px rgb(15 23 42 / .25); }
+    .side-nav .side-link { color: rgb(var(--ink-700)); }
     .side-nav .side-link:hover { background: rgb(var(--ink-100)); color: rgb(var(--ink-900)); }
     .side-nav .side-link svg { color: rgb(var(--ink-400)); }
     .side-nav .side-link:hover svg { color: rgb(var(--ink-600)); }
-    .side-nav .side-link.is-on { background: rgb(var(--ok-50)); color: rgb(var(--ok-800)); font-weight: 600; }
+    .side-nav .side-link.is-on { background: #fff; color: rgb(var(--ok-800)); font-weight: 650; box-shadow: 0 0 0 1px rgb(var(--ok-200)), 0 2px 8px -2px rgb(var(--ok-600) / .25); }
     .side-nav .side-link.is-on svg { color: rgb(var(--ok-600)); }
     .side-nav .side-link.is-on::before { content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: rgb(var(--ok-500)); }
     .side-badge { margin-left: auto; min-width: 1.25rem; border-radius: 999px; background: rgb(var(--bad-600)); padding: 0 .4rem; text-align: center; font-size: 12px; font-weight: 700; line-height: 1.25rem; color: #fff; }
     html[data-side=rail] .app-side .side-badge { position: absolute; top: 2px; right: 6px; min-width: 1rem; font-size: 10px; line-height: 1rem; }
-    .side-cap { padding: .9rem .7rem .35rem; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgb(var(--ink-400)); }
-    .side-user { display: flex; align-items: center; gap: .6rem; padding: .4rem .45rem; border-radius: .625rem; }
+    .side-cap { display: flex; align-items: center; gap: .5rem; padding: 1rem .7rem .4rem; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgb(var(--ink-500)); }
+    .side-cap::after { content: ""; flex: 1; height: 1px; background: rgb(var(--ink-200)); }
+    .side-user { display: flex; align-items: center; gap: .6rem; padding: .5rem .55rem; border-radius: .75rem; border: 1px solid rgb(var(--ink-200)); background: #fff; }
+    html[data-side=rail] .app-side .side-user { border: 0; background: none; }
     .side-ava { flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 999px; background: rgb(var(--ink-900)); color: #fff; font-size: 12px; font-weight: 700; }
     .side-out { margin-left: auto; flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: .5rem; color: rgb(var(--ink-400)); }
     .side-out:hover { background: rgb(var(--ink-100)); color: rgb(var(--bad-700)); }
@@ -79,6 +82,7 @@
       <a href="{% url 'help' %}" id="guide-btn" data-guide="help-btn" class="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-sm font-medium text-violet-700 hover:bg-violet-100" title="Йўриқнома: иш тартиби ва огоҳлантиришлар">
         {% icon "help" "h-4 w-4" %}<span class="hidden sm:inline">Йўриқнома</span></a>
       {% page_videos %}
+      {% include "news/_bell.html" %}
       {% else %}
       <div class="ml-auto flex items-center gap-2 text-sm">
         <a href="{% url 'landing' %}" class="hidden rounded-lg px-3 py-1.5 font-medium text-slate-500 hover:text-slate-900 sm:block">Тизим ҳақида</a>
@@ -160,6 +164,7 @@
   {% include "jobs/_guide.html" %}
   {% include "jobs/_dialog.html" %}
   {% if not request.viewing_owner %}{% include "support/_widget.html" %}{% endif %}
+  {% include "news/_modal.html" %}
   {% endif %}
 </body>
 </html>

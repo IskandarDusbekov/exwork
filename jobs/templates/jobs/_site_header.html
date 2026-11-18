@@ -6,9 +6,10 @@
       <a href="{% url 'landing' %}#features">Имкониятлар</a>
       <a href="{% url 'landing' %}#who">Кимлар учун</a>
       <a href="{% url 'landing' %}#how">Иш тартиби</a>
-      <a href="{% url 'landing' %}#security">Хавфсизлик</a>
-      <a href="{% url 'blog' %}"{% if request.resolver_match.url_name == "blog" or request.resolver_match.url_name == "blog_video" or request.resolver_match.url_name == "blog_post" %} aria-current="page"{% endif %}>Қўлланма</a>
+      <a href="{% url 'guide' %}"{% if request.resolver_match.url_name == "guide" or request.resolver_match.url_name == "blog_video" %} aria-current="page"{% endif %}>Видео қўлланма</a>
+      <a href="{% url 'blog' %}"{% if request.resolver_match.url_name == "blog" or request.resolver_match.url_name == "blog_post" or request.resolver_match.url_name == "blog_category" %} aria-current="page"{% endif %}>Блог</a>
       <a href="{% url 'landing' %}#faq">Саволлар</a>
+      <a href="{% url 'about_us' %}"{% if request.resolver_match.url_name == "about_us" %} aria-current="page"{% endif %}>Биз ҳақимизда</a>
     </nav>
     <div class="site-act">
       {% if user.is_authenticated %}
@@ -26,7 +27,8 @@
           <a href="{% url 'landing' %}#who">Кимлар учун</a>
           <a href="{% url 'landing' %}#how">Иш тартиби</a>
           <a href="{% url 'landing' %}#security">Хавфсизлик</a>
-          <a href="{% url 'blog' %}">Қўлланма ва блог</a>
+          <a href="{% url 'guide' %}">Видео қўлланма</a>
+          <a href="{% url 'blog' %}">Блог</a>
           <a href="{% url 'landing' %}#faq">Саволлар</a>
           {% if not user.is_authenticated and signup_open %}<a href="{% url 'register' %}"><b>Ҳисоб очиш</b></a>{% endif %}
         </nav>

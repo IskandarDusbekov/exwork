@@ -16,7 +16,7 @@
   <div class="grid content-start gap-3">
     <input name="title" value="{{ post.title }}" maxlength="160" required placeholder="Мақола сарлавҳаси" {% if not can_act %}disabled{% endif %}
            class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-xl font-semibold text-slate-900 placeholder:text-slate-300">
-    {% include "panel/_blog_editor.html" with name="body" value=post.body rows=22 ph="Мақола матни. Бўш қатор — янги хатбоши, «## » — бўлим сарлавҳаси, «- » — рўйхат банди." %}
+    {% include "panel/_rich_editor.html" with name="body" value=body_html minh=560 draft=post.pk|default:"new" %}
   </div>
 
   <aside class="grid content-start gap-3">
@@ -32,9 +32,18 @@
         <textarea name="summary" rows="4" maxlength="300" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-900">{{ post.summary }}</textarea></label>
       <label class="grid gap-1 text-xs text-slate-500">Манзил <span class="text-[11px] text-slate-400">бўш — сарлавҳадан ўзи</span>
         <input name="slug" value="{{ post.slug }}" maxlength="90" pattern="[a-z0-9\-]*" placeholder="smeta-qanday-narxlanadi" {% if not can_act %}disabled{% endif %} class="rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs text-slate-900"></label>
+      <div class="grid gap-1 text-xs text-slate-500">Муқова расми <span class="text-[11px] text-slate-400">рўйхатда кўринади; бўш — матндаги биринчи расм</span>
+        <div class="flex items-center gap-2" data-cover>
+          <span class="grid h-16 w-24 shrink-0 place-items-center overflow-hidden rounded-md border border-slate-200 bg-slate-50 text-[10px] text-slate-400" data-cover-img>{% if post.cover %}<img src="{{ post.cover }}" alt="" class="h-full w-full object-cover">{% else %}йўқ{% endif %}</span>
+          <input type="hidden" name="cover" value="{{ post.cover }}">
+          {% if can_act %}<div class="grid gap-1"><button type="button" data-cover-pick class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50">Расм танлаш</button>
+          <button type="button" data-cover-clear class="text-left text-[11px] text-rose-600 hover:underline">олиб ташлаш</button></div>
+          <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" data-cover-file>{% endif %}
+        </div>
+      </div>
       {% if can_act %}<button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">Сақлаш</button>{% endif %}
     </div>
-    {% if post.pk %}<p class="px-1 text-xs text-slate-500">Ёзилган: <span class="num">{{ post.created|date:"d.m.Y H:i" }}</span>{% if post.author %} · {{ post.author.get_full_name }}{% endif %}<br>Янгиланди: <span class="num">{{ post.updated|date:"d.m.Y H:i" }}</span></p>{% endif %}
+    {% if post.pk %}<p class="px-1 text-xs text-slate-500"><b class="num text-slate-700">{{ views }}</b> марта кўрилди (бир одам 6 соатда бир марта; админлар ҳисобланмайди)<br>Ёзилган: <span class="num">{{ post.created|date:"d.m.Y H:i" }}</span>{% if post.author %} · {{ post.author.get_full_name }}{% endif %}<br>Янгиланди: <span class="num">{{ post.updated|date:"d.m.Y H:i" }}</span></p>{% endif %}
     {% if post.pk and can_act %}
     <button form="post-del" class="justify-self-start px-1 text-xs text-rose-600 hover:underline">Мақолани ўчириш</button>
     {% endif %}
@@ -43,4 +52,24 @@
 {% if post.pk and can_act %}
 <form id="post-del" method="post" action="{% url 'panel:blog_post_delete' post.pk %}" onsubmit="return confirm('Мақола ўчирилсинми? Қайтариб бўлмайди.')">{% csrf_token %}</form>
 {% endif %}
+<script>
+  (function () {
+    var c = document.querySelector("[data-cover]"); if (!c) return;
+    var inp = c.querySelector("[name=cover]"), img = c.querySelector("[data-cover-img]"), f = c.querySelector("[data-cover-file]");
+    if (!f) return;
+    c.querySelector("[data-cover-pick]").onclick = function () { f.click(); };
+    c.querySelector("[data-cover-clear]").onclick = function () { inp.value = ""; img.textContent = "йўқ"; };
+    f.onchange = function () {
+      if (!f.files[0]) return;
+      var fd = new FormData(); fd.append("file", f.files[0]);
+      fd.append("csrfmiddlewaretoken", document.querySelector("[name=csrfmiddlewaretoken]").value);
+      img.textContent = "…";
+      fetch("{% url 'panel:blog_upload' %}", { method: "POST", body: fd, credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (j) {
+        if (!j.url) { img.textContent = "йўқ"; alert("Расм юкланмади: " + (j.error || "хато")); return; }
+        inp.value = j.url; img.innerHTML = ""; var i = document.createElement("img"); i.src = j.url; i.className = "h-full w-full object-cover"; img.appendChild(i);
+      });
+      f.value = "";
+    };
+  })();
+</script>
 {% endblock %}

@@ -1,16 +1,21 @@
-{% load narx %}{# папка саҳифасидаги қисм картасининг боши: n — тугун, p — қисм, b — Batch, st — ҳолат. Танловдан кейин шу қайта чизилади #}
-<span class="pp-ic">{% icon "folder" "h-6 w-6" "1.75" %}</span>
+{% load narx %}{# папка саҳифасидаги қисм картасининг боши (n — тугун, p — қисм, b — Batch, st — ҳолат); бир нечта смета бўлса — «тахланган» карта: белгида сони, остида сметалар номи #}
+{% with many=p.many %}
+<span class="pp-ic{% if many > 1 %} is-multi{% endif %}">{% if many > 1 %}{% icon "layers" "h-4 w-4" "1.9" %}<i class="num">{{ many }}</i>{% else %}{% icon "file" "h-4 w-4" "1.9" %}{% endif %}</span>
 <div class="pp-tt">
   <b>{{ n.name|default:project.name }}</b>
-  {% if n.path and n.path != n.name %}<small>{{ n.path }}</small>{% endif %}
+  <div class="pp-meta">
+    {% if n.path and n.path != n.name %}<span class="pp-path">{{ n.path }}</span>{% endif %}
+    {% if p.jobs %}<span class="num">{{ p.jobs|length }} смета</span>{% if p.rows %}<span class="num" title="Ишлов берилган / жами қатор">{{ p.rows_done|som }} / {{ p.rows|som }} қатор</span>{% endif %}{% endif %}
+  </div>
   <div class="pp-sum">
-    {% if p.pairs|length > 3 %}<span class="pp-pair"><i class="t-loc">Л</i> {{ p.pairs|length }} та смета нархланди</span>
+    {% if p.pairs|length > 1 %}
+      {% for x in p.pairs|slice:":3" %}<span class="pp-pair">{{ x.title }}</span>{% endfor %}{% if p.pairs|length > 3 %}<span class="pp-more">+{{ p.pairs|length|add:"-3" }} та</span>{% endif %}
     {% elif p.pairs %}{% for x in p.pairs %}<span class="pp-pair"><i class="t-loc">Л</i> {{ x.title }} <i class="pp-arr">→</i> <i class="t-res">Р</i> {{ x.job.res_sheet|default:"база" }}</span>{% endfor %}
     {% elif p.planned|length > 3 %}
       <span class="pp-pair"><i class="t-loc">Л</i> {{ p.planned|length }} локал <i class="pp-arr">→</i> <i class="t-res">Р</i> {{ p.n_res }} ресурс</span>
       {% if p.n_miss %}<span class="pp-pair is-miss">{{ p.n_miss }} тасида ресурс танланмаган</span>{% endif %}
     {% elif p.planned %}{% for x in p.planned %}<span class="pp-pair{% if not x.rk and not x.base %} is-miss{% endif %}"><i class="t-loc">Л</i> {{ x.title }} <i class="pp-arr">→</i> {% if x.rk %}<i class="t-res">Р</i> {{ x.res_sheet }}{% if not x.same_file %} · {{ x.res|file_title }}{% endif %} <i class="pp-ov">{% widthratio x.overlap 1 100 %}%</i>{% elif x.base %}база{% else %}<b>ресурс танланмаган</b>{% endif %}</span>{% endfor %}
-    {% else %}{% for f in b.files|slice:":4" %}<span class="pp-file">{{ f.name }}</span>{% endfor %}{% if b.files|length > 4 %}<span class="pp-file">+{{ b.files|length|add:"-4" }}</span>{% endif %}{% endif %}
+    {% else %}{% for f in b.files|slice:":4" %}<span class="pp-file">{{ f.name }}</span>{% endfor %}{% if b.files|length > 4 %}<span class="pp-more">+{{ b.files|length|add:"-4" }}</span>{% endif %}{% endif %}
   </div>
 </div>
 <div class="pp-side">
@@ -22,12 +27,13 @@
   {% if p.jobs %}<b class="pp-total num" title="Всего с НДС">{{ p.total|som }}</b>{% endif %}
   <div class="pp-acts">
     {% if not p.jobs and p.state != "queued" and p.state != "converting" and p.state != "pricing" %}
-    <button type="button" class="pp-open{% if p.state == 'review' or p.state == 'failed' or p.left %} is-need{% endif %}">{% icon "chevron-down" "h-5 w-5" "2.5" %}<span>Очиш</span></button>
+    <button type="button" class="pp-open{% if p.state == 'review' or p.state == 'failed' or p.left %} is-need{% endif %}">{% icon "chevron-down" "h-4 w-4" "2.5" %}<span>Очиш</span></button>
     {% elif p.jobs|length == 1 %}<a href="{% url 'job' p.jobs.0.id %}" class="pp-btn is-main">{% icon "external" "h-4 w-4" %} Сметани очиш</a>
-    {% elif p.jobs %}<a href="{% url 'batch' b.id %}" class="pp-btn is-main">{% icon "external" "h-4 w-4" %} Очиш</a>{% endif %}
+    {% elif p.jobs %}<a href="{% url 'batch' b.id %}" class="pp-btn is-main" title="Шу қисмдаги {{ p.jobs|length }} та смета">{% icon "layers" "h-4 w-4" %} {{ p.jobs|length }} сметани очиш</a>{% endif %}
     {% if p.jobs|length == 1 %}<a href="{% url 'job_download' p.jobs.0.id %}" class="pp-btn" title="Шу сметани юклаб олиш">{% icon "download" "h-4 w-4" %}</a>
     {% if b.owner_id == user.pk %}<button type="button" class="pp-btn" data-fop="reprice" data-url="{% url 'job_reprice' p.jobs.0.id %}" data-name="{{ p.jobs.0.batch_label|default:p.jobs.0.local_name }}"
             title="Қўлда ўзгаришларни бекор қилиб, сметани бошидан нархлаш (фоизлар сақланади)">{% icon "undo" "h-4 w-4" %}</button>{% endif %}
     {% elif p.jobs %}<a href="{% url 'batch_download' b.id %}" class="pp-btn" title="Шу қисмдаги {{ p.jobs|length }} та сметани юклаб олиш">{% icon "download" "h-4 w-4" %}</a>{% endif %}
   </div>
 </div>
+{% endwith %}

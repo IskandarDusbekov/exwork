@@ -363,10 +363,11 @@
         var steps = ["Файллар қабул қилинди", "Смета файллари ўқилмоқда", "Нархлаш навбати", "Нархлар ҳисобланмоқда", "Натижа тайёрланмоқда"];
         np = np || narxProgress.start({title: "Папкага ишлов берилмоқда", steps: steps});
         var done = total - opening - pricing;
-        if (pricing) np.step(3, done + " / " + total + " қисм тайёр");
-        else if (opening) np.step(1, (total - opening) + " / " + total + " қисм ўқилди ва жуфтланди");
+        var live = st.dataset.live ? " — " + st.dataset.live : "";  // жорий қисм ичида: файл 9/19, қатор сони
+        if (pricing) np.step(3, done + " / " + total + " қисм тайёр" + live);
+        else if (opening) np.step(1, (total - opening) + " / " + total + " қисм ўқилди ва жуфтланди" + live);
         else np.step(4);
-        np.percent(total ? Math.round(100 * finished / total) : null);
+        np.percent(st.dataset.progress !== undefined ? +st.dataset.progress : (total ? Math.round(100 * finished / total) : null));
       } else if (np) {
         np.done(st.dataset.result ? "Тайёр: " + st.dataset.result : "Папка тайёр");
         np = null;
@@ -400,6 +401,18 @@
       if (!document.hidden && document.title.indexOf("✓ ") === 0) setTimeout(function () { document.title = baseTitle; }, 4000);
     });
     trackState();
+
+    // жорий қадам неча сониядан бери кетяпти — сониялаб юради: катта файлда ҳам «қотиб қолди» деб ўйламасин
+    function fmtSec(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
+    setInterval(function () {
+      var now = Date.now() / 1000;
+      document.querySelectorAll(".pl-live[data-since]").forEach(function (el) {
+        if (!el.dataset.since) return;
+        if (el._off === undefined) el._off = now - (+el.dataset.now || now);  // сервер ва браузер соати фарқи
+        var out = el.querySelector("[data-elapsed]");
+        if (out) out.textContent = fmtSec(now - el._off - +el.dataset.since);
+      });
+    }, 1000);
 
     // фонда ишланаётган бўлса — ҳар 2.5 сонияда янгилаймиз (скролл жойида қолади)
     function poll() {
@@ -523,6 +536,48 @@
   .pp-btn.is-main:hover { background: rgb(var(--ok-700)); }
   .pp-body { padding: 0 14px 14px; border-top: 1px dashed rgb(var(--ink-200)); padding-top: 14px; }
   .pp-loading { padding: 18px; text-align: center; color: rgb(var(--ink-500)); } .pp-loading.is-err { color: rgb(var(--bad-700)); }
+  /* ---- қисм карталари: ихчам ва сокин (ранг фақат ҳолат нуқтасида); кўп сметали — «тахланган» карта ---- */
+  .pp-list { gap: 8px; }
+  .pp-part { border: 1px solid rgb(var(--ink-300)); border-radius: 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, .06); }
+  .pp-part:hover { border-color: rgb(var(--ink-400)); box-shadow: 0 4px 14px rgba(15, 23, 42, .08); }
+  .pp-part.is-review, .pp-part.is-failed { border-color: rgb(var(--ink-300)); box-shadow: inset 3px 0 0 rgb(var(--warn-400)); }
+  .pp-part.is-warn { box-shadow: inset 3px 0 0 rgb(var(--bad-400)); }
+  .pp-part.is-open { border-color: rgb(var(--ink-400)); box-shadow: 0 6px 20px rgba(15, 23, 42, .08); }
+  .pp-part.is-multi { margin-bottom: 6px; box-shadow: 0 3px 0 -1px #fff, 0 3px 0 0 rgb(var(--ink-300)), 0 6px 0 -2px #fff, 0 6px 0 -1px rgb(var(--ink-300)); }
+  .pp-part.is-multi.is-review, .pp-part.is-multi.is-failed { box-shadow: inset 3px 0 0 rgb(var(--warn-400)), 0 3px 0 -1px #fff, 0 3px 0 0 rgb(var(--ink-300)), 0 6px 0 -2px #fff, 0 6px 0 -1px rgb(var(--ink-300)); }
+  .pp-part.is-multi.is-warn { box-shadow: inset 3px 0 0 rgb(var(--bad-400)), 0 3px 0 -1px #fff, 0 3px 0 0 rgb(var(--ink-300)), 0 6px 0 -2px #fff, 0 6px 0 -1px rgb(var(--ink-300)); }
+  .pp-head { gap: 12px; padding: 9px 12px; }
+  .pp-ic { position: relative; width: 34px; height: 34px; border-radius: 10px; background: rgb(var(--ink-100)); color: rgb(var(--ink-500)); }
+  .pp-ic.is-multi { background: rgb(var(--ink-800)); color: #fff; }
+  .pp-ic i { position: absolute; right: -6px; top: -6px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; border: 2px solid #fff;
+    background: rgb(var(--brand-600)); color: #fff; font-size: 10px; font-style: normal; font-weight: 800; line-height: 14px; text-align: center; }
+  .pp-tt b { font-size: 14.5px; font-weight: 650; }
+  .pp-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: rgb(var(--ink-500)); }
+  .pp-meta > span + span::before { content: "·"; margin-right: 10px; color: rgb(var(--ink-300)); }
+  .pp-meta .pp-path { overflow-wrap: anywhere; color: rgb(var(--ink-400)); }
+  .pp-sum { margin-top: 3px; gap: 4px; }
+  .pp-pair, .pp-file { padding: 1px 8px; border-radius: 6px; background: rgb(var(--ink-50)); border: 1px solid rgb(var(--ink-100)); font-size: 12px; color: rgb(var(--ink-600)); }
+  .pp-pair.is-miss { border-color: rgb(var(--bad-100)); }
+  .pp-more { align-self: center; font-size: 12px; color: rgb(var(--ink-400)); }
+  .pp-pair .t-loc, .pp-pair .t-res { width: auto; height: auto; background: none !important; font-size: 11px; }
+  .pp-pair .t-loc { color: rgb(var(--ok-700)); } .pp-pair .t-res { color: rgb(var(--brand-700)); }
+  .pp-pair .pp-ov { color: rgb(var(--ink-500)); font-weight: 600; }
+  .pp-side { gap: 5px; }
+  /* ҳолат — тўлдирилган ёрлиқ эмас, рангли нуқта ва матн */
+  .pp-chip { display: inline-flex; align-items: center; gap: 6px; padding: 0; background: none !important; font-size: 12px; font-weight: 600; }
+  .pp-chip::before { content: ""; width: 7px; height: 7px; border-radius: 999px; background: currentColor; }
+  .pp-chip.tone-slate { color: rgb(var(--ink-500)); } .pp-chip.tone-sky { color: rgb(var(--brand-600)); } .pp-chip.tone-violet, .pp-chip.tone-emerald { color: rgb(var(--ok-700)); }
+  .pp-chip.tone-rose { color: rgb(var(--bad-600)); } .pp-chip.tone-amber { color: rgb(var(--warn-700)); }
+  .pp-total { font-size: 14.5px; font-weight: 700; }
+  .pp-acts { gap: 4px; }
+  .pp-btn { height: 32px; padding: 0 10px; border-radius: 9px; font-size: 13px; color: rgb(var(--ink-700)); }
+  .pp-btn.is-main { background: #fff; border-color: rgb(var(--ink-300)); color: rgb(var(--ink-900)); }
+  .pp-btn.is-main:hover { background: rgb(var(--ink-900)); border-color: rgb(var(--ink-900)); color: #fff; }
+  .pp-open { height: 32px; padding: 0 12px; border-radius: 9px; background: rgb(var(--ink-900)); font-size: 13px; }
+  .pp-open:hover { background: rgb(var(--ink-700)); }
+  .pp-open.is-need { background: rgb(var(--warn-500)); box-shadow: none; animation: none; }
+  .pp-body { padding: 12px; border-top: 1px solid rgb(var(--ink-100)); background: rgb(var(--ink-50) / .5); border-radius: 0 0 14px 14px; }
+  @media (max-width: 640px) { .pp-head { grid-template-columns: auto minmax(0, 1fr); } .pp-side { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; } }
   .pp-go { position: sticky; bottom: 12px; z-index: 20; display: grid; gap: 8px; justify-items: center; padding: 14px; border-radius: 22px; background: rgba(255, 255, 255, .96);
     border: 1px solid rgb(var(--ink-200)); box-shadow: 0 -6px 30px rgba(15, 23, 42, .12); backdrop-filter: blur(6px); }
   .pp-go .pk-go:disabled { background: rgb(var(--ink-300)); color: #fff; cursor: not-allowed; }
@@ -541,6 +596,19 @@
   .pp-run-t b { font-size: 16px; color: rgb(var(--ink-900)); }
   .pp-run-t small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: rgb(var(--ink-500)); }
   .pp-run-t .pk-bar { height: 10px; }
+  /* ишланаётган қисм ичидаги жараён (_project_live.html): қора блокда ҳам, пастки панелда ҳам */
+  .pl-live { display: grid; gap: 4px; min-width: 0; margin-top: 6px; font-size: 13px; color: rgb(var(--ink-500)); }
+  .pl-top { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .pl-what { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pl-what b { font-size: inherit !important; font-weight: 600; color: rgb(var(--ink-800)) !important; }
+  .pl-sec { flex-shrink: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .pl-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px !important; opacity: .85; }
+  .pl-bar { height: 4px; overflow: hidden; border-radius: 999px; background: rgb(var(--ink-200)); }
+  .pl-bar i { display: block; height: 100%; border-radius: inherit; background: rgb(var(--brand-500)); transition: width .6s ease; }
+  .rs-hero .pl-live { color: rgb(255 255 255 / .65); }
+  .rs-hero .pl-what b { color: #fff !important; }
+  .rs-hero .pl-bar { background: rgb(255 255 255 / .15); }
+  .rs-hero .pl-bar i { background: rgb(125 211 252); }
   .pp-stop { display: inline-flex; align-items: center; gap: 8px; height: 54px; padding: 0 24px; border-radius: 14px; border: 2px solid rgb(var(--warn-500)); background: rgb(var(--warn-50));
     color: rgb(var(--warn-800)); font-size: 17px; font-weight: 800; }
   .pp-stop:hover { background: rgb(var(--warn-100)); }

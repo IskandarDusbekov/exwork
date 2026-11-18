@@ -1,134 +1,48 @@
 {% extends "jobs/_public.html" %}
 {% load narx seo %}
-{% comment %} Қўлланма: чапда мундарижа (ёпишқоқ), ўнгда — иш тартиби (guide.FLOW), видео дарслар (панелдаги видеолар,
-бўлимлари бўйича), ҳолатлар изоҳи (панелдаги ёрдам матнлари) ва мақолалар. Видео бўлса — у биринчи. {% endcomment %}
-{% block seo %}{% url 'blog' as here %}{% seo_head title="Қўлланма ва блог — mhisobot" canonical=here description=description %}{% endblock %}
+{% comment %} Блог (/blog/): фақат мақолалар — бўлим тугмалари (?c=слаг) ва карточкалар. Видео қўлланма — /qollanma/. {% endcomment %}
+{% block seo %}{% url 'blog' as here %}{% seo_head title="Блог: мақолалар — mhisobot" canonical=here description=description %}{% endblock %}
 {% block css %}{% include "jobs/_blog_css.html" %}{% endblock %}
 {% block content %}
 <header class="ghead">
   <div class="wrap ghead-in">
     <div>
-      <nav class="crumbs" aria-label="Йўл"><a href="{% url 'index' %}">Бош саҳифа</a><span aria-hidden="true">/</span><span>Қўлланма</span></nav>
-      <h1>Қўлланма</h1>
-      <p class="lead">Сметани юклашдан тайёр Excel файлни олишгача бўлган йўл: қадамлар, видео дарслар ва смета қаторларидаги ҳар бир ёзув нимани билдириши.</p>
+      <nav class="crumbs" aria-label="Йўл"><a href="{% url 'index' %}">Бош саҳифа</a><span aria-hidden="true">/</span><span>Блог</span></nav>
+      <h1>Блог</h1>
+      <p class="lead">Смета нархлаш, ресурс нархлари ва техник назорат бўйича мақолалар: тушунтириш, маслаҳат ва янгиликлар.</p>
     </div>
-    <dl class="gstat">
-      <div><dt>Қадам</dt><dd>{{ flow|length }}</dd></div>
-      {% if video_count %}<div><dt>Видео дарс</dt><dd>{{ video_count }}</dd></div>{% endif %}
-      <div><dt>Изоҳ</dt><dd>{{ term_count }}</dd></div>
-      {% if posts %}<div><dt>Мақола</dt><dd>{{ posts|length }}</dd></div>{% endif %}
-    </dl>
+    {% if video_count %}
+    <a class="gpromo" href="{% url 'guide' %}">
+      <span class="gpromo-ic">{% icon "play" "h-5 w-5" %}</span>
+      <span><b>Видео қўлланма</b><small>Тизимни {{ video_count }} та қисқа видеода ўрганинг</small></span>
+      <span class="gpromo-go" aria-hidden="true">→</span>
+    </a>
+    {% endif %}
   </div>
 </header>
 
-<div class="wrap guide">
-  <aside class="gnav" aria-label="Мундарижа">
-    <p class="gnav-k">Мундарижа</p>
-    <ol>
-      {% if sections %}<li><a href="#videos">Видео дарслар</a>
-        <ol>{% for s in sections %}<li><a href="#v-{{ s.slug }}">{{ s.label }} <b>{{ s.videos|length }}</b></a></li>{% endfor %}</ol></li>{% endif %}
-      <li><a href="#start">Иш тартиби</a></li>
-      <li><a href="#terms">Ҳолатлар ва ёзувлар</a>
-        <ol>{% for g in groups %}<li><a href="#{{ g.slug }}">{{ g.title }}</a></li>{% endfor %}</ol></li>
-      <li><a href="#articles">Мақолалар{% if posts %} <b>{{ posts|length }}</b>{% endif %}</a>
-        {% if cats|length > 1 %}<ol>{% for g in cats %}{% if g.c %}<li><a href="#c-{{ g.c.slug }}">{{ g.c.name }} <b>{{ g.posts|length }}</b></a></li>{% endif %}{% endfor %}</ol>{% endif %}</li>
-    </ol>
-  </aside>
-
-  <div class="gmain">
-    {% if sections %}
-    <section class="gsec" id="videos" aria-labelledby="h-videos">
-      <div class="gsec-h"><span class="gn">01</span><div><h2 id="h-videos">Видео дарслар</h2><p>Ҳар бир дарс тизимнинг бир қисмини ҳақиқий смета мисолида кўрсатади. Дарс ўз саҳифасида очилади.</p></div></div>
-      {% for s in sections %}
-      <div class="vsec" id="v-{{ s.slug }}">
-        <h3 class="vsec-h">{{ s.label }} <span>{{ s.videos|length }} та дарс</span></h3>
-        <div class="vgrid">
-          {% for v in s.videos %}
-          <a class="vcard" href="{% url 'blog_video' v.id %}">
-            <span class="vthumb"><img src="https://i.ytimg.com/vi/{{ v.id }}/hqdefault.jpg" alt="" loading="lazy" width="480" height="360"><span class="vplay">{% icon "play" "h-4 w-4" %}</span></span>
-            <span class="vk">Дарс {{ forloop.counter }}</span>
-            <h3>{{ v.title }}</h3>
-            {% if v.note %}<p>{{ v.note }}</p>{% endif %}
-          </a>
-          {% endfor %}
-        </div>
-      </div>
-      {% endfor %}
-    </section>
-    {% endif %}
-
-    <section class="gsec" id="start" aria-labelledby="h-start">
-      <div class="gsec-h"><span class="gn">{% if sections %}02{% else %}01{% endif %}</span><div><h2 id="h-start">Иш тартиби</h2><p>Биринчи сметангизни нархлаш учун шу қадамлар етарли. Ҳар бир қадамда тизим нимани топганини кўрсатади.</p></div></div>
-      <ol class="steps">
-        {% for n, title, text, tip in flow %}
-        <li class="step">
-          <span class="step-n">{{ n|stringformat:"02d" }}</span>
-          <div>
-            <h3>{{ title }}</h3>
-            <p>{{ text }}</p>
-            {% if tip %}<p class="tip"><b>Маслаҳат</b>{{ tip }}</p>{% endif %}
-          </div>
-        </li>
-        {% endfor %}
-      </ol>
-      {% if not sections %}<p class="soon">Ҳар бир қадам бўйича видео дарслар тайёрланмоқда — қўшилиши билан шу саҳифада бўлимлари бўйича чиқади.</p>{% endif %}
-    </section>
-
-    <section class="gsec" id="terms" aria-labelledby="h-terms">
-      <div class="gsec-h"><span class="gn">{% if sections %}03{% else %}02{% endif %}</span><div><h2 id="h-terms">Ҳолатлар ва ёзувлар</h2><p>Смета қаторларида ва иш саҳифаларида чиқадиган ҳар бир ёзув: нимани билдиради ва нима қилиш керак.</p></div></div>
-      {% for g in groups %}
-      <div class="tgroup" id="{{ g.slug }}">
-        <h3 class="vsec-h">{{ g.title }} <span>{{ g.items|length }}</span></h3>
-        <dl class="terms">
-          {% for h in g.items %}
-          <div class="term" id="h-{{ h.key }}">
-            <dt>{{ h.title }}</dt>
-            <dd>{{ h.what }}</dd>
-            {% if h.todo %}<dd class="todo"><b>Нима қилиш керак</b>{{ h.todo }}</dd>{% endif %}
-          </div>
-          {% endfor %}
-        </dl>
-      </div>
-      {% endfor %}
-    </section>
-
-    <section class="gsec" id="articles" aria-labelledby="h-articles">
-      <div class="gsec-h"><span class="gn">{% if sections %}04{% else %}03{% endif %}</span><div><h2 id="h-articles">Мақолалар</h2><p>Смета нархлаш, ресурс нархлари ва техник назорат бўйича батафсил ёзувлар.</p></div></div>
-      {% if posts %}
-      {% for g in cats %}
-      <div class="vsec"{% if g.c %} id="c-{{ g.c.slug }}"{% endif %}>
-        {% if cats|length > 1 or g.c %}<h3 class="vsec-h">{% if g.c %}<a href="{% url 'blog_category' g.c.slug %}">{{ g.c.name }}</a>{% else %}Бошқа мақолалар{% endif %} <span>{{ g.posts|length }} та</span></h3>{% endif %}
-        <div class="plist wide">
-          {% for p in g.posts %}
-          <a class="pitem" href="{% url 'blog_post' p.slug %}">
-            <time datetime="{{ p.created|date:'Y-m-d' }}">{{ p.created|date:"d.m.Y" }}</time>
-            <div><h3>{{ p.title }}</h3>{% if p.summary %}<p>{{ p.summary }}</p>{% endif %}</div>
-            <span class="go">Ўқиш →</span>
-          </a>
-          {% endfor %}
-        </div>
-      </div>
-      {% endfor %}
-      {% else %}<p class="soon">Мақолалар тез орада чиқади.</p>{% endif %}
-    </section>
-    <div class="gcta">{% include "jobs/_blog_cta.html" %}</div>
+<div class="wrap gpage">
+  {% if cats %}
+  <nav class="chips" aria-label="Бўлимлар">
+    <a href="{% url 'blog' %}"{% if not cat %} aria-current="page"{% endif %}>Ҳаммаси <b>{{ total }}</b></a>
+    {% for c in cats %}<a href="?c={{ c.slug }}"{% if cat == c.slug %} aria-current="page"{% endif %}>{{ c.name }}</a>{% endfor %}
+  </nav>
+  {% endif %}
+  {% if posts %}
+  <div class="pgrid">
+    {% for p in posts %}
+    <a class="pcard" href="{% url 'blog_post' p.slug %}">
+      <span class="pcard-img">{% if p.cover_url %}<img src="{{ p.cover_url }}" alt="" loading="lazy">{% else %}<i aria-hidden="true">{{ p.title|first|upper }}</i>{% endif %}</span>
+      <span class="pcard-b">
+        {% if p.category %}<span class="pcard-c">{{ p.category.name }}</span>{% endif %}
+        <h2>{{ p.title }}</h2>
+        {% if p.summary %}<p>{{ p.summary }}</p>{% endif %}
+        <span class="pmeta"><time datetime="{{ p.created|date:'Y-m-d' }}">{{ p.created|date:"d.m.Y" }}</time><span>{% icon "clock" "pmi" %}{{ p.minutes }} дақ.</span>{% if p.views %}<span title="Кўрилишлар">{% icon "eye" "pmi" %}{{ p.views }}</span>{% endif %}</span>
+      </span>
+    </a>
+    {% endfor %}
   </div>
+  {% else %}<p class="soon">Мақолалар тез орада чиқади.</p>{% endif %}
+  <div class="gcta">{% include "jobs/_blog_cta.html" %}</div>
 </div>
-<script>
-  /* мундарижада — ҳозир кўриниб турган бўлим белгиланади */
-  (function () {
-    if (!("IntersectionObserver" in window)) return;
-    var links = {}, nav = document.querySelector(".gnav");
-    nav.querySelectorAll("a[href^='#']").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
-    var io = new IntersectionObserver(function (es) {
-      es.forEach(function (e) {
-        if (!e.isIntersecting) return;
-        nav.querySelectorAll("a.on").forEach(function (a) { a.classList.remove("on"); });
-        var a = links[e.target.id];
-        if (a) a.classList.add("on");
-      });
-    }, { rootMargin: "-96px 0px -65% 0px" });
-    Object.keys(links).forEach(function (id) { var el = document.getElementById(id); if (el) io.observe(el); });
-  })();
-</script>
 {% endblock %}

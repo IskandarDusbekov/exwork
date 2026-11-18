@@ -1,6 +1,7 @@
 {% load narx %}
 <div id="project-state" data-working="{% if working or count_recalc %}1{% else %}0{% endif %}" data-finished="{{ finished }}" data-total="{{ nodes|length }}"
-     data-opening="{{ count_opening }}" data-pricing="{{ count_pricing }}" data-ready="{{ count_ready }}"
+     data-opening="{{ count_opening }}" data-pricing="{{ count_pricing }}" data-ready="{{ count_ready }}" data-progress="{{ progress }}"
+     data-live="{% if live %}{{ current.name|default:project.name }}: {{ live.what|lower }}{% if live.of %} {{ live.at }}/{{ live.of }} {{ live.unit }}{% endif %}{% if live.rows %}, {% if live.rows_done %}{{ live.rows_done|som }} / {% endif %}{{ live.rows|som }} қатор{% endif %}{% endif %}"
      data-result="{% if count_review or count_warn %}{{ count_review|add:count_warn }} та қисмни тўғирлаш керак{% else %}ҳаммаси тайёр{% endif %}" class="proj-grid lg:grid lg:min-h-[calc(100vh-7.5rem)]">
 
 {# ================= Explorer (VS Code каби) ================= #}
@@ -83,7 +84,7 @@
   {% if done_view %}
   <section class="rs-hero{% if unpriced_rows or count_review %} is-fix{% endif %}" data-guide="next">
     <div class="rs-total">
-      <span>Всего с НДС · {{ count_smeta }} та смета · {{ nodes|length }} қисм</span>
+      <span>Всего с НДС · {{ count_smeta }} та смета · {{ nodes|length }} қисм{% if rows_total %} · {{ rows_done|som }} / {{ rows_total|som }} қатор{% endif %}</span>
       <b class="num">{{ grand_total|som }}</b>
       <div class="rs-chips">
         <button type="button" class="rs-chip is-ok" data-go="#parts">{% icon "check" "h-4 w-4" "3" %} {{ count_done }} қисм тайёр</button>
@@ -119,7 +120,7 @@
       <span>{% if working and stopping %}Тўхтатиляпти…{% elif working %}Нархланяпти{% else %}Иш тўхтатилган{% endif %} · {{ finished }} / {{ nodes|length }} қисм</span>
       <b class="num">{{ progress }}%</b>
       <div class="ph-bar{% if not working %} is-paused{% endif %}"><i style="width: {{ progress }}%"></i></div>
-      {% if current %}<small class="ph-now" title="{{ current.part.batch.step }}">{{ current.path|default:project.name }}{% if current.part.batch.step %} · {{ current.part.batch.step }}{% endif %}</small>{% endif %}
+      {% if current %}{% include "jobs/_project_live.html" with part_name=current.name|default:project.name %}{% endif %}
       <div class="rs-chips">
         <span class="rs-chip is-ok">{% icon "check" "h-4 w-4" "3" %} {{ count_done|add:count_warn }} қисм тайёр</span>
         {% if count_warn %}<span class="rs-chip is-fix">{% icon "alert-circle" "h-4 w-4" %} {{ not_priced_total }} та қатор нархсиз</span>{% endif %}
@@ -152,7 +153,7 @@
     {% for n in nodes %}
     {% with p=n.part b=n.part.batch %}
     {% with st=states|get_item:p.state %}
-    <div class="pp-part is-{{ p.state }}" data-state="{% if p.state == 'failed' or p.left %}review{% else %}{{ p.state }}{% endif %}" data-path="{{ n.path }}" data-id="{{ b.id }}"
+    <div class="pp-part is-{{ p.state }}{% if p.many > 1 %} is-multi{% endif %}" data-state="{% if p.state == 'failed' or p.left %}review{% else %}{{ p.state }}{% endif %}" data-path="{{ n.path }}" data-id="{{ b.id }}"
          {% if not p.jobs and p.state != "queued" and p.state != "converting" and p.state != "pricing" %}data-picker="{% url 'batch' b.id %}?partial=picker&amp;embed=1"{% endif %}>
       <div class="pp-head">{% include "jobs/_project_part_head.html" %}</div>
       <div class="pp-body" hidden></div>
@@ -168,7 +169,7 @@
     <div class="pp-run-t">
       <b>{% if stopping %}Тўхтатиляпти — жорий файл тугагач тўхтайди…{% else %}Ишланяпти: {{ finished }} / {{ nodes|length }} қисм{% endif %}</b>
       <div class="pk-bar"><i style="width: {{ progress }}%"></i></div>
-      {% if current %}<small title="{{ current.part.batch.step }}">{{ current.path|default:project.name }}{% if current.part.batch.step %} · {{ current.part.batch.step }}{% endif %}</small>{% endif %}
+      {% if current %}{% include "jobs/_project_live.html" with part_name=current.name|default:project.name %}{% endif %}
     </div>
     {% if not stopping %}
     <form method="post" action="{% url 'project_stop' project.id %}">{% csrf_token %}

@@ -31,7 +31,7 @@ from .archives import is_archive
 from .guide import FLOW, GUIDE_PAGES, help_groups
 from .folders import (
     build_project_zip, build_tree, create_project, delete_project, ensure_running, is_shown, queue_part,
-    PAUSED, ready_stage, resume_project, settle, start_pricing, stop_project,
+    PAUSED, live_step, ready_stage, resume_project, settle, start_pricing, stop_project,
 )
 from .models import Batch, Job, Project
 from .services import (
@@ -608,10 +608,13 @@ def project_detail(request, project_id):
         plan = part["planned"]
         part["n_miss"] = sum(1 for x in plan if not x["rk"] and not x["base"])
         part["n_res"] = len({x["rk"] for x in plan if x["rk"]})
+        part["many"] = len(part["jobs"]) or len(plan)  # бир нечта смета — карта «тахланган» кўринишда
     count_mark = sum(1 for n in nodes if n["part"]["left"])
     states = [n["part"]["state"] for n in nodes]
     finished = sum(1 for s in states if s not in ("queued", "converting", "pricing"))
     current = next((n for n in nodes if n["part"]["state"] in ("converting", "pricing")), None)
+    # жорий қисм ичида қаерда (файл 9/19, қатор 12 400 / 20 855) — умумий фоиз ҳам шунга қараб силжийди
+    live = live_step(current["part"]["batch"]) if current else None
     ctx = {
         "crumbs": crumbs_for(project=project),
         "project": project,
@@ -633,13 +636,16 @@ def project_detail(request, project_id):
         "count_pairs_ready": sum(len(n["part"]["planned"]) for n in nodes if n["part"]["state"] == "ready"),
         "current": current,
         "finished": finished,
-        "progress": round(100 * finished / len(nodes)) if nodes else 100,
+        "live": live,
+        "progress": min(99, int(100 * (finished + (live["frac"] if live else 0)) / len(nodes))) if nodes and finished < len(nodes)
+                    else (100 if not nodes else round(100 * finished / len(nodes))),
         "count_done": states.count("done"),
         "count_warn": states.count("warn"),
         "count_recalc": states.count("recalc"),
         "count_review": states.count("review") + states.count("failed") + count_mark,
         "count_skipped": sum(1 for f in project.files if f["skip"] and is_shown(f["path"])),
         "grand_total": sum(n["part"]["total"] for n in nodes),
+        "rows_total": sum(n["part"]["rows"] for n in nodes), "rows_done": sum(n["part"]["rows_done"] for n in nodes),
         "not_priced_total": sum(n["part"]["not_priced"] for n in nodes if n["part"]["state"] == "warn"),
         "can_download": any(s in ("done", "warn", "review") and n["part"]["jobs"] for s, n in zip(states, nodes)),
         "pct_form": _pct_form(project.owner_id), "nf_auto": auto,
@@ -1126,6 +1132,8 @@ def batch_detail(request, batch_id):
         "grand_total": sum(j.result.get("totals", {}).get("s_nds") or 0 for j in jobs
                            if isinstance(j.result.get("totals", {}).get("s_nds"), (int, float))),
         "not_priced_total": sum(j.result.get("stats", {}).get("NOT_PRICED", 0) for j in jobs),
+        # қатор ҳисоби: жами ва ишлов берилгани (тўлов шунга қараб — jobs/usage.py)
+        "rows_total": sum(j.rows or 0 for j in jobs), "rows_done": sum(j.rows_done or 0 for j in jobs),
         # натижалар: аввал тўғирлаш кераклари (нархланмаган қатор ёки хато), кейин тайёрлари
         "jobs_fix": [j for j in jobs if j.status != "done" or j.result.get("stats", {}).get("NOT_PRICED")],
         "jobs_ok": [j for j in jobs if j.status == "done" and not j.result.get("stats", {}).get("NOT_PRICED")],

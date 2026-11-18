@@ -187,7 +187,8 @@ def register_view(request):
             if not send_verify_code(request, user):
                 messages.error(request, MAIL_FAILED)
             return redirect("verify_email")
-    return render(request, "accounts/register.html", {"form": form, "error": error})
+    from jobs.pages import promo
+    return render(request, "accounts/register.html", {"form": form, "error": error, "promo": promo()})
 
 
 @require_POST
