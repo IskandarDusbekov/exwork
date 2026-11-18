@@ -48,15 +48,28 @@ class Command(BaseCommand):
         pool = [threading.Thread(target=self._loop, args=(i, poll, once), name=f"worker-{i}") for i in range(threads)]
         for t in pool:
             t.start()
+        next_check = time.monotonic() + 600  # захира нусха ҳолати — ишга тушгандан 10 дақиқа ўтиб, кейин соатда
         try:
             while any(t.is_alive() for t in pool):
                 self._count(last_seen=timezone.now())
+                if not once and time.monotonic() >= next_check:
+                    next_check = time.monotonic() + 3600
+                    self._backup_check()
                 close_old_connections()
                 for t in pool:
                     t.join(timeout=5)
         finally:
             Worker.objects.filter(name=self.name).delete()
             self.stdout.write(f"Worker {self.name}: тўхтади")
+
+    def _backup_check(self):
+        """Нусха эски / синалмаган / бошқа жойда йўқ бўлса — суперфойдаланувчиларга хат (кунига бир марта).
+        cron умуман ўрнатилмаган бўлса ҳам хабар келади — worker доим ишлайди."""
+        try:
+            from panel import backup
+            backup.alert()
+        except Exception:  # noqa: BLE001 — worker ишдан тўхтамасин
+            log.exception("захира нусха текширувида хато")
 
     def _install_signals(self):
         def on_signal(signum, frame):

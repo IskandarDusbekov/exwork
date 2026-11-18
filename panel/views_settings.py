@@ -112,6 +112,18 @@ def backup_make(request):
     return redirect("panel:backups")
 
 
+@require_POST
+@superuser_required
+def backup_test(request):
+    if backup.start_test(request.user):
+        audit(request, Event.Kind.ADMIN_BACKUP, detail="тиклаш синови бошланди (панелдан)")
+        messages.success(request, "Тиклаш синови бошланди — охирги нусха алоҳида базага ёзилиб текширилади. "
+                                  "Бир неча дақиқадан кейин саҳифани янгиланг.")
+    else:
+        messages.error(request, "Аввалги синов ҳали тугамади")
+    return redirect("panel:backups")
+
+
 def _second_factor(request) -> bool:
     """Иловадаги код (икки босқичли кириш ёқилган бўлса) ёки пароль."""
     secret = request.POST.get("code", "")

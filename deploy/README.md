@@ -163,28 +163,83 @@ Keyin `/srv/narxlash/.env` da: `DJANGO_ALLOWED_HOSTS=mhisobot.uz,www.mhisobot.uz
 
 ## 8. Kunlik zaxira
 
+Bir marta — tiklash sinovi uchun alohida bo'sh baza (asosiy bazaga tegilmaydi; Docker'da o'zi ochiladi):
+
+```bash
+sudo -u postgres psql -c "CREATE DATABASE narxlash_restore_test OWNER narxlash;"
+```
+
 ```bash
 sudo crontab -u narxlash -e
 ```
 
-Ochilgan faylga quyidagi qatorni qo'shing:
+Ochilgan faylga quyidagi ikki qatorni qo'shing:
 
 ```
 15 3 * * *  /srv/narxlash/app/deploy/backup.sh >> /srv/narxlash/logs/backup.log 2>&1
+30 5 * * 0  /srv/narxlash/app/deploy/manage.sh backup_check --restore-test >> /srv/narxlash/logs/backup.log 2>&1
 ```
 
 Har kuni soat 03:15 da baza (`backups/db/`, 14 kun saqlanadi, olingach tekshiriladi) va `media/` ning shu kungi
 «surati» (`backups/media/<sana>/`, 7 kun) olinadi. O'zgarmagan fayllar oldingi kunnikiga qattiq havola bo'ladi —
 7 ta surat deyarli bitta nusxa joyini egallaydi, lekin kecha o'chib ketgan fayl bugungi suratda ham bor.
+Har yakshanba 05:30 da oxirgi nusxa `narxlash_restore_test` bazasiga **haqiqatan tiklanib** tekshiriladi
+(jadvallar, migratsiyalar, foydalanuvchilar), keyin sinov bazasi tozalanadi. Natija — Панел → Захира нусха.
+
+Tekshirish: `sudo crontab -u narxlash -l` (qatorlar bor), `tail /srv/narxlash/logs/backup.log` (har kuni «zaxira tayyor»).
+
+**Ogohlantirish.** Muammo bo'lsa — superfoydalanuvchilarga kuniga bir marta xat keladi va panelda sariq ro'yxat
+chiqadi: nusxa 26 soatdan eski (cron ishlamayapti yoki umuman o'rnatilmagan — worker soatda tekshiradi),
+`backup.sh` xato bilan tugadi (darhol xat), media surati olinmayapti, boshqa joyda nusxa yo'q, tiklash sinovi
+o'tmadi yoki 35 kundan beri o'tkazilmadi. Qo'lda: `sudo -u narxlash /srv/narxlash/app/deploy/manage.sh backup_check`.
 
 > **Boshqa joyga ko'chirish shart** (disk buzilsa, shu serverdagi nusxa ham yo'qoladi). Eng osoni — `.env` ga
 > `BACKUP_REMOTE=backup@ZAXIRA-SERVER:/data/narxlash` yozing va `narxlash` foydalanuvchisining ssh kalitini o'sha
-> serverga qo'shing (`ssh-copy-id`). Skript har kuni nusxani o'sha yerga ham yuboradi.
+> serverga qo'shing (`ssh-copy-id`). Skript har kuni nusxani o'sha yerga ham yuboradi. U yerda baza nusxalari
+> bu serverdagi o'chirilganda o'chmaydi — `BACKUP_REMOTE_KEEP_DAYS` (standart 60) kundan eskilari tozalanadi.
 >
 > Eski tartibdan o'tganda: `backups/media/` ichida sanasiz qolgan fayllarni birinchi yangi zaxiradan keyin o'chirsa
 > bo'ladi (`backups/media/20*` papkalaridan boshqasini).
->
-> Oyda bir marta tiklashni sinab ko'ring (boshqa bazaga `pg_restore`) — tekshirilmagan zaxira zaxira emas.
+
+**Zaxirada nima yo'q:** `/srv/narxlash/.env` (parollar, `DJANGO_SECRET_KEY`, maxfiy manzillar), nginx sozlamasi va
+sertifikat. `.env` ni bir marta parol menejeri yoki boshqa xavfsiz joyga saqlang va o'zgartirganda yangilang:
+`DJANGO_SECRET_KEY` yo'qolsa, panelda yozilgan pochta (SMTP) paroli o'qilmay qoladi va hamma qayta kiradi.
+Zaxira shifrlanmagan (ichida parol xeshlari va ikki bosqichli kirish kalitlari) — yuklab olingan nusxani ham
+ochiq joyda qoldirmang.
+
+### Zaxiradan tiklash
+
+```bash
+sudo /srv/narxlash/app/deploy/restore.sh                                  # nusxalar ro'yxati
+sudo /srv/narxlash/app/deploy/restore.sh narxlash_2026-11-18_0315.dump    # baza + o'sha kungi media
+```
+
+Skript: nusxani tekshiradi → sayt va worker'ni to'xtatadi → **hozirgi** bazani `backups/db/` ga, hozirgi media'ni
+`backups/pre-restore/<vaqt>/` ga saqlaydi (adashsangiz qaytarish uchun) → bazani tozalab nusxani bitta tranzaksiyada
+yozadi (xato bo'lsa — hozirgi holat qaytariladi) → o'sha kungi media suratini ko'chiradi → `migrate` → xizmatlarni
+yoqadi. Oxirida qanday qaytarish mumkinligini yozib beradi. Media boshqa kundan: oxiriga `2026-11-17`; faqat baza:
+`--no-media`.
+
+Paneldan yuklab olingan nusxa: serverga `scp` bilan `/srv/narxlash/backups/db/` ga qo'ying (egasi `narxlash`,
+huquq 600) va yuqoridagicha tiklang.
+
+### Yangi serverga ko'chish
+
+1. Yangi serverni shu yo'riqnoma bo'yicha tayyorlang (1–7), lekin saytni hali ochmang. PostgreSQL versiyasi
+   eskisidan past bo'lmasin. Domen sozlamasida TTL'ni 1–2 kun oldin 300 soniyaga tushiring.
+2. Eski serverdan `/srv/narxlash/.env` ni ko'chiring. **O'zgarmasin:** `DJANGO_SECRET_KEY`, `NARXLASH_ADMIN_URL`,
+   `NARXLASH_PANEL_URL`, email va `DJANGO_ALLOWED_HOSTS`. Yangilang: `DATABASE_URL`/`REDIS_URL` (yangi parol/manzil),
+   `BACKUP_REMOTE` (agar o'zgarsa).
+3. Eski serverda: `sudo systemctl stop narxlash-web narxlash-worker`, keyin
+   `sudo -u narxlash /srv/narxlash/app/deploy/backup.sh` — yakuniy nusxa.
+4. Eski serverdan ko'chiring (yangi serverda `narxlash` egasi bo'lsin — keyin `chown -R narxlash:narxlash`):
+   `rsync -a /srv/narxlash/backups/db/<oxirgi>.dump YANGI:/srv/narxlash/backups/db/` va
+   `rsync -a /srv/narxlash/media/ YANGI:/srv/narxlash/media/`.
+5. Yangi serverda: `sudo /srv/narxlash/app/deploy/restore.sh <oxirgi>.dump --no-media`.
+6. DNS'ni almashtirmasdan tekshiring (SSH tunnel yoki kompyuterdagi `hosts` fayli): kirish, panel, eski smeta
+   fayli, yangi narxlash, parol tiklash xati, Панел → Хатолар.
+7. DNS A yozuvini yangi IP'ga o'zgartiring, sertifikat oling (6-bo'lim), yangi serverda cron'ni qo'shing (8-bo'lim).
+8. Ertasi kuni Панел → Захира нусха sariq ro'yxatsiz bo'lsin. Eski serverni 1–2 hafta to'xtatilgan holda saqlang.
 
 ## Panel: ikki bosqichli kirish
 
