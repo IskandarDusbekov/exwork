@@ -43,3 +43,30 @@ def landing_save(request):
         audit(request, Event.Kind.ADMIN_SETTINGS, detail=("Бош саҳифа: " + ", ".join(changed))[:200])
     messages.success(request, f"Сақланди: {', '.join(changed)}" if changed else "Ўзгариш йўқ")
     return redirect("panel:site")
+
+
+# ===================== иловадаги чап меню =====================
+@staff_required
+def menu_page(request):
+    off = site.side_hidden()
+    groups = {}
+    for k, label, g in site.SIDE_ITEMS:
+        groups.setdefault(g, []).append({"key": k, "label": label, "on": k not in off})
+    return render(request, "panel/menu.html", _ctx(request, "menu", groups=list(groups.items()), n_off=len(off)))
+
+
+@require_POST
+@superuser_required
+def menu_save(request):
+    from . import conf
+    shown = set(request.POST.getlist("show"))
+    off = [k for k, _l, _g in site.SIDE_ITEMS if k not in shown]
+    if sorted(off) != sorted(site.side_hidden()):
+        conf.put("side_hidden", off, request.user)
+        names = {k: label for k, label, _g in site.SIDE_ITEMS}
+        audit(request, Event.Kind.ADMIN_SETTINGS,
+              detail=("Чап меню, яширилган: " + (", ".join(names[k] for k in off) or "йўқ"))[:200])
+        messages.success(request, "Сақланди. Меню ярим дақиқа ичида ҳамма учун янгиланади.")
+    else:
+        messages.success(request, "Ўзгариш йўқ")
+    return redirect("panel:menu")

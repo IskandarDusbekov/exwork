@@ -3,9 +3,8 @@
   <div class="wrap site-h-in">
     {% include "jobs/_brand.html" %}
     <nav class="site-nav" aria-label="Саҳифа бўлимлари">
-      <a href="{% url 'landing' %}#features">Имкониятлар</a>
-      <a href="{% url 'landing' %}#who">Кимлар учун</a>
-      <a href="{% url 'landing' %}#how">Иш тартиби</a>
+      <a href="{% url 'landing' %}#how">Қандай ишлайди</a>
+      <a href="{% url 'landing' %}#modules">Имкониятлар</a>
       <a href="{% url 'guide' %}"{% if request.resolver_match.url_name == "guide" or request.resolver_match.url_name == "blog_video" %} aria-current="page"{% endif %}>Видео қўлланма</a>
       <a href="{% url 'blog' %}"{% if request.resolver_match.url_name == "blog" or request.resolver_match.url_name == "blog_post" or request.resolver_match.url_name == "blog_category" %} aria-current="page"{% endif %}>Блог</a>
       <a href="{% url 'landing' %}#faq">Саволлар</a>
@@ -23,9 +22,8 @@
       <details class="m-nav">
         <summary aria-label="Меню">{% icon "menu" "h-5 w-5" %}</summary>
         <nav aria-label="Саҳифа бўлимлари (меню)">
-          <a href="{% url 'landing' %}#features">Имкониятлар</a>
-          <a href="{% url 'landing' %}#who">Кимлар учун</a>
-          <a href="{% url 'landing' %}#how">Иш тартиби</a>
+          <a href="{% url 'landing' %}#how">Қандай ишлайди</a>
+          <a href="{% url 'landing' %}#modules">Имкониятлар</a>
           <a href="{% url 'landing' %}#security">Хавфсизлик</a>
           <a href="{% url 'guide' %}">Видео қўлланма</a>
           <a href="{% url 'blog' %}">Блог</a>

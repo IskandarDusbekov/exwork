@@ -1,0 +1,31 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Илова менюси — Панел{% endblock %}
+{% block page_head %}{% endblock %}
+{% block panel %}
+<div class="mb-5">
+  <h1 class="text-2xl font-semibold">Илова менюси</h1>
+  <p class="max-w-3xl text-sm text-slate-500">Фойдаланувчилар кўрадиган чап менюдаги бандлар. Белгини олиб ташласангиз, банд менюдан йўқолади —
+    саҳифанинг ўзи ёпилмайди, манзил орқали очилаверади. «Панел» банди фақат ходимларга кўринади ва бу ерда йўқ.</p>
+</div>
+{% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-700{% endif %}">{{ m }}</div>{% endfor %}
+
+<form method="post" action="{% url 'panel:menu_save' %}" class="max-w-xl">{% csrf_token %}
+  <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    {% for g, items in groups %}
+    <div class="border-b border-slate-100 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{{ g }}</div>
+    {% for it in items %}
+    <label class="flex cursor-pointer items-center gap-3 border-b border-slate-100 px-4 py-2.5 text-sm hover:bg-slate-50">
+      <input type="checkbox" name="show" value="{{ it.key }}" class="h-4 w-4 accent-emerald-600" {% if it.on %}checked{% endif %} {% if not can_act %}disabled{% endif %}>
+      <span class="flex-1 text-slate-900">{{ it.label }}</span>
+      <span class="text-xs {% if it.on %}text-emerald-700{% else %}text-slate-400{% endif %}">{% if it.on %}кўринади{% else %}яширин{% endif %}</span>
+    </label>
+    {% endfor %}
+    {% endfor %}
+  </div>
+  <div class="mt-3 flex items-center gap-3">
+    {% if can_act %}<button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Сақлаш</button>{% endif %}
+    <span class="text-xs text-slate-500">{% if n_off %}{{ n_off }} та банд яширилган{% else %}ҳамма бандлар кўринади{% endif %}{% if not can_act %} · ўзгартириш — фақат суперфойдаланувчи{% endif %}</span>
+  </div>
+</form>
+{% endblock %}

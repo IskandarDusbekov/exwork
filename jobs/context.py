@@ -8,4 +8,5 @@ def ui(request):
     if not hasattr(request, "_ui_prefs"):
         from .services import ui_prefs_of
         request._ui_prefs = ui_prefs_of(user)
-    return {"ui": request._ui_prefs}
+    from .site import side_menu
+    return {"ui": request._ui_prefs, "side": side_menu()}

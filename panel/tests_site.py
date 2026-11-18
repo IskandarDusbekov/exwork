@@ -24,9 +24,9 @@ class SiteTests(TestCase):
     def test_landing_defaults_and_panel_override(self):
         r = self.client.get(reverse("landing"))
         self.assertContains(r, "бир неча сонияда")
-        self.assertContains(r, "Буюртмачи ва давлат ташкилотлари")
+        self.assertContains(r, "Тўрт қадам")
         self.assertContains(r, '"@type": "FAQPage"')
-        self.assertNotContains(r, 'id="lessons"')  # видео йўқ — бўлим чиқмайди
+        self.assertNotContains(r, 'id="how-video"')  # видео йўқ — ҳавола чиқмайди
 
         self.client.force_login(self.boss)
         self.assertEqual(self.client.get(reverse("panel:site")).status_code, 200)
@@ -46,6 +46,21 @@ class SiteTests(TestCase):
         self.client.force_login(self.boss)
         self.client.post(reverse("panel:landing_save"), {"reset": "1"})
         self.assertFalse(SiteSetting.objects.filter(key="landing").exists())
+
+    def test_side_menu_hide_items(self):
+        self.client.force_login(self.boss)
+        self.assertContains(self.client.get(reverse("panel:menu")), 'value="calc"')
+        shown = [k for k, _l, _g in site.SIDE_ITEMS if k not in ("calc", "help", "guide", "support", "landing", "about_us")]
+        self.assertRedirects(self.client.post(reverse("panel:menu_save"), {"show": shown}), reverse("panel:menu"))
+        self.assertEqual(sorted(conf.raw("side_hidden")), sorted(["calc", "help", "guide", "support", "landing", "about_us"]))
+        r = self.client.get(reverse("dashboard"))
+        self.assertNotContains(r, 'title="Калькулятор"')
+        self.assertContains(r, 'title="Смета нархлаш"')
+        self.assertNotContains(r, '<div class="side-cap">Ёрдам</div>')  # бўлимда ҳеч нарса қолмади
+        self.assertEqual(self.client.get(reverse("calc")).status_code, 200)  # саҳифанинг ўзи ёпилмайди
+        self.client.force_login(self.viewer)  # ходим кўради, ўзгартира олмайди
+        self.client.post(reverse("panel:menu_save"), {"show": [k for k, _l, _g in site.SIDE_ITEMS]})
+        self.assertEqual(len(conf.raw("side_hidden")), 6)
 
     def test_only_superuser_changes(self):
         self.client.force_login(self.viewer)
@@ -71,7 +86,7 @@ class SiteTests(TestCase):
         self.assertContains(r, "youtube-nocookie.com/embed/dQw4w9WgXcQ")
         self.assertContains(r, "Қисқа &lt;b&gt;изоҳ&lt;/b&gt;")
         self.assertEqual(self.client.get(reverse("blog_video", args=["xxxxxxxxxxx"])).status_code, 404)
-        self.assertContains(self.client.get(reverse("landing")), 'id="lessons"')
+        self.assertContains(self.client.get(reverse("landing")), 'id="how-video"')
         sm = self.client.get(reverse("sitemap_xml")).content.decode()
         self.assertIn("/blog/video/dQw4w9WgXcQ/", sm)
         self.assertIn("/blog/</loc>", sm)

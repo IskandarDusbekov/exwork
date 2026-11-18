@@ -9,7 +9,8 @@ Tugma nomlari ekrandagidek kirill harfida yozilgan — videoda ham aynan shu so'
 - Brauzer masshtabi 100%, oyna 1920×1080. Ortiqcha yorliqlar va xatchilar yopiq bo'lsin.
 - Sichqoncha sekin harakatlansin. Har bosishdan oldin 1 soniya to'xtang, tomoshabin qayerga bosilishini ko'rib ulgursin.
 - Bitta dars — bitta ish, 2–4 daqiqa. Uzun bo'lsa — ikkiga bo'ling.
-- YouTube'ga **«Рўйхатда йўқ» (Unlisted)** qilib yuklang. Keyin havolani panel → «Ёрдам матнлари ва видео» → «Видео дарслар»ga qo'ying.
+- YouTube'ga **«Рўйхатда йўқ» (Unlisted)** qilib yuklang. Keyin havolani panel → «Блог: мақола ва видео» → «Видео қўшиш»ga qo'ying.
+- Yozish texnikasi (OBS, montaj) va har bir darsning so'zma-so'z matni: [video-yozish-qollanma.md](video-yozish-qollanma.md).
 - Dizayn yana o'zgarsa, faqat o'sha sahifaning darsini qayta yozing (shuning uchun darslar sahifa bo'yicha bo'lingan).
 
 | # | Dars | Panelda «Саҳифа» | Davomiylik |
