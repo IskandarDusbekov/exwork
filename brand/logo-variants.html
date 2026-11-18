@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mhisobot — логотип вариантлари</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #0d1522; --ink-2: #3a4555; --mute: #6b7686; --line: #dfe3e8; --paper: #fbfcfc; --acc: #34d399; --acc-d: #0c7a4c; --stamp: #2340b8;
+          --ff: "Onest", system-ui, sans-serif; --fm: "JetBrains Mono", Consolas, monospace; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--paper); color: var(--ink); font: 15px/1.5 var(--ff); padding: 40px clamp(16px, 4vw, 56px) 80px; }
+  h1 { font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
+  .lead { margin-top: 6px; color: var(--ink-2); max-width: 60em; }
+  section { margin-top: 44px; }
+  .sh { display: flex; align-items: baseline; gap: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--ink); margin-bottom: 18px; }
+  .sh b { font: 700 13px var(--fm); color: var(--acc-d); }
+  .sh h2 { font-size: 21px; font-weight: 650; }
+  .sh p { margin-left: auto; color: var(--mute); font-size: 13.5px; text-align: right; max-width: 40em; }
+  .row { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .card { display: grid; place-items: center; gap: 12px; min-height: 250px; padding: 24px; border: 1px solid var(--line); background: #fff; }
+  .card.dark { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .card.paper { background: #f3efe4; }
+  .card.grid { background-color: #fff; background-image: linear-gradient(rgba(13,21,34,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(13,21,34,.05) 1px, transparent 1px); background-size: 16px 16px; }
+  .cap { font: 500 11.5px var(--fm); letter-spacing: .05em; text-transform: uppercase; color: var(--mute); text-align: center; }
+  .dark .cap { color: #8b97a8; }
+  .wide { grid-column: 1 / -1; }
+  .card > svg { max-width: 100%; height: auto; }
+  .row.w2 { grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); }
+  .sizes { display: flex; align-items: end; gap: 22px; }
+  .sizes span { display: grid; justify-items: center; gap: 6px; font: 500 11px var(--fm); color: var(--mute); }
+  /* белги ичидаги ранглар */
+  .mk-arc { fill: none; stroke: var(--fg, #fff); stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+  .mk-dim { fill: none; stroke: var(--ac, #34d399); stroke-width: 1.8; stroke-linecap: round; }
+  .mk-dot { fill: var(--ac, #34d399); }
+  .lock { display: flex; align-items: center; gap: 14px; }
+  .lock-t b { display: block; font: 700 30px/1 var(--ff); letter-spacing: -.02em; }
+  .lock-t span { display: block; margin-top: 6px; font: 500 12.5px/1 var(--fm); letter-spacing: .05em; color: var(--mute); }
+  .dark .lock-t span { color: #8b97a8; }
+  .note { margin-top: 40px; padding: 18px 22px; border-left: 3px solid var(--acc-d); background: #e4f3eb; color: #0a5b39; max-width: 70em; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- асосий белги: «m» ўлчам чизиғи устида, яшил нуқта — таянч белги (ҳозирги логотип) -->
+    <symbol id="m" viewBox="3 3.5 26 26">
+      <path class="mk-arc" d="M8 20V12.25a3.25 3.25 0 0 1 6.5 0V20M14.5 12.25a3.25 3.25 0 0 1 6.5 0V20"/>
+      <path class="mk-dim" d="M6 25h20M6 23.2v3.6M26 23.2v3.6"/>
+      <circle class="mk-dot" cx="24.6" cy="9.4" r="2"/>
+    </symbol>
+    <path id="ring" d="M100,100 m-74,0 a74,74 0 1,1 148,0 a74,74 0 1,1 -148,0"/>
+    <path id="ring-top" d="M34,100 a66,66 0 0,1 132,0"/>
+    <path id="ring-bot" d="M28,100 a72,72 0 0,0 144,0"/>
+    <path id="st-top" d="M31,100 a69,69 0 0,1 138,0"/>
+    <path id="st-bot" d="M19,100 a81,81 0 0,0 162,0"/>
+  </defs>
+</svg>
+
+<h1>mhisobot — логотип вариантлари</h1>
+<p class="lead">Ҳаммаси ҳозирги белгидан ўсиб чиққан: <b>«m»</b> — иккита арка (қурилиш), остида <b>ўлчам чизиғи</b> (чизма, смета), яшил нуқта — <b>таянч белги</b>. Шунда сайтдаги, favicon'даги ва янги логотип бир оила бўлиб қолади. Ёқганининг рақамини айтинг — шуни тозалаб, ҳамма ўлчамда (SVG, PNG, favicon, муҳр учун) тайёрлайман.</p>
+
+<!-- ===================== 1. МУҲР ===================== -->
+<section>
+  <div class="sh"><b>01</b><h2>Муҳр (печать)</h2><p>Ҳужжатлар, далолатнома, офёрта, хат ва ижтимоий тармоқ учун. Доира бўйлаб ёзув, ўртада белги.</p></div>
+  <div class="row">
+    <div class="card">
+      <svg width="200" height="200" viewBox="0 0 200 200" style="--fg: var(--stamp); --ac: var(--stamp)">
+        <circle cx="100" cy="100" r="94" fill="none" stroke="var(--stamp)" stroke-width="3"/>
+        <circle cx="100" cy="100" r="88" fill="none" stroke="var(--stamp)" stroke-width="1"/>
+        <circle cx="100" cy="100" r="58" fill="none" stroke="var(--stamp)" stroke-width="1.5"/>
+        <text font-family="Onest" font-weight="700" font-size="14" letter-spacing="2.2" fill="var(--stamp)"><textPath href="#st-top" startOffset="50%" text-anchor="middle">МУҲАНДИС ҲИСОБОТ</textPath></text>
+        <text font-family="JetBrains Mono" font-weight="700" font-size="12" letter-spacing="2.5" fill="var(--stamp)"><textPath href="#st-bot" startOffset="50%" text-anchor="middle">MHISOBOT.UZ</textPath></text>
+        <text x="20" y="104.5" font-size="11" fill="var(--stamp)" text-anchor="middle">★</text><text x="180" y="104.5" font-size="11" fill="var(--stamp)" text-anchor="middle">★</text>
+        <use href="#m" x="70" y="62" width="60" height="60"/>
+        <text x="100" y="140" text-anchor="middle" font-family="JetBrains Mono" font-weight="700" font-size="7.5" letter-spacing="1.2" fill="var(--stamp)">СМЕТА · ТЕХНАЗОР</text>
+      </svg>
+      <span class="cap">1a · кўк муҳр (классик)</span>
+    </div>
+    <div class="card paper">
+      <svg width="200" height="200" viewBox="0 0 200 200" style="--fg: #7b2fa8; --ac: #7b2fa8; transform: rotate(-8deg); opacity: .88">
+        <circle cx="100" cy="100" r="94" fill="none" stroke="#7b2fa8" stroke-width="3"/>
+        <circle cx="100" cy="100" r="88" fill="none" stroke="#7b2fa8" stroke-width="1"/>
+        <circle cx="100" cy="100" r="58" fill="none" stroke="#7b2fa8" stroke-width="1.5"/>
+        <text font-family="Onest" font-weight="700" font-size="14" letter-spacing="2.2" fill="#7b2fa8"><textPath href="#st-top" startOffset="50%" text-anchor="middle">МУҲАНДИС ҲИСОБОТ</textPath></text>
+        <text font-family="JetBrains Mono" font-weight="700" font-size="12" letter-spacing="2.5" fill="#7b2fa8"><textPath href="#st-bot" startOffset="50%" text-anchor="middle">MHISOBOT.UZ</textPath></text>
+        <text x="20" y="104.5" font-size="11" fill="#7b2fa8" text-anchor="middle">★</text><text x="180" y="104.5" font-size="11" fill="#7b2fa8" text-anchor="middle">★</text>
+        <use href="#m" x="70" y="62" width="60" height="60"/>
+        <text x="100" y="140" text-anchor="middle" font-family="JetBrains Mono" font-weight="700" font-size="7.5" letter-spacing="1.2" fill="#7b2fa8">ТАСДИҚЛАНДИ</text>
+      </svg>
+      <span class="cap">1b · бинафша, қоғозда «босилган»</span>
+    </div>
+    <div class="card dark">
+      <svg width="200" height="200" viewBox="0 0 200 200" style="--fg: #fff">
+        <circle cx="100" cy="100" r="94" fill="none" stroke="#34d399" stroke-width="3"/>
+        <circle cx="100" cy="100" r="86" fill="none" stroke="#34d399" stroke-width="1" stroke-dasharray="2 4"/>
+        <circle cx="100" cy="100" r="58" fill="#15233a"/>
+        <text font-family="JetBrains Mono" font-weight="700" font-size="12" letter-spacing="2.5" fill="#fff"><textPath href="#ring-top" startOffset="50%" text-anchor="middle">MUHANDIS HISOBOT</textPath></text>
+        <text font-family="JetBrains Mono" font-weight="600" font-size="11" letter-spacing="3" fill="#34d399"><textPath href="#ring-bot" startOffset="50%" text-anchor="middle">★ MHISOBOT.UZ ★</textPath></text>
+        <use href="#m" x="64" y="60" width="72" height="72"/>
+      </svg>
+      <span class="cap">1c · бейдж (тўқ, лотинча)</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 2. КИЧИК БЕЛГИ ===================== -->
+<section>
+  <div class="sh"><b>02</b><h2>Кичик белги (иконка)</h2><p>Favicon, телефондаги иловa белгиси, Telegram аватар, видео бурчаги.</p></div>
+  <div class="row">
+    <div class="card">
+      <svg width="120" height="120" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0d1522"/><use href="#m" x="0" y="0" width="32" height="32"/></svg>
+      <span class="cap">2a · квадрат (ҳозиргиси, тозаланган)</span>
+    </div>
+    <div class="card">
+      <svg width="120" height="120" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="#0d1522"/><use href="#m" x="2" y="2" width="28" height="28"/></svg>
+      <span class="cap">2b · доира (Telegram, Instagram аватар)</span>
+    </div>
+    <div class="card">
+      <svg width="120" height="120" viewBox="0 0 32 32" style="--fg: #0d1522; --ac: #0d1522"><rect width="32" height="32" rx="7" fill="#34d399"/><use href="#m" x="0" y="0" width="32" height="32"/></svg>
+      <span class="cap">2c · яшил фон (ёрқин, рекламада кўзга ташланади)</span>
+    </div>
+    <div class="card dark">
+      <svg width="120" height="120" viewBox="0 0 32 32" style="--fg: #fff; --ac: #fff"><use href="#m" x="0" y="0" width="32" height="32"/></svg>
+      <span class="cap">2d · бир рангли (оқ) — видео/расм устига</span>
+    </div>
+    <div class="card wide">
+      <div class="sizes">
+        <span><svg width="16" height="16" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0d1522"/><use href="#m" width="32" height="32"/></svg>16</span>
+        <span><svg width="24" height="24" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0d1522"/><use href="#m" width="32" height="32"/></svg>24</span>
+        <span><svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0d1522"/><use href="#m" width="32" height="32"/></svg>32</span>
+        <span><svg width="48" height="48" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0d1522"/><use href="#m" width="32" height="32"/></svg>48</span>
+        <span><svg width="64" height="64" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="#0d1522"/><use href="#m" x="2" y="2" width="28" height="28"/></svg>64</span>
+        <span><svg width="96" height="96" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#34d399"/><use href="#m" width="32" height="32" style="--fg:#0d1522;--ac:#0d1522"/></svg>96</span>
+      </div>
+      <span class="cap">кичрайтирганда ҳам ўқиладими — браузер варағида 16 px</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 3. ТЎЛИҚ ЛОГОТИП ===================== -->
+<section>
+  <div class="sh"><b>03</b><h2>Тўлиқ логотип (белги + ном)</h2><p>Сайт тепаси, реклама баннери, тақдимот, визитка.</p></div>
+  <div class="row">
+    <div class="card">
+      <div class="lock">
+        <svg width="58" height="58" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0d1522"/><use href="#m" width="32" height="32"/></svg>
+        <div class="lock-t"><b>mhisobot</b><span>муҳандис ҳисобот</span></div>
+      </div>
+      <span class="cap">3a · ёнма-ён (оқ фон)</span>
+    </div>
+    <div class="card dark">
+      <div class="lock">
+        <svg width="58" height="58" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#34d399"/><use href="#m" width="32" height="32" style="--fg:#0d1522;--ac:#0d1522"/></svg>
+        <div class="lock-t"><b>mhisobot</b><span>муҳандис ҳисобот</span></div>
+      </div>
+      <span class="cap">3b · ёнма-ён (тўқ фон)</span>
+    </div>
+    <div class="card">
+      <div style="display:grid;justify-items:center;gap:12px">
+        <svg width="78" height="78" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="#0d1522"/><use href="#m" x="2" y="2" width="28" height="28"/></svg>
+        <div class="lock-t" style="text-align:center"><b>mhisobot</b><span>смета · техник назорат</span></div>
+      </div>
+      <span class="cap">3c · устма-уст (квадрат баннер, пост)</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 4. ЎЛЧАМ ЧИЗИҒИ ===================== -->
+<section>
+  <div class="sh"><b>04</b><h2>Ёзувли логотип «ўлчам чизиғи»</h2><p>Белгисиз — номнинг ўзи чизмадаги ўлчам каби. Энг «муҳандисча» вариант, футболка ва бланкка ҳам ярайди.</p></div>
+  <div class="row w2">
+    <div class="card grid">
+      <svg width="320" height="110" viewBox="0 0 320 110">
+        <text x="160" y="58" text-anchor="middle" font-family="Onest" font-weight="800" font-size="52" letter-spacing="-1.5" fill="#0d1522">mhisobot</text>
+        <path d="M44 80h232M44 72v16M276 72v16" stroke="#0c7a4c" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M44 80l9-4v8zM276 80l-9-4v8z" fill="#0c7a4c"/>
+        <rect x="112" y="72" width="96" height="16" fill="#fff"/>
+        <text x="160" y="84.5" text-anchor="middle" font-family="JetBrains Mono" font-weight="600" font-size="10.5" letter-spacing="1.5" fill="#0c7a4c">МУҲАНДИС ҲИСОБОТ</text>
+        <circle cx="281" cy="22" r="6" fill="#34d399"/>
+      </svg>
+      <span class="cap">4a · ном + ўлчам чизиғи</span>
+    </div>
+    <div class="card dark">
+      <svg width="320" height="110" viewBox="0 0 320 110">
+        <text x="160" y="58" text-anchor="middle" font-family="Onest" font-weight="800" font-size="52" letter-spacing="-1.5" fill="#fff">mhisobot</text>
+        <path d="M44 80h232M44 72v16M276 72v16" stroke="#34d399" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M44 80l9-4v8zM276 80l-9-4v8z" fill="#34d399"/>
+        <rect x="112" y="72" width="96" height="16" fill="#0d1522"/>
+        <text x="160" y="84.5" text-anchor="middle" font-family="JetBrains Mono" font-weight="600" font-size="10.5" letter-spacing="1.5" fill="#34d399">МУҲАНДИС ҲИСОБОТ</text>
+        <circle cx="281" cy="22" r="6" fill="#34d399"/>
+      </svg>
+      <span class="cap">4b · тўқ фонда</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 5. ЧИЗМА ШТАМПИ ===================== -->
+<section>
+  <div class="sh"><b>05</b><h2>Чизма штампи</h2><p>Смета ва чизма варағининг бурчагидаги штамп каби — Excel натижа файли, PDF ҳисобот ва бланк учун. Сайт пастида ҳам шу услуб бор.</p></div>
+  <div class="row w2">
+    <div class="card">
+      <svg width="340" height="120" viewBox="0 0 340 120" font-family="JetBrains Mono">
+        <rect x="2" y="2" width="336" height="116" fill="#fff" stroke="#0d1522" stroke-width="2.5"/>
+        <path d="M100 2v116M100 60h238M230 60v58M290 60v58" stroke="#0d1522" stroke-width="1.2"/>
+        <rect x="18" y="20" width="64" height="64" rx="10" fill="#0d1522"/><use href="#m" x="18" y="20" width="64" height="64"/>
+        <text x="50" y="104" text-anchor="middle" font-size="9" font-weight="600" fill="#6b7686">mhisobot.uz</text>
+        <text x="116" y="30" font-family="Onest" font-size="24" font-weight="800" fill="#0d1522" letter-spacing="-.5">mhisobot</text>
+        <text x="116" y="49" font-size="9.5" font-weight="600" fill="#0c7a4c" letter-spacing="1.2">МУҲАНДИС ҲИСОБОТ</text>
+        <text x="110" y="76" font-size="7.5" fill="#6b7686">БЎЛИМ</text><text x="110" y="98" font-size="11" font-weight="700" fill="#0d1522">Нархлаш</text>
+        <text x="238" y="76" font-size="7.5" fill="#6b7686">ВАРАҚ</text><text x="238" y="98" font-size="11" font-weight="700" fill="#0d1522">1</text>
+        <text x="298" y="76" font-size="7.5" fill="#6b7686">ЖАМИ</text><text x="298" y="98" font-size="11" font-weight="700" fill="#0d1522">1</text>
+      </svg>
+      <span class="cap">5a · ҳужжат штампи</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 6. МУҚОБИЛ БЕЛГИ ===================== -->
+<section>
+  <div class="sh"><b>06</b><h2>Муқобил белгилар (бошқача ғоя)</h2><p>Агар ҳозирги «m» дан узоқлашмоқчи бўлсангиз.</p></div>
+  <div class="row">
+    <div class="card">
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        <path d="M50 4l40 23v46L50 96 10 73V27z" fill="#0d1522"/>
+        <path d="M30 64V44a8 8 0 0 1 16 0v20M46 44a8 8 0 0 1 16 0v20" fill="none" stroke="#fff" stroke-width="6.5" stroke-linecap="round"/>
+        <path d="M66 64V36" stroke="#34d399" stroke-width="6.5" stroke-linecap="round"/><circle cx="66" cy="26" r="4.5" fill="#34d399"/>
+      </svg>
+      <span class="cap">6a · гайка (олти бурчак) — «mi»</span>
+    </div>
+    <div class="card">
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        <rect x="4" y="4" width="92" height="92" rx="20" fill="#0d1522"/>
+        <path d="M22 72h56" stroke="#34d399" stroke-width="5" stroke-linecap="round"/>
+        <path d="M28 72V48l22-16 22 16v24" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>
+        <path d="M42 72V58h16v14" fill="none" stroke="#fff" stroke-width="5"/>
+        <path d="M60 30h14M67 23v14" stroke="#34d399" stroke-width="4" stroke-linecap="round"/>
+      </svg>
+      <span class="cap">6b · бино + «+» (смета = қурилиш ҳисоби)</span>
+    </div>
+    <div class="card">
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        <rect x="4" y="4" width="92" height="92" rx="20" fill="#0c7a4c"/>
+        <rect x="24" y="20" width="52" height="62" rx="6" fill="#fff"/>
+        <path d="M33 36h34M33 47h34M33 58h20" stroke="#0d1522" stroke-width="4.5" stroke-linecap="round"/>
+        <path d="M56 64l6 6 12-14" fill="none" stroke="#0c7a4c" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="cap">6c · варақ + белги (тайёр смета)</span>
+    </div>
+  </div>
+</section>
+
+<p class="note">Тавсия: <b>2a/2b</b> — кичик белги (ҳозиргисидан, танилган), <b>3a/3b</b> — асосий логотип, <b>1a</b> — муҳр, <b>4a</b> — реклама ва бланк учун ёзувли вариант. Тўрттаси бир оила — бир-бирига мос. Танланганидан кейин ёзувлар контурга (path) айлантирилади — шрифт ўрнатилмаган компьютерда ҳам бир хил кўринади.</p>
+</body>
+</html>

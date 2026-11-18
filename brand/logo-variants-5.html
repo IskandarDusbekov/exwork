@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mhisobot — n + тескари h</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;700;800&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #0d1522; --ink-2: #3a4555; --mute: #6b7686; --line: #dfe3e8; --paper: #fbfcfc; --acc-d: #0c7a4c; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--paper); color: var(--ink); font: 15px/1.55 "Onest", system-ui, sans-serif; padding: 36px clamp(16px, 4vw, 56px) 80px; }
+  h1 { font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
+  .lead { margin-top: 6px; color: var(--ink-2); max-width: 64em; }
+  h2 { margin-top: 40px; padding-bottom: 10px; border-bottom: 1px solid var(--ink); font-size: 20px; font-weight: 800; display: flex; gap: 12px; align-items: baseline; }
+  h2 b { font: 800 13px "JetBrains Mono"; color: var(--acc-d); }
+  h2 span { margin-left: auto; font: 500 13.5px "Onest"; color: var(--mute); }
+  .row { margin-top: 16px; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
+  .row.w { grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); }
+  .t { display: grid; place-items: center; gap: 12px; min-height: 210px; padding: 22px; border: 1px solid var(--line); background: #fff; }
+  .t.d { background: var(--ink); border-color: var(--ink); }
+  .t.g { background: #e4f3eb; border-color: #c9e7d6; }
+  .cap { font: 600 11px "JetBrains Mono"; letter-spacing: .05em; text-transform: uppercase; color: var(--mute); text-align: center; }
+  .d .cap { color: #8b97a8; }
+  .t svg { max-width: 100%; height: auto; }
+  .sizes { display: flex; align-items: end; gap: 12px; }
+  .note { margin-top: 32px; padding: 16px 20px; border-left: 3px solid var(--acc-d); background: #e4f3eb; color: #0a5b39; max-width: 72em; }
+  .how { margin-top: 14px; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+</style>
+</head>
+<body>
+<h1>n + тескари h — баланд уч ўнг четда</h1>
+<p class="lead">n ва h битта ўрта оёқда бирлашади, h тескари бурилган: баланд таначаси энди <b>ўнг четда</b>. Бутун белги бир шакл — «m» ва унинг охирида юқорига чиққан уч («h»). Ранглар бўлинмайди (олдинги «r» таассуроти йўқолади): ё бир ранг, ё фақат уч яшил, ё ранг чапдан ўнгга силлиқ ўтади. Шакл шрифт ўлчамларидан қурилган — <b>isobot</b> билан бир хил қалинликда.</p>
+
+<h2><b>01</b>Қандай ўқилади<span>G бир ранг · H/I уч яшил · J/K силлиқ ўтиш</span></h2>
+<div class="how" id="how"></div>
+
+<h2><b>02</b>Белги (иконка)<span>favicon, аватар, илова белгиси</span></h2>
+<div class="row" id="icons"></div>
+
+<h2><b>03</b>Ёзувли логотип: белги + isobot<span>«m» ва «h» ўрнида белги</span></h2>
+<div class="row w" id="words"></div>
+
+<h2><b>04</b>Ёзувли логотип + кран «t»<span>1-ғоя билан бирга — реклама, баннер, сайт тепаси</span></h2>
+<div class="row w" id="cranes"></div>
+
+<h2><b>05</b>Кичик ўлчамда<span>браузер варағи 16 px, телефон 48 px</span></h2>
+<div class="row" id="small"></div>
+
+<p class="note">Тавсия: <b>K</b> (силлиқ ўтиш, учи қия кесик) — тўқдан яшилга оқиб, учида «ўсиш» ҳисси; ёки соддароғи <b>I</b>. Ёққан ҳарфни айтинг (масалан, «K + кран»), шуни якунлаб сайтга ва favicon'га қўяман.</p>
+
+<script>
+var NS = "http://www.w3.org/2000/svg";
+var PAL = { dark: { ink: "#ffffff", acc: "#34d399", bg: "#0d1522" }, light: { ink: "#0d1522", acc: "#0c7a4c", bg: "#ffffff" }, green: { ink: "#0d1522", acc: "#ffffff", bg: "#34d399" } };
+var FONT = "800 100px Onest";
+var M = {};  // шрифт ўлчовлари 100px да
+
+function metrics() {
+  var c = document.createElement("canvas").getContext("2d");
+  c.font = FONT;
+  function ink(s) { var m = c.measureText(s); return { w: m.actualBoundingBoxLeft + m.actualBoundingBoxRight, up: m.actualBoundingBoxAscent }; }
+  var l = ink("l"), n = ink("n"), x = ink("x"), h = ink("h");
+  M = { w: l.w, X: x.up, A: h.up, d: n.w - l.w };
+}
+
+// белги йўллари (baseline y=0, юқори — манфий). order: "nh" | "hn"; cut: таначанинг учи қия кесилган
+var GID = 0;
+function markR(o, pal, k) {
+  var w = M.w * k, X = M.X * k, A = M.A * k, d = M.d * k;
+  var x1 = w / 2, x2 = x1 + d, x3 = x2 + d, W = x3 + w / 2;
+  var top = -X + w / 2, ya = -X * 0.42, yc = ya + (top - ya) / 0.75;
+  function arch(a, b) { return "M" + a + " " + ya + "C" + a + " " + yc + " " + b + " " + yc + " " + b + " " + ya; }
+  var acc = o.mono ? pal.ink : pal.acc, id = "gr" + (++GID), defs = "";
+  var body = pal.ink, tip = pal.ink;
+  if (o.col === "tip") tip = acc;
+  if (o.col === "grad") {
+    body = tip = "url(#" + id + ")";
+    defs = '<defs><linearGradient id="' + id + '" gradientUnits="userSpaceOnUse" x1="' + (w * 0.6) + '" y1="0" x2="' + (W - w * 0.2) + '" y2="' + (-A) + '">' +
+      '<stop offset="0" stop-color="' + pal.ink + '"/><stop offset=".45" stop-color="' + pal.ink + '"/><stop offset="1" stop-color="' + acc + '"/></linearGradient></defs>';
+  }
+  function st(dd, c) { return '<path d="' + dd + '" stroke="' + c + '" stroke-width="' + w + '"/>'; }
+  var out = st("M" + x1 + " 0V" + (-X) + arch(x1, x2) + "M" + x2 + " 0V" + ya + arch(x2, x3), body);
+  var from = o.col === "tip" ? ya : 0;
+  if (o.col === "tip") out += st("M" + x3 + " 0V" + (ya - 0.5), body);
+  out += o.cut
+    ? '<path d="M' + (x3 - w / 2) + " " + from + "V" + (-A + w * 0.75) + "L" + (x3 + w / 2) + " " + (-A) + "V" + from + 'Z" fill="' + tip + '"/>'
+    : st("M" + x3 + " " + from + "V" + (-A), tip);
+  return { svg: defs + '<g fill="none" stroke-linecap="butt">' + out + "</g>", width: W, height: A, r: true };
+}
+
+function markPaths(o, pal, k) {
+  k = k || 1;
+  if (o.order === "nr") return markR(o, pal, k);
+  var w = M.w * k, X = M.X * k, A = M.A * k, d = M.d * k * (o.tight ? .94 : 1);
+  var x1 = w / 2, x2 = x1 + d, x3 = x2 + d;
+  var top = -X + w / 2, ya = -X * 0.42, yc = ya + (top - ya) / 0.75;
+  function arch(a, b) { return "M" + a + " " + ya + "C" + a + " " + yc + " " + b + " " + yc + " " + b + " " + ya; }
+  function tall(x) {
+    if (!o.cut) return '<path d="M' + x + ' 0V' + (-A) + '" stroke-width="' + w + '"/>';
+    return '<path d="M' + (x - w / 2) + ' 0V' + (-A + w * 0.75) + 'L' + (x + w / 2) + ' ' + (-A) + 'V0Z" stroke="none" fill="currentColor"/>';
+  }
+  var g1 = "", g2 = "";
+  var S = 'fill="none" stroke="currentColor" stroke-linecap="butt" stroke-linejoin="miter"';
+  if (o.split) {
+    // бутун «m» бир рангда, фақат «h»нинг x дан юқори таначаси — яшил: m + h
+    var yx = ya;
+    g2 = '<path d="M' + x1 + ' 0V' + (-X) + '" stroke-width="' + w + '"/><path d="' + arch(x1, x2) + '" stroke-width="' + w + '"/>' +
+      '<path d="M' + x2 + ' 0V' + yx + '" stroke-width="' + w + '"/><path d="' + arch(x2, x3) + 'V0" stroke-width="' + w + '"/>';
+    g1 = o.cut
+      ? '<path d="M' + (x2 - w / 2) + ' ' + yx + 'V' + (-A + w * 0.75) + 'L' + (x2 + w / 2) + ' ' + (-A) + 'V' + yx + 'Z" stroke="none" fill="currentColor"/>'
+      : '<path d="M' + x2 + ' ' + yx + 'V' + (-A) + '" stroke-width="' + w + '"/>';
+  } else if (o.order === "nh") {
+    // n: чап оёқ + 1-арка (яшил); h: баланд ўрта оёқ + 2-арка + ўнг оёқ
+    g1 = '<path d="M' + x1 + ' 0V' + (-X) + '" stroke-width="' + w + '"/><path d="' + arch(x1, x2) + '" stroke-width="' + w + '"/>';
+    g2 = tall(x2) + '<path d="' + arch(x2, x3) + 'V0" stroke-width="' + w + '"/>';
+  } else {
+    // h: баланд чап оёқ + 1-арка + ўрта оёқ; n: 2-арка + ўнг оёқ (яшил)
+    g2 = tall(x1) + '<path d="' + arch(x1, x2) + 'V0" stroke-width="' + w + '"/>';
+    g1 = '<path d="' + arch(x2, x3) + 'V0" stroke-width="' + w + '"/>';
+  }
+  var accCol = o.mono ? pal.ink : pal.acc;
+  return { svg: '<g ' + S + ' style="color:' + accCol + '">' + g1 + '</g><g ' + S + ' style="color:' + pal.ink + '">' + g2 + '</g>', width: x3 + w / 2, height: A };
+}
+
+function icon(o, pal, size, shape) {
+  var m = markPaths(o, pal), pad = 0.24, box = 100;
+  var s = (box * (1 - 2 * pad)) / Math.max(m.width, m.height);
+  var tx = (box - m.width * s) / 2, ty = (box + m.height * s) / 2;
+  var bg = shape === "circle" ? '<circle cx="50" cy="50" r="50" fill="' + pal.bg + '"/>' : '<rect width="100" height="100" rx="' + (shape === "sq" ? 0 : 22) + '" fill="' + pal.bg + '"/>';
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 100 100">' + bg + '<g transform="translate(' + tx + " " + ty + ") scale(" + s + ')">' + m.svg + "</g></svg>";
+}
+
+function crane(pal, k) {
+  // кран «t» — 72px ёзув учун чизилган, k — масштаб
+  return '<g transform="scale(' + k + ')">' +
+    '<path d="M0 0V-60" stroke="' + pal.ink + '" stroke-width="' + (M.w * 0.72) + '"/>' +
+    '<path d="M-36 -50H20" stroke="' + pal.ink + '" stroke-width="8" stroke-linecap="round"/>' +
+    '<path d="M0 -60V-72M0 -72L-34 -51M0 -72L18 -51" stroke="' + pal.acc + '" stroke-width="2.4" stroke-linecap="round" fill="none"/>' +
+    '<rect x="9" y="-50" width="12" height="10" rx="1.5" fill="' + pal.ink + '"/>' +
+    '<path d="M-23 -50V-45" stroke="' + pal.acc + '" stroke-width="2.4"/>' +
+    '<rect x="-29" y="-45" width="12" height="9" rx="1.5" fill="' + pal.acc + '"/></g>';
+}
+
+function wordmark(o, pal, withCrane, sub) {
+  var fs = 72, k = fs / 100, m = markPaths(o, pal, k);
+  var gap = fs * (m.r ? 0.075 : 0.035), base = 92;
+  var tmp = document.createElementNS(NS, "svg");
+  tmp.style.cssText = "position:absolute;visibility:hidden";
+  document.body.appendChild(tmp);
+  var word = withCrane ? "isobo" : "isobot";
+  tmp.innerHTML = '<text font-family="Onest" font-weight="800" font-size="' + fs + '" letter-spacing="-2">' + word + "</text>";
+  var tw = tmp.querySelector("text").getBBox().width;
+  tmp.remove();
+  var tx = m.width + gap, end = tx + tw;
+  var out = '<g transform="translate(14 ' + base + ')">' + m.svg + '<text x="' + tx + '" y="0" font-family="Onest" font-weight="800" font-size="' + fs + '" letter-spacing="-2" fill="' + pal.ink + '">' + word + "</text>";
+  var W = end + 28;
+  if (withCrane) { out += '<g transform="translate(' + (end + 10) + ' 0)">' + crane(pal, 1) + "</g>"; W = end + 46; }
+  if (sub) out += '<text x="' + (m.width + gap + 2) + '" y="26" font-family="JetBrains Mono" font-weight="600" font-size="12.5" letter-spacing="2.2" fill="' + (pal.bg === "#0d1522" ? "#8b97a8" : "#6b7686") + '">МУҲАНДИС ҲИСОБОТ</text>';
+  out += "</g>";
+  var H = sub ? 132 : 112;
+  return '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + " " + H + '">' + out + "</svg>";
+}
+
+var V = [
+  { key: "G", name: "бир ранг", order: "nr", col: "one" },
+  { key: "H", name: "уч яшил", order: "nr", col: "tip" },
+  { key: "I", name: "уч яшил · кесик", order: "nr", col: "tip", cut: true },
+  { key: "J", name: "силлиқ ўтиш", order: "nr", col: "grad" },
+  { key: "K", name: "силлиқ ўтиш · кесик", order: "nr", col: "grad", cut: true },
+];
+function tile(html, cls, cap) { return '<div class="t ' + (cls || "") + '">' + html + '<span class="cap">' + cap + "</span></div>"; }
+
+document.fonts.load(FONT).then(function () {
+  metrics();
+  var how = "";
+  V.forEach(function (o) {
+    var m = markPaths(o, PAL.light, 1.4), w = m.width + 40, h = m.height + 40;
+    how += tile('<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + " " + h + '"><g transform="translate(20 ' + (h - 20) + ')">' + m.svg + "</g></svg>", "", o.key + " · " + o.name);
+  });
+  document.getElementById("how").innerHTML = how;
+  var ic = "";
+  V.forEach(function (o) {
+    ic += tile(icon(o, PAL.dark, 120), "d", o.key + " · тўқ");
+    ic += tile(icon(o, PAL.light, 120, "sq"), "", o.key + " · оқ");
+  });
+  ic += tile(icon(V[2], PAL.green, 120), "", "I · яшил фон");
+  ic += tile(icon(V[2], PAL.dark, 120, "circle"), "", "I · доира (Telegram)");
+  ic += tile(icon(V[4], PAL.dark, 120, "circle"), "", "K · доира (Telegram)");
+  ic += tile(icon(Object.assign({}, V[2], { mono: true }), PAL.dark, 120), "d", "бир рангли (муҳр, бланк)");
+  document.getElementById("icons").innerHTML = ic;
+  var wd = "";
+  V.forEach(function (o) {
+    wd += tile(wordmark(o, PAL.light, false, true), "", o.key + " · [белги]isobot");
+    wd += tile(wordmark(o, PAL.dark, false, true), "d", o.key + " · тўқ фонда");
+  });
+  document.getElementById("words").innerHTML = wd;
+  var cr = "";
+  [V[2], V[4]].forEach(function (o) {
+    cr += tile(wordmark(o, PAL.light, true, false), "", o.key + " + кран «t»");
+    cr += tile(wordmark(o, PAL.dark, true, false), "d", o.key + " + кран · тўқ");
+  });
+  document.getElementById("cranes").innerHTML = cr;
+  var sm = "";
+  V.forEach(function (o) {
+    sm += tile('<div class="sizes">' + icon(o, PAL.dark, 16) + icon(o, PAL.dark, 24) + icon(o, PAL.dark, 32) + icon(o, PAL.dark, 48) + "</div>", "", o.key + " · 16 / 24 / 32 / 48");
+  });
+  document.getElementById("small").innerHTML = sm;
+});
+</script>
+</body>
+</html>

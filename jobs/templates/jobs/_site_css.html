@@ -48,7 +48,10 @@
   .brand-mark svg { width: 30px; height: 30px; }
   .brand-t { display: grid; gap: 4px; line-height: 1; }
   .brand-t b { font: 700 16.5px/1 var(--ff); letter-spacing: -.01em; white-space: nowrap; }
-  .brand-t span { font: 500 11px/1 var(--fm); letter-spacing: .04em; color: var(--mute); }
+  /* ёзувли логотип: белги шрифт ўлчамида (em) — «isobot» билан бир қалинликда, баландлиги h га тенг */
+  .brand-t b.brand-word { display: inline-flex; align-items: baseline; font: 800 26px/1 var(--ff); letter-spacing: -.028em; }
+  .brand-word svg { width: .88em; height: .71em; margin-right: .075em; flex: none; overflow: visible; }
+  .brand-t span { font: 500 11px/1 var(--fm); letter-spacing: .04em; color: var(--mute); white-space: nowrap; }
 
   /* сарлавҳа */
   .site-h { position: sticky; top: 0; z-index: 1000; background: rgba(251, 252, 252, .92); border-bottom: 1px solid var(--line);

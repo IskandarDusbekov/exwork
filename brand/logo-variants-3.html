@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mhisobot — ғояли логотиплар</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;700;800&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #0d1522; --ink-2: #3a4555; --mute: #6b7686; --line: #dfe3e8; --paper: #fbfcfc; --acc-d: #0c7a4c; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--paper); color: var(--ink); font: 15px/1.55 "Onest", system-ui, sans-serif; padding: 36px clamp(16px, 4vw, 56px) 80px; }
+  h1 { font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
+  .lead { margin-top: 6px; color: var(--ink-2); max-width: 62em; }
+  .idea { margin-top: 30px; display: grid; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--line); background: #fff; }
+  @media (min-width: 1000px) { .idea { grid-template-columns: 22rem minmax(0, 1fr); } }
+  .story { padding: 22px 24px; border-bottom: 1px solid var(--line); }
+  @media (min-width: 1000px) { .story { border-bottom: 0; border-right: 1px solid var(--line); } }
+  .story b.n { font: 800 13px "JetBrains Mono", monospace; color: var(--acc-d); }
+  .story h2 { margin-top: 4px; font-size: 21px; font-weight: 800; letter-spacing: -.01em; }
+  .story p { margin-top: 10px; font-size: 14.5px; color: var(--ink-2); }
+  .story .why { margin-top: 12px; padding: 10px 12px; background: #e4f3eb; color: #0a5b39; font-size: 13.5px; }
+  .show { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .tile { display: grid; place-items: center; gap: 10px; min-height: 220px; padding: 20px; }
+  .tile.d { background: var(--ink); }
+  .tile + .tile { border-left: 1px solid var(--line); }
+  .tile.wide { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); min-height: 170px; }
+  .tile.wide.d { border-top-color: var(--ink); }
+  .cap { font: 600 11px "JetBrains Mono", monospace; letter-spacing: .05em; text-transform: uppercase; color: var(--mute); }
+  .d .cap { color: #8b97a8; }
+  .sizes { display: flex; align-items: end; gap: 12px; }
+  .lock { display: flex; align-items: center; gap: 12px; }
+  .lock b { font: 800 26px/1 "Onest"; letter-spacing: -.025em; }
+  .lock small { display: block; margin-top: 5px; font: 600 10.5px/1 "JetBrains Mono"; letter-spacing: .07em; color: var(--mute); }
+  .d .lock b { color: #fff; }
+  .fg { stroke: var(--fg); fill: none; } .fgf { fill: var(--fg); } .ac { stroke: var(--ac); fill: none; } .acf { fill: var(--ac); } .bg { fill: var(--bg); }
+  .on-dark { --bg: #0d1522; --fg: #fff; --ac: #34d399; --dim: rgba(255,255,255,.14); }
+  .on-light { --bg: #fff; --fg: #0d1522; --ac: #0c7a4c; --dim: rgba(13,21,34,.12); }
+  .dimf { fill: var(--dim); }
+  .wm text { font-family: "Onest"; font-weight: 800; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <!-- 1. Кран: «t» — минорали кран, илгагида яшил блок -->
+  <symbol id="crane" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <path class="fg" stroke-width="9" stroke-linecap="round" d="M60 84V24"/>
+    <path class="fg" stroke-width="7" stroke-linecap="round" d="M16 30h66"/>
+    <path class="ac" stroke-width="2.5" stroke-linecap="round" d="M60 24V13M60 13L19 29M60 13l20 16"/>
+    <rect class="fgf" x="70" y="30" width="12" height="10" rx="1.5"/>
+    <path class="ac" stroke-width="2.5" d="M30 30v15"/>
+    <rect class="acf" x="23" y="45" width="14" height="14" rx="2"/>
+    <path class="fg" stroke-width="4" stroke-linecap="round" d="M44 84h32"/>
+  </symbol>
+  <!-- 2. h + n = m (муҲаНдис ҳарфларидан) -->
+  <symbol id="hn" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <path class="ac" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" d="M50 56a13 13 0 0 1 26 0v22"/>
+    <path class="fg" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" d="M24 78V20M24 56a13 13 0 0 1 26 0v22"/>
+  </symbol>
+  <!-- 3. Excel катаклари «m» шаклида -->
+  <symbol id="cells" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <g id="cellgrid"></g>
+  </symbol>
+  <!-- 4. Икки чизма учбурчаги = M -->
+  <symbol id="squares" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <path class="fgf" fill-rule="evenodd" d="M15 17V83H50ZM23 43V75H40Z"/>
+    <path class="acf" fill-rule="evenodd" d="M85 17V83H50ZM77 43V75H60Z"/>
+    <path style="stroke: var(--bg)" stroke-width="2" d="M15 27h5M15 37h3M15 47h5M15 57h3M15 67h5"/>
+  </symbol>
+  <!-- 5. m — охирги оёғи «✓» (текширилди, тасдиқланди) -->
+  <symbol id="check" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <path class="fg" stroke-width="9.5" stroke-linecap="round" stroke-linejoin="round" d="M14 74V54a11 11 0 0 1 22 0v20M36 54a11 11 0 0 1 22 0v8"/>
+    <path class="ac" stroke-width="9.5" stroke-linecap="round" stroke-linejoin="round" d="M58 62l9 10 20-36"/>
+  </symbol>
+  <!-- 6. М + Ҳ = каркас боғламаси (крест-связь) -->
+  <symbol id="brace" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <path class="fg" stroke-width="9" stroke-linecap="square" d="M20 80V20M80 80V20"/>
+    <path class="ac" stroke-width="7" stroke-linecap="round" d="M20 20L80 80M80 20L20 80"/>
+    <path class="ac" stroke-width="7" stroke-linecap="round" d="M80 80v8"/>
+    <circle class="fgf" cx="50" cy="50" r="5"/>
+  </symbol>
+</defs></svg>
+
+<h1>mhisobot — ғояли логотиплар</h1>
+<p class="lead">Энди ҳар бирининг ортида <b>ғоя</b> бор — FedEx'даги яширин ўқ ёки «акула» сўзидан акула шакли каби: бир қарашда ҳарф, иккинчи қарашда — тизимнинг маъноси. Ҳар бирида: ғоя, тўқ ва оқ фонда белги, кичик ўлчамлар ва ном билан.</p>
+
+<!-- ===== 1. КРАН ===== -->
+<section class="idea">
+  <div class="story">
+    <b class="n">01</b><h2>«t» — бу кран</h2>
+    <p>«mhisobo<b>t</b>» сўзининг охирги ҳарфи — минорали кран: устуни — «t» нинг таначаси, кўндаланг чизиғи — краннинг стреласи. Илгакда яшил блок — нархланган смета қатори (ёки ресурс) кўтарилмоқда.</p>
+    <p class="why">Нега: сўзнинг ўзи қурилишни айтади. Ном ёзилганда логотип бўлади — «акула» ғоясидек. Кичик белгида — фақат кран.</p>
+  </div>
+  <div class="show">
+    <div class="tile d"><svg width="130" height="130" class="on-dark"><use href="#crane"/></svg><span class="cap">тўқ</span></div>
+    <div class="tile"><svg width="130" height="130" class="on-light"><use href="#crane"/></svg><span class="cap">оқ</span></div>
+    <div class="tile"><div class="sizes"><svg width="16" height="16" viewBox="0 0 100 100" class="on-dark"><use href="#crane"/></svg><svg width="24" height="24" viewBox="0 0 100 100" class="on-dark"><use href="#crane"/></svg><svg width="32" height="32" viewBox="0 0 100 100" class="on-dark"><use href="#crane"/></svg><svg width="48" height="48" viewBox="0 0 100 100" class="on-dark"><use href="#crane"/></svg></div><span class="cap">16 · 24 · 32 · 48 px</span></div>
+    <div class="tile wide"><svg class="wm crane-wm on-light" height="110" data-wm></svg><span class="cap">ёзувли логотип — «t» кран</span></div>
+    <div class="tile wide d"><svg class="wm crane-wm on-dark" height="110" data-wm></svg></div>
+  </div>
+</section>
+
+<!-- ===== 2. h + n = m ===== -->
+<section class="idea">
+  <div class="story">
+    <b class="n">02</b><h2>h + n = m</h2>
+    <p>«му<b>Ҳ</b>а<b>Н</b>дис» сўзидаги иккита ҳарф — <b>h</b> (оқ) ва <b>n</b> (яшил) — битта оёқни бўлишади ва бирга <b>m</b> бўлади. Баланд чап оёқ — «h» дан қолган из.</p>
+    <p class="why">Нега: номнинг ичидан чиққан белги. «m» ҳарфи ҳам, «mh» ҳам бир вақтда ўқилади. Икки ранг — икки йўналиш: нархлаш ва техназор.</p>
+  </div>
+  <div class="show">
+    <div class="tile d"><svg width="130" height="130" class="on-dark"><use href="#hn"/></svg><span class="cap">тўқ</span></div>
+    <div class="tile"><svg width="130" height="130" class="on-light"><use href="#hn"/></svg><span class="cap">оқ</span></div>
+    <div class="tile"><div class="sizes"><svg width="16" height="16" viewBox="0 0 100 100" class="on-dark"><use href="#hn"/></svg><svg width="24" height="24" viewBox="0 0 100 100" class="on-dark"><use href="#hn"/></svg><svg width="32" height="32" viewBox="0 0 100 100" class="on-dark"><use href="#hn"/></svg><svg width="48" height="48" viewBox="0 0 100 100" class="on-dark"><use href="#hn"/></svg></div><span class="cap">16 · 24 · 32 · 48 px</span></div>
+    <div class="tile wide"><div class="lock"><svg width="56" height="56" viewBox="0 0 100 100" class="on-dark"><use href="#hn"/></svg><span><b>mhisobot</b><small>МУҲАНДИС ҲИСОБОТ</small></span></div></div>
+  </div>
+</section>
+
+<!-- ===== 3. EXCEL КАТАКЛАРИ ===== -->
+<section class="idea">
+  <div class="story">
+    <b class="n">03</b><h2>Катаклардан «m»</h2>
+    <p>Смета — бу Excel жадвали. Белги — жадвалнинг бир бўлаги, тўлдирилган катаклар <b>m</b> ҳарфини ҳосил қилади. Битта яшил катак — тизим нархлаган қатор.</p>
+    <p class="why">Нега: тизим нима қилишини тўғридан-тўғри кўрсатади — жадвални тўлдиради. Пиксель услуби кичикда ҳам аниқ.</p>
+  </div>
+  <div class="show">
+    <div class="tile d"><svg width="130" height="130" class="on-dark"><use href="#cells"/></svg><span class="cap">тўқ</span></div>
+    <div class="tile"><svg width="130" height="130" class="on-light"><use href="#cells"/></svg><span class="cap">оқ</span></div>
+    <div class="tile"><div class="sizes"><svg width="16" height="16" viewBox="0 0 100 100" class="on-dark"><use href="#cells"/></svg><svg width="24" height="24" viewBox="0 0 100 100" class="on-dark"><use href="#cells"/></svg><svg width="32" height="32" viewBox="0 0 100 100" class="on-dark"><use href="#cells"/></svg><svg width="48" height="48" viewBox="0 0 100 100" class="on-dark"><use href="#cells"/></svg></div><span class="cap">16 · 24 · 32 · 48 px</span></div>
+    <div class="tile wide"><div class="lock"><svg width="56" height="56" viewBox="0 0 100 100" class="on-dark"><use href="#cells"/></svg><span><b>mhisobot</b><small>МУҲАНДИС ҲИСОБОТ</small></span></div></div>
+  </div>
+</section>
+
+<!-- ===== 4. ЧИЗМА УЧБУРЧАКЛАРИ ===== -->
+<section class="idea">
+  <div class="story">
+    <b class="n">04</b><h2>Икки чизғич = M</h2>
+    <p>Муҳандиснинг столидаги иккита чизма учбурчаги (угольник) ёнма-ён қўйилса — <b>M</b>. Чапдагисида ўлчов чизиқчалари бор.</p>
+    <p class="why">Нега: ҳарф ҳеч қандай «чизилмаган» — у асбоблардан йиғилган. Муҳр ва бланкда жуда кучли кўринади.</p>
+  </div>
+  <div class="show">
+    <div class="tile d"><svg width="130" height="130" class="on-dark"><use href="#squares"/></svg><span class="cap">тўқ</span></div>
+    <div class="tile"><svg width="130" height="130" class="on-light"><use href="#squares"/></svg><span class="cap">оқ</span></div>
+    <div class="tile"><div class="sizes"><svg width="16" height="16" viewBox="0 0 100 100" class="on-dark"><use href="#squares"/></svg><svg width="24" height="24" viewBox="0 0 100 100" class="on-dark"><use href="#squares"/></svg><svg width="32" height="32" viewBox="0 0 100 100" class="on-dark"><use href="#squares"/></svg><svg width="48" height="48" viewBox="0 0 100 100" class="on-dark"><use href="#squares"/></svg></div><span class="cap">16 · 24 · 32 · 48 px</span></div>
+    <div class="tile wide"><div class="lock"><svg width="56" height="56" viewBox="0 0 100 100" class="on-dark"><use href="#squares"/></svg><span><b>mhisobot</b><small>МУҲАНДИС ҲИСОБОТ</small></span></div></div>
+  </div>
+</section>
+
+<!-- ===== 5. ТАСДИҚ ===== -->
+<section class="idea">
+  <div class="story">
+    <b class="n">05</b><h2>«m» ✓ — текширилди</h2>
+    <p>«m» нинг охирги оёғи белги «✓» га айланади: смета нархланди, далолатнома тасдиқланди, ҳисобот тайёр.</p>
+    <p class="why">Нега: фойдаланувчи кутган натижа — «тайёр». Оддий, тез танилади, ҳар ерда ишлайди.</p>
+  </div>
+  <div class="show">
+    <div class="tile d"><svg width="130" height="130" class="on-dark"><use href="#check"/></svg><span class="cap">тўқ</span></div>
+    <div class="tile"><svg width="130" height="130" class="on-light"><use href="#check"/></svg><span class="cap">оқ</span></div>
+    <div class="tile"><div class="sizes"><svg width="16" height="16" viewBox="0 0 100 100" class="on-dark"><use href="#check"/></svg><svg width="24" height="24" viewBox="0 0 100 100" class="on-dark"><use href="#check"/></svg><svg width="32" height="32" viewBox="0 0 100 100" class="on-dark"><use href="#check"/></svg><svg width="48" height="48" viewBox="0 0 100 100" class="on-dark"><use href="#check"/></svg></div><span class="cap">16 · 24 · 32 · 48 px</span></div>
+    <div class="tile wide"><div class="lock"><svg width="56" height="56" viewBox="0 0 100 100" class="on-dark"><use href="#check"/></svg><span><b>mhisobot</b><small>МУҲАНДИС ҲИСОБОТ</small></span></div></div>
+  </div>
+</section>
+
+<!-- ===== 6. М + Ҳ КАРКАС ===== -->
+<section class="idea">
+  <div class="story">
+    <b class="n">06</b><h2>М + Ҳ = каркас</h2>
+    <p>Кириллча <b>М</b> нинг икки оёғи ва <b>Ҳ</b> нинг кесишган чизиқлари (пастида Ҳ нинг думчаси) бирга — бино каркасининг <b>крест боғламаси</b> (связь) бўлади: конструкцияни мустаҳкам ушлаб турадиган қисм.</p>
+    <p class="why">Нега: «Муҳандис Ҳисобот» нинг бош ҳарфлари ва қурилиш элементи бир шаклда. Мустаҳкамлик ва ишончни билдиради.</p>
+  </div>
+  <div class="show">
+    <div class="tile d"><svg width="130" height="130" class="on-dark"><use href="#brace"/></svg><span class="cap">тўқ</span></div>
+    <div class="tile"><svg width="130" height="130" class="on-light"><use href="#brace"/></svg><span class="cap">оқ</span></div>
+    <div class="tile"><div class="sizes"><svg width="16" height="16" viewBox="0 0 100 100" class="on-dark"><use href="#brace"/></svg><svg width="24" height="24" viewBox="0 0 100 100" class="on-dark"><use href="#brace"/></svg><svg width="32" height="32" viewBox="0 0 100 100" class="on-dark"><use href="#brace"/></svg><svg width="48" height="48" viewBox="0 0 100 100" class="on-dark"><use href="#brace"/></svg></div><span class="cap">16 · 24 · 32 · 48 px</span></div>
+    <div class="tile wide"><div class="lock"><svg width="56" height="56" viewBox="0 0 100 100" class="on-dark"><use href="#brace"/></svg><span><b>mhisobot</b><small>МУҲАНДИС ҲИСОБОТ</small></span></div></div>
+  </div>
+</section>
+
+<script>
+  // 3: катаклар — 5×4 жадвал, тўлдирилгани «m»; охирги тўлдирилгани яшил
+  (function () {
+    var m = ["11010", "10101", "10101", "10101"], g = document.getElementById("cellgrid"), ns = "http://www.w3.org/2000/svg";
+    var s = 13, gap = 3, x0 = (100 - (5 * s + 4 * gap)) / 2, y0 = (100 - (4 * s + 3 * gap)) / 2;
+    m.forEach(function (row, r) {
+      row.split("").forEach(function (v, c) {
+        var e = document.createElementNS(ns, "rect");
+        e.setAttribute("x", x0 + c * (s + gap)); e.setAttribute("y", y0 + r * (s + gap));
+        e.setAttribute("width", s); e.setAttribute("height", s); e.setAttribute("rx", 1.5);
+        e.setAttribute("class", v === "1" ? (r === 3 && c === 4 ? "acf" : "fgf") : "dimf");
+        g.appendChild(e);
+      });
+    });
+  })();
+  // 1: ёзувли логотип — «mhisobo» матни, охирида чизилган кран-«t»
+  function craneT() {
+    return '<g class="t">' +
+      '<path class="fg" stroke-width="10" stroke-linecap="round" d="M0 0V-60"/>' +
+      '<path class="fg" stroke-width="8" stroke-linecap="round" d="M-38 -50H20"/>' +
+      '<path class="ac" stroke-width="2.4" stroke-linecap="round" d="M0 -60V-72M0 -72L-36 -51M0 -72L18 -51"/>' +
+      '<rect class="fgf" x="9" y="-50" width="12" height="10" rx="1.5"/>' +
+      '<path class="ac" stroke-width="2.4" d="M-24 -50V-45"/>' +
+      '<rect class="acf" x="-30" y="-45" width="12" height="9" rx="1.5"/></g>';
+  }
+  document.fonts.ready.then(function () {
+    document.querySelectorAll("[data-wm]").forEach(function (svg) {
+      svg.innerHTML = '<text x="10" y="86" font-size="72" letter-spacing="-2.5" class="fgf">mhisobo</text>' + craneT();
+      var t = svg.querySelector("text"), b = t.getBBox(), cx = b.x + b.width + 14;
+      svg.querySelector("g.t").setAttribute("transform", "translate(" + cx + " 86)");
+      svg.setAttribute("viewBox", "0 0 " + (cx + 34) + " 110");
+      svg.setAttribute("width", cx + 34);
+    });
+  });
+</script>
+</body>
+</html>

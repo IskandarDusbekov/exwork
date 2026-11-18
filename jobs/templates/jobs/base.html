@@ -72,7 +72,7 @@
       <button type="button" data-side-open class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 lg:hidden" aria-label="Меню" aria-controls="app-side">{% icon "menu" "h-5 w-5" %}</button>
       {% endif %}
       <a href="{% url 'index' %}" class="flex items-center gap-2.5 text-slate-900 {% if user.is_authenticated %}lg:hidden{% endif %}" title="mhisobot — муҳандис ҳисобот">
-        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-900">{% include "jobs/_logo.html" with cls="h-7 w-7" %}</span>
+        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-900">{% include "jobs/_logo.html" with cls="h-7 w-7" gid="s" %}</span>
         <span class="hidden leading-none sm:block">
           <span class="block whitespace-nowrap text-[15px] font-bold tracking-tight">mhisobot</span>
           <span class="mt-1 block text-[11px] font-medium tracking-wide text-slate-400">муҳандис ҳисобот</span></span></a>

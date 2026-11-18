@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mhisobot — янги белги ғоялари</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;700;800&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #0d1522; --ink-2: #3a4555; --mute: #6b7686; --line: #dfe3e8; --paper: #fbfcfc; --acc: #34d399; --acc-d: #0c7a4c; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--paper); color: var(--ink); font: 15px/1.5 "Onest", system-ui, sans-serif; padding: 36px clamp(16px, 4vw, 56px) 80px; }
+  h1 { font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
+  .lead { margin-top: 6px; color: var(--ink-2); max-width: 62em; }
+  .grid { margin-top: 28px; display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); }
+  .c { border: 1px solid var(--line); background: #fff; }
+  .c-top { display: grid; grid-template-columns: 1fr 1fr; }
+  .tile { display: grid; place-items: center; padding: 22px; }
+  .tile.d { background: var(--ink); }
+  .tile.l { background: #fff; border-left: 1px solid var(--line); }
+  .c-b { display: grid; gap: 12px; padding: 14px 18px 18px; border-top: 1px solid var(--line); }
+  .c-h { display: flex; align-items: baseline; gap: 10px; }
+  .c-h b { font: 800 13px "JetBrains Mono", monospace; color: var(--acc-d); }
+  .c-h h2 { font-size: 16.5px; font-weight: 700; }
+  .c-b p { font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
+  .c-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .sizes { display: flex; align-items: end; gap: 10px; }
+  .lock { display: flex; align-items: center; gap: 10px; }
+  .lock b { font: 800 20px/1 "Onest"; letter-spacing: -.02em; }
+  .lock small { display: block; margin-top: 3px; font: 600 9.5px/1 "JetBrains Mono"; letter-spacing: .06em; color: var(--mute); }
+  /* белги ранглари: --bg тўртбурчак, --fg асосий чизиқ, --ac яшил урғу */
+  .fg { stroke: var(--fg); fill: none; }
+  .fgf { fill: var(--fg); }
+  .ac { stroke: var(--ac); fill: none; }
+  .acf { fill: var(--ac); }
+  .bg { fill: var(--bg); }
+  .on-dark { --bg: #0d1522; --fg: #fff; --ac: #34d399; }
+  .on-light { --bg: #fff; --fg: #0d1522; --ac: #0c7a4c; }
+  .note { margin-top: 32px; padding: 16px 20px; border-left: 3px solid var(--acc-d); background: #e4f3eb; color: #0a5b39; max-width: 70em; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <!-- 1. mh лигатура: «m» нинг охирги оёғи — «h» нинг баланд таначаси (ўсиш устуни) -->
+  <symbol id="s1" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <path class="fg" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" d="M17 76V55a10.5 10.5 0 0 1 21 0v21M38 55a10.5 10.5 0 0 1 21 0v21M59 76V46M59 55a10.5 10.5 0 0 1 21 0v21"/>
+    <path class="ac" stroke-width="9" stroke-linecap="round" d="M59 44V22"/>
+  </symbol>
+  <!-- 2. mh + қалам: «h» таначаси — учи юқорига қараган қалам (ҳисоб ёзилади) -->
+  <symbol id="s2" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <path class="fg" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" d="M17 76V55a10.5 10.5 0 0 1 21 0v21M38 55a10.5 10.5 0 0 1 21 0v21M59 76V36M59 55a10.5 10.5 0 0 1 21 0v21"/>
+    <path class="acf" d="M54.5 33h9L59 16z"/>
+    <path class="ac" stroke-width="2.5" d="M54.5 33h9"/>
+  </symbol>
+  <!-- 3. MH бирлашмаси: «M» нинг ўнг оёғи — «H» нинг чап оёғи; кўндаланг тўсин — яшил -->
+  <symbol id="s3" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <path class="fg" stroke-width="8.5" stroke-linecap="square" stroke-linejoin="miter" d="M16 77V24l19 27 19-27v53M82 24v53"/>
+    <path class="ac" stroke-width="8.5" d="M54 51h28"/>
+  </symbol>
+  <!-- 4. MH гайка ичида (олти бурчак — машинасозлик, қурилиш) -->
+  <symbol id="s4" viewBox="0 0 100 100">
+    <path class="bg" d="M50 3l41 23.5v47L50 97 9 73.5v-47z"/>
+    <path class="ac" stroke-width="2.5" d="M50 11l34 19.5v39L50 89 16 69.5v-39z" opacity=".55"/>
+    <path class="fg" stroke-width="7" stroke-linecap="square" d="M25 66V35l12.5 17L50 35v31M73 35v31"/>
+    <path class="ac" stroke-width="7" d="M50 51h23"/>
+  </symbol>
+  <!-- 5. Ферма «M»: том фермаси — ташқи чизиқ оқ, ички таёқчалар яшил -->
+  <symbol id="s5" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <path class="ac" stroke-width="3.5" stroke-linejoin="round" d="M14 74L32 44V74L50 60L68 74V44L86 74"/>
+    <path class="fg" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" d="M14 74V27L50 60L86 27V74M14 74H86"/>
+  </symbol>
+  <!-- 6. Σ → M: «жам» белгиси ёнбошлаганда M бўлади (ҳисоб-китоб) -->
+  <symbol id="s6" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <path class="fg" stroke-width="8.5" stroke-linejoin="miter" stroke-linecap="square" d="M30 77H20V24L50 52L80 24V77H70"/>
+    <circle class="acf" cx="50" cy="74" r="5.5"/>
+  </symbol>
+  <!-- 7. Стенсил «m»: чизма ҳарфлари каби қиррали, тепада ўлчам чизиғи -->
+  <symbol id="s7" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <path class="fg" stroke-width="8.5" stroke-linejoin="miter" d="M23 78V48l7-7h10l7 7v30M47 78V48l7-7h10l7 7v30"/>
+    <path class="ac" stroke-width="3" stroke-linecap="round" d="M23 25h48M23 19v12M71 19v12"/>
+    <path class="acf" d="M23 25l7-3.5v7zM71 25l-7-3.5v7z"/>
+  </symbol>
+  <!-- 8. Excel катаги: танланган катак ичида «mh», бурчакда яшил тутқич -->
+  <symbol id="s8" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <rect class="fg" x="15" y="22" width="70" height="56" rx="3" stroke-width="5"/>
+    <text x="50" y="60" text-anchor="middle" font-family="JetBrains Mono" font-weight="800" font-size="31" letter-spacing="-1.5" class="fgf">mh</text>
+    <rect class="acf" x="77" y="70" width="15" height="15" rx="2"/>
+    <rect x="77" y="70" width="15" height="15" rx="2" fill="none" style="stroke: var(--bg)" stroke-width="3"/>
+  </symbol>
+  <!-- 9. «h» — штангенциркуль: ўлчов асбоби, ичида «m» нинг арки -->
+  <symbol id="s9" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <path class="fg" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" d="M26 80V22M26 52h20a14 14 0 0 1 14 14v14"/>
+    <path class="fg" stroke-width="8" stroke-linecap="round" d="M26 26h52"/>
+    <path class="ac" stroke-width="2.6" stroke-linecap="round" d="M38 34v6M46 34v4M54 34v6M62 34v4M70 34v6M78 34v4"/>
+    <path class="ac" stroke-width="8" stroke-linecap="round" d="M78 26v22"/>
+  </symbol>
+  <!-- 10. Блок: изометрик ғишт/куб — устки юзаси яшил, олдида «m» -->
+  <symbol id="s10" viewBox="0 0 100 100">
+    <rect class="bg" width="100" height="100" rx="22"/>
+    <path class="acf" d="M50 16l30 15-30 15-30-15z"/>
+    <path class="fg" stroke-width="5" stroke-linejoin="round" d="M20 31v36l30 15 30-15V31M50 46v36"/>
+    <path class="fg" stroke-width="3.5" stroke-linecap="round" d="M20 49l30 15 30-15M35 39v18M65 39v18M35 57v17M65 57v17" opacity=".9"/>
+  </symbol>
+</defs></svg>
+
+<h1>mhisobot — янги белги ғоялари</h1>
+<p class="lead">Ҳозирги юмалоқ «m» дан воз кечилди. Бу ерда — бошқача шакллар: <b>mh</b> бирлашмаси, қиррали <b>M</b>, муҳандислик (ферма, гайка, штангенциркуль, ғишт) ва ҳисоб (Σ жам белгиси, Excel катаги). Ҳар бирида: тўқ ва оқ фонда, кичик ўлчамда (16–48 px — браузер варағида шундай кўринади) ва ном билан бирга. Ёққанининг рақамини айтинг — шуни ривожлантириб, ранг ва муҳр вариантларини чиқараман.</p>
+
+<div class="grid" id="grid"></div>
+<p class="note">Менинг тавсиям: <b>3 (MH бирлашмаси)</b> — қисқа, кучли, кичикда ҳам аниқ; <b>1 (mh лигатура)</b> — юмшоқроқ, замонавий; <b>5 (ферма M)</b> — энг «муҳандисча». <b>6 (Σ→M)</b> — «ҳисобот» маъносини энг яхши беради.</p>
+
+<script>
+  var items = [
+    ["s1", "mh лигатура", "«m» нинг охирги оёғи «h» нинг таначасига айланади. Яшил қисми — ўсиш устуни."],
+    ["s2", "mh + қалам", "«h» таначаси — қалам: ҳисоб ёзилади. 1-вариантнинг жонлироғи."],
+    ["s3", "MH бирлашмаси", "«M» ва «H» битта оёқни бўлишади. Кўндаланг яшил чизиқ — тўсин (балка)."],
+    ["s4", "MH гайка ичида", "Олти бурчак — гайка, машинасозлик ва қурилиш. Муҳр учун ҳам қулай."],
+    ["s5", "Ферма «M»", "Том фермаси шаклидаги M: ташқи чизиқ ва ички таёқчалар. Энг муҳандисча."],
+    ["s6", "Σ → M", "Жам белгиси Σ ёнбошлаганда M бўлади. Пастдаги нуқта — натижа. «Ҳисоб» маъноси."],
+    ["s7", "Стенсил «m»", "Чизма ҳарфларидек қиррали m, тепада ўлчам чизиғи."],
+    ["s8", "Excel катаги", "Танланган катак ва бурчакдаги тутқич — смета Excel'да. Ичида mh."],
+    ["s9", "Штангенциркуль «h»", "«h» ҳарфи ўлчов асбобига уланган: тепада шкала, яшил — сурилувчи жағ. Аниқ ўлчаш."],
+    ["s10", "Ғишт / блок", "Изометрик ғишт терими: қурилиш. Ҳарфсиз — фақат белги сифатида."]
+  ];
+  var g = document.getElementById("grid");
+  function use(id, s, cls) { return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 100 100" class="' + cls + '"><use href="#' + id + '"/></svg>'; }
+  items.forEach(function (it, i) {
+    var id = it[0];
+    g.insertAdjacentHTML("beforeend",
+      '<div class="c"><div class="c-top"><div class="tile d">' + use(id, 120, "on-dark") + '</div><div class="tile l">' + use(id, 120, "on-light") + '</div></div>' +
+      '<div class="c-b"><div class="c-h"><b>' + (i + 1) + '</b><h2>' + it[1] + '</h2></div><p>' + it[2] + '</p>' +
+      '<div class="c-row"><div class="sizes">' + use(id, 16, "on-dark") + use(id, 24, "on-dark") + use(id, 32, "on-dark") + use(id, 48, "on-dark") + '</div>' +
+      '<div class="lock">' + use(id, 40, "on-dark") + '<span><b>mhisobot</b><small>МУҲАНДИС ҲИСОБОТ</small></span></div></div></div></div>');
+  });
+</script>
+</body>
+</html>
