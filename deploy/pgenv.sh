@@ -18,6 +18,10 @@ print("\n".join(f"export {k}={shlex.quote(v)}" for k, v in d.items()))
 PG_CLEAN_SQL="DO \$\$DECLARE r record; BEGIN
 FOR r IN SELECT c.relname, c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname = 'public' AND c.relkind IN ('r','p','v','m','S') AND pg_get_userbyid(c.relowner) = current_user
+           -- IDENTITY / serial ketma-ketligi jadval bilan birga ketadi (alohida DROP xato beradi)
+           AND NOT (c.relkind = 'S' AND EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_class'::regclass
+                                                AND d.objid = c.oid AND d.deptype IN ('a', 'i')))
+         ORDER BY CASE c.relkind WHEN 'v' THEN 0 WHEN 'm' THEN 1 WHEN 'S' THEN 3 ELSE 2 END
 LOOP
   EXECUTE format('DROP %s IF EXISTS public.%I CASCADE',
                  CASE r.relkind WHEN 'v' THEN 'VIEW' WHEN 'm' THEN 'MATERIALIZED VIEW' WHEN 'S' THEN 'SEQUENCE' ELSE 'TABLE' END,
