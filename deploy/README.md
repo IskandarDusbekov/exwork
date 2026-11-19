@@ -220,8 +220,14 @@ yozadi (xato bo'lsa — hozirgi holat qaytariladi) → o'sha kungi media suratin
 yoqadi. Oxirida qanday qaytarish mumkinligini yozib beradi. Media boshqa kundan: oxiriga `2026-11-17`; faqat baza:
 `--no-media`.
 
-Paneldan yuklab olingan nusxa: serverga `scp` bilan `/srv/narxlash/backups/db/` ga qo'ying (egasi `narxlash`,
-huquq 600) va yuqoridagicha tiklang.
+**O'zingizdagi nusxadan** (server yo'qolganda): Panel → Захира нусха'dan baza (`narxlash_<sana>.dump`) va
+o'sha kungi fayllarni (`media_<kun>.tar`) yuklab oling va server tashqarisida saqlang. Tiklashda ikkalasini
+serverga yuklang (`scp narxlash_….dump media_….tar user@SERVER:/tmp/`), keyin:
+
+```bash
+sudo tar xf /tmp/media_<kun>.tar -C /srv/narxlash && sudo chown -R narxlash:narxlash /srv/narxlash/media
+sudo /srv/narxlash/app/deploy/restore.sh /tmp/narxlash_<sana>.dump --no-media
+```
 
 ### Yangi serverga ko'chish
 

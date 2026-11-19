@@ -1,0 +1,6 @@
+{% load narx %}{# файллар нусхасини юклаб олиш формаси: name — кун ёки «current» #}
+<form method="post" action="{% url 'panel:backup_media_download' name %}" class="flex items-center gap-1.5">{% csrf_token %}
+  <input name="code" {% if has_2fa %}inputmode="numeric" maxlength="7" placeholder="код"{% else %}type="password" placeholder="пароль"{% endif %} required autocomplete="off"
+         class="w-24 rounded-md border border-slate-200 px-2 py-1 text-xs outline-none focus:border-slate-400" aria-label="Тасдиқлаш">
+  <button class="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">{% icon "download" "h-3.5 w-3.5" %} Юклаб олиш</button>
+</form>

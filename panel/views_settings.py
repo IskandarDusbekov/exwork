@@ -5,8 +5,9 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from accounts import totp
@@ -146,3 +147,23 @@ def backup_download(request, name):
         return redirect("panel:backups")
     audit(request, Event.Kind.ADMIN_DOWNLOAD, detail=f"база нусхаси: {name}")
     return FileResponse(open(path, "rb"), as_attachment=True, filename=name)
+
+
+@require_POST
+@superuser_required
+def backup_media_download(request, name):
+    """Файллар (media) — кунлик сурат ёки ҳозиргиси, битта .tar (оқим билан: катта бўлса ҳам хотира тўлмайди)."""
+    src = backup.media_dir(name)
+    if src is None:
+        raise Http404("Файллар нусхаси топилмади")
+    if not _second_factor(request):
+        audit(request, Event.Kind.ADMIN_BACKUP, detail=f"файллар нусхаси: код нотўғри ({name})")
+        messages.error(request, "Код нотўғри — нусха берилмади")
+        return redirect("panel:backups")
+    day = timezone.localdate().isoformat() if name == "current" else name
+    filename = f"media_{day}.tar"
+    audit(request, Event.Kind.ADMIN_DOWNLOAD, detail=f"файллар нусхаси: {filename}")
+    r = StreamingHttpResponse(backup.media_tar(src), content_type="application/x-tar")
+    r["Content-Disposition"] = f'attachment; filename="{filename}"'
+    r["X-Accel-Buffering"] = "no"  # nginx дискка йиғмасин — дарҳол юборсин
+    return r

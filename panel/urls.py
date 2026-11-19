@@ -63,6 +63,7 @@ urlpatterns = [
     path("backups/", views_settings.backups, name="backups"),
     path("backups/make/", views_settings.backup_make, name="backup_make"),
     path("backups/test/", views_settings.backup_test, name="backup_test"),
+    path("backups/media/<str:name>/", views_settings.backup_media_download, name="backup_media_download"),
     path("backups/<str:name>/", views_settings.backup_download, name="backup_download"),
     path("texnazor/", views_tn.texnazor, name="texnazor"),
     path("texnazor/<uuid:obj_id>/", views_tn.texnazor_object, name="texnazor_object"),

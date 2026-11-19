@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import time
+from pathlib import Path
 from unittest import mock
 
 from django.core import mail
@@ -162,3 +163,59 @@ class PgEnvTests(TestCase):
 
 def tearDownModule():
     shutil.rmtree(TMP, ignore_errors=True)
+
+
+@override_settings(MEDIA_ROOT=f"{TMP}/live_media", NARXLASH_BACKUP_DIR=f"{TMP}/media_bk")
+class MediaDownloadTests(TestCase):
+    def setUp(self):
+        for d in ("live_media", "media_bk"):
+            shutil.rmtree(f"{TMP}/{d}", ignore_errors=True)
+        self.boss = User.objects.create_superuser("boss@test.uz", PASSWORD, first_name="B", last_name="A")
+        snap = backup.root() / "media" / "2026-11-18"
+        (snap / "projects" / "a").mkdir(parents=True)
+        (snap / "projects" / "a" / "smeta.xlsx").write_bytes(b"x" * 1500)
+        (snap / "Локал 3.xlsx").write_bytes(b"")
+        os.link(snap / "projects" / "a" / "smeta.xlsx", snap / "projects" / "nusxa.xlsx")
+        live = Path(f"{TMP}/live_media")
+        live.mkdir(parents=True)
+        (live / "yangi.txt").write_bytes(b"bugun")
+
+    def _tar(self, data):
+        import io
+        import tarfile
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:") as t:
+            return {m.name: (t.extractfile(m).read() if m.isreg() else ("link", m.linkname)) for m in t.getmembers()}
+
+    def test_archive_opens_with_media_root_and_hardlinks(self):
+        files = self._tar(b"".join(backup.media_tar(backup.media_dir("2026-11-18"), chunk=1000)))
+        self.assertEqual(files["media/Локал 3.xlsx"], b"")
+        # қаттиқ ҳавола: биринчи учрагани — маълумот, иккинчиси — унга ҳавола (жой икки марта кетмасин)
+        self.assertEqual(files["media/projects/nusxa.xlsx"], b"x" * 1500)
+        self.assertEqual(files["media/projects/a/smeta.xlsx"], ("link", "media/projects/nusxa.xlsx"))
+
+    def test_download_needs_code_and_is_logged(self):
+        from .models import Event
+        self.client.force_login(self.boss)
+        r = self.client.get(reverse("panel:backups"))
+        self.assertContains(r, "media_2026-11-18.tar")
+        self.assertContains(r, "Ҳозирги файллар")
+        url = reverse("panel:backup_media_download", args=["2026-11-18"])
+        r = self.client.post(url, {"code": "notogri"})
+        self.assertRedirects(r, reverse("panel:backups"), fetch_redirect_response=False)
+        r = self.client.post(url, {"code": PASSWORD})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('filename="media_2026-11-18.tar"', r["Content-Disposition"])
+        self.assertIn("media/projects/a/smeta.xlsx", self._tar(b"".join(r.streaming_content)))
+        self.assertTrue(Event.objects.filter(kind=Event.Kind.ADMIN_DOWNLOAD, detail__contains="media_2026-11-18.tar").exists())
+        r = self.client.post(reverse("panel:backup_media_download", args=["current"]), {"code": PASSWORD})
+        self.assertEqual(self._tar(b"".join(r.streaming_content)), {"media/yangi.txt": b"bugun"})
+
+    def test_bad_names_and_non_superuser(self):
+        self.client.force_login(self.boss)
+        for name in ("..", "2026-11-19", "db", "..%2F..%2Fmedia"):
+            r = self.client.post(reverse("panel:backups") + f"media/{name}/", {"code": PASSWORD})
+            self.assertEqual(r.status_code, 404, name)
+        viewer = User.objects.create_user("v@test.uz", PASSWORD, first_name="V", last_name="V", is_staff=True)
+        self.client.force_login(viewer)
+        self.assertEqual(self.client.post(reverse("panel:backup_media_download", args=["current"]),
+                                          {"code": PASSWORD}).status_code, 403)

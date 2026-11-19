@@ -11,8 +11,10 @@ import os
 import re
 import shutil
 import sqlite3
+import stat
 import subprocess
 import threading
+import tarfile
 import tempfile
 import time
 from datetime import datetime, timedelta
@@ -57,6 +59,64 @@ def media_snapshots() -> List[dict]:
     if not d.is_dir():
         return []
     return [{"name": p.name} for p in sorted(d.iterdir(), reverse=True) if p.is_dir() and re.match(r"^20\d\d-\d\d-\d\d$", p.name)]
+
+
+MEDIA_NAME_RE = re.compile(r"^(20\d\d-\d\d-\d\d|current)$")
+
+
+def media_dir(name: str) -> Optional[Path]:
+    """Юклаб олинадиган файллар папкаси: кунлик сурат (``2026-11-18``) ёки ҳозиргиси (``current`` — MEDIA_ROOT)."""
+    if not MEDIA_NAME_RE.match(name or ""):
+        return None
+    p = Path(settings.MEDIA_ROOT) if name == "current" else root() / "media" / name
+    return p if p.is_dir() else None
+
+
+def media_tar(src: Path, arcroot: str = "media", chunk: int = 1 << 20):
+    """Папкани tar кўринишида бўлак-бўлак беради (хотирага йиғилмайди — гигабайтлик файллар ҳам).
+
+    Ичида ``media/…`` — серверда ``tar xf media_….tar -C /srv/narxlash`` жойига очилади. Сиқилмайди: смета
+    файллари (xlsx, zip) ўзи сиқилган, CPU беҳуда кетмасин. Фақат оддий файллар (symlink — йўқ, ташқарига
+    чиқиб кетмасин); суратдаги қаттиқ ҳаволалар (бир файл икки жойда) — tar ичида ҳам ҳавола."""
+    src = Path(src)
+    seen = {}
+    for dirpath, dirnames, filenames in os.walk(src):
+        dirnames.sort()
+        for fn in sorted(filenames):
+            p = os.path.join(dirpath, fn)
+            try:
+                st = os.lstat(p)
+                if not stat.S_ISREG(st.st_mode):
+                    continue
+                arc = arcroot + "/" + Path(p).relative_to(src).as_posix()
+                ti = tarfile.TarInfo(arc)
+                ti.mtime, ti.mode = int(st.st_mtime), 0o640
+                key = (st.st_dev, st.st_ino)
+                if st.st_nlink > 1 and st.st_ino and key in seen:
+                    ti.type, ti.linkname = tarfile.LNKTYPE, seen[key]
+                    yield ti.tobuf(tarfile.PAX_FORMAT, "utf-8", "surrogateescape")
+                    continue
+                fh = open(p, "rb")
+            except OSError:
+                log.warning("media архиви: %s ўқилмади", p, exc_info=True)
+                continue
+            with fh:
+                ti.size = st.st_size
+                yield ti.tobuf(tarfile.PAX_FORMAT, "utf-8", "surrogateescape")
+                left = ti.size
+                while left > 0:
+                    b = fh.read(min(chunk, left))
+                    if not b:
+                        break
+                    left -= len(b)
+                    yield b
+                if left:  # файл ўқиш пайтида қисқарди — сарлавҳадаги ўлчамга тўлдирилади (архив бузилмасин)
+                    yield b"\0" * left
+                if ti.size % 512:
+                    yield b"\0" * (512 - ti.size % 512)
+            if st.st_nlink > 1 and st.st_ino:
+                seen[key] = arc
+    yield b"\0" * 1024  # архив охири
 
 
 def path_of(name: str) -> Optional[Path]:
