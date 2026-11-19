@@ -176,7 +176,13 @@ class FlowTests(LoggedInTestCase):
         self.assertContains(r, "фақат .xls")
         self.assertFalse(Batch.objects.exists())
 
+    def _manual(self):
+        """«Қўлда» усули: тизим ишончли таклифни ўзи қабул қилмайди ва жадвални «текширилди» демайди
+        («Автоматик» — сукут, у jobs/tests_auto.py да текширилади)."""
+        self.client.post(reverse("nf_mode"), {"nf_mode": "manual"})
+
     def test_full_flow(self):
+        self._manual()
         r = self._upload(local=self.local, res=self.res)
         job = Job.objects.get()
         self.assertRedirects(r, reverse("job", args=[job.id]))
@@ -482,6 +488,7 @@ class FlowTests(LoggedInTestCase):
 
     def test_table_checked_stage(self):
         """2-босқич якунланмагунча сводка ва қолганлари йиғилган; якунлангач очилади, қайта очиш мумкин."""
+        self._manual()
         self._upload(local=self.local, res=self.res)
         job = Job.objects.get()
         self.client.post(reverse("job_run", args=[job.id]), {
