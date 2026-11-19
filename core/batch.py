@@ -85,6 +85,7 @@ class SheetInfo:
     anchor: int = 0   # «1 2 3 4…» рақамлаш қатори (0 — йўқ): эслаб қолинган биринчи қатор шунга нисбатан
     memo: str = ""    # эслаб қолинган созлама қўлланди: "fp" (аниқ) / "fpl" (кенг); "" — йўқ
     recall: dict = field(default_factory=dict)  # шу эслатмадан олинган устунлар (нархлашга ҳам шулар узатилади)
+    pending: bool = False  # «Қўлда» усули: файл ҳали таҳлил қилинмаган (смета­чи белгилагач ёки «Автоматик ажратиш»да)
     names: frozenset = field(default_factory=frozenset, repr=False)
 
     @property

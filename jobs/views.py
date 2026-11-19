@@ -36,6 +36,7 @@ from .folders import (
 from .models import Batch, Job, Project
 from .services import (
     BASE_RES, UploadError, analyze_batch, forget_sheet, remember_sheets, apply_decisions, base_period_of, check_quota, pair_ready, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job,
+    has_pending, pick_undo_list, pop_pick_undo, push_pick_undo,
     nf_auto_of, parse_percents, remember_base_period, remember_nf_auto, remember_percents, remembered_percents, unpriced_res,
     price_source_of, remember_price_source, base_only, batch_original, replace_batch_file, open_suggestions,
     can_undo_file, refresh_file_jobs, undo_batch_file,
@@ -806,6 +807,8 @@ def _sheet_verdict(s, cv, by_key, chosen=False) -> dict:
     if s.get("duplicate_of"):
         twin = by_key.get(s["duplicate_of"], {})
         return {"tone": "off", "text": "Нусха", "hint": f'«{twin.get("sheet", "")}» билан бир хил — ўтказилди'}
+    if s.get("pending") and not chosen:  # «Қўлда»: файл ҳали ўқилмаган — тизим ҳеч нарса демайди
+        return {"tone": "wait", "text": "Белгиланг", "hint": ""}
     if s["role"] == "unknown" and not s.get("kind") and not chosen:
         # свод / акт / бўш эмас — тизим жадвални умуман тополмади: йиғиқ рўйхатга эмас, кўринадиган жойга
         return {"tone": "ask", "text": "Тизим тушунмади", "hint": "Жадвал топилмади — «Белгилаш»ни босиб кўрсатинг"}
@@ -1011,10 +1014,13 @@ def _skipped_files(batch) -> list:
 def _picker_ctx(batch, embed=False) -> dict:
     """«Файллар → жуфтлаш → усул → Бошлаш» блоки (юклаш саҳифаси ва объект саҳифаси учун бир хил):
     ҳар бир файлнинг ҳамма листлари тури билан, ҳар бир локал учун ресурс танлови."""
+    auto = nf_auto_of(batch.owner_id)
+    if auto and has_pending(batch):  # «Қўлда»да юкланган, кейин «Автоматик»га ўтилди — энди таҳлил қилинади
+        analyze_batch(batch, lazy=False)
+        batch.save()
     sheets = batch.sheets
     by_key = {s["key"]: s for s in sheets}
     loc_tag, res_tag, resources = _batch_tags(batch)
-    auto = nf_auto_of(batch.owner_id)
     files = []
     for fi, f in enumerate(batch.files):
         rows = []
@@ -1029,6 +1035,7 @@ def _picker_ctx(batch, embed=False) -> dict:
             rows.append({"key": s["key"], "sheet": s["sheet"], "role": s["role"], "dup": bool(s.get("duplicate_of")),
                          # «Қўлда»: тизим тахмини фақат маслаҳат — тугма смета­чи ўзи босгунча ёнмайди
                          "show": s["role"] if (auto or picked or s.get("duplicate_of")) else "none", "picked": picked,
+                         "pending": bool(s.get("pending")),
                          "hidden": bool(s.get("hidden")), "tag": loc_tag.get(s["key"]) or res_tag.get(s["key"], ""),
                          "sub": sub, "verdict": v, "reason": s.get("reason", ""),
                          "kind": KIND_LABELS.get(s.get("kind", ""), "")})
@@ -1050,14 +1057,16 @@ def _picker_ctx(batch, embed=False) -> dict:
     ready = sum(1 for p in batch.pairs if pair_ready(p))
     # битта жадвал: ҳар бир лист — бир қатор (тури + локал бўлса қайси ресурс билан). Ўтказилганлар — охирида йиғиқ
     pair_by = {p["local"]: p for p in pairs}
-    rows, skipped, unclear = [], [], []
+    rows, skipped, unclear, dropped = [], [], [], []
     for f in files:
         for r in f["sheets"]:
             pr = pair_by.get(r["key"]) if r["show"] == "local" else None
             r = {**r, "file_name": f["name"], "pair": pr, "title": pr["title"] if pr else r["sheet"],
                  "fi": f["i"], "undo": can_undo_file(batch, f["i"])}
             r["q"] = f'{r["title"]} {r["sheet"]} {f["name"]} {r["sub"]}'.lower()
-            if r["show"] == "unknown" and not r["dup"] and r["verdict"]["tone"] == "ask":
+            if r["show"] == "unknown" and r["picked"] and not r["dup"]:
+                dropped.append(r)  # смета­чи ўзи «керак эмас» деган — йиғиқ рўйхатга яширмаймиз: адашса, шу ердан қайтаради
+            elif r["show"] == "unknown" and not r["dup"] and r["verdict"]["tone"] == "ask":
                 unclear.append(r)  # тизим тушунмаган — йиғиқ «керак эмас» ичига эмас, алоҳида кўринадиган гуруҳ
             else:
                 (skipped if r["dup"] or r["show"] == "unknown" else rows).append(r)
@@ -1079,7 +1088,9 @@ def _picker_ctx(batch, embed=False) -> dict:
     # белгиланмаганлар («Қўлда»), жуфтсиз локал ва ҳеч қайси локалга танланмаган ресурслар — алоҳида
     loose = [r for r in rows if not r["pair"] and not (r["show"] == "resource" and r["key"] in used)]
     return {"batch": batch, "pk_files": files, "pk_pairs": pairs, "pk_ready": ready,
-            "pk_rows": rows, "pk_skipped": skipped, "pk_unclear": unclear,
+            "pk_rows": rows, "pk_skipped": skipped, "pk_unclear": unclear, "pk_dropped": dropped,
+            "pk_pending": sum(1 for s in sheets if s.get("pending")),
+            "pk_undo": (pick_undo_list(batch)[-1:] or [{}])[0].get("label", ""),
             "pk_back": reverse("project", args=[batch.project_id]) if embed and batch.project_id else "", "pk_count": count, "pk_skipped_files": _skipped_files(batch),
             "pk_pair_rows": pair_rows, "pk_loose": loose,
             "pk_unmarked": [r for r in loose if r["show"] == "none"],
@@ -1159,14 +1170,35 @@ def batch_pick(request, batch_id):
         return JsonResponse({"ok": False, "error": "Бу қисм ҳозир ишланяпти — тугагач ўзгартиринг"}, status=409)
     what = request.POST.get("what")
     remembered = 0
-    if what == "role":
-        key, role = request.POST.get("key", ""), request.POST.get("role", "")
-        if role not in ROLE_LABELS or batch.sheet(key) is None:
-            return JsonResponse({"ok": False, "error": "нотўғри лист"}, status=400)
-        roles = dict(batch.roles or {})
-        roles[key] = role
-        analyze_batch(batch, roles)
-        remembered = remember_sheets(batch, [key])
+    if what in ("role", "auto", "undo"):
+        if what == "role":
+            # битта ёки бир нечта лист бирданига; ``role`` бўш — белгини олиб ташлаш (тизим таклифига қайтади)
+            keys = [k for k in dict.fromkeys(request.POST.getlist("key")) if k]
+            role = request.POST.get("role", "")
+            if not keys or (role and role not in ROLE_LABELS) or any(batch.sheet(k) is None for k in keys):
+                return JsonResponse({"ok": False, "error": "нотўғри лист"}, status=400)
+            roles = dict(batch.roles or {})
+            if all((roles.get(k) or "") == role for k in keys):
+                return JsonResponse({"ok": False, "error": "Ўзгариш йўқ"}, status=400)
+            push_pick_undo(batch, f'{len(keys)} та лист — {ROLE_LABELS.get(role, "белги олинди")}' if len(keys) > 1
+                           else f'«{batch.sheet(keys[0])["sheet"]}» — {ROLE_LABELS.get(role, "белги олинди")}')
+            for k in keys:
+                if role:
+                    roles[k] = role
+                else:
+                    roles.pop(k, None)
+            analyze_batch(batch, roles)
+            if role and len(keys) == 1:  # оммавий белгилаш эслаб қолинмайди — бошқа сметаларга таъсир қилмасин
+                remembered = remember_sheets(batch, keys)
+        elif what == "auto":
+            # «Автоматик ажратиш»: тизим белгиланмаган листларни ўзи ажратади (смета­чи танлаганига тегмайди)
+            push_pick_undo(batch, "автоматик ажратиш")
+            analyze_batch(batch, lazy=False, adopt=True)
+        else:
+            last = pop_pick_undo(batch)
+            if last is None:
+                return JsonResponse({"ok": False, "error": "Қайтариладиган ўзгариш йўқ"}, status=400)
+            analyze_batch(batch, dict(last.get("roles") or {}), dict(last["columns"] if "columns" in last else batch.columns or {}))
         if not batch.jobs.exists():
             batch.status = Batch.Status.REVIEW
         batch.save()
@@ -1198,7 +1230,8 @@ def batch_pick(request, batch_id):
     return JsonResponse({"ok": True, "ready": sum(1 for p in batch.pairs if pair_ready(p)),
                          "remembered": MEMO_SAVED if what == "role" and remembered else "",
                          "stage": batch.stage, "state": state[0] if state else "", "tone": state[1] if state else "",
-                         "left": 0 if nf_auto_of(batch.owner_id) else manual_left(batch)})
+                         "left": 0 if nf_auto_of(batch.owner_id) else manual_left(batch),
+                         "undo": (pick_undo_list(batch)[-1:] or [{}])[0].get("label", "")})
 
 
 _STEP_RE = re.compile(r"^(\d+)/(\d+)\s*(.*)$")
@@ -1309,6 +1342,7 @@ def batch_mark(request, batch_id):
             messages.error(request, "Кўрсатилмади: " + ", ".join(missing + ([] if cols.get("start") else ["биринчи қатор"])))
             return redirect(_mark_url(batch, key, _safe_next(request)))
         roles, columns = dict(batch.roles or {}), dict(batch.columns or {})
+        push_pick_undo(batch, f'«{s["sheet"]}» — {ROLE_LABELS.get(role, role)}')
         roles[key] = role
         if role == "unknown":
             columns.pop(key, None)
@@ -1369,7 +1403,7 @@ def batch_forget(request, batch_id):
         messages.error(request, "Бу қисм ҳозир ишланяпти — тугагач ўзгартиринг")
         return redirect("batch", batch_id=batch.id)
     if forget_sheet(batch, request.POST.get("key", "")):
-        analyze_batch(batch)
+        analyze_batch(batch, fresh=True)  # эслатма ўчди — кешдаги (эслатма қўлланган) таҳлил ҳам эскирди
         batch.save()
         if batch.project_id and not batch.jobs.exists():
             batch.stage, batch.message = ready_stage(batch)

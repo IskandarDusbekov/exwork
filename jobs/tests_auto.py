@@ -27,11 +27,8 @@ class AutoModeTests(LoggedInTestCase):
         files = [SimpleUploadedFile(Path(p).name, Path(p).read_bytes()) for p in (OBJ_LOCAL, OBJ_RES)]
         self.client.post(reverse("index"), {"files": files})
         batch = Batch.objects.latest("created")
-        if not nf_auto_of(self.user):  # «Қўлда»: смета­чи ҳар бир листни ўзи белгилайди (тизим таклифини тасдиқлайди)
-            pick = reverse("batch_pick", args=[batch.id])
-            for s in batch.sheets:
-                if not s.get("duplicate_of"):
-                    self.client.post(pick, {"what": "role", "key": s["key"], "role": s["role"]})
+        if not nf_auto_of(self.user):  # «Қўлда»: листлар ажратилмаган — смета­чи «Автоматик ажратиш»ни босади
+            self.client.post(reverse("batch_pick", args=[batch.id]), {"what": "auto"})
             batch.refresh_from_db()
         data = {}
         for n, p in enumerate(batch.pairs):
@@ -139,3 +136,77 @@ class AutoModeTests(LoggedInTestCase):
         jobs = self._price_object()
         self.assertTrue(jobs)
         self.assertTrue(all(not j.table_checked and not j.prices and not j.categories for j in jobs))
+
+    def _manual_upload(self):
+        from core.tests.test_batch import OBJ_LOCAL, OBJ_RES
+        self.client.post(reverse("nf_mode"), {"nf_mode": "manual"})
+        files = [SimpleUploadedFile(Path(p).name, Path(p).read_bytes()) for p in (OBJ_LOCAL, OBJ_RES)]
+        self.client.post(reverse("index"), {"files": files})
+        return Batch.objects.latest("created")
+
+    def test_manual_upload_skips_analysis_until_asked(self):
+        """«Қўлда»: юклашда листлар ажратилмайди; «Автоматик ажратиш» — тизим ажратади, смета­чи танлагани қолади."""
+        batch = self._manual_upload()
+        self.assertTrue(batch.sheets and all(s.get("pending") and s["role"] == "unknown" for s in batch.sheets))
+        self.assertEqual(batch.pairs, [])
+        page = self.client.get(reverse("batch", args=[batch.id]) + "?partial=picker")
+        self.assertContains(page, "Автоматик ажратиш")
+        self.assertNotContains(page, "тизим таклифи:")  # тизим ҳали ҳеч нарса таклиф қилмаган
+        pick = reverse("batch_pick", args=[batch.id])
+        keep = batch.sheets[0]["key"]
+        self.assertTrue(self.client.post(pick, {"what": "role", "key": keep, "role": "unknown"}).json()["ok"])
+        r = self.client.post(pick, {"what": "auto"}).json()
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["left"], 0)
+        batch.refresh_from_db()
+        self.assertFalse(any(s.get("pending") for s in batch.sheets))
+        self.assertEqual(batch.roles[keep], "unknown")  # смета­чи белгилагани ўзгармади
+        self.assertTrue(any(s["role"] == "local" for s in batch.sheets) and any(p.get("res") for p in batch.pairs))
+        # адашса — бир босишда ортга: автоматик ажратишдан олдинги ҳолат
+        r = self.client.post(pick, {"what": "undo"}).json()
+        self.assertTrue(r["ok"])
+        batch.refresh_from_db()
+        self.assertEqual(batch.roles, {keep: "unknown"})
+        self.assertGreater(r["left"], 0)  # листлар яна белгиланмаган
+
+    def test_bulk_roles_and_unpick(self):
+        """Бир нечта листни бирданига «керак эмас» қилиш, кейин белгини олиш ва ортга қайтариш."""
+        batch = self._manual_upload()
+        pick = reverse("batch_pick", args=[batch.id])
+        keys = [s["key"] for s in batch.sheets][:2]
+        r = self.client.post(pick, {"what": "role", "key": keys, "role": "unknown"}).json()
+        self.assertTrue(r["ok"])
+        self.assertIn("2 та лист", r["undo"])
+        batch.refresh_from_db()
+        self.assertEqual({k: batch.roles[k] for k in keys}, {k: "unknown" for k in keys})
+        page = self.client.get(reverse("batch", args=[batch.id]) + "?partial=picker")
+        self.assertContains(page, "Сиз «керак эмас» деганлар")
+        self.assertContains(page, "Ортга қайтариш")
+        # бир хил танлов қайта юборилса — ўзгариш йўқ
+        self.assertEqual(self.client.post(pick, {"what": "role", "key": keys, "role": "unknown"}).status_code, 400)
+        self.assertTrue(self.client.post(pick, {"what": "role", "key": keys[:1], "role": ""}).json()["ok"])
+        batch.refresh_from_db()
+        self.assertNotIn(keys[0], batch.roles)
+        self.client.post(pick, {"what": "undo"})
+        batch.refresh_from_db()
+        self.assertEqual(batch.roles.get(keys[0]), "unknown")
+        self.assertEqual(self.client.post(pick, {"what": "role", "key": ["нет:такого"], "role": "local"}).status_code, 400)
+
+    def test_role_change_rereads_only_that_file(self):
+        """Битта листни белгилаш — фақат ўша файл қайта ўқилади, қолганлари кешдан."""
+        from unittest import mock
+        from . import services
+        self.client.post(reverse("nf_mode"), {"nf_mode": "auto"})
+        from core.tests.test_batch import OBJ_LOCAL, OBJ_RES
+        files = [SimpleUploadedFile(Path(p).name, Path(p).read_bytes()) for p in (OBJ_LOCAL, OBJ_RES)]
+        self.client.post(reverse("index"), {"files": files})
+        batch = Batch.objects.latest("created")
+        before = {s["key"]: (s["role"], s.get("rows")) for s in batch.sheets}
+        s0 = next(s for s in batch.sheets if s["file"] == 0)
+        real = services.lean_load
+        with mock.patch.object(services, "lean_load", side_effect=real) as m:
+            self.client.post(reverse("batch_pick", args=[batch.id]), {"what": "role", "key": s0["key"], "role": s0["role"]})
+        opened = {Path(str(c.args[0])).name for c in m.call_args_list}
+        self.assertEqual(opened, {Path(batch.files[0]["path"]).name})
+        batch.refresh_from_db()
+        self.assertEqual({s["key"]: (s["role"], s.get("rows")) for s in batch.sheets}, before)

@@ -3,11 +3,14 @@
 <div class="pk-row pk-sheet is-{{ r.show }}{% if r.dup %} is-dup{% endif %}{% if p %} pk-pair{% if not p.include %} is-off{% endif %}{% endif %}"
      data-k="{{ r.key }}" data-type="{{ r.show }}" data-q="{{ r.q }}"
      {% if p %}data-n="{{ p.n }}" data-local="{{ p.local }}" data-title="{{ p.title }}" data-tag="{{ p.tag }}"{% endif %}>
-  <button type="button" class="pk-view" data-view="{{ r.key }}" title="Excel кўринишида очиш">{% icon "eye" "h-5 w-5" %}<span>Кўриш</span></button>
+  <div class="pk-lead">
+    {% if not r.dup %}<label class="pk-pick" title="Танлаш — бир нечтасини бирданига белгилаш учун"><input type="checkbox" class="pk-pick-in" value="{{ r.key }}" aria-label="{{ r.sheet }} — танлаш"><span class="pk-box">{% icon "check" "h-3.5 w-3.5" "3" %}</span></label>{% endif %}
+    <button type="button" class="pk-view" data-view="{{ r.key }}" title="Excel кўринишида очиш">{% icon "eye" "h-5 w-5" %}<span>Кўриш</span></button>
+  </div>
   <div class="pk-sn">
     <div class="pk-sname">{% if r.tag and r.show != "none" %}<span class="pk-tag">{{ r.tag }}</span>{% endif %}<b title="{{ r.title }}">{{ r.title }}</b>{% if r.hidden %}<span class="pk-mini">яширин</span>{% endif %}</div>
     <div class="pk-ssub" title="{{ r.reason }}">{{ r.file_name }}{% if p %} · {{ r.sheet }} · {{ p.rows }} ресурс{% elif r.show != "none" and r.sheet != r.title %} · {{ r.sheet }}{% endif %}
-      {% if r.dup %} · нусха — {{ r.verdict.hint }}{% elif r.show == "none" %} · <span class="pk-v pk-v-warn">белгиланмаган</span> — тизим таклифи: {% if r.role == "local" %}Локал{% elif r.role == "resource" %}Ресурс{% else %}Ўтказиш{% endif %}{% elif r.show == "unknown" %} · {{ r.verdict.hint|default:r.verdict.text }}{% endif %}</div>
+      {% if r.dup %} · нусха — {{ r.verdict.hint }}{% elif r.show == "none" and r.pending %} · <span class="pk-v pk-v-warn">белгиланмаган</span>{% elif r.show == "none" %} · <span class="pk-v pk-v-warn">белгиланмаган</span> — тизим таклифи: {% if r.role == "local" %}Локал{% elif r.role == "resource" %}Ресурс{% else %}Ўтказиш{% endif %}{% elif r.show == "unknown" %} · {{ r.verdict.hint|default:r.verdict.text }}{% endif %}</div>
   </div>
   <div class="pk-seg" role="radiogroup" aria-label="{{ r.sheet }} — тури">
     {% for v, t in pk_roles %}<button type="button" data-role="{{ v }}" class="{% if r.show == v %}is-on{% endif %}" role="radio" aria-checked="{% if r.show == v %}true{% else %}false{% endif %}"{% if r.dup %} disabled{% endif %}>{{ t }}</button>{% endfor %}
@@ -35,6 +38,7 @@
     <span class="pk-hint">жуфтлик тузилмади — саҳифани янгиланг</span>
     {% else %}
     <span class="pk-hint">нархланмайди</span>{% include "jobs/_mark_btn.html" with k=r.key %}
+    {% if r.picked %}<button type="button" class="pk-unpick" data-k="{{ r.key }}" title="Белгини олиш — лист яна белгиланмаганлар қаторига қайтади">{% icon "undo" "h-4 w-4" %}<span>Белгини олиш</span></button>{% endif %}
     {% endif %}
   </div>
 </div>

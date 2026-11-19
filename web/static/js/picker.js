@@ -5,16 +5,28 @@
   "use strict";
 
   function csrf(form) { return form.querySelector("[name=csrfmiddlewaretoken]").value; }
-  function toast(text, ok) {
+  // act — {text, fn}: хабар ичидаги тугма (масалан «Ортга қайтариш»); бундай хабар узоқроқ туради
+  function toast(text, ok, act) {
+    document.querySelectorAll(".pk-toast.has-act").forEach(function (x) { x.remove(); });
     var t = document.createElement("div");
-    t.className = "pk-toast" + (ok ? " is-ok" : "");
-    t.textContent = text;
+    t.className = "pk-toast" + (ok ? " is-ok" : "") + (act ? " has-act" : "");
+    var span = document.createElement("span");
+    span.textContent = text;
+    t.appendChild(span);
+    if (act) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "pk-toast-act"; b.textContent = act.text;
+      b.addEventListener("click", function () { t.remove(); act.fn(); });
+      t.appendChild(b);
+    }
     document.body.appendChild(t);
-    setTimeout(function () { t.remove(); }, !ok ? 4500 : text.length > 60 ? 6000 : 1600);  // узун хабар — ўқишга улгурсин
+    setTimeout(function () { t.remove(); }, act ? 8000 : !ok ? 4500 : text.length > 60 ? 6000 : 1600);  // узун хабар — ўқишга улгурсин
   }
   function post(url, form, data) {
     var fd = new FormData();
-    Object.keys(data).forEach(function (k) { fd.append(k, data[k]); });
+    Object.keys(data).forEach(function (k) {
+      [].concat(data[k]).forEach(function (v) { fd.append(k, v); });  // рўйхат — бир нечта қиймат (key=…&key=…)
+    });
     return fetch(url, {method: "POST", body: fd, credentials: "same-origin",
                        headers: {"X-CSRFToken": csrf(form), "X-Requested-With": "XMLHttpRequest"}})
       .then(function (r) {
@@ -105,8 +117,10 @@
       if (!box) return;
       var t, go = null, tone = "todo";
       if (left) {
-        t = "<b>1-қадам.</b> Тизим " + left + " та листни сизга қолдирди. Ҳар бирини <b>«Кўриш»</b> билан очинг ва турини босинг: " +
-            "<b class='t-loc'>Локал</b> — иш ҳажмлари, <b class='t-res'>Ресурс</b> — нархлар, <b>Ўтказиш</b> — керак эмас.";
+        t = "<b>1-қадам.</b> " + left + " та лист белгиланмаган. Ҳар бирини <b>«Кўриш»</b> билан очинг ва турини босинг: " +
+            "<b class='t-loc'>Локал</b> — иш ҳажмлари, <b class='t-res'>Ресурс</b> — нархлар, <b>Ўтказиш</b> — керак эмас. " +
+            "Бир нечтасини чапдаги катакча билан танлаб, бирданига белгилаш мумкин" +
+            (root.querySelector(".pk-auto") ? "; ёки тепадаги <b>«Автоматик ажратиш»</b>ни босинг — тизим ўзи ажратади." : ".");
         go = {text: "Биринчисига ўтиш ↓", el: root.querySelector(".pk-sheet.is-none")};
       } else if (!hasLocal) {
         t = "<b>Локал йўқ.</b> Иш ҳажмлари турган листни (смета) <b>«Локал»</b> деб белгиланг — пастдаги «ўтказилган листлар»да бўлиши мумкин.";
@@ -180,21 +194,118 @@
       if (none) none.hidden = shown > 0;
     }
 
-    // ---------- лист тури (Локал / Ресурс / Ўтказиш) ----------
+    // ---------- лист тури (Локал / Ресурс / Ўтказиш): битта, бир нечта, автоматик, ортга қайтариш ----------
+    var busy = false;
+    // data — batch_pick'га (what: role | auto | undo); rows — кутиш белгиси қўйиладиган қаторлар
+    function change(data, rows, done) {
+      if (!mine) { toast("Бу иш сизники эмас — фақат кўриш мумкин"); return; }
+      if (busy) return;
+      busy = true;
+      root.classList.add("is-working");
+      (rows || []).forEach(function (r) { r.classList.add("is-busy"); });
+      var keys = [].concat(data.key || []), got = null;
+      post(D.pick, form, data)
+        .then(function (d) { got = d; if (opts.onSaved) opts.onSaved(d); return reload({flash: keys.length === 1 ? keys[0] : "", sel: {}}); })
+        .then(function () {
+          busy = false;
+          // ҳар бир ўзгаришдан кейин — бир босишда қайтариш (адашиб босилса)
+          toast(done(got), true, got.undo && data.what !== "undo" ? {text: "↶ Ортга қайтариш", fn: undo} : null);
+        })
+        .catch(function (e) {
+          busy = false;
+          root.classList.remove("is-working");
+          (rows || []).forEach(function (r) { r.classList.remove("is-busy"); });
+          toast(e.message);
+        });
+    }
+    function setRoles(keys, role, rows) {
+      if (!keys.length) return;
+      var name = {local: "Локал", resource: "Ресурс", unknown: "Керак эмас"}[role] || "";
+      change({what: "role", key: keys, role: role}, rows, function (d) {
+        // тизим шу листнинг тузилишини эслаб қолди — смета­чига айтамиз (кейин қайта кўрсатиши шарт эмас)
+        if (d.remembered) return "✓ " + d.remembered;
+        if (keys.length > 1) return "✓ " + keys.length + " та лист — " + (name ? "«" + name + "»" : "белгиси олинди");
+        return role ? "✓ Сақланди — жуфтликлар янгиланди" : "✓ Белги олинди";
+      });
+    }
+    function undo() {
+      change({what: "undo"}, [], function () { return "✓ Охирги ўзгариш бекор қилинди"; });
+    }
     root.querySelectorAll(".pk-seg button").forEach(function (b) {
       b.addEventListener("click", function () {
         if (b.classList.contains("is-on") || b.disabled) return;
-        if (!mine) { toast("Бу иш сизники эмас — фақат кўриш мумкин"); return; }
-        var row = b.closest(".pk-sheet"), k = row.dataset.k;
-        row.classList.add("is-busy");
-        var saved = "";
-        post(D.pick, form, {what: "role", key: k, role: b.dataset.role})
-          .then(function (d) { saved = d.remembered || ""; if (opts.onSaved) opts.onSaved(d); return reload({flash: k}); })
-          // тизим шу листнинг тузилишини эслаб қолди — смета­чига айтамиз (кейин қайта кўрсатиши шарт эмас)
-          .then(function () { toast(saved ? "✓ " + saved : "✓ Сақланди — жуфтликлар янгиланди", true); })
-          .catch(function (e) { row.classList.remove("is-busy"); toast(e.message); });
+        var row = b.closest(".pk-sheet");
+        setRoles([row.dataset.k], b.dataset.role, [row]);
       });
     });
+    root.querySelectorAll(".pk-unpick").forEach(function (b) {
+      b.addEventListener("click", function () { setRoles([b.dataset.k], "", [b.closest(".pk-sheet")]); });
+    });
+    root.querySelectorAll(".pk-dropped-back").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var rows = Array.prototype.slice.call(b.closest(".pk-group").querySelectorAll(".pk-sheet[data-k]"));
+        setRoles(rows.map(function (r) { return r.dataset.k; }), "", rows);
+      });
+    });
+    var undoBtn = root.querySelector(".pk-undo");
+    if (undoBtn) undoBtn.addEventListener("click", undo);
+    var autoBtn = root.querySelector(".pk-auto");
+    if (autoBtn) autoBtn.addEventListener("click", function () {
+      autoBtn.querySelector("span").textContent = "Ажратилмоқда…";
+      change({what: "auto"}, [], function (d) {
+        return "✓ Тизим листларни ажратди — текширинг. Нотўғриси бўлса, турини босиб ўзгартиринг" +
+               (d.left ? " (" + d.left + " та қолди)" : "");
+      });
+    });
+
+    // ---------- бир нечта листни танлаш (катакча) ва пастки панел ----------
+    var sel = opts.sel || {};  // калит → true; қайта чизилганда сақланади
+    var bulk = root.querySelector(".pk-bulk");
+    function picks() { return Array.prototype.slice.call(root.querySelectorAll(".pk-pick-in")); }
+    function visible(box) {
+      return box ? Array.prototype.filter.call(box.querySelectorAll(".pk-pick-in"), function (i) { return !i.closest("[hidden]"); }) : [];
+    }
+    function drawBulk() {
+      var on = picks().filter(function (i) { return i.checked; });
+      picks().forEach(function (i) { i.closest(".pk-sheet").classList.toggle("is-picked", i.checked); });
+      root.querySelectorAll(".pk-gsel-in").forEach(function (g) {
+        var all = visible(g.closest(".pk-group, .pk-skip"));
+        var n = all.filter(function (i) { return i.checked; }).length;
+        g.checked = all.length > 0 && n === all.length;
+        g.indeterminate = n > 0 && n < all.length;
+      });
+      if (!bulk) return;
+      bulk.hidden = !on.length;
+      bulk.querySelector(".pk-bulk-n b").textContent = on.length;
+    }
+    picks().forEach(function (i) {
+      if (sel[i.value]) i.checked = true;
+      i.addEventListener("change", function () { if (i.checked) sel[i.value] = true; else delete sel[i.value]; drawBulk(); });
+    });
+    root.querySelectorAll(".pk-gsel-in").forEach(function (g) {
+      g.closest("label").addEventListener("click", function (e) { e.stopPropagation(); });  // <summary> ичида — очилиб-ёпилмасин
+      g.addEventListener("change", function () {
+        visible(g.closest(".pk-group, .pk-skip")).forEach(function (i) {  // қидирувда яширинганлар танланмайди
+          i.checked = g.checked;
+          if (g.checked) sel[i.value] = true; else delete sel[i.value];
+        });
+        drawBulk();
+      });
+    });
+    if (bulk) {
+      bulk.querySelectorAll("[data-bulk]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var on = picks().filter(function (i) { return i.checked; });
+          setRoles(on.map(function (i) { return i.value; }), b.dataset.bulk, on.map(function (i) { return i.closest(".pk-sheet"); }));
+        });
+      });
+      bulk.querySelector(".pk-bulk-x").addEventListener("click", function () {
+        picks().forEach(function (i) { i.checked = false; });
+        Object.keys(sel).forEach(function (k) { delete sel[k]; });
+        drawBulk();
+      });
+    }
+    drawBulk();
 
     // ---------- жуфтлик: ресурс танлови ва «нархлансин» белгиси ----------
     function savePair(row, redraw) {
@@ -436,7 +547,7 @@
         box.innerHTML = html;
         var fresh = box.firstElementChild;
         root.replaceWith(fresh);
-        mount(fresh, {revealed: revealed, view: view, onSaved: opts.onSaved, onReload: opts.onReload});
+        mount(fresh, {revealed: revealed, view: view, sel: o && o.sel ? o.sel : sel, onSaved: opts.onSaved, onReload: opts.onReload});
         window.scrollTo(0, y);
         if (o && o.flash) {  // тури ўзгарган қатор ўз гуруҳига кўчади — кўриниб турсин
           var row = fresh.querySelector('.pk-sheet[data-k="' + CSS.escape(o.flash) + '"]');

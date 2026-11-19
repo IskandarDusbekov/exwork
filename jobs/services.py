@@ -523,7 +523,8 @@ def create_batch(owner, files) -> "Batch":
             _save(f, batch.abs(f"upload/{i}{ext}"))
             xlsx = clock.open(batch.abs(f"upload/{i}{ext}"), batch.abs(f"conv/{i}"), names[i], i)
             batch.files.append({"name": names[i], "path": str(xlsx.relative_to(batch.dir)), "sheets": clock.read(xlsx, i)})
-        analyze_batch(batch, timings=seconds)
+        # «Қўлда» усули: листлар ажратилмайди (вақт кетмайди) — смета­чи белгилагач ёки «Автоматик ажратиш»да
+        analyze_batch(batch, timings=seconds, lazy=not nf_auto_of(owner))
         batch.name = object_name(batch, names)
         clock.analyzed(seconds)
     except convert.ConversionError as e:
@@ -593,19 +594,152 @@ def save_timings(clock: FileClock, owner_id, project_id=None, batch=None, job=No
         pass
 
 
+PENDING_REASON = "ҳали таҳлил қилинмаган — турини белгиланг ёки «Автоматик ажратиш»ни босинг"
+
+
+def _file_part(d: Optional[dict], i: int) -> dict:
+    """``roles`` / ``columns`` дан фақат ``i``-файлга тегишлилари (калит «i:лист»)."""
+    prefix = f"{i}:"
+    return {k: v for k, v in (d or {}).items() if k.startswith(prefix)}
+
+
+def _scan_key(batch: "Batch", i: int, f: dict) -> dict:
+    """Файл таҳлили нимага боғлиқ: файлнинг ўзи ва шу файлдаги қўлда тузатишлар. Ўзгармаса — кешдан."""
+    p = batch.abs(f["path"])
+    try:
+        st = p.stat()
+        stamp = [st.st_size, int(st.st_mtime)]
+    except OSError:
+        stamp = None
+    return {"v": 1, "path": f["path"], "stamp": stamp,
+            "roles": _file_part(batch.roles, i), "columns": _file_part(batch.columns, i)}
+
+
+def _scan_load(batch: "Batch", i: int, key: dict):
+    """Олдинги таҳлил (``SheetInfo`` рўйхати ва нархлар сони) — калити мос келса; бўлмаса ``None``."""
+    import json
+    from core.batch import SheetInfo
+    p = batch.abs(f"scan/{i}.json")
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if data.get("key") != key:
+        return None
+    try:
+        infos = [SheetInfo(**dict(d, names=frozenset(d.get("names") or ()))) for d in data["infos"]]
+    except (TypeError, KeyError):
+        return None
+    return infos, data.get("prices") or {}
+
+
+def _scan_dump(infos) -> list:
+    from dataclasses import asdict
+    out = []
+    for info in infos:
+        d = asdict(info)
+        d["names"] = sorted(info.names)
+        out.append(d)
+    return out
+
+
+def _scan_save(batch: "Batch", i: int, key: dict, raw: list, prices: dict):
+    import json
+    p = batch.abs(f"scan/{i}.json")
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({"key": key, "infos": raw, "prices": prices}, ensure_ascii=False), encoding="utf-8")
+    except OSError:  # кеш ёзилмаса ҳам таҳлил бузилмайди
+        pass
+
+
+PICK_UNDO_MAX = 20
+
+
+def _undo_path(batch: "Batch") -> Path:
+    return batch.abs("pick_undo.json")
+
+
+def pick_undo_list(batch: "Batch") -> list:
+    """Лист турлари тарихи (охиргиси — охирида): ``[{"roles": {…}, "columns": {…}, "label": "…"}]`` — «Ортга қайтариш» учун."""
+    import json
+    try:
+        data = json.loads(_undo_path(batch).read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def _undo_write(batch: "Batch", items: list):
+    import json
+    p = _undo_path(batch)
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(items[-PICK_UNDO_MAX:], ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def push_pick_undo(batch: "Batch", label: str):
+    """Лист тури ўзгаришидан олдинги ҳолат сақланади (смета­чи адашса — бир босишда қайтаради)."""
+    _undo_write(batch, pick_undo_list(batch) + [{"roles": dict(batch.roles or {}),
+                                                  "columns": dict(batch.columns or {}), "label": label[:120]}])
+
+
+def pop_pick_undo(batch: "Batch"):
+    """Охирги ўзгаришдан олдинги турлар (``roles``) ва нима қайтгани; тарих бўш бўлса ``None``."""
+    items = pick_undo_list(batch)
+    if not items:
+        return None
+    last = items.pop()
+    _undo_write(batch, items)
+    return last
+
+
+def has_pending(batch: "Batch") -> bool:
+    """«Қўлда» усулида таҳлил қилинмай турган файл борми."""
+    return any(f.get("pending") for f in batch.files)
+
+
 def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optional[dict] = None,
-                  timings: Optional[dict] = None, on_file=None) -> "Batch":
+                  timings: Optional[dict] = None, on_file=None, lazy: Optional[bool] = None,
+                  fresh: bool = False, adopt: bool = False) -> "Batch":
     """Listlar turini aniqlaydi (``roles`` / ``columns`` — smetachining qo'lda tuzatishlari: list turi
-    va ustunlar), nusxalarni ajratadi va juftliklarni taklif qiladi."""
+    va ustunlar), nusxalarni ajratadi va juftliklarni taklif qiladi.
+
+    Ҳар бир файлнинг таҳлили кешланади (``scan/{i}.json``): смета­чи битта листни белгиласа — фақат ўша файл
+    қайта ўқилади. ``lazy`` — «Қўлда» усули: ``True`` — смета­чи локал / ресурс деб белгиламаган файл умуман
+    ўқилмайди (листлари «таҳлил қилинмаган»); ``None`` — аввал ўқилмаганлари шундай қолади; ``False`` — ҳаммаси
+    таҳлил қилинади. ``fresh`` — кешга қарамай қайта ўқиш. ``adopt`` — «Автоматик ажратиш»: смета­чи белгиламаган
+    листларга тизим аниқлаган тур белгиланади (смета­чи танлагани ўзгармайди)."""
+    from core.batch import SheetInfo, UNKNOWN as _UNKNOWN
     prev_pairs = list(batch.pairs or [])
     if roles is not None:
         batch.roles = roles
     if columns is not None:
         batch.columns = columns
-    infos, prices = [], {}
+    infos, prices, scans = [], {}, {}
     recall, used = memo_recall(batch.owner_id)
-    for i, f in enumerate(batch.files):
+    files = [dict(f) for f in batch.files]
+    for i, f in enumerate(files):
         if not f.get("path"):  # очилмай қолган файл (таҳлил узилган) — листлари йўқ
+            continue
+        # смета­чи шу файлда локал / ресурс белгилаган ёки устун кўрсатган бўлса — файл ўқилиши шарт
+        forced = (any(v in ("local", "resource") for v in _file_part(batch.roles, i).values())
+                  or bool(_file_part(batch.columns, i)))
+        if not forced and (lazy is True or (lazy is None and f.get("pending"))):
+            f["pending"] = True
+            infos += [SheetInfo(i, f["name"], name, _UNKNOWN, PENDING_REASON, pending=True)
+                      for name in f.get("sheets") or []]
+            continue
+        f.pop("pending", None)
+        key = _scan_key(batch, i, f)
+        hit = None if fresh else _scan_load(batch, i, key)
+        if hit:
+            found, got = hit
+            prices.update(got)
+            infos += found
+            scans[i] = (key, _scan_dump(found), got)
             continue
         if on_file:  # жонли жараён: «3/19 файл таҳлил қилиняпти: …»
             on_file(i, len(batch.files), f["name"])
@@ -617,20 +751,32 @@ def analyze_batch(batch: "Batch", roles: Optional[dict] = None, columns: Optiona
         wbd = lean_load(batch.abs(f["path"]), keep_links=False, data_only=True)
         try:
             found = inspect_workbook(wb, i, f["name"], batch.roles, batch.columns, recall=recall)
-            for info in found:
-                prices[info.key] = count_prices(wbd[info.sheet], info.columns or {})
+            got = {info.key: count_prices(wbd[info.sheet], info.columns or {}) for info in found}
+            prices.update(got)
             infos += found
+            scans[i] = (key, _scan_dump(found), got)  # кейинги ўзгаришлар (apply_roles…) кешга тушмасин
         finally:
             wb.close()
             wbd.close()
             if timings is not None:
                 timings[i] = time.monotonic() - t
+    batch.files = files
     if used:
         from django.db.models import F
         SheetMemo.objects.filter(pk__in=used).update(uses=F("uses") + 1)
     apply_roles(infos, batch.roles or {})
     promote_catalogs(infos, batch.roles or {})
     mark_duplicates(infos)
+    if adopt:  # тизим аниқлаганини смета­чи белгилагандек қабул қиламиз — кейин бир босишда ўзгартиради
+        new = dict(batch.roles or {})
+        for info in infos:
+            if not info.pending and not info.duplicate_of and info.key not in new:
+                new[info.key] = info.role
+        batch.roles = new
+    for i, (key, raw, got) in scans.items():
+        if adopt:  # тур тизимники — файлни шу турлар билан қайта ўқиш шарт эмас
+            key = dict(key, roles=_file_part(batch.roles, i))
+        _scan_save(batch, i, key, raw, got)
     pairs, _unused = plan_pairs(infos)
     batch.sheets = [dict(i.to_dict(), prices=prices.get(i.key)) for i in infos]
     # «Фақат ресурс базаси» танланган бўлса — ҳамма локал базадан (топилган RES жуфтга қўйилмайди).

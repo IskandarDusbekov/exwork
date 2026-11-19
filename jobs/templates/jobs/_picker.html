@@ -18,6 +18,10 @@
       <div class="pk-ht"><h2>Листлар ва жуфтликлар
         <span class="pk-i" tabindex="0" role="button" aria-label="Қандай ишлайди">i<span class="pk-i-pop">{% if nf_auto %}Тизим ўзи ажратди ва жуфтлади. Текширинг: нотўғри бўлса — бир босишда ўзгартиринг.{% else %}Ҳар бир листни <b>«Кўриш»</b> билан очиб, турини <b>ўзингиз</b> белгиланг; локал учун ресурсни танланг.{% endif %}</span></span></h2>
         {% if not nf_auto and pk_left %}<span class="pk-left">Яна <b class="pk-left-n">{{ pk_left }}</b> та лист белгиланмаган</span>{% endif %}</div>
+      <div class="pk-acts">
+        {% if pk_undo %}<button type="button" class="pk-undo" title="Охирги ўзгаришни бекор қилиш: {{ pk_undo }}">{% icon "undo" "h-4 w-4" %}<span>Ортга қайтариш</span><small>{{ pk_undo|truncatechars:34 }}</small></button>{% endif %}
+        {% if not nf_auto and pk_left %}<button type="button" class="pk-auto" title="Тизим белгиланмаган {{ pk_left }} та листни ўзи ажратади: локал, ресурс ёки керак эмас. Сиз белгилаганларингиз ўзгармайди; кейин ҳар бирини бир босишда ўзгартирасиз.">{% icon "grid" "h-4 w-4" %}<span>Автоматик ажратиш</span></button>{% endif %}
+      </div>
       {% if not pk_embed %}
       <div class="pk-modebar" title="Усул юклашдан олдин танланади — бу ерда ўзгартириш ҳам мумкин">
         <label class="pk-mode{% if nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="auto" {% if nf_auto %}checked{% endif %}>Автоматик</label>
@@ -46,6 +50,7 @@
     {% if pk_unmarked %}
     <div class="pk-group is-mark">
       <h3><span class="pk-gnum">!</span> Аввал шу листларни белгиланг <i>{{ pk_unmarked|length }}</i>
+        <label class="pk-gsel" title="Шу гуруҳдагиларни белгилаш — кейин пастки панелдан бирданига турини танлайсиз"><input type="checkbox" class="pk-gsel-in">ҳаммасини танлаш</label>
         <span class="pk-i" tabindex="0" role="button" aria-label="Изоҳ">i<span class="pk-i-pop"><b>Локал</b> — иш ҳажмлари (нархланади) · <b>Ресурс</b> — нархлар (RES) · <b>Ўтказиш</b> — свод, акт. Билмасангиз — «Кўриш»ни босиб қаранг.</span></span></h3>
       <div class="pk-table">{% for r in pk_unmarked %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>
     </div>
@@ -54,6 +59,7 @@
     {% if pk_unclear %}
     <div class="pk-group is-mark is-unclear">
       <h3><span class="pk-gnum">?</span> Тизим тушунмаган листлар — белгиланг <i>{{ pk_unclear|length }}</i>
+        <label class="pk-gsel" title="Шу гуруҳдагиларни белгилаш — кейин пастки панелдан бирданига турини танлайсиз"><input type="checkbox" class="pk-gsel-in">ҳаммасини танлаш</label>
         <span class="pk-i" tabindex="0" role="button" aria-label="Изоҳ">i<span class="pk-i-pop">Бу листларда тизим сарлавҳа («Наименование», «Ед. изм.») ёки нарх / миқдор устунини тополмади. Свод ёки акт эмас — шунинг учун яширилмади.
           «Белгилаш»ни босинг: лист нима эканини ва қайси устун нима эканини файлнинг ўзида кўрсатасиз. Керак бўлмаса — «Керак эмас» деб белгиланг. Кўрсатганингиз эслаб қолинади.</span></span></h3>
       <div class="pk-table">{% for r in pk_unclear %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>
@@ -73,8 +79,18 @@
     {% if pk_idle %}
     <div class="pk-group is-idle">
       <h3>Жуфтликка кирмаган листлар <i>{{ pk_idle|length }}</i>
+        <label class="pk-gsel" title="Шу гуруҳдагиларни белгилаш — кейин пастки панелдан бирданига турини танлайсиз"><input type="checkbox" class="pk-gsel-in">ҳаммасини танлаш</label>
         <span class="pk-i" tabindex="0" role="button" aria-label="Изоҳ">i<span class="pk-i-pop">Ҳеч қайси локалга танланмаган ресурслар. Керак бўлса — юқоридаги локалнинг ресурсини шунга алмаштиринг.</span></span></h3>
       <div class="pk-table">{% for r in pk_idle %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>
+    </div>
+    {% endif %}
+    {% if pk_dropped %}
+    <div class="pk-group is-dropped">
+      <h3>Сиз «керак эмас» деганлар <i>{{ pk_dropped|length }}</i>
+        <span class="pk-i" tabindex="0" role="button" aria-label="Изоҳ">i<span class="pk-i-pop">Бу листлар нархланмайди. Адашиб белгилаган бўлсангиз — ўнгдаги тугма билан турини ўзгартиринг ёки «Белгини олиш» билан қайтаринг.</span></span>
+        <label class="pk-gsel" title="Шу гуруҳдагиларни белгилаш — кейин пастки панелдан бирданига турини танлайсиз"><input type="checkbox" class="pk-gsel-in">ҳаммасини танлаш</label>
+        <button type="button" class="pk-dropped-back" title="Шу гуруҳдаги ҳамма листнинг белгиси олинади — улар яна белгиланмаганлар қаторига қайтади">{% icon "undo" "h-4 w-4" %}Ҳаммасини қайтариш</button></h3>
+      <div class="pk-table">{% for r in pk_dropped %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>
     </div>
     {% endif %}
     <div class="pk-nores" hidden>Бу сузгичда ҳеч нарса йўқ.</div>
@@ -86,7 +102,8 @@
         <span class="pk-skip-t"><b>Керак эмас деб топилганлар</b>
           <small>{% if pk_skipped %}{{ pk_skipped|length }} та лист{% endif %}{% if pk_skipped and pk_skipped_files %} · {% endif %}{% if pk_skipped_files %}{{ pk_skipped_files|length }} та файл{% endif %} — нархланмайди. Тизим адашган бўлса, очиб турини ўзгартиринг</small></span>
         <span class="pk-skip-go"><span class="is-show">Кўрсатиш</span><span class="is-hide">Яшириш</span>{% icon "chevron-down" "h-4 w-4" "2.5" %}</span></summary>
-      {% if pk_skipped %}<div class="pk-table">{% for r in pk_skipped %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>{% endif %}
+      {% if pk_skipped %}<div class="pk-skip-sel"><label class="pk-gsel" title="Шу гуруҳдагиларни белгилаш — кейин пастки панелдан бирданига турини танлайсиз"><input type="checkbox" class="pk-gsel-in">ҳаммасини танлаш</label></div>
+      <div class="pk-table">{% for r in pk_skipped %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>{% endif %}
       {% if pk_skipped_files %}
       <ul class="pk-sfiles">
         {% for f in pk_skipped_files %}<li>{% icon "file" "h-4 w-4 shrink-0" "1.75" %}<span class="pk-sf-n" title="{{ f.name }}">{{ f.name }}</span><i>{{ f.reason }}</i></li>{% endfor %}
@@ -94,6 +111,17 @@
       {% endif %}
     </details>
     {% endif %}
+    {# бир нечта листни бирданига: катакчалар билан танланади, тури шу ердан бир босишда #}
+    <div class="pk-bulk" hidden role="region" aria-label="Танланган листлар">
+      <button type="button" class="pk-bulk-x" title="Танловни бекор қилиш">{% icon "x" "h-4 w-4" %}</button>
+      <span class="pk-bulk-n"><b>0</b> та лист танланди</span>
+      <span class="pk-bulk-acts">
+        <button type="button" data-bulk="local" class="is-loc">Локал</button>
+        <button type="button" data-bulk="resource" class="is-res">Ресурс</button>
+        <button type="button" data-bulk="unknown" class="is-off">Керак эмас</button>
+        <button type="button" data-bulk="" class="is-clear" title="Белгини олиш — лист яна белгиланмаганлар қаторига қайтади">Белгини олиш</button>
+      </span>
+    </div>
   </section>
 
   {% if not pk_embed %}

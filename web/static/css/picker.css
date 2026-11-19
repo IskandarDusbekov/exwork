@@ -499,3 +499,46 @@ button.rs-chip { cursor: pointer; transition: filter .15s; } button.rs-chip:hove
 .pk-hint.is-ask { color: rgb(var(--warn-700)); font-weight: 600; }
 .pk-group.is-unclear .pk-row { border-left-color: rgb(var(--warn-500)); background: rgb(var(--warn-50)); }
 @media (max-width: 760px) { .pk-sact .pk-mark span { display: none; } }
+
+/* ===== «Автоматик ажратиш», «Ортга қайтариш», бир нечта листни танлаш ===== */
+.pk-acts { display: flex; flex-wrap: wrap; flex-shrink: 0; align-items: center; gap: 8px; }
+.pk-auto, .pk-undo { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 11px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.pk-auto { border: 0; background: var(--g); color: #fff; box-shadow: 0 4px 12px rgba(22, 163, 74, .25); }
+.pk-auto:hover { background: var(--g-d); }
+.pk-undo { border: 1px solid rgb(var(--warn-300)); background: rgb(var(--warn-50)); color: rgb(var(--warn-800)); }
+.pk-undo:hover { border-color: rgb(var(--warn-500)); background: rgb(var(--warn-100)); }
+.pk-undo small { max-width: 220px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; font-weight: 500; opacity: .85; }
+.pk.is-working { cursor: progress; }
+.pk.is-working .pk-auto, .pk.is-working .pk-undo, .pk.is-working .pk-bulk button { opacity: .55; pointer-events: none; }
+.pk-lead { display: flex; align-items: center; gap: 8px; }
+.pk-pick { position: relative; cursor: pointer; }
+.pk-pick input { position: absolute; opacity: 0; pointer-events: none; }
+.pk-pick .pk-box { width: 24px; height: 24px; border-radius: 7px; }
+.pk-pick input:checked + .pk-box { border-color: rgb(var(--ink-900)); background: rgb(var(--ink-900)); color: #fff; }
+.pk-pick input:focus-visible + .pk-box { outline: 3px solid rgb(var(--brand-300)); }
+.pk .pk-row.is-picked { box-shadow: inset 0 0 0 2px rgb(var(--ink-900)); }
+.pk-gsel { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 13px; font-weight: 600; color: rgb(var(--ink-600)); cursor: pointer; }
+.pk-gsel input { width: 16px; height: 16px; accent-color: rgb(var(--ink-900)); }
+.pk-skip-sel { display: flex; justify-content: flex-end; padding: 8px 10px 0; border: 1.5px solid rgb(var(--ink-300)); border-top: 0; border-bottom: 0; background: #fff; }
+.pk-skip[open] > .pk-skip-sel + .pk-table { border-top: 0; }
+.pk-group.is-dropped > h3 { color: rgb(var(--ink-600)); font-size: 14px; }
+.pk-group.is-dropped .pk-row { background: rgb(var(--ink-50)); }
+.pk-dropped-back, .pk-unpick { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 10px; border-radius: 9px; border: 1px solid rgb(var(--ink-300)); background: #fff;
+  font-size: 13px; font-weight: 600; color: rgb(var(--ink-700)); white-space: nowrap; }
+.pk-dropped-back:hover, .pk-unpick:hover { border-color: rgb(var(--ink-900)); color: rgb(var(--ink-900)); }
+.pk-bulk { position: sticky; bottom: 14px; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; padding: 10px 12px; border-radius: 16px;
+  background: rgb(var(--ink-900)); color: #fff; box-shadow: 0 12px 30px rgba(15, 23, 42, .35); animation: pk-in .2s both; }
+.pk-bulk[hidden] { display: none; }
+.pk-bulk-n { font-size: 14px; } .pk-bulk-n b { font-size: 16px; }
+.pk-bulk-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; margin-right: 96px; }  /* ўнг пастдаги «Ёрдам» тугмаси устига тушмасин */
+.pk-bulk-acts button { height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .08); color: #fff; font-size: 13px; font-weight: 700; }
+.pk-bulk-acts button:hover { background: rgba(255, 255, 255, .18); }
+.pk-bulk-acts .is-loc { background: var(--loc); border-color: var(--loc); }
+.pk-bulk-acts .is-res { background: var(--res); border-color: var(--res); }
+.pk-bulk-acts .is-off { background: #fff; border-color: #fff; color: rgb(var(--ink-900)); }
+.pk-bulk-x { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; color: rgb(var(--ink-300)); }
+.pk-bulk-x:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+.pk-toast.has-act { display: flex; align-items: center; gap: 12px; max-width: min(640px, 94vw); }
+.pk-toast-act { flex-shrink: 0; height: 32px; padding: 0 12px; border-radius: 9px; background: #fff; color: rgb(var(--ink-900)); font-size: 13px; font-weight: 700; }
+.pk-toast-act:hover { background: rgb(var(--warn-100)); }
+@media (max-width: 640px) { .pk-acts { width: 100%; } .pk-bulk-acts { margin: 0; width: 100%; } .pk-bulk-acts button { flex: 1; } .pk-undo small { display: none; } }
