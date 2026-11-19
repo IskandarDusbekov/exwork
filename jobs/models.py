@@ -74,6 +74,11 @@ class Batch(models.Model):
     pairs = models.JSONField(default=list)   # core.batch.Pair.to_dict() + {"include": bool}
     roles = models.JSONField(default=dict, blank=True)  # qo'lda list turi {"0:LRV": "local"}
     columns = models.JSONField(default=dict, blank=True)  # qo'lda ustunlar {"0:LRV": {"name": 3, "unit": 4, "start": 22, …}}
+    # «Бошлаш» — fonda narxlash navbati (``jobs.pricing``): smetachi tanlovi {juftlik: {...}}; None — navbatda emas
+    pricing = models.JSONField(null=True, blank=True)
+    worker = models.CharField(max_length=120, blank=True)  # qaysi ishchi olgan (lease)
+    heartbeat = models.DateTimeField(null=True, blank=True)  # ishchi tirikligi: 5 daqiqa jim bo'lsa — boshqasi oladi
+    price_error = models.TextField(blank=True)  # oxirgi narxlash xatosi (sahifada ko'rsatiladi)
 
     # Papka yuklanganda: qaysi loyiha va qaysi ichki papka; fondagi ish bosqichi
     class Stage(models.TextChoices):

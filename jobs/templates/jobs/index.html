@@ -471,8 +471,12 @@
     function send() {
       var fd = new FormData(), url, np;
       fd.append("csrfmiddlewaretoken", form.csrfmiddlewaretoken.value);
+      var loToken = "";
       if (mode === "files") {
         files.forEach(function (f) { fd.append("files", f, f.name); });
+        // .xls очишга навбат бўлса (сервер банд) — фойдаланувчи кўрсин, кутиб қолмасин
+        loToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        fd.append("lo_token", loToken);
         url = "{% url 'index' %}";
         np = window.narxProgress && narxProgress.start({title: "Файллар юкланмоқда", steps: [
           "Файллар юборилмоқда", "Excel файллар очилмоқда", "Листлар таниб олинмоқда", "Локал ва RES жуфтланмоқда"]});
@@ -505,8 +509,29 @@
         if (p >= 100) {
           document.getElementById("fprogress-text").textContent = "Сақланяпти, файллар очиляпти…";
           if (np) np.step(1).percent(null).auto(2);
+          watchQueue();
         }
       };
+      var waitTimer = null, waitShown = false;
+      function watchQueue() {
+        if (!loToken || waitTimer) return;
+        waitTimer = setInterval(function () {
+          fetch("{% url 'upload_wait' %}?t=" + loToken, {credentials: "same-origin", cache: "no-store"})
+            .then(function (r) { return r.ok ? r.json() : {}; }).then(function (d) {
+              if (!waitTimer) return;
+              if (d.text) {
+                waitShown = true;
+                document.getElementById("fprogress-text").textContent = "⏳ " + d.text;
+                if (np) np.note(d.text);
+              } else if (waitShown) {
+                waitShown = false;
+                document.getElementById("fprogress-text").textContent = "Навбат келди — файллар очиляпти…";
+                if (np) np.note("Навбат келди — файллар очиляпти");
+              }
+            }).catch(function () {});
+        }, 2000);
+      }
+      function stopWatch() { if (waitTimer) { clearInterval(waitTimer); waitTimer = null; } }
       function failed(msg) {
         if (np) np.fail(msg);
         uploading = false;
@@ -514,6 +539,7 @@
         err.textContent = msg; err.hidden = false;
       }
       xhr.onload = function () {
+        stopWatch();
         var data = {};
         try { data = JSON.parse(xhr.responseText); } catch (e) { data = {error: "сервер хатоси (" + xhr.status + ")"}; }
         if (data.ok) {
@@ -529,7 +555,7 @@
         }
         failed(data.error || "хато");
       };
-      xhr.onerror = function () { failed("Тармоқ хатоси — интернет уланишини текширинг"); };
+      xhr.onerror = function () { stopWatch(); failed("Тармоқ хатоси — интернет уланишини текширинг"); };
       xhr.send(fd);
     }
     // юкланган объектнинг листлари ва жуфтликлари — шу саҳифанинг ўзида, кетма-кет ёниб очилади

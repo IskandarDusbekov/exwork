@@ -2,7 +2,7 @@ from django.urls import path
 
 from . import (views, views_access, views_help, views_lm, views_mail, views_memo, views_narx,
                views_blog, views_seo, views_site,
-               views_settings, views_support, views_tender, views_tn, views_track, views_usage, views_news, views_pages)
+               views_settings, views_support, views_tender, views_tn, views_track, views_usage, views_news, views_pages, views_tizim)
 
 app_name = "panel"
 
@@ -11,6 +11,9 @@ urlpatterns = [
     path("live/", views.live, name="live"),
     path("stats/", views.stats, name="stats"),
     path("speed/", views.speed, name="speed"),
+    path("tizim/", views_tizim.tizim_page, name="tizim"),
+    path("tizim/code/", views_tizim.tizim_code, name="tizim_code"),
+    path("tizim/live/", views_tizim.tizim_live, name="tizim_live"),
     path("usage/", views_usage.usage_page, name="usage"),
     path("news/", views_news.news_page, name="news"),
     path("news/save/", views_news.news_save, name="news_save"),

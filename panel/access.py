@@ -89,7 +89,8 @@ def _path(request, kind):
 
 def _skip(request):
     static = "/" + settings.STATIC_URL.lstrip("/")
-    return request.path.startswith(static) or request.path == "/favicon.ico"
+    from .monitor import is_poll
+    return request.path.startswith(static) or request.path == "/favicon.ico" or is_poll(request)
 
 
 def record(request, response):

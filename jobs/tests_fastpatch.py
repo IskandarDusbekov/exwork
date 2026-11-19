@@ -280,7 +280,7 @@ def test_step_reporter_switch_is_not_throttled(monkeypatch):
     """Бир босқич ичида сонлидан сонсизга ўтиш дарҳол ёзилади (охирги сон қотиб қолмасин)."""
     from . import services
     seen = []
-    monkeypatch.setattr(services.Batch.objects, "filter", lambda **k: type("Q", (), {"update": lambda s, step: seen.append(step)})())
+    monkeypatch.setattr(services.Batch.objects, "filter", lambda **k: type("Q", (), {"update": lambda s, step, **_: seen.append(step)})())
     rep = services.step_reporter(1, "1/1 смета нархланяпти: A", every=60)
     rep("write", 0, 0)
     rep("write", 500, 20855)

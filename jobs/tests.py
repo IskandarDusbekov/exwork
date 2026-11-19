@@ -1179,6 +1179,67 @@ class PickerTests(LoggedInTestCase):
         prog = self.client.get(reverse("batch_progress", args=[batch.id])).json()
         self.assertEqual((prog["status"], prog["done"]), ("done", sum(1 for p in batch.pairs if p["include"] and p["res"])))
 
+    def _confirm_data(self, batch):
+        data = {}
+        for n, p in enumerate(batch.pairs):
+            data.update({f"include_{n}": "1" if p["include"] else "", f"res_{n}": p["res"] or "", f"label_{n}": p["label"]})
+        return data
+
+    def test_start_runs_in_background_queue(self):
+        """«Бошлаш» сўрови нархламайди — навбатга қўяди ва дарҳол қайтади; ишчи олади, прогресс натижа манзилини беради."""
+        from unittest import mock
+        from . import pricing
+        batch = self._batch()
+        url = reverse("batch_confirm", args=[batch.id])
+        xhr = {"X-Requested-With": "XMLHttpRequest"}
+        with mock.patch.object(pricing, "start", lambda batch_id: None):  # ишчи йўқ — навбатда қолади
+            r = self.client.post(url, self._confirm_data(batch), headers=xhr)
+            self.assertEqual((r.json()["ok"], r.json()["queued"]), (True, True))
+            self.assertFalse(batch.jobs.exists())
+            prog = self.client.get(reverse("batch_progress", args=[batch.id])).json()
+            self.assertEqual((prog["queued"], prog["finished"], prog["ahead"]), (True, False, 0))
+            # қайта босилди (саҳифа янгиланди) — иккинчи марта навбатга қўйилмайди
+            self.assertFalse(pricing.queue(batch, {}))
+            page = self.client.get(reverse("batch", args=[batch.id]) + "?partial=picker")
+            self.assertContains(page, 'data-running="1"')
+        self.assertEqual(pricing.claim_next("w1"), batch.id)
+        self.assertIsNone(pricing.claim_next("w2"))  # бошқа ишчи ололмайди
+        pricing.run(batch.id, "w1")
+        batch.refresh_from_db()
+        self.assertEqual((batch.pricing, batch.worker, batch.price_error, batch.status), (None, "", "", "done"))
+        prog = self.client.get(reverse("batch_progress", args=[batch.id])).json()
+        self.assertEqual((prog["queued"], prog["finished"], prog["url"]), (False, True, pricing.result_url(batch)))
+        self.assertTrue(batch.jobs.exists())
+
+    def test_background_error_is_shown(self):
+        from unittest import mock
+        from . import pricing
+        batch = self._batch()
+        with mock.patch("jobs.services.confirm_batch", side_effect=RuntimeError("синов")):
+            r = self.client.post(reverse("batch_confirm", args=[batch.id]), self._confirm_data(batch),
+                                 headers={"X-Requested-With": "XMLHttpRequest"})
+        self.assertEqual(r.status_code, 500)
+        self.assertIn("синов", r.json()["error"])
+        prog = self.client.get(reverse("batch_progress", args=[batch.id])).json()
+        self.assertEqual((prog["finished"], prog["queued"]), (True, False))
+        self.assertIn("синов", prog["error"])
+        batch.refresh_from_db()
+        self.assertIsNone(batch.pricing)
+        self.assertIsNone(pricing.claim_next("w1"))  # хатодан кейин навбатда осилиб қолмайди
+
+    def test_stale_worker_is_taken_over(self):
+        import datetime as dt
+        from unittest import mock
+        from django.utils import timezone
+        from . import pricing
+        batch = self._batch()
+        with mock.patch.object(pricing, "start", lambda batch_id: None):
+            self.client.post(reverse("batch_confirm", args=[batch.id]), self._confirm_data(batch),
+                             headers={"X-Requested-With": "XMLHttpRequest"})
+        self.assertEqual(pricing.claim_next("dead"), batch.id)
+        Batch.objects.filter(pk=batch.pk).update(heartbeat=timezone.now() - dt.timedelta(minutes=6))
+        self.assertEqual(pricing.claim_next("alive"), batch.id)  # ўчиб қолган ишчидан кейин бошқаси олади
+
     def test_other_user_cannot_pick(self):
         batch = self._batch()
         other = User.objects.create_user("b@test.uz", "Kuchli-parol-2026")

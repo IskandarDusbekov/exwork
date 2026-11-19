@@ -38,7 +38,7 @@ ishonchli, xavfsizlik asoslari yaxshi qilingan, zaxira va tiklash yo'li bor. To'
 | Holat | Nima bo'ladi | Himoya bormi |
 |---|---|---|
 | Disk to'ldi (media va zaxiralar o'sadi) | Yuklash va narxlash xato beradi | Yo'q — kuzatuv qo'shish kerak (3-jadval, 5) |
-| Fon ishchisi (worker) to'xtadi | Papka va qayta hisoblash navbatda qoladi | `Restart=always` — o'zi qayta turadi |
+| Fon ishchisi (worker) to'xtadi | Narxlash, papka va qayta hisoblash navbatda qoladi (ishchi tursa — davom etadi) | `Restart=always` — o'zi qayta turadi |
 | `.xls` ni o'girishda LibreOffice osilib qoldi | Bitta fayl o'tkaziladi | Vaqt cheklovi bor |
 | Juda katta fayl / arxiv | Rad etiladi, sabab yoziladi | Cheklovlar: 800 MB yuklash, Excel ichi 200 MB, arxiv ochilganda 1 GB, 4 qavat ichma-ich |
 | PostgreSQL yoki Redis to'xtadi | Sayt ishlamaydi | Server darajasida — kuzatuv kerak |

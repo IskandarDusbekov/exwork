@@ -27,5 +27,7 @@ def _recalc_inline(request, monkeypatch):
     monkeypatch.setattr(recalc, "start", recalc.run_now)
     from jobs import fastpatch
     monkeypatch.setattr(fastpatch, "start_warm", fastpatch.warm_now)  # ямашдан кейинги кўриниш ҳам шу ерда
+    from jobs import pricing
+    monkeypatch.setattr(pricing, "start", pricing.run_now)  # «Бошлаш» — testda shu so'rov ichida narxlanadi
     from texnazor import tasks as tn_tasks
     monkeypatch.setattr(tn_tasks, "start", lambda obj_id: None)  # ofyorta testda ``tasks.run_now`` bilan o'qiladi

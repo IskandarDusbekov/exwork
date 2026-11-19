@@ -9,6 +9,7 @@
      data-pick="{% url 'batch_pick' batch.id %}" data-partial="{% url 'batch' batch.id %}?partial=picker{% if pk_embed %}&amp;embed=1{% endif %}"
      data-sheet="{% url 'batch_sheet' batch.id %}" data-progress="{% url 'batch_progress' batch.id %}"
      data-nf="{% url 'nf_mode' %}" data-pct="{% url 'upload_percents' %}" data-project="{% if batch.project_id %}1{% endif %}"
+     data-running="{% if batch.pricing is not None and not batch.project_id %}1{% endif %}"
      data-base="{{ base_res }}" data-mine="{% if batch.owner_id == user.pk %}1{% endif %}" data-manual="{% if not nf_auto %}1{% endif %}">
 <form method="post" action="{% url 'batch_confirm' batch.id %}" class="pk-form">{% csrf_token %}
 

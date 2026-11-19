@@ -15,7 +15,7 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from openpyxl.utils import column_index_from_string, get_column_letter
 
@@ -26,7 +26,7 @@ from core.svodka import DEFAULT_PERCENTS, PERCENT_LABELS, parse_text_number, per
 from panel.audit import log as audit
 from panel.models import Event
 
-from . import bulk_price, preview, recalc, xlview
+from . import bulk_price, lo_queue, preview, recalc, xlview
 from .archives import is_archive
 from .guide import FLOW, GUIDE_PAGES, help_groups
 from .folders import (
@@ -143,7 +143,8 @@ def index(request):
                 return _went(xhr, reverse("project", args=[project.id]), _upload_timing(request, kind, t0, project))
             if files:
                 # Universal yuklash: bitta obyekt fayli yoki bir nechta fayl — tizim o'zi ajratadi
-                batch = create_batch(request.user, files)
+                with lo_queue.notify(_upload_waiter(request), max_wait=180):  # gunicorn timeout 300 с
+                    batch = create_batch(request.user, files)
                 request.track_work = batch.pk
                 audit(request, Event.Kind.UPLOAD, work=batch, work_kind="object", detail=batch.name)
                 timing = _upload_timing(request, kind, t0, batch)
@@ -195,6 +196,31 @@ def _upload_timing(request, kind, t0, work=None, error=""):
             server_s=round(time.monotonic() - t0, 3), error=error[:300], work_id=str(work.pk) if work else "")
     except Exception:  # noqa: BLE001
         return None
+
+
+def _wait_key(request, token: str) -> str:
+    return f"upload:wait:{request.user.pk}:{token[:40]}"
+
+
+def _upload_waiter(request):
+    """Юклаш саҳифаси: .xls очишга LibreOffice навбати бўлса — ``upload_wait`` орқали фойдаланувчига кўрсатилади."""
+    token = request.POST.get("lo_token", "")
+    if not token:
+        return None
+    key = _wait_key(request, token)
+
+    def cb(busy_n, ahead, waited):
+        if busy_n is None:
+            cache.delete(key)
+        else:
+            cache.set(key, {"text": lo_queue.wait_text(busy_n, ahead, waited), "busy": busy_n, "ahead": ahead}, 30)
+    return cb
+
+
+@require_GET
+def upload_wait(request):
+    """Юклаш давом этаётганда: файл LibreOffice навбатида турибдими (сервер банд)."""
+    return JsonResponse(cache.get(_wait_key(request, request.GET.get("t", ""))) or {})
 
 
 @require_POST
@@ -1246,7 +1272,20 @@ def batch_progress(request, batch_id):
     # «phase» / «rows_done» / «rows» — шу смета ичида қаерда (нечта қатор ўтди, нечтаси қолди)
     return JsonResponse({"status": batch.status, "at": int(m.group(1)) if m else 0, "total": int(m.group(2)) if m else 0,
                          "text": tail["text"], "phase": tail["phase"], "rows_done": tail["done"], "rows": tail["total"],
-                         "done": batch.jobs.filter(status=Job.Status.DONE).count()})
+                         "done": batch.jobs.filter(status=Job.Status.DONE).count(), **_pricing_state(batch)})
+
+
+def _pricing_state(batch) -> dict:
+    """Фондаги нархлаш (``jobs.pricing``): навбатдами, олдида нечта, тугадими, хатоси, натижа манзили."""
+    from . import pricing
+    if batch.project_id:
+        return {}
+    if batch.pricing is not None:
+        return {"queued": True, "finished": False, "ahead": pricing.ahead(batch) if not batch.worker else 0}
+    if batch.price_error:
+        return {"queued": False, "finished": True, "error": batch.price_error}
+    return {"queued": False, "finished": batch.status == Batch.Status.DONE,
+            "url": pricing.result_url(batch) if batch.status == Batch.Status.DONE else ""}
 
 
 @require_POST
@@ -1523,14 +1562,25 @@ def batch_confirm(request, batch_id):
         queue_part(batch, decisions)  # папка қисми: фонда нархланади, жараён папка саҳифасида жонли
         url = reverse("project", args=[batch.project_id])
     else:
-        try:
-            jobs = confirm_batch(batch, decisions)
-        except Exception as e:  # noqa: BLE001
+        # нархлаш — фонда (``jobs.pricing``): сўров дарҳол қайтади, сайт қотмайди; саҳифа ``batch_progress`` ни
+        # сўраб туради ва тугагач натижага ўтади
+        from . import pricing
+        if pricing.queue(batch, decisions):
+            pricing.start(batch.id)
+        batch.refresh_from_db()
+        if batch.pricing is None and not batch.price_error:  # синовда/тез тугади — тўғри натижага
+            url = pricing.result_url(batch)
             if xhr:
-                return JsonResponse({"ok": False, "error": f"Нархлашда хато: {e}"}, status=500)
-            raise
-        # битта смета — тўғри унинг саҳифасига; бир нечта — объект натижалари
-        url = reverse("job", args=[jobs[0].id]) if len(jobs) == 1 else reverse("batch", args=[batch.id])
+                return JsonResponse({"ok": True, "url": url})
+            return redirect(url)
+        if batch.price_error:
+            if xhr:
+                return JsonResponse({"ok": False, "error": batch.price_error}, status=500)
+            messages.error(request, batch.price_error)
+            return redirect("batch", batch_id=batch.id)
+        if xhr:
+            return JsonResponse({"ok": True, "queued": True, "url": reverse("batch", args=[batch.id])})
+        return redirect("batch", batch_id=batch.id)
     if xhr:
         return JsonResponse({"ok": True, "url": url})
     return redirect(url)

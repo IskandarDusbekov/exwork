@@ -1044,7 +1044,7 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
             continue
         # жонли жараён: папка панели ва юклаш саҳифасидаги аниқ прогресс (``batch_progress``) шуни ўқийди
         head = f"{len(jobs) + 1}/{todo} смета нархланяпти: {p['label']}"
-        Batch.objects.filter(pk=batch.pk).update(step=head[:300], step_since=timezone.now())
+        Batch.objects.filter(pk=batch.pk).update(step=head[:300], step_since=timezone.now(), heartbeat=timezone.now())
         if batch.project_id:
             Project.objects.filter(pk=batch.project_id).update(heartbeat=timezone.now())
         loc, res = batch.sheet(p["local"]), batch.sheet(p["res"]) if p.get("res") else None  # None — ресурс базасидан
@@ -1106,7 +1106,7 @@ def step_reporter(batch_id, head: str, every: float = 1.0):
         else:
             tail = PHASE_TEXT.get(phase, phase) + (f" · {_n(state['rows'])} қатор" if state["rows"] else "")
         try:
-            Batch.objects.filter(pk=batch_id).update(step=f"{head[:200]} — {tail}")
+            Batch.objects.filter(pk=batch_id).update(step=f"{head[:200]} — {tail}", heartbeat=timezone.now())  # heartbeat — fon navbati (``jobs.pricing``)
         except Exception:  # noqa: BLE001 — прогресс ёзилмаса ҳам нархлаш давом этади
             log.warning("прогресс ёзилмади: %s", batch_id, exc_info=True)
 

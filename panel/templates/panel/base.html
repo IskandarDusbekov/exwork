@@ -63,6 +63,7 @@
         {% include "panel/_side_link.html" with key="usage" url="panel:usage" ic="table" label="Қатор ҳисоби" hint="Ким қанча қатор ишлади — ҳафта, ой (тўлов учун)" %}
         {% include "panel/_side_link.html" with key="track" url="panel:track" ic="activity" label="Фойдаланувчи йўли" hint="Юклашдан натижагача: ким қаерга етди, қаерда тўхтади, қайтиб келдими" %}
         {% include "panel/_side_link.html" with key="speed" url="panel:speed" ic="clock" label="Тезлик" hint="Файл очиш ва нархлаш вақти" %}
+        {% if user.is_superuser %}{% include "panel/_side_link.html" with key="tizim" url="panel:tizim" ic="activity" label="Тизим (жонли)" hint="Сервер, база, фон ишчиси, LibreOffice ва nginx — ҳозирги ҳолат, муаммолар ва коди" %}{% endif %}
 
         <div class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Сайт ва контент</div>
         {% include "panel/_side_link.html" with key="news" url="panel:news" ic="bell" label="Эълонлар ва табриклар" hint="Янгилик, жиддий хабар ёки табрик — кирганда бир марта ойнада, кейин қўнғироқчада" %}

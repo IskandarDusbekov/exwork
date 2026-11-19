@@ -27,6 +27,7 @@ from core.batch import KIND_LABELS
 from panel import conf
 
 from .templatetags.narx import file_title, hsize, readable
+from . import lo_queue
 from .archives import ArchiveError, extract_excel, is_archive, safe_part
 from .models import Batch, Job, Project
 from .services import (
@@ -510,7 +511,9 @@ def live_step(part: Batch) -> dict:
     at, of, kind, rest = int(m.group(1)), max(int(m.group(2)), 1), m.group(3), m.group(4)
     out.update(at=at, of=of)
     if kind == "файл очиляпти":  # очиш — қисм вақтининг ~60%, таҳлил — қолгани
-        out.update(frac=0.6 * (at - 1) / of, what="Файллар очиляпти", unit="файл", name=rest)
+        name, _, wait = rest.partition(" — Сервер банд")
+        out.update(frac=0.6 * (at - 1) / of, what="Файллар очиляпти", unit="файл", name=name,
+                   wait=("Сервер банд" + wait) if wait else "")  # LibreOffice навбати (``lo_queue``)
     elif kind == "файл таҳлил қилиняпти":
         out.update(frac=0.6 + 0.4 * (at - 1) / of, what="Листлар таҳлил қилиняпти", unit="файл", name=rest)
     else:
@@ -559,8 +562,18 @@ def convert_files(part: Batch, clock: Optional[FileClock] = None, only_missing: 
         _check_stop(part.project_id)
         src = project.abs(f"src/{f['src']}")
         size = f" ({hsize(src.stat().st_size)})" if src.exists() else ""
-        _step(part, f"{i + 1}/{len(part.files)} файл очиляпти: {f['name']}{size}")
-        xlsx = clock.open(src, part.abs(f"conv/{i}"), f["name"], i)
+        head = f"{i + 1}/{len(part.files)} файл очиляпти: {f['name']}{size}"
+        _step(part, head)
+
+        short = f"{i + 1}/{len(part.files)} файл очиляпти: {f['name'][:100]}"  # step — 300 белги, хабар сиғсин
+
+        def queued(busy_n, ahead, waited, head=head, short=short):  # LibreOffice банд — фойдаланувчи папка саҳифасида кўради
+            text = head if busy_n is None else f"{short} — {lo_queue.wait_text(busy_n, ahead, waited)}"
+            Batch.objects.filter(pk=part.pk).update(step=text[:300])  # step_since ўзгармайди — вақт тўғри юради
+            Project.objects.filter(id=part.project_id).update(heartbeat=timezone.now())
+
+        with lo_queue.notify(queued, max_wait=1800):
+            xlsx = clock.open(src, part.abs(f"conv/{i}"), f["name"], i)
         if xlsx == src:  # .xlsx o'zgarishsiz qaytadi — qismning o'z nusxasi bo'lsin
             xlsx = part.abs(f"conv/{i}{src.suffix.lower()}")
             xlsx.parent.mkdir(parents=True, exist_ok=True)

@@ -5,6 +5,7 @@
     <span class="pl-sec num" data-elapsed title="Шу қадам бошланганидан бери"></span>
   </div>
   {% if live.name %}<small class="pl-name" title="{{ live.name }}">{{ live.name }}</small>{% endif %}
+  {% if live.wait %}<small class="pl-wait">⏳ {{ live.wait }}</small>{% endif %}
   {% if live.rows and live.rows_done %}<div class="pl-bar"><i style="width: {% widthratio live.rows_done live.rows 100 %}%"></i></div>
   {% elif live.of > 1 %}<div class="pl-bar"><i style="width: {% widthratio live.at|add:-1 live.of 100 %}%"></i></div>{% endif %}
 </div>{% endif %}

@@ -1,0 +1,118 @@
+{% load static %}<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Тизим · mhisobot</title>
+  <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'css/tizim.css' %}">
+</head>
+<body>
+{% comment %}
+  Панел → «Тизим»: жонли бошқарув (panel:tizim_live, ҳар 3 с), жараёнлар (panel/tizim_lessons.py) ва код (фақат ўқиш,
+  panel:tizim_code). Чизиш ва маълумотни жойлаш — static/js/tizim.js.
+{% endcomment %}
+<div class="tz" id="tz" data-code="{% url 'panel:tizim_code' %}" data-live="{% url 'panel:tizim_live' %}"
+     data-errors="{% url 'panel:errors' %}" data-processes="{% url 'panel:processes' %}" data-backups="{% url 'panel:backups' %}">
+  <header class="tz-top">
+    <a class="tz-brand" href="{% url 'panel:overview' %}" title="Панелга қайтиш">
+      <span class="tz-logo" aria-hidden="true"></span><span>mhisobot <b>Тизим</b></span>
+    </a>
+    <nav class="tz-tabs" role="tablist">
+      <button class="tz-tab is-on" data-tab="live" role="tab"><i class="tz-dot" id="tz-livedot"></i>Жонли ҳолат</button>
+      <button class="tz-tab" data-tab="guide" role="tab">Жараёнлар</button>
+      <button class="tz-tab" data-tab="code" role="tab">Код</button>
+    </nav>
+    <div class="tz-top-r">
+      <span class="tz-clock" id="tz-clock"></span>
+      <button class="tz-ibtn" id="tz-theme" title="Тун / кун">◐</button>
+      <a class="tz-ibtn" href="{% url 'panel:overview' %}">← Панел</a>
+    </div>
+  </header>
+
+  <!-- ===================== ЖОНЛИ ҲОЛАТ ===================== -->
+  <section class="tz-view tz-live" id="v-live">
+    <div class="tz-strip" id="tz-strip"></div>
+    <div class="tz-live-body">
+      <div class="tz-live-main">
+        <div class="tz-stage" id="tz-stage-live">
+          <svg id="svg-live" class="tz-svg" viewBox="0 0 1100 620" preserveAspectRatio="xMidYMid meet" aria-label="Сервер харитаси"></svg>
+          <div class="tz-hint">Блокни босинг — нима эканлиги, ҳозирги рақамлари ва коди</div>
+          <div class="tz-legend">
+            <span><i class="k-req"></i>ҳозир бажарилаётган сўров</span><span><i class="k-job"></i>фондаги иш</span>
+            <span><i class="k-data"></i>файл</span><span><i class="k-err"></i>муаммо</span>
+          </div>
+        </div>
+        <div class="tz-tables">
+          <div class="tz-ttabs" id="tz-ttabs">
+            <button data-t="now" class="is-on">Ҳозир бажарилмоқда <b id="c-now"></b></button>
+            <button data-t="recent">Охирги сўровлар</button>
+            <button data-t="slow">Энг секин</button>
+            <button data-t="db">Базада ҳозир <b id="c-db"></b></button>
+            <button data-t="chart">Юклама (60 дақ.)</button>
+          </div>
+          <div class="tz-tbody" id="tz-tbody"></div>
+        </div>
+      </div>
+      <aside class="tz-insp" id="tz-insp"></aside>
+    </div>
+  </section>
+
+  <!-- ===================== ЖАРАЁНЛАР ===================== -->
+  <section class="tz-view tz-guide" id="v-guide" hidden>
+    <aside class="tz-side">
+      <div class="tz-side-h"><span>Жараёнлар</span><small id="tz-count"></small></div>
+      <div id="tz-tree" class="tz-tree"></div>
+    </aside>
+    <div class="tz-gmain">
+      <div class="tz-head">
+        <div class="tz-crumb" id="tz-crumb"></div>
+        <div class="tz-title-row"><h1 id="tz-title"></h1><div class="tz-meta" id="tz-meta"></div></div>
+        <p class="tz-desc" id="tz-desc"></p>
+      </div>
+      <div class="tz-stage">
+        <div class="tz-chips" id="tz-chips"></div>
+        <svg id="svg-guide" class="tz-svg" viewBox="0 0 1100 640" preserveAspectRatio="xMidYMid meet" aria-label="Жараён схемаси"></svg>
+        <div class="tz-legend">
+          <span><i class="k-req"></i>сўров</span><span><i class="k-res"></i>жавоб</span><span><i class="k-job"></i>фондаги иш</span>
+          <span><i class="k-data"></i>файл / маълумот</span><span><i class="k-err"></i>рад этилди</span>
+        </div>
+      </div>
+      <div class="tz-steps">
+        <div class="tz-steps-h"><span>Қадамлар</span><small id="tz-stepn"></small></div>
+        <div class="tz-line" id="tz-line"></div>
+      </div>
+    </div>
+    <aside class="tz-panel">
+      <div class="tz-card" id="tz-card"></div>
+      <div class="tz-nav">
+        <button class="tz-btn" id="tz-prev">← Орқага</button>
+        <button class="tz-btn tz-next" id="tz-next">Кейинги →</button>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ===================== КОД ===================== -->
+  <section class="tz-view tz-codetab" id="v-code" hidden>
+    <div class="tz-files">
+      <input type="search" id="tz-fsearch" placeholder="Файл қидириш…" autocomplete="off">
+      <div id="tz-flist" class="tz-flist"></div>
+    </div>
+    <div class="tz-viewer" id="tz-viewer2"><div class="tz-empty">Чапдан файл танланг. Код фақат ўқиш учун — ўзгартириб бўлмайди.</div></div>
+  </section>
+
+  <div class="tz-drawer" id="tz-drawer" hidden>
+    <div class="tz-drawer-h">
+      <div><small>Код · фақат ўқиш</small><b id="tz-dpath"></b></div>
+      <div class="tz-drawer-act"><button class="tz-ibtn" id="tz-dback" hidden>← Орқага</button><button class="tz-ibtn" id="tz-dclose" title="Ёпиш (Esc)">✕</button></div>
+    </div>
+    <div class="tz-dinfo" id="tz-dinfo"></div>
+    <div class="tz-viewer" id="tz-viewer"></div>
+  </div>
+</div>
+{{ lessons|json_script:"tz-lessons" }}
+{{ nodes|json_script:"tz-nodes" }}
+<script src="{% static 'js/tizim.js' %}"></script>
+</body>
+</html>

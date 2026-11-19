@@ -5,6 +5,7 @@ from accounts.throttle import client_ip
 
 from . import audit, sessions
 from .models import Event
+from .monitor import is_poll
 
 
 class BlockedIPMiddleware:
@@ -78,7 +79,7 @@ class SessionTrackMiddleware:
 
     def __call__(self, request):
         user = getattr(request, "user", None)
-        if user is not None and user.is_authenticated:
+        if user is not None and user.is_authenticated and not is_poll(request):
             try:
                 sessions.touch(request, user)
             except Exception:  # noqa: BLE001 — кузатув хатоси саҳифани бузмасин

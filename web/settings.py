@@ -37,6 +37,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "panel.access.AccessLogMiddleware",  # кириш уринишлари (хотирада йиғиб, дақиқада бир ёзади) — энг биринчи
+    "panel.monitor.RequestMonitorMiddleware",  # панел «Тизим»: сўров вақти, айни пайтдаги сўровлар (кешда)
     "django.middleware.security.SecurityMiddleware",
     "panel.middleware.SecurityHeadersMiddleware",  # Permissions-Policy ва бошқа ҳимоя сарлавҳалари
     "whitenoise.middleware.WhiteNoiseMiddleware",  # static файллар (CSS, admin) — nginx'сиз ҳам
@@ -283,6 +284,8 @@ TEXNAZOR_MAX_UPLOAD = 60 * 1024 * 1024  # техназор офёрта файл
 # Захира нусхалар (deploy/backup.sh ва панелдаги «Захира нусха»): db/ — база, media/<сана>/ — файллар
 NARXLASH_BACKUP_DIR = Path(os.environ.get("NARXLASH_BACKUP_DIR", (BASE_DIR / "backups") if DEBUG else (BASE_DIR.parent / "backups")))
 NARXLASH_MAX_ARCHIVE = 700 * 1024 * 1024  # ZIP/RAR arxiv (ichida PDF, chizmalar ham bo'ladi)
+# .xls → .xlsx: сервер бўйича бир вақтда нечта LibreOffice (``jobs.lo_queue``); 2 ядро / 4 ГБ учун 2
+NARXLASH_LO_SLOTS = int(os.environ.get("NARXLASH_LO_SLOTS", "2"))
 # Bitta foydalanuvchi serverni (disk, CPU) to'ldira olmasin. Xodimlar (is_staff) — cheklovsiz. 0 — cheklov yo'q.
 NARXLASH_UPLOADS_PER_HOUR = int(os.environ.get("NARXLASH_UPLOADS_PER_HOUR", "30"))
 NARXLASH_USER_QUOTA_MB = int(os.environ.get("NARXLASH_USER_QUOTA_MB", "5000"))

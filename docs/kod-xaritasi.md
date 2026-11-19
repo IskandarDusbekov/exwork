@@ -5,6 +5,10 @@ yuklangandan yuklab olingunicha qaysi fayllardan o'tadi. Kod ichidagi izohlar ki
 
 ## 1. Umumiy ko'rinish
 
+> Jonli, rasmli variant: **panel → «Тизим қандай ишлайди»** (`/panel/tizim/`, faqat superuser) — har bir
+> jarayon qadamma-qadam, kodi bilan (faqat o'qish), va serverning hozirgi holati. Darslar matni:
+> `panel/tizim_lessons.py`; funksiya nomi o'zgarsa `panel/tests_tizim.py` yiqiladi — shu faylni yangilang.
+
 ```
 brauzer ──► web/urls.py ──► ilova (jobs, panel, texnazor, …) views ──► services ──► core (Excel bilan ish)
                                                               │
@@ -27,11 +31,11 @@ brauzer ──► web/urls.py ──► ilova (jobs, panel, texnazor, …) views
 
 | Qadam | Nima bo'ladi | Fayl / funksiya |
 |---|---|---|
-| 1. Yuklash | Fayl saqlanadi, `.xls` → `.xlsx` | `jobs/views.py: index` → `jobs/services.py: create_batch` → `core/convert.py` |
+| 1. Yuklash | Fayl saqlanadi, `.xls` → `.xlsx` | `jobs/views.py: index` → `jobs/services.py: create_batch` → `core/convert.py` (LibreOffice навбати: `jobs/lo_queue.py`, бир вақтда 2 та) |
 | 2. Listlarni ajratish | Har list: lokal / resurs / keraksiz; juftlash | `jobs/services.py: analyze_batch` → `core/batch.py: inspect_workbook, plan_pairs` |
 | 2a. «Қўлда» usuli | Fayl smetachi belgilaguncha o'qilmaydi | `analyze_batch(lazy=True)`; tugmalar `jobs/views.py: batch_pick` |
 | 2b. Belgilash sahifasi | Tizim tushunmagan listni smetachi ko'rsatadi, eslab qolinadi | `jobs/views.py: batch_mark`, `jobs/models.py: SheetMemo` |
-| 3. Boshlash | Har juftlik → alohida `Job` | `jobs/services.py: confirm_batch` |
+| 3. Boshlash | Tanlov navbatga qo'yiladi (so'rov darhol qaytadi), fon ishchisi har juftlik → alohida `Job` | `jobs/views.py: batch_confirm` → `jobs/pricing.py` (navbat) → `jobs/services.py: confirm_batch` |
 | 4. Narxlash | Ustunlar, RES indeksi, solishtirish, yozish, svodka | `core/pipeline.py: run` → `core/detect.py`, `core/columns.py`, `core/matcher.py`, `core/writer.py`, `core/svodka.py` |
 | 5. Smetachi tuzatishlari | Narx yozish, taklifni qabul qilish, L/M ga o'tkazish | `jobs/views.py: job_*` → `jobs/fastpatch.py` (tez yamash) yoki `jobs/recalc.py` (qayta hisoblash) |
 | 6. Yuklab olish | Natija Excel + LOG listi | `jobs/views.py: job_download`, `core/log_sheet.py` |

@@ -20,7 +20,7 @@ from django.db import close_old_connections
 from django.db.models import F
 from django.utils import timezone
 
-from jobs import folders, preview, recalc
+from jobs import folders, preview, pricing, recalc
 from jobs.models import Worker
 from texnazor import tasks as tn_tasks
 
@@ -92,6 +92,15 @@ class Command(BaseCommand):
                     if jid is not None:
                         self.idle[i] = False
                         self._recalc(me, jid)
+                        continue
+                    bid = pricing.claim_next(me)  # «Бошлаш»: smetachi ekranda natijani kutmoqda
+                    if bid is not None:
+                        self.idle[i] = False
+                        self._count(busy=F("busy") + 1)
+                        try:
+                            pricing.run(bid, me)
+                        finally:
+                            self._count(busy=F("busy") - 1, done=F("done") + 1)
                         continue
                     oid = tn_tasks.claim_next(me)  # texnazor: yuklangan ofyortani o'qish
                     if oid is not None:

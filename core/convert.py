@@ -10,6 +10,7 @@ Zaxira yo'l (faqat Windows, dev uchun) — Microsoft Excel COM orqali (pywin32 k
 dastur ham .xls ni shunday ochardi. ``NARXLASH_CONVERTER`` bilan tanlanadi:
 ``auto`` (standart: LibreOffice, bo'lmasa Excel), ``libreoffice`` yoki ``excel``.
 """
+import contextlib
 import importlib.util
 import os
 import shutil
@@ -33,6 +34,16 @@ _WINDOWS_PATHS = (
 
 class ConversionError(RuntimeError):
     pass
+
+
+# Сервер бўйича LibreOffice чеклови (``jobs.lo_queue.slot``): ``set_limiter`` билан Django илова ўрнатади.
+# core Django'сиз ҳам ишласин — ўрнатилмаса чеклов йўқ.
+_LIMITER = None
+
+
+def set_limiter(fn):
+    global _LIMITER
+    _LIMITER = fn
 
 
 def find_soffice(soffice: Optional[str] = None) -> str:
@@ -117,7 +128,9 @@ def ensure_xlsx(path: Path, out_dir: Path, soffice: Optional[str] = None, timeou
 
 def _convert_libreoffice(exe: str, path: Path, out_dir: Path, timeout: int) -> Path:
     # Har bir chaqiruvga alohida profil: parallel ishga tushganda LibreOffice qulflanib qolmasin.
-    with tempfile.TemporaryDirectory(prefix="narxlash_lo_") as profile:
+    # Бўш ўрин келгунча кутилади (сервер бўйича бир вақтда кўпи билан N та soffice).
+    limit = _LIMITER(path.name) if _LIMITER else contextlib.nullcontext()
+    with limit, tempfile.TemporaryDirectory(prefix="narxlash_lo_") as profile:
         cmd = [
             exe,
             f"-env:UserInstallation={Path(profile).as_uri()}",

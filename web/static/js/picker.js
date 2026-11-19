@@ -481,7 +481,7 @@
       function show(p, t) { bar.style.width = p + "%"; pc.textContent = Math.round(p) + "%"; if (t) txt.textContent = t; }
       show(3, D.project ? "Навбатга қўйилмоқда…" : "Танловингиз сақланмоқда…");
       prog.scrollIntoView({behavior: "smooth", block: "center"});
-      var finished = false;
+      var finished = false, queued = false;
       // смета ичидаги босқичлар (сервер айтади) ва уларнинг улуши: ўқиш, қаторлар (сони билан), ёзиш, сақлаш.
       // Босқич ичида сони йўқ бўлса — вақт ўтгани сари секинлашиб силжийди, лекин кейинги босқич чегарасидан ўтмайди
       var PH = {read: [0, .38], price: [.38, .46], write: [.46, .8], save: [.8, .96], auto: [.96, 1]};
@@ -491,6 +491,15 @@
         if (finished || D.project) return;
         fetch(D.progress, {cache: "no-store", credentials: "same-origin"}).then(function (r) { return r.json(); }).then(function (d) {
           if (finished) return;
+          if (queued && d.finished) {  // фондаги нархлаш тугади
+            finished = true;
+            if (d.error) return fail(new Error(d.error));
+            show(100, "Тайёр! Натижа очиляпти…");
+            bar.style.animation = "none";
+            setTimeout(function () { location.href = d.url; }, 400);
+            return;
+          }
+          if (d.queued && !d.total) show(4, d.ahead ? "Навбатда: олдингизда " + d.ahead + " та объект…" : "Навбатда — бошланяпти…");
           if (d.total) {
             var key = d.at + ":" + (d.phase || "");
             if (key !== phKey) { phKey = key; phSince = Date.now(); }
@@ -519,13 +528,15 @@
       fetch(form.action, {method: "POST", body: fd, credentials: "same-origin", headers: {"X-Requested-With": "XMLHttpRequest"}})
         .then(function (r) { return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; }); })
         .then(function (d) {
-          finished = true;
           if (!d.ok) throw new Error(d.error || "хато");
+          if (d.queued) { queued = true; return; }  // фонда нархланяпти — poll тугашини кутади
+          finished = true;
           show(100, D.project ? "Навбатга қўйилди — папка саҳифаси очиляпти…" : "Тайёр! Натижа очиляпти…");
           bar.style.animation = "none";
           setTimeout(function () { location.href = d.url; }, 500);
         })
-        .catch(function (err) {
+        .catch(fail);
+      function fail(err) {
           finished = true;
           go.disabled = false;
           go.querySelector(".pk-go-t").textContent = "Қайта уриниш";
@@ -534,8 +545,11 @@
           box.className = "pk-err";
           box.textContent = err.message || String(err);
           go.parentNode.appendChild(box);
-        });
+      }
     });
+
+    // саҳифа нархлаш пайтида қайта очилди — ўша жараённи кўрсатади (қайта навбатга қўйилмайди)
+    if (D.running === "1" && go) form.dispatchEvent(new Event("submit", {cancelable: true}));
 
     // ---------- қайта чизиш (лист тури ўзгарганда) ----------
     function reload(o) {

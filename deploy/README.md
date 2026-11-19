@@ -158,6 +158,19 @@ Keyin `/srv/narxlash/.env` da: `DJANGO_ALLOWED_HOSTS=mhisobot.uz,www.mhisobot.uz
 `NARXLASH_TRUST_PROXY=1` (bo'lmasa sayt cheksiz yo'naltirishga tushadi), so'ng
 `sudo systemctl restart narxlash-web narxlash-worker`.
 
+**Panel «Тизим» uchun nginx jurnali** (javob kodlari, 429, javob vaqti): config `narxlash.mon.log` ga yozadi,
+sayt uni o'qishi uchun bir marta:
+
+```bash
+sudo usermod -aG adm narxlash && sudo systemctl restart narxlash-web
+```
+
+Yangilashda `pip install -r requirements.txt` — `psutil` (RAM, protsessor, jarayonlar) qo'shilgan.
+
+LibreOffice (.xls → .xlsx): server bo'yicha bir vaqtda ko'pi bilan `NARXLASH_LO_SLOTS` (standart 2) ta fayl ochiladi, qolganlari
+navbat kutadi — foydalanuvchi «Сервер банд: …» xabarini ko'radi (`jobs/lo_queue.py`). Navbat Redis orqali barcha jarayonlarga umumiy;
+server kuchaytirilsa (4+ yadro) `.env` da `NARXLASH_LO_SLOTS=3` qilish mumkin.
+
 > **Muhim:** saytga faqat HTTPS orqali kirish mumkin — production'da cookie'lar «faqat HTTPS» rejimida.
 > Domen olinguncha — pastdagi «Domen olinguncha» bo'limi.
 

@@ -62,6 +62,7 @@ urlpatterns = [
     path("price-source/", views.price_source, name="price_source"),
     path("upload-percents/", views.upload_percents, name="upload_percents"),
     path("upload-timing/", views.upload_timing, name="upload_timing"),
+    path("upload-wait/", views.upload_wait, name="upload_wait"),
     path("job/<uuid:job_id>/categories/", views.job_categories, name="job_categories"),
     path("job/<uuid:job_id>/prices/", views.job_prices, name="job_prices"),
     path("job/<uuid:job_id>/not-found/", views.job_not_found, name="job_not_found"),
