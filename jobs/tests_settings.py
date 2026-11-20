@@ -6,7 +6,7 @@ from accounts.models import User
 from panel.models import Track
 
 from .guide import GUIDE_PAGES
-from .services import nf_auto_of, ui_prefs_of
+from .services import lm_auto_of, nf_auto_of, ui_prefs_of
 
 
 class UserSettingsTests(TestCase):
@@ -36,6 +36,19 @@ class UserSettingsTests(TestCase):
         self.assertContains(page, 'class="no-tips is-dense"')
         # юклаш саҳифаси — шу усул
         self.assertContains(self.client.get(reverse("index"), HTTP_REFERER="http://testserver/"), "Усул: Қўлда")
+
+    def test_equipment_cable_mode(self):
+        """«Ускуна ва кабель»: сукут — «Автоматик» (олдингидек); «Менга кўрсатилсин» сақланади ва қайтарилади."""
+        self.assertTrue(lm_auto_of(self.user))
+        self.assertContains(self.client.get(self.url), 'name="lm_mode" value="auto" checked')
+        # switch ўчирилган: фақат яширин «show» юборилади
+        self.client.post(self.url, {"nf_mode": "auto", "lm_mode": ["show"], "tips": "1", "guide": "1"})
+        self.assertFalse(lm_auto_of(self.user))
+        self.assertTrue(nf_auto_of(self.user))  # иш усулига тегмайди
+        self.assertNotContains(self.client.get(self.url), 'name="lm_mode" value="auto" checked')
+        self.assertEqual(Track.objects.filter(step="settings_save").latest("pk").detail, "lm_mode")
+        self.client.post(self.url, {"nf_mode": "auto", "lm_mode": ["show", "auto"]})  # switch ёқилган
+        self.assertTrue(lm_auto_of(self.user))
 
     def test_guide_back_on_resets_seen(self):
         self.user.guides_seen = list(GUIDE_PAGES)

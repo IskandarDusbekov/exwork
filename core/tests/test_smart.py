@@ -817,6 +817,25 @@ def test_base_equipment_and_cable_placed_at_once(tmp_path):
     assert ws["M3"].value == "=H3" and ws["L4"].value == "=H4" and ws["K3"].value is None
 
 
+def test_base_equipment_and_cable_shown_when_user_wants(tmp_path):
+    """Созламада «Менга кўрсатилсин» (``lm_auto=False``): базадаги L/M ресурс устунга ўзи ўтмайди — материалда
+    (K) нархланади ва 2-босқич учун ишончли таклиф бўлади; фойдаланувчи ўтказса — L/M га тушади."""
+    base = {"501": {"price": 1_000.0, "n": 1, "unit_key": "шт", "unit": "ШТ", "category": "M"},
+            "502": {"price": 10.0, "n": 1, "unit_key": "м", "unit": "М", "category": "L"}}
+    local = _coded_local(tmp_path / "l.xlsx", [("501", "ТАБЛО ВЫХОД", "ШТ", 2), ("502", "ВВГНГ 3Х2,5", "М", 5)])
+    r = _run(local, None, tmp_path, base_prices=base, lm_auto=False)
+    st = {row["row"]: row for row in r.rows}
+    assert (st[3]["status"], st[3]["g"]) == ("BASE", 1_000.0)  # нархи ёзилди — қатор ташлаб кетилмади
+    assert (st[3]["category"], st[3]["suggested_category"], st[3]["suggest_sure"]) == ("K", "M", True)
+    assert (st[4]["category"], st[4]["suggested_category"]) == ("K", "L")
+    assert "ресурс базасида" in st[3]["suggest_reason"]
+    ws = load_workbook(tmp_path / "out.xlsx")["БВ"]
+    assert ws["K3"].value == "=H3" and ws["M3"].value is None
+    r = _run(local, None, tmp_path, base_prices=base, lm_auto=False, categories={3: "M", 4: "L"})
+    st = {row["row"]: row for row in r.rows}
+    assert (st[3]["category"], st[4]["category"]) == ("M", "L")
+
+
 def test_signature_rows_after_last_resource_not_priced(tmp_path):
     """Smeta oxiridagi imzolar («ГИП», «СОСТАВИЛ») birliksiz — narxlanmaydi, «ТОПИЛМАДИ» yozilmaydi;
     o'rtadagi birliksiz bo'lim nomi esa avvalgidek qoladi."""

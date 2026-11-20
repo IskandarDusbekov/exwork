@@ -81,6 +81,25 @@ class AutoModeTests(LoggedInTestCase):
                 r = next(x for x in job.result["rows"] if str(x["row"]) == row)
                 self.assertNotIn(r.get("status"), UNPRICED, r)
 
+    def test_auto_with_lm_shown_leaves_lm_to_user(self):
+        """«Автоматик» иш усули + «Ускуна ва кабель: Менга кўрсатилсин»: нарх таклифлари ўзи қабул қилинади,
+        лекин L/M га ҳеч нарса ўзи ўтмайди — таклифлар 2-босқичда туради, жадвал «текширилди» эмас."""
+        from .services import lm_auto_of, remember_lm_auto
+        from .views import _lm_stage, _res_groups, column_labels
+        remember_lm_auto(self.user, False)
+        self.assertFalse(lm_auto_of(self.user))
+        jobs = self._price_object()
+        self.assertTrue(jobs)
+        pending = 0
+        for job in jobs:
+            self.assertFalse(job.table_checked, job.local_sheet)
+            self.assertFalse([c for c in (job.categories or {}).values() if c in ("L", "M")])
+            self.assertEqual(job.lm_accepted or [], [])
+            self.assertEqual(self._open_suggestions(job), [], job.local_sheet)  # нарх қисми — олдингидек автоматик
+            labels = column_labels(job)
+            pending += _lm_stage(job.result["rows"], _res_groups(job.result, labels), labels)["pending"]
+        self.assertGreater(pending, 0)  # кабель / ускуна қаторлари кўринади — фойдаланувчи ҳал қилади
+
     def test_lm_base_learns_only_real_choices(self):
         """Ҳақиқий оқим: «Автоматик» қўйган ва смета­чи қабул қилган таклиф — овоз эмас; ўзи кўчиргани — овоз;
         бир хил RES файли бир неча сметада — битта RES овози."""

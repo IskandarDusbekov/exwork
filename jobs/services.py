@@ -120,6 +120,18 @@ def remember_nf_auto(owner, auto: bool):
     Setting.objects.update_or_create(owner_id=getattr(owner, "pk", owner), key="nf_mode", defaults={"value": {"auto": bool(auto)}})
 
 
+def lm_auto_of(owner) -> bool:
+    """Ускуна ва кабель (L / M): True — «Автоматик» (сукут): ресурс базасида L/M деб турган қаторлар дарҳол шу
+    устунга, «Автоматик» усулда RES / база таклифлари ҳам ўзи ўтказилади ва жадвал «текширилди» бўлади;
+    False — «Кўрсатилсин»: ўзи ҳеч нарса ўтказилмайди, 2-босқичда таклиф бўлиб туради, фойдаланувчи ўзи ҳал қилади."""
+    s = Setting.objects.filter(owner_id=getattr(owner, "pk", owner), key="lm_mode").first()
+    return not (s and isinstance(s.value, dict) and s.value.get("auto") is False)
+
+
+def remember_lm_auto(owner, auto: bool):
+    Setting.objects.update_or_create(owner_id=getattr(owner, "pk", owner), key="lm_mode", defaults={"value": {"auto": bool(auto)}})
+
+
 # 5-босқич: кўриниш созламалари (фақат экранда; Excel натижасига таъсир қилмайди)
 UI_DEFAULTS = {"tips": True, "dense": False}
 
@@ -174,7 +186,8 @@ def base_options(job: Job) -> dict:
     («Фақат ресурс базаси» yoki juftlikda «Ресурс базаси» tanlangan) smetada."""
     from resbase.lm import load_base
     from resbase.services import period_label, price_map
-    lm = {"lm_base": load_base(job.owner_id, job.id)} if job.mode == "smart" else {}  # ускуна ва кабель базаси — L/M таклифи
+    lm = ({"lm_base": load_base(job.owner_id, job.id), "lm_auto": lm_auto_of(job.owner_id)}  # ускуна ва кабель базаси — L/M таклифи
+          if job.mode == "smart" else {})
     if job.res_path:
         return {"base_prices": None, "base_label": "", **lm}
     from panel import conf
@@ -429,6 +442,11 @@ def auto_apply(job: Job) -> bool:
     in_res = {n for g in groups if g["column"] in ("L", "M") for n in g["to_move"]}  # RES'нинг ўзида шу бўлимда
     from resbase.lm import accepted_rows
     accepted = accepted_rows(job)
+    if not lm_auto_of(job.owner_id):  # «Кўрсатилсин»: кабель / ускуна таклифлари фойдаланувчига қолади
+        changed = prices != (job.prices or {})
+        job.prices = prices
+        job.auto_applied_now = True
+        return changed
     for card in _lm_stage(rows, groups, labels)["cards"]:
         for r in card["rows"]:
             if r["row"] not in in_res and r.get("suggest_sure") is False:

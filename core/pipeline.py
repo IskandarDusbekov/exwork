@@ -102,6 +102,9 @@ class Options:
     base_near_min: float = 0.0
     # smart: ускуна ва кабель базаси (core.lmbase.LMBase) — L/M таклифи учун (RES бўлими бўлмаганда)
     lm_base: Optional[object] = None
+    # smart: ресурс базасида L/M (кабель, ускуна) деб белгиланган қатор: True — дарҳол шу устунга (сукут),
+    # False — фақат таклиф: 2-босқичда кўрсатилади, фойдаланувчи ўзи ўтказади (созламалар «Ускуна ва кабель»)
+    lm_auto: bool = True
     # moslashtirish natijalari fayli (JSON): qayta hisoblashda RES bilan solishtirish takrorlanmaydi. Natija
     # o'zgarmaydi — RES mazmuni yoki moslashtirish kodi o'zgarsa, saqlangani ishlatilmaydi (matcher.fingerprint)
     match_cache: Optional[Path] = None
@@ -353,7 +356,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         # дарҳол шу устунга, тасдиқ кутмайди.
         for r, section in priced.sections.items():
             if (start_r <= r <= end_r and priced.status.get(r) not in (WORK_HEADER, MACHINIST)
-                    and (section[0] not in (CABLE, EQUIPMENT) or section[1] == BASE_SECTION)):
+                    and (section[0] not in (CABLE, EQUIPMENT) or (section[1] == BASE_SECTION and opts.lm_auto))):
                 default_kinds[r] = section[0]
     kinds = dict(default_kinds)
     applied_categories: Dict[int, str] = {}
@@ -368,7 +371,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
             if start_r <= r <= end_r:
                 kinds[r] = COLUMN_KIND.get(col, col)
                 applied_categories[r] = col
-        category_hints = _category_hints(ws, priced, default_kinds, ln, opts.lm_base)
+        category_hints = _category_hints(ws, priced, default_kinds, ln, opts.lm_base, base_lm_auto=opts.lm_auto)
 
     # L…Q (va qo'shilgan) ustunlarda lokalning o'z yozuvi bor kataklar — Excel'ni yamashda ularga tegilmaydi
     lm_orig = []
@@ -571,7 +574,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
             "svodka": svodka_cells, "ratios": ratios, "log_title": opts.log_title or LOG_TITLE,
             "log_rows": {row[0]: i for i, row in enumerate(priced.log_rows, start=2)},
             "base_warnings": base_warnings, "base": priced.base_state, "repeats": sorted(getattr(priced, "repeats", ())),
-            "kinds0": {r: k for r, k in default_kinds.items()}, "hints": category_hints, "lm_orig": lm_orig,
+            "kinds0": {r: k for r, k in default_kinds.items()}, "hints": category_hints, "lm_orig": lm_orig, "lm_auto": opts.lm_auto,
             "extra": [list(c) for c in extra_columns], "skip0": sorted(r for r, st in priced.status.items() if st == CLEARED),
         }
 
@@ -642,18 +645,23 @@ KIT_VERSION = 2  # ``calc_kit`` tuzilmasi o'zgarsa oshiriladi (eski to'plam bila
 BASE_SECTION = "ресурс базаси"  # нарх ресурс базасидан — тури базадагидек (L/M ҳам), таклиф эмас
 
 
-def _category_hints(ws, priced: "_Priced", default_kinds: Dict[int, str], ln: int, lm_base=None) -> Dict[int, tuple]:
+def _category_hints(ws, priced: "_Priced", default_kinds: Dict[int, str], ln: int, lm_base=None,
+                    base_lm_auto: bool = True) -> Dict[int, tuple]:
     """Kategoriya TAKLIFLARI (o'zi o'zgartirmaydi) ``{qator: (tur, sabab, ishonchli)}``. Tartib:
     1) aniq topilgan resursning RES dagi bo'limi (admin o'rgatgan baza yozuvi RES «material»idan ustun);
     2) o'xshash / narxi olingan RES resursining bo'limi (uskuna RES'da «ОБОРУДОВАНИЕ»da);
     3) ускуна ва кабель базаси (kod → nom → o'xshash nom): «ускуна эмас» deyilsa — taklif yo'q;
-    4) nomdagi so'z («кабель …», «насос» …)."""
+    4) nomdagi so'z («кабель …», «насос» …).
+    ``base_lm_auto=False``: ресурс базасида L/M деб турган қатор устунига ўзи ўтмайди — шу ерда таклиф бўлади."""
     hints = {}
     for r, kind in default_kinds.items():
         if priced.status.get(r) in (WORK_HEADER, MACHINIST, CLEARED) or r not in priced.status:
             continue
         section = priced.sections.get(r)
         if section and section[1] == BASE_SECTION:
+            if not base_lm_auto and section[0] in (CABLE, EQUIPMENT) and section[0] != kind:
+                hints[r] = (section[0], "ресурс базасида шу турда", True)
+                continue
             section = None  # базадан нархланган: ускуна/кабель ҳақида маълумот йўқ
         if section and section[0] != kind:
             hints[r] = (section[0], f"RES'да «{section[1]}» бўлимида", True)

@@ -55,6 +55,9 @@
       <label class="st-o{% if not nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="manual"{% if not nf_auto %} checked{% endif %}>
         <span><b>Қўлда</b><small>Ҳар бир листни, нарх таклифини ва кабель / ускунани ўзингиз ҳал қиласиз.</small></span></label>
     </div>
+    <label class="st-row" style="margin-top:6px"><input type="hidden" name="lm_mode" value="show">
+      <span class="st-sw"><input type="checkbox" name="lm_mode" value="auto"{% if lm_auto %} checked{% endif %}><i></i></span>
+      <span><b>Ускуна ва кабель L / M га ўзи ўтсин</b><small>RES ва ресурс базаси бўйича. Ўчирсангиз — 2-босқичда рўйхат бўлиб туради, ўзингиз ўтказасиз.</small></span></label>
   </section>
 
   {% if base_on %}

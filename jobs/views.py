@@ -2419,15 +2419,16 @@ def user_settings(request):
     """Бир жойда: иш усули, нарх манбаи ва давр, йўриқнома ўзи очилиши, изоҳ белгилари, жадвал зичлиги.
     Юклаш саҳифасидаги танловлар ҳам шу сақланганлар — иккаласи бир хил қийматни кўрсатади."""
     from resbase.services import base_on, parse_period
-    from .services import remember_ui_prefs, ui_prefs_of
+    from .services import lm_auto_of, remember_lm_auto, remember_ui_prefs, ui_prefs_of
     user = request.user
     guide_auto = not set(GUIDE_PAGES) <= set(user.guides_seen or [])
     if request.method == "POST":
-        before = {"nf_mode": nf_auto_of(user), **ui_prefs_of(user), "guide": guide_auto}
-        after = {"nf_mode": request.POST.get("nf_mode") != "manual",
+        before = {"nf_mode": nf_auto_of(user), "lm_mode": lm_auto_of(user), **ui_prefs_of(user), "guide": guide_auto}
+        after = {"nf_mode": request.POST.get("nf_mode") != "manual", "lm_mode": request.POST.get("lm_mode") != "show",
                  "tips": request.POST.get("tips") == "1", "dense": request.POST.get("dense") == "1",
                  "guide": request.POST.get("guide") == "1"}
         remember_nf_auto(user, after["nf_mode"])
+        remember_lm_auto(user, after["lm_mode"])
         remember_ui_prefs(user, after)
         if after["guide"] != guide_auto:  # ўзгармаган бўлса — кўрилганлар рўйхатига тегмаймиз
             user.guides_seen = [] if after["guide"] else list(GUIDE_PAGES)
@@ -2444,5 +2445,5 @@ def user_settings(request):
         messages.success(request, "Созламалар сақланди.")
         return redirect("user_settings")
     return render(request, "jobs/settings.html", {
-        "nav": "settings", "nf_auto": nf_auto_of(user), "price_source": price_source_of(user),
+        "nav": "settings", "nf_auto": nf_auto_of(user), "lm_auto": lm_auto_of(user), "price_source": price_source_of(user),
         "ui_prefs": ui_prefs_of(user), "guide_auto": guide_auto, **_base_ctx(base_period_of(user))})

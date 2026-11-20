@@ -152,6 +152,9 @@ def _patch(job: Job) -> bool:
     kit = load_kit(job)
     if kit is None:
         return False
+    from .services import lm_auto_of
+    if bool(kit.get("lm_auto", True)) != lm_auto_of(job.owner_id):
+        return False  # «Ускуна ва кабель» созламаси ўзгарган — L/M тақсимоти бошқа: тўлиқ ҳисоб
     result = deepcopy(job.result or {})
     rows = result.get("rows", [])
     start, end = int(kit["start"]), int(kit["end"])
