@@ -74,6 +74,8 @@ class Batch(models.Model):
     pairs = models.JSONField(default=list)   # core.batch.Pair.to_dict() + {"include": bool}
     roles = models.JSONField(default=dict, blank=True)  # qo'lda list turi {"0:LRV": "local"}
     columns = models.JSONField(default=dict, blank=True)  # qo'lda ustunlar {"0:LRV": {"name": 3, "unit": 4, "start": 22, …}}
+    # юклашда танланган усул: True — «Автоматик», False — «Қўлда»; None — эски пакет (фойдаланувчи созламаси)
+    auto = models.BooleanField(null=True, blank=True)
     # «Бошлаш» — fonda narxlash navbati (``jobs.pricing``): smetachi tanlovi {juftlik: {...}}; None — navbatda emas
     pricing = models.JSONField(null=True, blank=True)
     worker = models.CharField(max_length=120, blank=True)  # qaysi ishchi olgan (lease)
@@ -160,6 +162,8 @@ class Job(models.Model):
     marked = models.JSONField(default=list, blank=True)  # sariq belgilangan (so'z olingan, G sariq — «ko'rib chiqildi»)
     # birligi ham, taklifi ham yo'q qatorlar (bo'lim nomlari) bir marta o'zi tozalandi — smetachi qaytarsa, qayta tozalanmaydi
     auto_cleared = models.BooleanField(default=False)
+    # шу смета қайси усулда нархланган: True — «Автоматик», False — «Қўлда»; None — эски (пакет / созлама)
+    auto = models.BooleanField(null=True, blank=True)
     base_period = models.JSONField(default=dict, blank=True)  # ресурс базаси: {"region", "year", "quarter"}; {} — ишлатилмайди
     table_checked = models.BooleanField(default=False)  # 2-bosqich: L/M ko'chirildi, jadval ko'rib chiqildi
 

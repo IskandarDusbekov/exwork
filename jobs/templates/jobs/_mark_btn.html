@@ -1,3 +1,4 @@
-{% load narx %}{# Листни белгилаш саҳифасига ҳавола: k — лист калити; big — тизим тушунмаган лист учун катта сариқ тугма #}
-<a class="pk-mark{% if big %} is-big{% endif %}" href="{% url 'batch_mark' batch.id %}?k={{ k|urlencode }}{% if pk_back %}&next={{ pk_back|urlencode }}{% endif %}"
-   title="Файлнинг ўзида кўрсатиш: лист тури, биринчи қатор, ном / бирлик / миқдор ёки нарх устунлари. Эслаб қолинади.">{% icon "pencil" "h-4 w-4" %}<span>Белгилаш</span></a>
+{% load narx %}{% comment %}Листни белгилаш саҳифасига ҳавола: k — лист калити; big — тизим тушунмаган лист учун катта сариқ тугма;
+   бошқа ҳолда — кичик белги (камдан-кам керак: тизим листни тушунган){% endcomment %}
+<a class="pk-mark{% if big %} is-big{% else %} is-mini{% endif %}" href="{% url 'batch_mark' batch.id %}?k={{ k|urlencode }}{% if pk_back %}&next={{ pk_back|urlencode }}{% endif %}"
+   title="{% if not big %}Керак бўлса: {% endif %}Файлнинг ўзида кўрсатиш: лист тури, биринчи қатор, ном / бирлик / миқдор ёки нарх устунлари. Эслаб қолинади.">{% icon "pencil" "h-4 w-4" %}{% if big %}<span>Белгилаш</span>{% endif %}</a>

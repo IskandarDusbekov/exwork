@@ -123,7 +123,7 @@
             (root.querySelector(".pk-auto") ? "; ёки тепадаги <b>«Автоматик ажратиш»</b>ни босинг — тизим ўзи ажратади." : ".");
         go = {text: "Биринчисига ўтиш ↓", el: root.querySelector(".pk-sheet.is-none")};
       } else if (!hasLocal) {
-        t = "<b>Локал йўқ.</b> Иш ҳажмлари турган листни (смета) <b>«Локал»</b> деб белгиланг — пастдаги «ўтказилган листлар»да бўлиши мумкин.";
+        t = "<b>Нархланадиган смета йўқ.</b> Иш ҳажмлари турган листни <b>«Локал»</b>, нархлар листини <b>«Ресурс»</b> деб белгиланг — пастдаги «Керак эмас» ичида бўлиши мумкин.";
         go = {text: "Листларни очиш ↓", el: root.querySelector(".pk-skip"), open: true};
       } else if (!hasRes) {
         t = "<b>Ресурс йўқ.</b> Нархлар турган листни (RES) <b>«Ресурс»</b> деб белгиланг ёки RES файлни қўшиб юкланг.";
@@ -237,6 +237,9 @@
         var row = b.closest(".pk-sheet");
         setRoles([row.dataset.k], b.dataset.role, [row]);
       });
+    });
+    root.querySelectorAll(".pk-take").forEach(function (b) {  // тизим таклифини қабул қилиш
+      b.addEventListener("click", function () { var row = b.closest(".pk-sheet"); setRoles([row.dataset.k], b.dataset.role, [row]); });
     });
     root.querySelectorAll(".pk-unpick").forEach(function (b) {
       b.addEventListener("click", function () { setRoles([b.dataset.k], "", [b.closest(".pk-sheet")]); });
@@ -451,7 +454,7 @@
       inp.addEventListener("change", function () {
         root.querySelectorAll(".pk-mode").forEach(function (m) { m.classList.toggle("is-on", m.querySelector("input").checked); });
         // усул листларни ким белгилашини ўзгартиради — блок қайта чизилади
-        post(D.nf, form, {nf_mode: inp.value}).then(function () { return reload(); })
+        post(D.nf, form, {nf_mode: inp.value, batch: D.batch || ""}).then(function () { return reload(); })
           .then(function () { toast(inp.value === "auto" ? "✓ Автоматик: листларни тизим ажратди" : "✓ Қўлда: ҳар бир листни ўзингиз белгиланг", true); })
           .catch(function (e) { toast(e.message); });
       });
@@ -580,41 +583,61 @@
 })();
 
 /* «Бошлаш»дан олдин сводка фоизлари бир марта кўрсатилади (транспорт, прочие, страхование, НДС):
-   улар йиғиқ турганда кўринмай қолмасин. «Тўғри, бошлаш» — нархлаш бошланади; «Ўзгартириш» — фоизлар очилади,
-   тўғрилаб яна «Бошлаш» босилса — энди сўралмайди (шу форма учун бир марта). Листлар (_picker.html) ва папка
+   улар йиғиқ турганда кўринмай қолмасин. Ойнанинг ўзида катаклар — шу ерда тўғрилаб «Тўғри, бошлаш» босилади:
+   қийматлар формадаги катакларга ёзилади (сақланади) ва нархлаш бошланади. Листлар (_picker.html) ва папка
    («Ҳаммасини бошлаш») — иккаласида ҳам. */
 (function () {
   if (window.narxPctCheck) return;
   window.narxPctCheck = true;
-  function rows(box) {
-    return Array.prototype.map.call(box.querySelectorAll("label"), function (l) {
-      var name = l.querySelector("span[title]"), inp = l.querySelector("input");
-      if (!name || !inp) return null;
-      var def = (inp.title || "").replace(/^Стандарт:\s*/, "");
-      var changed = inp.classList.contains("is-changed");
-      return "• " + name.textContent.trim() + " — " + (inp.value.trim() || "0") + "%" + (changed ? "   (стандарт: " + def + ")" : "");
-    }).filter(Boolean);
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function norm(v) { var n = parseFloat(String(v || "").replace("%", "").replace(/\s/g, "").replace(",", ".")); return isNaN(n) ? 0 : n; }
+  // ойнадаги катаклар: ҳар бир фоиз — номи, катак, стандартдан фарқ қилса — сариқ ва «стандарт: …»
+  function editor(box) {
+    var wrap = el("div", "pctd"), pairs = [];
+    Array.prototype.forEach.call(box.querySelectorAll("label"), function (l) {
+      var name = l.querySelector("span[title]"), src = l.querySelector("input");
+      if (!name || !src) return;
+      var def = (src.title || "").replace(/^Стандарт:\s*/, "");
+      var row = el("label", "pctd-row"), inp = el("input", "pctd-in num"), std = el("small", "pctd-std");
+      row.appendChild(el("span", "pctd-n", name.textContent.trim()));
+      var cell = el("span", "pctd-c");
+      inp.type = "text"; inp.inputMode = "decimal"; inp.autocomplete = "off"; inp.value = src.value;
+      cell.appendChild(inp); cell.appendChild(el("i", "", "%"));
+      row.appendChild(cell);
+      row.appendChild(std);
+      function mark() {
+        var changed = def && norm(inp.value) !== norm(def);
+        row.classList.toggle("is-changed", !!changed);
+        std.textContent = changed ? "стандарт: " + def : "";
+      }
+      inp.addEventListener("input", mark);
+      inp.addEventListener("focus", function () { inp.select(); });
+      mark();
+      wrap.appendChild(row);
+      pairs.push([inp, src]);
+    });
+    wrap.appendChild(el("p", "pctd-note", "Нархлашда сводка шу фоизлар билан ҳисобланади. Кейин смета саҳифасида ҳам ўзгартириш мумкин."));
+    return {node: wrap, pairs: pairs};
   }
   document.addEventListener("submit", function (e) {
     var form = e.target, box = form.querySelector && form.querySelector(".pk-pct");
     if (!box || form.dataset.pctOk === "1" || !window.narxDialog) return;
-    var list = rows(box);
-    if (!list.length) return;
+    var ed = editor(box);
+    if (!ed.pairs.length) return;
     e.preventDefault();
     e.stopImmediatePropagation();
     var btn = e.submitter;
-    window.narxDialog.confirm(list.join("\n") + "\n\nНархлашда сводка шу фоизлар билан ҳисобланади. Кейин смета саҳифасида ҳам ўзгартириш мумкин.",
-                              {title: "Сводка фоизлари тўғрими?", ok: "Тўғри, бошлаш", cancel: "Ўзгартириш"}).then(function (yes) {
+    window.narxDialog.confirm("", {title: "Сводка фоизлари", ok: "Тўғри, бошлаш", cancel: "Бекор қилиш", body: ed.node}).then(function (yes) {
+      if (!yes) return;
+      var changed = false;
+      ed.pairs.forEach(function (p) {
+        var v = p[0].value.trim() || "0";
+        if (v !== p[1].value) { p[1].value = v; changed = true; }
+      });
+      // листлар саҳифасида катак ўзгариши ўзи сақланади (change); папкада — форма билан бирга юборилади
+      if (changed && ed.pairs.length) ed.pairs[0][1].dispatchEvent(new Event("change", {bubbles: true}));
       form.dataset.pctOk = "1";  // шу формада бир марта сўралади
-      if (yes) {
-        if (form.requestSubmit) form.requestSubmit(btn || undefined); else form.submit();
-        return;
-      }
-      box.open = true;
-      box.scrollIntoView({behavior: "smooth", block: "center"});
-      var first = box.querySelector("input");
-      if (first) setTimeout(function () { first.focus(); first.select(); }, 250);
-      box.classList.remove("is-flash"); void box.offsetWidth; box.classList.add("is-flash");
+      if (form.requestSubmit) form.requestSubmit(btn || undefined); else form.submit();
     });
   }, true);
 })();

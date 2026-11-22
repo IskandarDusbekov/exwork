@@ -58,17 +58,19 @@
       <span class="pp-todo-n">{% if need %}1{% else %}{% icon "check" "h-4 w-4" "3" %}{% endif %}</span>
       <div class="min-w-0 flex-1"><b>Қисмларни текширинг</b>
         <small>{% if need %}{% if count_mark %}<b class="t-warn">{{ count_mark }}</b> тасида листларни белгиланг{% endif %}{% if count_mark and count_check %} · {% endif %}{% if count_check %}<b class="t-warn">{{ count_check }}</b> тасида ресурсни танланг{% endif %}{% else %}Тизим ҳаммасини ажратди — хоҳласангиз «Очиш» билан қараб чиқинг{% endif %}</small></div>
+      {% if count_mark %}<form method="post" action="{% url 'project_auto_split' project.id %}" data-busy>{% csrf_token %}
+        <button type="submit" class="pp-todo-b pp-auto" title="Белгиланмаган ҳамма листни тизим ўзи ажратади: локал, ресурс ёки керак эмас. Сиз танлаганлар ўзгармайди; кейин ҳар бирини бир босишда тўғрилайсиз.">{% icon "grid" "h-4 w-4" %} Ҳаммасини автоматик ажратиш</button></form>{% endif %}
       {% if need %}<button type="button" class="pp-todo-b" data-first-need>Биринчисини очиш {% icon "chevron-down" "h-4 w-4" "2.5" %}</button>{% endif %}
     </div>
     <div class="pp-todo-s">
       <span class="pp-todo-n">2</span>
-      <div class="min-w-0 flex-1"><b>Пастдаги «Ҳаммасини бошлаш»ни босинг</b><small><span id="pp-ready-top">{{ count_ready }}</span> та қисм нархланади · сводка фоизлари ҳам шу ерда</small></div>
+      <div class="min-w-0 flex-1"><b>Пастдаги «Ҳаммасини бошлаш»ни босинг</b><small><span id="pp-ready-top">{{ count_ready }}</span> та қисм нархланади · сводка фоизлари бошлашда сўралади</small></div>
     </div>
     {% endwith %}
     <details class="pp-set">
       <summary>{% icon "sliders" "h-4 w-4" %} Созламалар <span class="pp-set-s">· Усул: {% if nf_auto %}Автоматик{% else %}Қўлда{% endif %}</span><span class="pp-set-go">Ўзгартириш {% icon "chevron-down" "h-4 w-4" "2.5" %}</span></summary>
       <div class="pp-set-b">
-        <form id="pp-mode" class="pk-modebar">{% csrf_token %}
+        <form id="pp-mode" class="pk-modebar">{% csrf_token %}<input type="hidden" name="project" value="{{ project.id }}">
           <label class="pk-mode{% if nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="auto" {% if nf_auto %}checked{% endif %}>Автоматик</label>
           <label class="pk-mode{% if not nf_auto %} is-on{% endif %}"><input type="radio" name="nf_mode" value="manual" {% if not nf_auto %}checked{% endif %}>Қўлда</label>
         </form>
@@ -197,7 +199,7 @@
       </div>
     </details>
     <button type="submit" class="pk-go"{% if not count_ready %} disabled{% endif %}>{% icon "play" "h-6 w-6" %}<span>Ҳаммасини бошлаш</span></button>
-    <p class="pk-go-note"><b id="pp-ready">{{ count_ready }}</b> та қисм нархланади{% if count_mark %} · <b class="t-warn">{{ count_mark }}</b> тасида листларни белгиланг{% endif %}{% if count_check %} · <b class="t-warn">{{ count_check }}</b> тасида ресурсни танланг{% endif %}</p>
+    <p class="pk-go-note"><b id="pp-ready">{{ count_ready }}</b> та қисм нархланади · фоизлар бошлашда сўралади{% if count_mark %} · <b class="t-warn">{{ count_mark }}</b> тасида листларни белгиланг{% endif %}{% if count_check %} · <b class="t-warn">{{ count_check }}</b> тасида ресурсни танланг{% endif %}</p>
   </form>
   {% endif %}
 </section>

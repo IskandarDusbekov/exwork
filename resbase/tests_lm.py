@@ -98,6 +98,15 @@ class CategoryHintTests(SimpleTestCase):
         self.assertEqual(self._hints({10: "Светильник LED 36W"}, strong, sections=sec)[10][0], EQUIPMENT)
         self.assertEqual(self._hints({10: "Светильник LED 36W"}, weak, sections=sec), {})
 
+    def test_res_material_votes_do_not_hide_cable_word(self):
+        """Кабель кўп RES'да «материалы»да туради: фақат RES овози (K) номдаги «кабель» таклифини ўчирмайди;
+        админ ёки смета­чи «кабель эмас» деса — ўчиради."""
+        name, sec = "КАБЕЛЬ HDMI 20М (ДЛЯ МОНИТОР)", {10: (OTHER, "МАТЕРИАЛЫ")}
+        res_only = LMBase([{"key": lm_key(name), "category": "K", "reason": "3 та RES", "strong": True, "res_only": True}])
+        said = LMBase([{"key": lm_key(name), "category": "K", "reason": "админ", "strong": True}])
+        self.assertEqual(self._hints({10: name}, res_only, sections=sec)[10][0], CABLE)
+        self.assertEqual(self._hints({10: name}, said, sections=sec), {})
+
     def test_base_priced_row_still_gets_hint(self):
         h = self._hints({10: "Извещатель дымовой"}, sections={10: (OTHER, "ресурс базаси")})
         self.assertEqual(h[10][0], EQUIPMENT)

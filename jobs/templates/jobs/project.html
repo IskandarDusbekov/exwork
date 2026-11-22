@@ -360,6 +360,7 @@
       if (!window.narxProgress) return;
       var total = +st.dataset.total, finished = +st.dataset.finished, opening = +st.dataset.opening, pricing = +st.dataset.pricing;
       if (working) {
+        return;  // жараён саҳифанинг ўзида (тепадаги қора блок ва пастки панел) кўринади — алоҳида ойна шарт эмас
         var steps = ["Файллар қабул қилинди", "Смета файллари ўқилмоқда", "Нархлаш навбати", "Нархлар ҳисобланмоқда", "Натижа тайёрланмоқда"];
         np = np || narxProgress.start({title: "Папкага ишлов берилмоқда", steps: steps});
         var done = total - opening - pricing;
@@ -373,7 +374,16 @@
         np = null;
       }
     }
+    // битта жараён кўрсаткичи: тепадаги қора блок кўриниб турганда пастки «Ишланяпти» панели яширилади
+    function syncRun() {
+      var hero = document.querySelector(".rs-hero.is-run"), bar = document.querySelector(".pp-go.pp-run");
+      if (!bar) return;
+      var r = hero && hero.getBoundingClientRect();
+      bar.classList.toggle("is-off", !!(r && r.bottom > 0 && r.top < window.innerHeight));
+    }
+    window.addEventListener("scroll", syncRun, {passive: true});
     function trackState() {
+      syncRun();
       var st = document.getElementById("project-state");
       if (!st) return;
       var working = st.dataset.working === "1";
@@ -589,7 +599,13 @@
   .pp-go .pk-pct-s { display: none; }
   .pp-go .pk-go-note { max-width: 220px; text-align: left; font-size: 13px; }
   @media (max-width: 760px) { .pp-go { grid-template-columns: 1fr; } .pp-go .pk-go-note { max-width: none; text-align: center; } }
-  .pp-run { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .pp-run { grid-template-columns: auto minmax(0, 1fr) auto; transition: opacity .2s, transform .2s; }
+  .pp-todo-s form { display: contents; }
+  .pp-todo-b.pp-auto { background: rgb(var(--ok-600)); border-color: rgb(var(--ok-600)); color: #fff; }
+  .pp-todo-b.pp-auto:hover { background: rgb(var(--ok-700)); }
+  .pp-run.is-off { opacity: 0; transform: translateY(16px); pointer-events: none; }
+  /* сводка фоизлари «Ҳаммасини бошлаш» босилганда ойнада тўғриланади — пастки панелда очилиб, устига чиқмасин */
+  .pp-go > .pk-pct { display: none; }
   .pp-run-ic { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: rgb(var(--brand-100)); color: rgb(var(--brand-600)); }
   .pp-run-ic.is-paused { background: rgb(var(--warn-100)); color: rgb(var(--warn-700)); }
   .pp-run-t { display: grid; gap: 6px; min-width: 0; }

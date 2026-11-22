@@ -48,7 +48,7 @@
               class="rounded-lg bg-amber-300 px-3 py-1.5 text-sm font-semibold text-amber-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40">Таклифни қабул қилиш <span id="bulk-near-n" class="num"></span></button>
       <span id="bulk-status" class="text-xs text-slate-500"></span>
     </div>
-    <div id="bulk-list" class="max-h-[70vh] min-h-[6rem] overflow-auto"></div>
+    <div id="bulk-list" class="max-h-[60vh] min-h-[6rem] overflow-auto"></div>
 
     <div id="bulk-foot" class="hidden flex-wrap items-center gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3">
       <span id="bulk-sum" class="min-w-0 flex-1 basis-64 text-sm text-slate-700"></span>
@@ -97,22 +97,22 @@
   #bulk .chip.is-active { background: rgb(var(--ink-900)); border-color: rgb(var(--ink-900)); color: #fff; }
   #bulk .chip.is-active .cnt { color: rgb(var(--ink-300)); }
   #bulk #bulk-act.has-sel { background: rgb(var(--warn-50)); }
-  #bulk .bt { width: 100%; min-width: 70rem; table-layout: fixed; font-size: .875rem; border-collapse: separate; border-spacing: 0; }
+  #bulk .bt { width: 100%; min-width: 60rem; table-layout: fixed; font-size: .8125rem; border-collapse: separate; border-spacing: 0; }
   #bulk .bt thead th { position: sticky; top: 0; z-index: 5; background: rgb(var(--ink-100)); color: rgb(var(--ink-600)); font-size: .75rem; font-weight: 600;
                        text-align: left; padding: .5rem; border-bottom: 1px solid rgb(var(--ink-300)); white-space: nowrap; }
-  #bulk .bt td { padding: .5rem; border-top: 1px solid rgb(var(--ink-100)); vertical-align: top; }
+  #bulk .bt td { padding: .3rem .45rem; border-top: 1px solid rgb(var(--ink-100)); vertical-align: middle; line-height: 1.3; }
   #bulk .bt tr.g:hover td { background: rgb(var(--ink-50)); }
   #bulk .bt tr.g.is-sel td { background: rgb(var(--warn-50)); }
   #bulk .bt tr.g.has-price td { background: rgb(var(--ok-50)); }
   #bulk .bt tr.g.is-off td { opacity: .55; }
   #bulk .bt tr.sec td { background: rgb(var(--ink-200)); color: rgb(var(--ink-800)); font-size: .8125rem; font-weight: 600; padding: .3rem .75rem; }
-  #bulk .code { display: inline-block; margin-top: .25rem; padding: 0 .375rem; border-radius: .25rem; background: rgb(var(--ink-200)); color: rgb(var(--ink-700));
+  #bulk .code { display: inline-block; margin-left: .375rem; padding: 0 .3rem; border-radius: .25rem; background: rgb(var(--ink-200)); color: rgb(var(--ink-700));
                 font: 500 .75rem/1.25rem ui-monospace, SFMono-Regular, Menlo, monospace; }
   #bulk .tag { display: inline-block; border-radius: .25rem; padding: .125rem .375rem; font-size: .75rem; font-weight: 500; white-space: nowrap; }
   #bulk .look { display: inline-flex; align-items: center; gap: .25rem; border: 1px solid rgb(var(--ink-300)); border-radius: 6px; padding: 1px 6px;
                 color: rgb(var(--ink-700)); background: #fff; font-size: .75rem; white-space: nowrap; }
   #bulk .look:hover { background: rgb(var(--brand-50)); border-color: rgb(var(--brand-600)); color: rgb(var(--brand-700)); }
-  #bulk .toggle { display: inline-flex; align-items: center; gap: .25rem; margin-top: .25rem; padding: .125rem .5rem; border-radius: .375rem;
+  #bulk .toggle { display: inline-flex; align-items: center; gap: .25rem; margin-left: .375rem; padding: .0625rem .375rem; border-radius: .375rem;
                   border: 1px solid rgb(var(--brand-300)); background: rgb(var(--brand-50)); color: rgb(var(--brand-800)); font-size: .75rem; font-weight: 600; }
   #bulk .toggle:hover { background: rgb(var(--brand-100)); }
   #bulk .ft { width: 100%; table-layout: fixed; border-collapse: collapse; background: #fff; font-size: .8125rem; min-width: 52rem; }
@@ -125,7 +125,7 @@
   #bulk .ft tr.res:hover td:not(.xl) { background: rgb(var(--brand-50)); }
   #bulk .ft tr.is-off td:not(:first-child) { color: rgb(var(--ink-400)); text-decoration: line-through; }
   #bulk .sug { border: 1px solid rgb(var(--warn-200)); background: rgb(var(--warn-50)); border-radius: .5rem; padding: .375rem .5rem; }
-  #bulk .price-in { width: 100%; border: 2px solid rgb(var(--ink-300)); border-radius: .5rem; background: #fff; padding: .3rem .5rem; text-align: right; font-size: .875rem; }
+  #bulk .price-in { width: 100%; border: 1.5px solid rgb(var(--ink-300)); border-radius: .4rem; background: #fff; padding: .2rem .45rem; text-align: right; font-size: .875rem; }
   #bulk .price-in:focus { border-color: rgb(var(--brand-600)); outline: none; box-shadow: 0 0 0 3px rgba(2,132,199,.15); }
   #bulk .price-in.bad { border-color: rgb(var(--bad-500)); }
   #bulk tr.g.has-price .price-in { border-color: rgb(var(--ok-500)); background: #fff; }
@@ -242,8 +242,8 @@
       summary();
     });
     th0.appendChild(allBox); hr.appendChild(th0);
-    [["№", "w-10 text-right"], ["Ресурс номи · шифри", ""], ["Ед. изм.", "w-[4.5rem]"], ["Қаерда учради", "w-48"], ["Тури", "w-24"],
-     ["Яқин ресурс (RES) · таклиф", "w-64"], ["Нархи, сўм ✎", "w-36 text-right text-sky-700"]].forEach(function (c) {
+    [["№", "w-10 text-right"], ["Ресурс номи · шифри", ""], ["Ед. изм.", "w-16"], ["Қаерда учради", "w-40"], ["Тури", "w-20"],
+     ["Яқин ресурс (RES) · таклиф", "w-52"], ["Нархи, сўм ✎", "w-28 text-right text-sky-700"]].forEach(function (c) {
       hr.appendChild(el("th", c[1], c[0]));
     });
     thead.appendChild(hr); t.appendChild(thead);
@@ -289,22 +289,19 @@
       name.classList.add("line-clamp-3", "cursor-pointer"); name.title = "Тўлиқ кўриш учун босинг";
       name.addEventListener("click", function () { name.classList.toggle("line-clamp-3"); });
     }
+    if (g.code) { var code = el("span", "code", g.code); code.title = "Ресурс шифри"; name.appendChild(code); }
     nameTd.appendChild(name);
-    if (g.code) { var code = el("span", "code", g.code); code.title = "Ресурс шифри"; nameTd.appendChild(code); }
     tr.appendChild(nameTd);
     tr.appendChild(el("td", "text-slate-700", g.unit || "—"));
 
     // қаерда: нечта смета, нечта қатор; битта бўлса — номи ва ҳавола, кўп бўлса — рўйхатни очиш
-    var where = el("td", "text-xs");
-    g.whereText = el("div", "text-slate-700");
+    var where = el("td", "text-xs whitespace-nowrap");
+    g.whereText = el("span", "text-slate-700");
     where.appendChild(g.whereText);
-    if (g.files.length === 1) {
-      var f0 = g.files[0], t0 = el("div", "mt-0.5 truncate text-slate-500", f0.title); t0.title = f0.title;
-      where.appendChild(t0);
-    }
+    if (g.files.length === 1) where.title = g.files[0].title;
     var toggle = el("button", "toggle"); toggle.type = "button";
-    toggle.innerHTML = GRID + " Қаторларни кўриш";
-    toggle.title = "Шу ресурс учраган ҳамма қаторни жадвалда кўриш";
+    toggle.innerHTML = GRID;
+    toggle.title = "Шу ресурс учраган ҳамма қаторни жадвалда кўриш" + (g.files.length === 1 ? " — " + g.files[0].title : "");
     toggle.addEventListener("click", function () { openRows(g); });
     where.appendChild(toggle);
     tr.appendChild(where);
@@ -319,9 +316,9 @@
     // таклифлар: бир хиллари бирлаштирилган — энг кўпи олдин, қолганлари «Батафсил»да
     var sugTd = el("td");
     var st = STATUS[g.status] || STATUS.NOT_FOUND;
-    var why = el("div", "mb-1 text-xs font-medium " + st[1], st[0]);
+    var why = el("div", "text-xs font-medium " + st[1], st[0]);
     sugTd.appendChild(why);
-    if (g.near_rows && g.near_rows < g.rows) sugTd.appendChild(el("div", "mb-1 text-xs text-slate-500", "таклиф " + g.near_rows + " / " + g.rows + " қаторда бор"));
+    if (g.near_rows && g.near_rows < g.rows) sugTd.appendChild(el("div", "text-xs text-slate-500", "таклиф " + g.near_rows + " / " + g.rows + " қаторда бор"));
     if (g.suggest && g.suggest.length) {
       sugTd.appendChild(sugCard(g, g.suggest[0], true));
       if (g.suggest.length > 1) {
@@ -334,7 +331,7 @@
         sugTd.appendChild(d);
       }
     } else {
-      sugTd.appendChild(el("span", "text-xs text-slate-400", "таклиф йўқ — нархни ўнгдаги катакка ёзинг"));
+      why.title = "Таклиф йўқ — нархни ўнгдаги катакка ёзинг";
     }
     tr.appendChild(sugTd);
 
@@ -591,7 +588,7 @@
       var r = rowsOf(g), on = g.files.filter(function (f) { return r.rows[f.job]; });
       g.whereText.innerHTML = "";
       g.whereText.append(el("b", "num text-slate-900", on.length === g.files.length ? String(g.files.length) : on.length + " / " + g.files.length),
-                         " та сметада · ", el("b", "num text-slate-900", String(r.n)), " та қатор");
+                         " смета · ", el("b", "num text-slate-900", String(r.n)), " қатор");
       g.tr.classList.toggle("is-sel", g.cb.checked);
       g.tr.classList.toggle("has-price", num(g.input.value) != null && r.n > 0);
       g.tr.classList.toggle("is-off", !r.n);

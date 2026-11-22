@@ -37,7 +37,7 @@ from .models import Batch, Job, Project
 from .services import (
     BASE_RES, UploadError, analyze_batch, forget_sheet, remember_sheets, apply_decisions, base_period_of, check_quota, pair_ready, build_combined, confirm_batch, create_batch, create_job, delete_batch, delete_job,
     has_pending, pick_undo_list, pop_pick_undo, push_pick_undo,
-    nf_auto_of, parse_percents, remember_base_period, remember_nf_auto, remember_percents, remembered_percents, unpriced_res,
+    nf_auto_of, batch_auto, job_auto, project_auto, price_memo_of, remember_prices, memo_price, parse_percents, remember_base_period, remember_nf_auto, remember_percents, remembered_percents, unpriced_res,
     price_source_of, remember_price_source, base_only, batch_original, replace_batch_file, open_suggestions,
     can_undo_file, refresh_file_jobs, undo_batch_file,
 )
@@ -267,7 +267,13 @@ def base_period(request):
 @require_POST
 def nf_mode(request):
     """Юклаш саҳифасида танланган усул: «Автоматик» — бўлим номлари ўзи тозаланади, «Қўлда» — смета­чи ўзи."""
-    remember_nf_auto(request.user, request.POST.get("nf_mode") != "manual")
+    auto = request.POST.get("nf_mode") != "manual"
+    remember_nf_auto(request.user, auto)  # кейинги юклашлар учун
+    # очиқ пакет / папка — фақат шуники ўзгаради; бошқа (олдин юкланган) сметаларга таъсир қилмайди
+    if request.POST.get("batch"):
+        Batch.objects.filter(pk=request.POST["batch"], owner=request.user).update(auto=auto)
+    if request.POST.get("project"):
+        Batch.objects.filter(project_id=request.POST["project"], owner=request.user).update(auto=auto)
     return JsonResponse({"ok": True})
 
 
@@ -501,6 +507,28 @@ def dashboard(request):
 
 
 @require_POST
+def project_auto_split(request, project_id):
+    """Папка бўйича «Автоматик ажратиш»: листлари белгиланмаган ҳамма қисмда тизим листларни ўзи ажратади
+    (смета­чи танлаганига тегмайди; ҳар бир қисмда «Ортга қайтариш» ишлайди)."""
+    project = _get_work(request, Project, id=project_id)
+    done = 0
+    for b in project.parts.filter(jobs__isnull=True).distinct():
+        if not manual_left(b):
+            continue
+        push_pick_undo(b, "автоматик ажратиш")
+        analyze_batch(b, lazy=False, adopt=True)
+        b.stage, b.message = ready_stage(b)
+        b.save()
+        done += 1
+    if done:
+        settle(project)
+        messages.success(request, f"✓ Тизим {done} та қисмда листларни ажратди — текшириб, «Ҳаммасини бошлаш»ни босинг.")
+    else:
+        messages.info(request, "Белгиланмаган лист йўқ.")
+    return redirect("project", project.id)
+
+
+@require_POST
 def project_stop(request, project_id):
     """«Тўхтатиш»: фондаги иш кейинги файлдан олдин тўхтайди (очилганлари сақланади)."""
     project = _get_work(request, Project, id=project_id)
@@ -628,10 +656,10 @@ def project_detail(request, project_id):
     tree = build_tree(project, parts)
     # нархланадиган лист йўқ қисмлар (масалан «Умумий қиймати») — жадвал охирида
     nodes = sorted(_part_nodes(tree, []), key=lambda n: n["part"]["state"] == "empty")
-    auto = nf_auto_of(project.owner_id)
+    auto = project_auto(project)
     for n in nodes:  # «Қўлда»: листлари белгиланмаган қисм нархланмайди — «тайёр» эмас
         part = n["part"]
-        part["left"] = manual_left(part["batch"]) if not auto and part["state"] == "ready" else 0
+        part["left"] = manual_left(part["batch"]) if not batch_auto(part["batch"]) and part["state"] == "ready" else 0
         plan = part["planned"]
         part["n_miss"] = sum(1 for x in plan if not x["rk"] and not x["base"])
         part["n_res"] = len({x["rk"] for x in plan if x["rk"]})
@@ -721,8 +749,8 @@ def project_price(request, project_id):
                 if f"pct_{k}" in request.POST}
         remember_percents(project.owner_id, {**saved, **parse_percents(data, saved)})
     skip = []
-    if not nf_auto_of(project.owner_id):  # «Қўлда»: смета­чи листларини белгиламаган қисм нархланмайди
-        skip = [b.id for b in project.parts.filter(stage=Batch.Stage.READY) if manual_left(b)]
+    # «Қўлда»: смета­чи листларини белгиламаган қисм нархланмайди
+    skip = [b.id for b in project.parts.filter(stage=Batch.Stage.READY) if not batch_auto(b) and manual_left(b)]
     n = start_pricing(project, exclude=skip)
     if skip:
         messages.warning(request, f"{len(skip)} та қисмда листлар ҳали белгиланмаган — улар нархланмади. "
@@ -1040,7 +1068,7 @@ def _skipped_files(batch) -> list:
 def _picker_ctx(batch, embed=False) -> dict:
     """«Файллар → жуфтлаш → усул → Бошлаш» блоки (юклаш саҳифаси ва объект саҳифаси учун бир хил):
     ҳар бир файлнинг ҳамма листлари тури билан, ҳар бир локал учун ресурс танлови."""
-    auto = nf_auto_of(batch.owner_id)
+    auto = batch_auto(batch)
     if auto and has_pending(batch):  # «Қўлда»да юкланган, кейин «Автоматик»га ўтилди — энди таҳлил қилинади
         analyze_batch(batch, lazy=False)
         batch.save()
@@ -1256,7 +1284,7 @@ def batch_pick(request, batch_id):
     return JsonResponse({"ok": True, "ready": sum(1 for p in batch.pairs if pair_ready(p)),
                          "remembered": MEMO_SAVED if what == "role" and remembered else "",
                          "stage": batch.stage, "state": state[0] if state else "", "tone": state[1] if state else "",
-                         "left": 0 if nf_auto_of(batch.owner_id) else manual_left(batch),
+                         "left": 0 if batch_auto(batch) else manual_left(batch),
                          "undo": (pick_undo_list(batch)[-1:] or [{}])[0].get("label", "")})
 
 
@@ -1543,6 +1571,11 @@ def _back(request, fallback: str):
 @require_POST
 def batch_confirm(request, batch_id):
     batch = _get_work(request, Batch, id=batch_id)
+    if any(k.startswith("pct_") for k in request.POST):  # «Бошлаш» ойнасида тўғриланган фоизлар — шу нархлашдан
+        saved = remembered_percents(batch.owner_id)
+        data = {f"pct_{k}": (request.POST.get(f"pct_{k}", "").strip() or "0") for k in DEFAULT_PERCENTS
+                if f"pct_{k}" in request.POST}
+        remember_percents(batch.owner_id, {**saved, **parse_percents(data, saved)})
     decisions = {}
     for n in range(len(batch.pairs)):
         decisions[n] = {
@@ -1551,7 +1584,7 @@ def batch_confirm(request, batch_id):
             "label": request.POST.get(f"label_{n}", ""),
         }
     xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
-    left = 0 if nf_auto_of(batch.owner_id) else manual_left(batch)
+    left = 0 if batch_auto(batch) else manual_left(batch)
     if left:  # «Қўлда»: ҳамма листни смета­чи ўзи белгилаши керак
         msg = f"«Қўлда» усули: яна {left} та листнинг турини белгиланг (Локал / Ресурс / Ўтказиш)."
         if xhr:
@@ -1605,7 +1638,7 @@ def job_detail(request, job_id):
            # база танлови фақат RES'сиз (базадан нархланган) сметада — RES'лисида база ишлатилмайди
            **(_base_ctx(job.base_period) if not job.res_path else {"base_on": False})}
     if (job.status == Job.Status.DONE and job.mode == "smart" and not job.auto_cleared
-            and job.recalc_seq <= job.recalc_done and job.owner_id == request.user.pk and nf_auto_of(job.owner_id)):
+            and job.recalc_seq <= job.recalc_done and job.owner_id == request.user.pk and job_auto(job)):
         # олдин нархланган смета: бўлим номлари (бирлиги ҳам, таклифи ҳам йўқ) бир марта ўзи тозаланади
         a = [r["row"] for r in _not_found_stage(job.result.get("rows", []))["group_a"]]
         job.auto_cleared = True
@@ -1614,7 +1647,7 @@ def job_detail(request, job_id):
         else:
             job.save(update_fields=["auto_cleared"])
     elif (job.status == Job.Status.DONE and job.mode == "smart" and job.recalc_seq <= job.recalc_done
-          and job.owner_id == request.user.pk and nf_auto_of(job.owner_id)):
+          and job.owner_id == request.user.pk and job_auto(job)):
         # «Автоматик» усул: олдин қолиб кетган нарх таклифлари (масалан, бирлиги бошқа) — бир йўла қабул қилинади
         extra = open_suggestions(job)
         if extra:
@@ -1625,6 +1658,8 @@ def job_detail(request, job_id):
         mode = res.get("mode", "compat")
         labels = column_labels(job) if mode == "smart" else dict(CATEGORY_LABELS)
         res_groups = _res_groups(res, labels) if mode == "smart" else []
+        # L/M таклифи белгиси (``lm_target``) жадвал чизилишидан олдин — «Танлаб» шу белги бўйича сузади
+        lm_early = _lm_stage(res["rows"], res_groups, labels, _accepted_lm(job)) if mode == "smart" else None
         # жадвал нархланган сметанинг ўзидан (Excel кўриниши) очилади
         view, grid_view = _grid_view_of(job, request, res_groups)
         ctx.update(
@@ -1669,9 +1704,10 @@ def job_detail(request, job_id):
             sugg_price_count=sum(1 for r in res["rows"] if r.get("suggested_price") is not None and not r.get("manual")),
             manual_count=sum(1 for r in res["rows"] if r.get("manual")),
             sugg_cat_count=sum(1 for r in res["rows"] if r.get("suggested_category")),
-            nf=_not_found_stage(res["rows"]) if mode == "smart" else None,
-            lm=_lm_stage(res["rows"], res_groups, labels, _accepted_lm(job)) if mode == "smart" else None,
+            nf=(_add_memo_suggestions(res["rows"], job.owner_id), _not_found_stage(res["rows"]))[1] if mode == "smart" else None,
+            lm=lm_early,
         )
+        ctx["job_auto"] = job_auto(job)  # L/M карталарида: ким ўтказгани аниқ ёзилади
         ctx["sugg_marks"] = _sugg_marks(res["rows"]) if mode == "smart" else []
         ctx["price_marks"] = _price_marks(res["rows"]) if mode == "smart" else []
         ctx["stages"] = _stages(job, ctx["nf"], ctx["lm"]) if mode == "smart" else []
@@ -1730,6 +1766,8 @@ def job_grid(request, job_id):
     mode = res.get("mode", "compat")
     labels = column_labels(job) if mode == "smart" else dict(CATEGORY_LABELS)
     res_groups = _res_groups(res, labels) if mode == "smart" else []
+    if mode == "smart":  # «Танлаб»: кейинги бўлак қаторларида ҳам L/M таклифи белгиси бўлсин (``lm_target``)
+        _lm_stage(res["rows"], res_groups, labels)
     _view, grid_view = _grid_view_of(job, request, res_groups)
     part = _grid_part(_grid_items(res, mode, labels, grid_view, res_groups), start, GRID_CHUNK, mode, labels,
                       len(labels) + 6)
@@ -1915,8 +1953,11 @@ def job_prices(request, job_id):
         for r in rows:
             prices[str(r)] = price
     elif action == "accept":
+        memo = price_memo_of(job.owner_id)
         for r in rows:
             price = _as_price(known[r].get("suggested_price"))
+            if price is None:  # RES'да таклиф йўқ — аввал ўзи ёзган нарх (эслаб қолинган)
+                price = _as_price(memo_price(memo, known[r]))
             if price is None:
                 skipped.append(r)
             else:
@@ -1926,6 +1967,11 @@ def job_prices(request, job_id):
             prices.pop(str(r), None)
     changed = len(rows) - len(skipped)
     patched = _apply(job, prices=prices) if changed else False
+    remembered = 0
+    if data.get("remember") and action != "clear" and changed:
+        # «нарх сиз учун эслаб қолинсин» — кейинги сметаларида шу ресурсга таклиф бўлади (фақат ўзига)
+        remembered = remember_prices(job.owner_id, [(known[r], prices[str(r)]) for r in rows
+                                                     if r not in skipped and _has_unit(known[r])])
     to_base = 0
     if data.get("to_base") and action != "clear" and changed:
         # «нархни базага ҳам сақлаш» — админ текширув навбатига (тасдиқлангач кейинги сметалар ўзи нархланади)
@@ -1937,7 +1983,7 @@ def job_prices(request, job_id):
         except Exception:  # noqa: BLE001 — нарх Excel'га ёзилди; навбат хатоси уни бузмасин
             logger.exception("queue_prices: %s", job.pk)
     return JsonResponse({"ok": True, "queued": bool(changed) and not patched, "patched": patched,
-                         "changed": changed, "skipped": len(skipped), "to_base": to_base})
+                         "changed": changed, "skipped": len(skipped), "to_base": to_base, "remembered": remembered})
 
 
 def _has_unit(row) -> bool:
@@ -1981,6 +2027,19 @@ def _nf_groups(rows) -> list:
         })
     out.sort(key=lambda g: (-g["count"], g["first"]))
     return out
+
+
+def _add_memo_suggestions(rows, owner_id):
+    """Нархланмаган, RES'да таклифи йўқ қаторларга — смета­чи аввал «эслаб қолинсин» деб ёзган нарх (фақат таклиф)."""
+    memo = price_memo_of(owner_id)
+    if not memo:
+        return
+    for r in rows:
+        if r.get("status") in UNPRICED_STATUSES and not r.get("cleared") and not r.get("near") and r.get("suggested_price") is None:
+            p = memo_price(memo, r)
+            if p is not None:
+                r["near"] = {"name": "аввал ўзингиз ёзган нарх", "unit": r.get("unit") or "", "price": p,
+                             "score": 100, "same_unit": True, "memo": True}
 
 
 def _not_found_stage(rows):
@@ -2113,6 +2172,7 @@ def _lm_stage(rows, res_groups, labels, accepted=None):
                       # ўтказилганлар: тизим таклифи қабул қилингани ва смета­чи ўзи ўтказгани
                       "accepted": sum(1 for r in in_col if r["row"] in (accepted or ())),
                       "moved": sum(1 for r in in_col if r.get("override") and r["row"] not in (accepted or ())),
+                      "by_base": sum(1 for r in in_col if r.get("lm_base") and not r.get("override")),
                       "sum": sum(r["h"] for r in pending if isinstance(r.get("h"), (int, float)) and not isinstance(r["h"], bool))})
     return {"cards": cards, "pending": sum(len(c["rows"]) for c in cards)}
 

@@ -8,7 +8,7 @@
 <div class="pk{% if pk_embed %} is-embed{% endif %}" data-pk
      data-pick="{% url 'batch_pick' batch.id %}" data-partial="{% url 'batch' batch.id %}?partial=picker{% if pk_embed %}&amp;embed=1{% endif %}"
      data-sheet="{% url 'batch_sheet' batch.id %}" data-progress="{% url 'batch_progress' batch.id %}"
-     data-nf="{% url 'nf_mode' %}" data-pct="{% url 'upload_percents' %}" data-project="{% if batch.project_id %}1{% endif %}"
+     data-nf="{% url 'nf_mode' %}" data-batch="{{ batch.id }}" data-pct="{% url 'upload_percents' %}" data-project="{% if batch.project_id %}1{% endif %}"
      data-running="{% if batch.pricing is not None and not batch.project_id %}1{% endif %}"
      data-base="{{ base_res }}" data-mine="{% if batch.owner_id == user.pk %}1{% endif %}" data-manual="{% if not nf_auto %}1{% endif %}">
 <form method="post" action="{% url 'batch_confirm' batch.id %}" class="pk-form">{% csrf_token %}
@@ -44,9 +44,6 @@
     </div>
     {% else %}<div class="pk-filters" hidden><button type="button" data-f="need" hidden><i class="pk-need-n">0</i></button></div>{% endif %}
 
-    {% if not pk_rows %}
-    <div class="pk-empty">{% icon "alert" "h-6 w-6 shrink-0" %}<div><b>Нархланадиган лист топилмади.</b> Пастдаги «ўтказилган листлар»ни очиб, сметани <b>«Локал»</b>, нархлар листини <b>«Ресурс»</b> деб белгиланг.</div></div>
-    {% endif %}
 
     {% if pk_unmarked %}
     <div class="pk-group is-mark">
@@ -73,8 +70,6 @@
         <span class="pk-i" tabindex="0" role="button" aria-label="Изоҳ">i<span class="pk-i-pop">Чапда — <b class="t-loc">локал</b> (иш ҳажмлари), ўнгда — унинг <b class="t-res">ресурси</b> (нархлар). Тўғри бўлса — ҳеч нарса қилманг. Нотўғри бўлса — «Ёнма-ён кўриш» ёки рўйхатдан бошқасини танланг.</span></span></h3>
       <div class="pk-duos">{% for r in pk_pair_rows %}{% include "jobs/_picker_pair.html" %}{% endfor %}</div>
     </div>
-    {% elif pk_rows and not pk_unmarked %}
-    <div class="pk-empty">{% icon "alert" "h-6 w-6 shrink-0" %}<div><b>Локал лист йўқ.</b> Нархланадиган сметани (иш ҳажмлари) пастдан топиб <b>«Локал»</b> деб белгиланг.</div></div>
     {% endif %}
 
     {% if pk_idle %}
@@ -85,26 +80,28 @@
       <div class="pk-table">{% for r in pk_idle %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>
     </div>
     {% endif %}
-    {% if pk_dropped %}
-    <div class="pk-group is-dropped">
-      <h3>Сиз «керак эмас» деганлар <i>{{ pk_dropped|length }}</i>
-        <span class="pk-i" tabindex="0" role="button" aria-label="Изоҳ">i<span class="pk-i-pop">Бу листлар нархланмайди. Адашиб белгилаган бўлсангиз — ўнгдаги тугма билан турини ўзгартиринг ёки «Белгини олиш» билан қайтаринг.</span></span>
-        <label class="pk-gsel" title="Шу гуруҳдагиларни белгилаш — кейин пастки панелдан бирданига турини танлайсиз"><input type="checkbox" class="pk-gsel-in">ҳаммасини танлаш</label>
-        <button type="button" class="pk-dropped-back" title="Шу гуруҳдаги ҳамма листнинг белгиси олинади — улар яна белгиланмаганлар қаторига қайтади">{% icon "undo" "h-4 w-4" %}Ҳаммасини қайтариш</button></h3>
-      <div class="pk-table">{% for r in pk_dropped %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>
-    </div>
-    {% endif %}
-    <div class="pk-nores" hidden>Бу сузгичда ҳеч нарса йўқ.</div>
-
-    {% if pk_skipped or pk_skipped_files %}
+    {% if pk_skipped or pk_skipped_files or pk_dropped %}
     <details class="pk-skip">
-      <summary class="pk-skip-btn" title="Свод, акт, бўш ёки нусха листлар ва олинмаган файллар (PDF, расм, бошқа формат) нархланмайди. Тизим адашган бўлса — очиб, листнинг турини «Локал» ёки «Ресурс» га ўзгартиринг.">
-        <span class="pk-skip-ic">{% icon "layers" "h-5 w-5" "1.75" %}</span>
-        <span class="pk-skip-t"><b>Керак эмас деб топилганлар</b>
-          <small>{% if pk_skipped %}{{ pk_skipped|length }} та лист{% endif %}{% if pk_skipped and pk_skipped_files %} · {% endif %}{% if pk_skipped_files %}{{ pk_skipped_files|length }} та файл{% endif %} — нархланмайди. Тизим адашган бўлса, очиб турини ўзгартиринг</small></span>
+      <summary class="pk-skip-btn" title="Нархланмайдиган листлар: сиз «керак эмас» деганлар, свод, акт, бўш ёки нусха листлар ва олинмаган файллар. Адашган бўлса — очиб, турини ўзгартиринг.">
+        <span class="pk-skip-ic">{% icon "layers" "h-4 w-4" "1.75" %}</span>
+        <span class="pk-skip-t"><b>Керак эмас <i class="num">{{ pk_dropped|add:pk_skipped|length }}</i></b>
+          <small>{% if pk_dropped %}сиз белгилаган: {{ pk_dropped|length }}{% endif %}{% if pk_dropped and pk_skipped %} · {% endif %}{% if pk_skipped %}тизим топган: {{ pk_skipped|length }}{% endif %}{% if pk_skipped_files %}{% if pk_dropped or pk_skipped %} · {% endif %}{{ pk_skipped_files|length }} та файл олинмади{% endif %} — нархланмайди</small></span>
         <span class="pk-skip-go"><span class="is-show">Кўрсатиш</span><span class="is-hide">Яшириш</span>{% icon "chevron-down" "h-4 w-4" "2.5" %}</span></summary>
-      {% if pk_skipped %}<div class="pk-skip-sel"><label class="pk-gsel" title="Шу гуруҳдагиларни белгилаш — кейин пастки панелдан бирданига турини танлайсиз"><input type="checkbox" class="pk-gsel-in">ҳаммасини танлаш</label></div>
-      <div class="pk-table">{% for r in pk_skipped %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>{% endif %}
+      {% if pk_dropped %}
+      <div class="pk-group is-dropped">
+        <h3>Сиз белгилаганлар <i>{{ pk_dropped|length }}</i>
+          <label class="pk-gsel" title="Шу гуруҳдагиларни белгилаш — кейин пастки панелдан бирданига турини танлайсиз"><input type="checkbox" class="pk-gsel-in">ҳаммасини танлаш</label>
+          <button type="button" class="pk-dropped-back" title="Шу гуруҳдаги ҳамма листнинг белгиси олинади — улар яна белгиланмаганлар қаторига қайтади">{% icon "undo" "h-4 w-4" %}Ҳаммасини қайтариш</button></h3>
+        <div class="pk-table">{% for r in pk_dropped %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>
+      </div>
+      {% endif %}
+      {% if pk_skipped %}
+      <div class="pk-group is-dropped">
+        <h3>Тизим топганлар <i>{{ pk_skipped|length }}</i>
+          <label class="pk-gsel" title="Шу гуруҳдагиларни белгилаш — кейин пастки панелдан бирданига турини танлайсиз"><input type="checkbox" class="pk-gsel-in">ҳаммасини танлаш</label></h3>
+        <div class="pk-table">{% for r in pk_skipped %}{% include "jobs/_picker_row.html" %}{% endfor %}</div>
+      </div>
+      {% endif %}
       {% if pk_skipped_files %}
       <ul class="pk-sfiles">
         {% for f in pk_skipped_files %}<li>{% icon "file" "h-4 w-4 shrink-0" "1.75" %}<span class="pk-sf-n" title="{{ f.name }}">{{ f.name }}</span><i>{{ f.reason }}</i></li>{% endfor %}
@@ -112,6 +109,8 @@
       {% endif %}
     </details>
     {% endif %}
+    <div class="pk-nores" hidden>Бу сузгичда ҳеч нарса йўқ.</div>
+
     {# бир нечта листни бирданига: катакчалар билан танланади, тури шу ердан бир босишда #}
     <div class="pk-bulk" hidden role="region" aria-label="Танланган листлар">
       <button type="button" class="pk-bulk-x" title="Танловни бекор қилиш">{% icon "x" "h-4 w-4" %}</button>

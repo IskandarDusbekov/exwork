@@ -292,7 +292,9 @@ def load_base(owner_id=None, exclude_job=None) -> Optional[LMBase]:
             continue
         entries.append({"key": e.key, "name": e.name, "code": e.code, "category": e.category,
                         "reason": _reason(e), "strong": _strong(e) or (cat == e.category and not e.locked),
-                        "fuzzy": e.locked or any(not k.startswith("user_") for k in (e.votes or {}))})
+                        "fuzzy": e.locked or any(not k.startswith("user_") for k in (e.votes or {})),
+                        # RES «материал» бўлимидаги кабель — смета­чи ёки админ айтмагунча номдаги «кабель» таклифини ўчирмайди
+                        "res_only": not e.locked and not cat and all(not k.startswith("user_") for k in (e.votes or {}))})
     return LMBase(entries)
 
 

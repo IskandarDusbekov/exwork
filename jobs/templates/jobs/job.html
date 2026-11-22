@@ -16,7 +16,7 @@
 {% endif %}
 
 {# ================= юқори панел: смета, сумма, юклаб олиш ================= #}
-<section data-guide="job-top" class="mb-3 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+<section data-guide="job-top" class="mb-2 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-slate-200 bg-white px-4 py-2 shadow-sm">
   <div class="flex min-w-0 flex-1 items-center gap-3">
     {% if job.batch.project_id %}
     <a href="{% url 'project' job.batch.project_id %}" title="Папкага қайтиш: {{ job.batch.project.name }}"
@@ -62,10 +62,8 @@
   {% if job.status == "done" %}
   <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
     <div class="text-right">
-      <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Всего с НДС</div>
-      <div id="side-snds" class="text-xl font-semibold leading-tight num {% if s_nds|is_error %}text-rose-600{% endif %}">{{ s_nds|som }}</div>
-      <div class="text-xs text-slate-500">без НДС <span id="side-bez" class="num">{{ bez_nds|som }}</span></div>
-      {% if job.rows %}<div class="text-xs text-slate-500" title="Сметадаги жами қатор ва шулардан ишлов берилгани (ресурс деб танилиб нархлашдан ўтгани)"><span class="num font-medium text-slate-700">{{ job.rows_done|default:0|som }}</span> / <span class="num">{{ job.rows|som }}</span> қатор ишланди</div>{% endif %}
+      <div class="flex items-baseline justify-end gap-1.5"><span class="text-[11px] font-medium uppercase tracking-wide text-slate-400">с НДС</span><span id="side-snds" title="Всего с НДС" class="text-lg font-semibold leading-tight num {% if s_nds|is_error %}text-rose-600{% endif %}">{{ s_nds|som }}</span></div>
+      <div class="text-xs text-slate-500">без НДС <span id="side-bez" class="num">{{ bez_nds|som }}</span>{% if job.rows %} · <span title="Сметадаги жами қатор ва шулардан ишлов берилгани (ресурс деб танилиб нархлашдан ўтгани)"><span class="num font-medium text-slate-700">{{ job.rows_done|default:0|som }}</span>/<span class="num">{{ job.rows|som }}</span> қатор</span>{% endif %}</div>
     </div>
     {% if not_priced %}
     <button type="button" data-filter="NOT_PRICED" data-label="Нархланмади" title="Жадвалда фақат нархланмаганларни кўрсатиш"
@@ -183,7 +181,7 @@
 {% else %}
 
 {# ================= босқичлар (таблар): доим тепада, бир-бирига чизиқ билан уланган; бирини босиш — ўша босқич очилади ================= #}
-<nav id="tabs" class="sticky top-0 z-30 -mx-4 mb-4 border-b border-slate-200 bg-slate-50/95 px-4 py-2 backdrop-blur lg:-mx-6 lg:px-6" aria-label="Босқичлар">
+<nav id="tabs" class="sticky top-0 z-30 -mx-4 mb-3 border-b border-slate-200 bg-slate-50/95 px-4 py-2 backdrop-blur lg:-mx-6 lg:px-6" aria-label="Босқичлар">
   <div class="tabs-in flex items-center gap-3 overflow-x-auto" role="tablist">
     <ol class="steps flex items-center">
     {% for st in stages %}
@@ -304,9 +302,8 @@
            class="nf-filter w-24 rounded-lg border border-slate-300 px-2.5 py-1 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200">
     <span id="nf-found" class="text-xs text-slate-500"></span>
     <label class="ml-auto inline-flex cursor-pointer items-center gap-1.5 text-sm text-slate-700"
-           title="Ёзган нархингиз админ текширув навбатига ҳам юборилади. Админ тасдиқлагач — нарх базасига тушади ва кейинги сметаларда шу ресурс ўзи нархланади.">
-      <input type="checkbox" id="nf-to-base" class="h-4 w-4 accent-sky-600" checked> нархни базага ҳам сақлаш
-      <span class="text-xs text-slate-400">(админ тасдиқлагач)</span>
+           title="Ёзган нархингиз фақат сиз учун эслаб қолинади: кейинги сметаларингизда шу ном ва бирликдаги ресурсга таклиф бўлиб чиқади (ўзи қўйилмайди).">
+      <input type="checkbox" id="nf-to-base" class="h-4 w-4 accent-sky-600" checked> нарх сиз учун эслаб қолинсин
     </label>
   </div>
 
@@ -591,7 +588,7 @@
     }
     document.querySelectorAll(".nf-view").forEach(function (b) { b.addEventListener("click", function () { setView(b.dataset.view); }); });
 
-    // «нархни базага ҳам сақлаш» — смета­чи танлови эсда қолади
+    // «нарх сиз учун эслаб қолинсин» — смета­чи танлови эсда қолади
     var toBase = document.getElementById("nf-to-base");
     if (toBase) {
       try { var tb = localStorage.getItem("nf_to_base"); if (tb !== null) toBase.checked = tb === "1"; } catch (e) { /* йўқ */ }
@@ -653,13 +650,13 @@
         method: "POST",
         headers: {"Content-Type": "application/json", "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value},
         body: JSON.stringify(Object.assign(price != null ? {action: "set", rows: rows, price: price} : {action: "accept", rows: rows},
-                                           {to_base: !!(toBase && toBase.checked)})),
+                                           {remember: !!(toBase && toBase.checked)})),
       }).then(function (r) {
         return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; });
       }).then(function (d) {
         if (!d.ok) throw new Error(d.error || "хато");
-        if (d.to_base) try {
-          sessionStorage.setItem("nf_flash", d.to_base + " та қатор нархи базага юборилди — админ тасдиқлагач, кейинги сметаларда ўзи нархланади");
+        if (d.remembered) try {
+          sessionStorage.setItem("nf_flash", "✓ " + d.remembered + " та нарх сиз учун эслаб қолинди — кейинги сметаларда таклиф бўлиб чиқади");
         } catch (e) { /* йўқ */ }
         location.reload();
       }).catch(function (e) {
@@ -777,12 +774,29 @@
 <section id="rows-section" class="scroll-mt-20 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
   {% if lm %}{# кабель ва ускуна: тизим таклиф қилади, смета­чи ажратади #}
   <div id="stage-table" class="scroll-mt-20 border-b {% if job.table_checked %}border-emerald-200{% else %}border-fuchsia-200{% endif %}">
-  {# сарлавҳа 1- ва 3-босқичдагидек: нима қилиш керак ва якунлаш тугмаси — жадвал охирида эмас, шу ерда #}
-  <div class="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 {% if job.table_checked %}bg-emerald-50{% else %}bg-fuchsia-50{% endif %}">
-    <span class="rounded-md {% if job.table_checked %}bg-emerald-600{% else %}bg-fuchsia-700{% endif %} px-2 py-0.5 text-xs font-semibold text-white">2-босқич</span>
+  {# битта ихчам қатор: босқич, усул, L / M ҳолати (кичик белги) ва якунлаш тугмаси; ўтказиладигани бўлса — пастда карта #}
+  <div class="st2-bar {% if job.table_checked %}is-done{% endif %}">
+    <span class="st2-badge">2-босқич</span>
     <h2 class="font-semibold">Жадвал</h2>{% help "lm" "text-slate-500" %}
-    <span class="text-sm text-slate-600">{% if job.table_checked %}текширилди{% elif lm.pending %}кабель (L) ва ускунани (M) ажратинг — тизим <b class="num text-fuchsia-800">{{ lm.pending }}</b> та қаторни таклиф қилди{% else %}жадвални бир кўриб чиқинг — кабель ва ускуна таклифи йўқ{% endif %}</span>
-    {% if not stages.0.state == "done" %}<span class="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900" title="Нархланмаган қаторлар ҳали бор">{% icon "alert-circle" "h-3.5 w-3.5" %} 1-босқич тугамаган</span>{% endif %}
+    {% if job.table_checked %}<span class="text-sm text-emerald-800">{% icon "check" "inline h-3.5 w-3.5" %} текширилди</span>{% endif %}
+    <span class="st2-mode {% if job_auto %}is-auto{% else %}is-manual{% endif %}" title="Сметани юклашда танланган усул. Автоматикда тизим ишончли кабель/ускунани ўзи ўтказади; Қўлдада — фақат таклиф қилади">Усул: {% if job_auto %}Автоматик{% else %}Қўлда{% endif %}</span>
+    {% with lc=lm.cards.0 mc=lm.cards.1 %}
+    {% if not lc.rows and not lc.done and not mc.rows and not mc.done %}
+      <span class="lm-chip none">Кабель ва ускуна йўқ</span>
+    {% else %}
+    {% for c in lm.cards %}{% if not c.rows %}
+      {% if c.done %}
+      <button type="button" class="lm-chip ok cat-chip" data-filter="CAT_{{ c.col }}" data-label="Устун {{ c.col }} · {% if c.col == 'L' %}Кабель{% else %}Ускуна{% endif %}"
+              title="Жадвалда фақат {{ c.col }} устунидагиларни кўрсатиш">
+        <span class="lm-col-s {{ c.col|cat_class }}">{{ c.col }}</span>
+        <span>{% if c.col == 'L' %}Кабель{% else %}Ускуна{% endif %} <b class="num">{{ c.done }}</b> та · <b class="num">{{ c.done_sum|som }}</b></span>
+        <small>{% if c.accepted %}{% if job_auto %}Автоматик: тизим ўзи ўтказди{% else %}таклифни сиз қабул қилдингиз{% endif %}: {{ c.accepted }}{% endif %}{% if c.by_base %}{% if c.accepted %} · {% endif %}ресурс базаси бўйича ўзи ўтди: {{ c.by_base }}{% endif %}{% if c.moved %}{% if c.accepted or c.by_base %} · {% endif %}ўзингиз: {{ c.moved }}{% endif %}{% if not c.accepted and not c.moved and not c.by_base %}сметанинг ўзида шу устунда эди{% endif %}</small>
+      </button>
+      {% else %}<span class="lm-chip none"><span class="lm-col-s {{ c.col|cat_class }}">{{ c.col }}</span>{% if c.col == 'L' %}кабель{% else %}ускуна{% endif %} йўқ</span>{% endif %}
+    {% endif %}{% endfor %}
+    {% endif %}
+    {% endwith %}
+    {% if not stages.0.state == "done" %}<span class="st2-warn" title="Нархланмаган қаторлар ҳали бор">{% icon "alert-circle" "h-3.5 w-3.5" %} 1-босқич тугамаган</span>{% endif %}
     <span class="ml-auto flex flex-wrap items-center gap-2">
     {% if job.table_checked %}
       <form method="post" action="{% url 'job_table_checked' job.id %}">{% csrf_token %}<input type="hidden" name="done" value="0">
@@ -794,41 +808,36 @@
     {% endif %}
     </span>
   </div>
-  {# кабель (L) ва ускуна (M): ҳар бири катта карта — нечта, қанча сумма, қайси қаторлар ва битта асосий тугма #}
+  {# ўтказилмаган таклиф бор — шу картада ҳал қилинади #}
+  {% if lm.pending %}
   <div class="lm-cards">
-    {% for c in lm.cards %}
-    <div class="lm-card {% if c.rows %}has{% elif c.done %}ok{% else %}none{% endif %}">
+    {% for c in lm.cards %}{% if c.rows %}
+    <div class="lm-card has">
       <div class="lm-head">
         <span class="lm-col {{ c.col|cat_class }}">{{ c.col }}</span>
         <span class="min-w-0">
-          <b class="block text-base text-slate-900">{% if c.col == 'L' %}Кабель{% else %}Ускуна{% endif %}{% if c.label != "Кабель" and c.label != "Ускуна" and c.label != "Оборудование" %} <span class="font-normal text-slate-500">· {{ c.label }}</span>{% endif %}</b>
-          {% if c.rows %}<span class="block text-sm text-slate-600">тизим <b class="num text-fuchsia-800">{{ c.rows|length }}</b> та қаторни {% if c.col == 'L' %}кабель{% else %}ускуна{% endif %} деб топди · жами <b class="num text-slate-900">{{ c.sum|som }}</b></span>
-          {% elif c.done %}<span class="block text-sm text-emerald-800">{% icon "check" "inline h-3.5 w-3.5" %} <b class="num">{{ c.done }}</b> та қатор {{ c.col }} устунида · жами <b class="num">{{ c.done_sum|som }}</b></span>
-            <span class="block text-xs text-slate-500">{% if c.accepted %}тизим таклифи қабул қилинди: <b class="num text-slate-700">{{ c.accepted }}</b> та{% endif %}{% if c.accepted and c.moved %} · {% endif %}{% if c.moved %}ўзингиз ўтказгансиз: <b class="num text-slate-700">{{ c.moved }}</b> та{% endif %}{% if not c.accepted and not c.moved %}сметанинг ўзида шу устунда эди{% endif %}</span>
-          {% else %}<span class="block text-sm text-slate-500">бу сметада {% if c.col == 'L' %}кабель{% else %}ускуна{% endif %} йўқ — ўтказиладиган қатор топилмади</span>{% endif %}
+          <b class="block text-sm text-slate-900">{% if c.col == 'L' %}Кабель{% else %}Ускуна{% endif %} — тизим таклифи{% if c.label != "Кабель" and c.label != "Ускуна" and c.label != "Оборудование" %} <span class="font-normal text-slate-500">· {{ c.label }}</span>{% endif %}</b>
+          <span class="block text-xs text-slate-600"><b class="num text-fuchsia-800">{{ c.rows|length }}</b> та қатор · жами <b class="num text-slate-900">{{ c.sum|som }}</b> · {% if job_auto %}ишончсиз бўлгани учун ўзи ўтказилмади{% else %}«Қўлда» усули: ўзи ўтказилмайди, сиз ҳал қиласиз{% endif %}{% if c.done %} · {{ c.col }} устунида аллақачон <b class="num">{{ c.done }}</b> та{% endif %}</span>
         </span>
-        {% if not c.rows and c.done %}<button type="button" class="cat-chip lm-see" data-filter="CAT_{{ c.col }}" data-label="Устун {{ c.col }} · {% if c.col == 'L' %}Кабель{% else %}Ускуна{% endif %}">Кўриш {% icon "arrow-right" "h-3.5 w-3.5" %}</button>{% endif %}
       </div>
-      {% if c.rows %}
       <ul class="lm-list">
-        {% for r in c.rows|slice:":4" %}<li><span class="truncate" title="{{ r.name }}">{{ r.name }}</span><span class="num shrink-0 text-slate-500">{{ r.h|som }}</span></li>{% endfor %}
-        {% if c.rows|length > 4 %}<li class="text-slate-400">… яна {{ c.rows|length|add:"-4" }} та</li>{% endif %}
+        {% for r in c.rows|slice:":3" %}<li><span class="truncate" title="{{ r.name }}">{{ r.name }}</span><span class="num shrink-0 text-slate-500">{{ r.h|som }}</span></li>{% endfor %}
+        {% if c.rows|length > 3 %}<li class="text-slate-400">… яна {{ c.rows|length|add:"-3" }} та</li>{% endif %}
       </ul>
-      <p class="lm-why">Ҳозир бу қаторлар суммаси бошқа устунда (кўпинча K — материал). Ажратсангиз — {{ c.col }} устунига ўтади, сводкадаги фоизлар шунга қараб ҳисобланади.</p>
       <div class="lm-btns">
         <button type="button" class="lm-move lm-main" data-col="{{ c.col }}" data-what="{% if c.col == 'L' %}кабель{% else %}ускуна{% endif %}" data-rows="{% for r in c.rows %}{{ r.row }}{% if not forloop.last %},{% endif %}{% endfor %}"
-                title="{{ c.col }} устунига ўтади">Ҳаммасини {% if c.col == 'L' %}кабелга{% else %}ускунага{% endif %} ажратиш <span class="num">({{ c.rows|length }})</span></button>
-        <button type="button" class="sugg-xl lm-sub" data-to="{{ c.col }}" title="Нархланган сметада таклиф қилинган қаторларни бирма-бир кўрсатиш">Бирма-бир кўриш</button>
+                title="Ҳозир бу қаторлар бошқа устунда (кўпинча K). {{ c.col }} устунига ўтади, сводка фоизлари шунга қараб ҳисобланади">Ҳаммасини {{ c.col }} га ўтказиш <span class="num">({{ c.rows|length }})</span></button>
+        <button type="button" class="sugg-xl lm-sub" data-to="{{ c.col }}" title="Нархланган сметада таклиф қилинган қаторларни бирма-бир кўрсатиш">Бирма-бир</button>
         <button type="button" class="lm-review lm-sub" data-col="{{ c.col }}" data-label="{% if c.col == 'L' %}Кабелга{% else %}Ускунага{% endif %} ажратиладиганлар"
-                title="Жадвалда белгиланади — кераксизини олиб, қолганини пастки панелдан ажратасиз">Танлаб ажратиш</button>
+                title="Жадвалда белгиланади — кераксизини олиб, қолганини пастки панелдан ажратасиз">Танлаб</button>
       </div>
-      {% endif %}
     </div>
-    {% endfor %}
-  </div>
+    {% endif %}{% endfor %}
   </div>
   {% endif %}
-  <div class="space-y-3 border-b border-slate-200 px-4 py-3">
+  </div>
+  {% endif %}
+  <div class="space-y-2 border-b border-slate-200 px-4 py-2">
     <div class="tb-row">
       {# кўриниш: 1) жадвал (ишлаш учун) — ресурс бўлимлари ёки смета тартиби; 2) Excel файлнинг ўзи — натижа, локал, RES #}
       <div class="vt-group" role="group" aria-label="Жадвал кўриниши">
@@ -1460,8 +1469,8 @@
         <th class="xl-extra text-left">Ҳолат</th>
       </tr>
     </thead>
-    {# 20 минг қаторли сметада бутун жадвал бирдан ~17 МБ — браузер қотади. Шунинг учун бу ерда фақат бошидаги
-       қаторлар; қолгани жадвал кўрсатилганда (ёки керак бўлганда) бўлак-бўлак юкланади (``job_grid``). #}
+    {% comment %}20 минг қаторли сметада бутун жадвал бирдан ~17 МБ — браузер қотади. Шунинг учун бу ерда фақат бошидаги
+       қаторлар; қолгани жадвал кўрсатилганда (ёки керак бўлганда) бўлак-бўлак юкланади (``job_grid``).{% endcomment %}
     <tbody id="rows-body" data-url="{% url 'job_grid' job.id %}?view={{ view|urlencode }}" data-next="{{ grid.next|default_if_none:'' }}"
            data-total="{{ grid.total }}">{{ grid.html }}</tbody>
   </table>
@@ -1733,58 +1742,66 @@
 </div>
 
 {% if result_mode == "smart" %}
-<div class="h-56" aria-hidden="true"></div>{# пастки панел охирги қаторларни ёпиб қўймасин #}
-{# ---- танланганлар панели ---- #}
+<div class="h-20" aria-hidden="true"></div>{# пастки панел охирги қаторларни ёпиб қўймасин #}
+{# ---- танланганлар панели: Excel'даги каби битта ингичка қатор; Esc ёки × — ёпади ---- #}
 <div id="sel-bar" class="fixed inset-x-0 bottom-3 z-40 hidden px-3" role="region" aria-label="Танланган қаторлар билан амаллар">
-  <div class="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-slate-300 bg-white text-sm text-slate-800 shadow-2xl ring-1 ring-slate-900/5">
-    {# ---- сарлавҳа: нечта танланди ---- #}
-    <div class="flex flex-wrap items-center gap-2 bg-slate-900 px-4 py-2 text-white">
-      <span class="inline-flex items-center gap-1.5">{% icon "check-circle" "h-4 w-4 text-emerald-300" %}<b id="sel-count" class="num text-base">0</b> та қатор белгиланди</span>
-      <button type="button" id="sel-only" class="rounded-md border border-white/30 px-2 py-0.5 text-xs hover:bg-white/10" title="Жадвалда фақат белгиланган қаторларни кўрсатиш">фақат шуларни кўрсатиш</button>
+  <div class="sb mx-auto max-w-5xl">
+    <div id="sel-body" class="sb-row">
+      <span class="sb-count" title="Белгиланган қаторлар. Қаторни қайта боссангиз — белги олинади">{% icon "check-circle" "h-4 w-4" %}<b id="sel-count" class="num">0</b> та</span>
+      <button type="button" id="sel-only" class="sb-ghost" title="Жадвалда фақат белгиланган қаторларни кўрсатиш">фақат шулар</button>
+      <span class="sb-sep" aria-hidden="true"></span>
+      <span class="sb-lbl" title="Сумма қайси устунга тушсин? Иш ҳақи, машина, материал (I, J, K) ўзи тақсимланади">Устун:</span>
+      {% for c, label in category_choices %}{% if c != "I" and c != "J" and c != "K" %}
+      <button type="button" data-move="{{ c }}" title="{{ c }} · {{ label }} устунига ўтказиш" class="move-btn sb-btn {{ c|cat_class }}">{{ c }} · {{ label }}</button>
+      {% endif %}{% endfor %}
+      <button type="button" data-move="" class="move-btn sb-ghost" title="Дастур аниқлаган устунга қайтариш">{% icon "undo" "h-3.5 w-3.5" %} асл</button>
+      <span class="sb-sep" aria-hidden="true"></span>
+      <span class="sb-lbl">Нарх:</span>
+      <input type="text" id="price-input" inputmode="decimal" placeholder="4 600 000" autocomplete="off"
+             aria-label="Битта нарх — белгиланган ҳамма қаторларга (Enter — қўйиш, Esc — ёпиш)" title="Enter — қўйиш, Esc — ёпиш" class="num sb-input">
+      <button type="button" id="price-set" class="price-btn sb-btn sb-primary">қўйиш</button>
+      <button type="button" id="price-accept" class="price-btn sb-btn sb-accept" title="Тизим топган энг яқин нархни қўйиш">{% icon "check" "h-3.5 w-3.5" "2.5" %} таклиф <span id="acc-n" class="num"></span></button>
+      <button type="button" id="price-clear" class="price-btn sb-ghost" title="Қўлда қўйилган нархни олиб ташлаш">× нарх <span id="man-n" class="num"></span></button>
       <span class="flex-1"></span>
-      <button type="button" id="sel-min" class="rounded-md px-2 py-0.5 text-xs text-slate-300 hover:bg-white/10 hover:text-white" aria-expanded="true" title="Панелни кичрайтириш — жадвални ёпмасин">
-        <span class="sel-min-on">▾ кичрайтириш</span><span class="sel-min-off hidden">▴ амалларни очиш</span></button>
-      <button type="button" id="sel-clear" class="rounded-md px-2 py-0.5 text-xs text-slate-300 hover:bg-white/10 hover:text-white" title="Белгиларни олиб ташлаш (Esc)">× белгиларни олиш</button>
+      <button type="button" id="sel-clear" class="sb-close" title="Ёпиш — белгилар олинади (Esc)" aria-label="Ёпиш (Esc)">{% icon "x" "h-4 w-4" "2.5" %}<kbd>Esc</kbd></button>
     </div>
-    <div id="sel-body" class="grid gap-px bg-slate-200 md:grid-cols-2">
-      {# ---- 1. устун ---- #}
-      <div class="bg-white px-4 py-3">
-        <div class="mb-1.5 flex items-baseline gap-2"><span class="grid h-5 w-5 place-items-center rounded-full bg-slate-900 text-[11px] font-bold text-white">1</span>
-          <span class="font-semibold">Сумма қайси устунга тушсин?</span></div>
-        <div class="flex flex-wrap gap-1.5">
-          {% for c, label in category_choices %}{% if c != "I" and c != "J" and c != "K" %}{# I/J/K тизим ўзи қўяди — қўлда фақат кабель, ускуна ва қўшилган устунлар #}
-          <button type="button" data-move="{{ c }}" title="{{ c }} · {{ label }} устунига ўтказиш"
-                  class="move-btn rounded-md px-2.5 py-1 font-semibold {{ c|cat_class }} ring-1 ring-inset ring-black/5 hover:brightness-95 disabled:opacity-50">{{ c }} · {{ label }}</button>
-          {% endif %}{% endfor %}
-          <button type="button" data-move="" class="move-btn rounded-md border border-slate-300 px-2.5 py-1 hover:bg-slate-50 disabled:opacity-50" title="Дастур аниқлаган устунга қайтариш">
-            <span class="inline-flex items-center gap-1">{% icon "undo" "h-3.5 w-3.5" %} асл ҳолига</span></button>
-        </div>
-        <p class="mt-1.5 text-xs text-slate-500">Иш ҳақи, машина ва материал (I, J, K) ўзи тақсимланади. Бу ерда — кабель (L), ускуна (M) ёки «асл ҳолига». Сводкадаги фоизлар шу устунлар жамидан ҳисобланади.</p>
-      </div>
-      {# ---- 2. нарх ---- #}
-      <div class="bg-white px-4 py-3">
-        <div class="mb-1.5 flex items-baseline gap-2"><span class="grid h-5 w-5 place-items-center rounded-full bg-slate-900 text-[11px] font-bold text-white">2</span>
-          <span class="font-semibold">Нарх</span></div>
-        <div class="flex flex-wrap items-center gap-1.5">
-          <input type="text" id="price-input" inputmode="decimal" placeholder="масалан 4 600 000" autocomplete="off" aria-label="Битта нарх — белгиланган ҳамма қаторларга"
-                 class="num w-40 rounded-md border border-slate-300 px-2 py-1 text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500">
-          <button type="button" id="price-set" class="price-btn rounded-md bg-sky-600 px-3 py-1 font-semibold text-white hover:bg-sky-700 disabled:opacity-40">нархни қўйиш</button>
-          <button type="button" id="price-accept" class="price-btn rounded-md bg-amber-300 px-2.5 py-1 font-semibold text-amber-950 hover:brightness-95 disabled:opacity-40"
-                  title="Тизим RES'дан топган энг яқин ресурс нархини қўйиш"><span class="inline-flex items-center gap-1">{% icon "check" "h-3.5 w-3.5" "2.5" %} таклифни қабул қилиш <span id="acc-n" class="num"></span></span></button>
-          <button type="button" id="price-clear" class="price-btn rounded-md border border-slate-300 px-2.5 py-1 text-slate-700 hover:bg-slate-50 disabled:opacity-40" title="Қўлда қўйилган нархни олиб ташлаш">× қўлда нархни олиш <span id="man-n" class="num"></span></button>
-        </div>
-        <p class="mt-1.5 text-xs text-slate-500">Ёзилган нарх белгиланган ҳамма қаторларга қўйилади, сумма ва сводка ўзи қайта ҳисобланади.</p>
-      </div>
-    </div>
-    <div id="sel-status" class="empty:hidden border-t border-slate-100 bg-slate-50 px-4 py-1.5 text-xs text-slate-600" role="status"></div>
+    <div id="sel-status" class="sb-status empty:hidden" role="status"></div>
   </div>
 </div>
+<style>
+  .sb { overflow: hidden; border-radius: .9rem; background: #0f172a; color: #e2e8f0; box-shadow: 0 10px 30px rgba(15,23,42,.35); font-size: .8125rem; }
+  .sb-row { display: flex; flex-wrap: wrap; align-items: center; gap: .375rem; padding: .4rem .5rem .4rem .75rem; }
+  .sb-count { display: inline-flex; align-items: center; gap: .3rem; color: #fff; }
+  .sb-count svg { color: #6ee7b7; }
+  .sb-count b { font-size: .95rem; }
+  .sb-sep { width: 1px; align-self: stretch; margin: .15rem .2rem; background: rgba(255,255,255,.15); }
+  .sb-lbl { color: #94a3b8; font-size: .75rem; }
+  .sb-btn { display: inline-flex; align-items: center; gap: .25rem; border-radius: .4rem; padding: .2rem .55rem; font-weight: 600; line-height: 1.25rem; }
+  .sb-btn:hover { filter: brightness(.95); }
+  .sb-btn:disabled, .sb-ghost:disabled { opacity: .4; cursor: default; }
+  .sb-primary { background: #0284c7; color: #fff; }
+  .sb-primary:hover { background: #0369a1; filter: none; }
+  .sb-accept { background: #fcd34d; color: #451a03; }
+  .sb-ghost { display: inline-flex; align-items: center; gap: .25rem; border-radius: .4rem; padding: .2rem .5rem; color: #cbd5e1; border: 1px solid rgba(255,255,255,.2); line-height: 1.25rem; }
+  .sb-ghost:hover:not(:disabled) { background: rgba(255,255,255,.1); color: #fff; }
+  .sb-input { width: 7.5rem; border-radius: .4rem; border: 1px solid transparent; background: #fff; color: #0f172a; padding: .2rem .5rem; line-height: 1.25rem; }
+  .sb-input:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56,189,248,.4); }
+  .sb-close { display: inline-flex; align-items: center; gap: .3rem; border-radius: .4rem; padding: .2rem .4rem; color: #cbd5e1; }
+  .sb-close:hover { background: rgba(255,255,255,.12); color: #fff; }
+  .sb-close kbd { font: inherit; font-size: .6875rem; border: 1px solid rgba(255,255,255,.25); border-radius: .25rem; padding: 0 .25rem; color: #94a3b8; }
+  .sb-status { border-top: 1px solid rgba(255,255,255,.1); padding: .3rem .75rem; font-size: .75rem; color: #cbd5e1; }
+</style>
 {% endif %}
 
 <style>
   /* таблар */
-  .tab-btn { color: rgb(var(--ink-600)); border: 1px solid transparent; transition: background-color .12s, border-color .12s, box-shadow .12s; }
+  .tab-btn { cursor: pointer; color: rgb(var(--ink-600)); border: 1px solid transparent; transition: background-color .12s, border-color .12s, box-shadow .12s, transform .12s; }
   .tab-btn:hover { color: rgb(var(--ink-900)); background: rgba(255,255,255,.8); border-color: rgb(var(--ink-200)); }
+  /* босқичлар — бир қарашда тугма экани кўринсин: оқ фон, чегара, соя; устига келса — кўтарилади ва «очиш →» */
+  .step-btn { position: relative; background: #fff; border-color: rgb(var(--ink-200)); box-shadow: 0 1px 2px rgba(15,23,42,.06); }
+  .step-btn:hover { border-color: rgb(var(--ink-400)); box-shadow: 0 4px 12px rgba(15,23,42,.10); transform: translateY(-1px); }
+  .step-btn:not(.is-active):hover .step-text > span:last-child::after { content: " · очиш →"; color: rgb(var(--brand-700)); font-weight: 600; }
+  .step-btn.is-active { border-width: 2px; }
   .tab-btn.is-active { color: rgb(var(--ink-900)); background: #fff; border-color: rgb(var(--ink-900)); box-shadow: 0 1px 3px rgba(15,23,42,.12); }
   .step-btn[data-state="done"].is-active { border-color: rgb(var(--ok-600)); }
   .step-btn[data-state="locked"]:not(.is-active) { color: rgb(var(--ink-400)); }
@@ -1808,13 +1825,13 @@
   /* Excel'га ўхшаш катакча жадвал */
   /* жадвал / файл тугмалари */
   /* кўриниш тугмалари: икки гуруҳ — «Жадвал» ва «Excel файлнинг ўзи»; ҳар бири белгиси ва номи билан */
-  .vt-group { display: flex; flex-direction: column; gap: 4px; }
+  .vt-group { display: flex; align-items: center; gap: 6px; }
   .vt-cap { display: inline-flex; align-items: center; gap: 5px; padding-left: 4px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: rgb(var(--ink-500)); }
   .vt-cap.is-xl { color: rgb(var(--ok-700)); }
   .vt-cap i { font-style: normal; font-weight: 500; text-transform: none; letter-spacing: 0; color: rgb(var(--ink-400)); }
   .vt-seg { display: inline-flex; gap: 3px; padding: 3px; border-radius: 12px; background: rgb(var(--ink-100)); border: 1px solid rgb(var(--ink-200)); }
   .vt-seg.is-xl { background: rgb(var(--ok-50)); border-color: rgb(var(--ok-200)); }
-  .view-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: rgb(var(--ink-600)); white-space: nowrap;
+  .view-btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: rgb(var(--ink-600)); white-space: nowrap;
     transition: background .15s, color .15s, box-shadow .15s; }
   .view-btn svg { opacity: .7; }
   .view-btn:hover { background: #fff; color: rgb(var(--ink-900)); }
@@ -1825,9 +1842,9 @@
   .view-xl.is-on { background: rgb(var(--ok-600)); color: #fff; box-shadow: 0 2px 6px rgba(5, 150, 105, .35); }
   @media (max-width: 639px) { .view-btn span { display: none; } .view-btn { padding: 0 10px; } }
   /* жадвал асбоблари */
-  #rows-section .tb-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; }
-  #row-search { height: 40px; border-radius: 12px; }
-  .js-grid[role="group"] { padding: 8px 10px; border-radius: 12px; background: rgb(var(--ink-50)); }
+  #rows-section .tb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  #row-search { height: 34px; border-radius: 10px; }
+  .js-grid[role="group"] { padding: 6px 10px; border-radius: 12px; background: rgb(var(--ink-50)); }
   .nf-look { border: 1px solid rgb(var(--ink-300)); border-radius: 6px; padding: 2px 6px; color: rgb(var(--ink-700)); background: #fff; white-space: nowrap; }
   .nf-look:hover { background: rgb(var(--ink-100)); }
   /* 1-босқич: белгиланганлар билан амаллар — белги бўлса ёришади, бўлмаса сокин */
@@ -1840,9 +1857,26 @@
   /* катта экранда саҳифа чўзилиб кетмасин — тугмалар бир-биридан узоқлашмайди */
   .job-page > :not(#t-2):not(#tabs) { max-width: 1600px; margin-left: auto; margin-right: auto; }
   /* 2-босқич: кабель ва ускуна карталари */
-  .lm-cards { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding: 14px 16px; background: #fff; border-top: 1px solid rgb(var(--ink-100)); }
+  .st2-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 14px; background: rgb(var(--brand-50)); }
+  .st2-bar.is-done { background: rgb(var(--ok-50)); }
+  .st2-badge { border-radius: 6px; padding: 1px 8px; font-size: 12px; font-weight: 600; color: #fff; background: rgb(var(--brand-700)); }
+  .st2-bar.is-done .st2-badge { background: rgb(var(--ok-600)); }
+  .st2-mode { border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 600; color: rgb(var(--ink-600)); background: #fff; border: 1px solid rgb(var(--ink-200)); }
+  .st2-warn { display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; padding: 1px 8px; font-size: 12px; font-weight: 500; color: #78350f; background: #fef3c7; }
+  .lm-chip { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px 0 5px; border-radius: 999px; border: 1px solid rgb(var(--ink-200)); background: #fff; font-size: 14px; color: rgb(var(--ink-700)); white-space: nowrap; }
+  .lm-chip.none { padding-left: 12px; color: rgb(var(--ink-700)); font-weight: 600; background: rgb(var(--ink-50)); border-style: dashed; }
+  .lm-chip.none .lm-col-s { margin-left: -6px; opacity: .5; }
+  .lm-chip.ok { border-color: rgb(var(--ok-300)); }
+  .lm-chip.ok:hover, .lm-chip.ok.is-active { background: rgb(var(--ok-50)); }
+  .lm-chip small { font-size: 12px; color: rgb(var(--ink-600)); }
+  .lm-chip.ok { cursor: pointer; }
+  .lm-col-s { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 999px; font-size: 13px; font-weight: 800; }
+  .st2-mode { font-size: 12px !important; padding: 3px 10px !important; }
+  .st2-mode.is-auto { color: rgb(var(--ok-800)); background: rgb(var(--ok-50)); border-color: rgb(var(--ok-300)); }
+  .st2-mode.is-manual { color: rgb(var(--brand-800)); background: rgb(var(--brand-50)); border-color: rgb(var(--brand-300)); }
+  .lm-cards { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; padding: 10px 14px; background: #fff; border-top: 1px solid rgb(var(--ink-100)); }
   .lm-card.has { flex: 1 1 440px; max-width: 760px; }
-  .lm-card { border: 1px solid rgb(var(--ink-200)); border-radius: 14px; padding: 14px 16px; background: #fff; }
+  .lm-card { border: 1px solid rgb(var(--ink-200)); border-radius: 12px; padding: 10px 12px; background: #fff; }
   .lm-card.has { border-color: rgb(var(--brand-300)); background: rgb(var(--brand-50)); }
   .lm-card.none, .lm-card.ok { padding: 10px 14px; }
   .lm-card.ok { border-color: rgb(var(--ok-200)); background: rgb(var(--ok-50)); }
@@ -1857,17 +1891,17 @@
   #tabs .step-line { flex: 0 0 auto; width: 56px; }
   @media (min-width: 1280px) { #tabs .step-line { width: 88px; } }
   .lm-head { display: flex; align-items: center; gap: 12px; }
-  .lm-col { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px; font-size: 18px; font-weight: 800; }
+  .lm-col { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; font-size: 15px; font-weight: 800; }
   .lm-card.none .lm-col, .lm-card.ok .lm-col { width: 30px; height: 30px; font-size: 14px; }
   .lm-list { margin-top: 10px; border-radius: 10px; background: #fff; border: 1px solid rgb(var(--brand-200)); font-size: 13px; }
   .lm-list li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 10px; border-top: 1px solid rgb(var(--brand-100)); }
   .lm-list li:first-child { border-top: 0; }
   .lm-why { margin-top: 8px; font-size: 12px; line-height: 1.45; color: rgb(var(--ink-500)); }
   .lm-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-  .lm-main { border-radius: 10px; background: rgb(var(--brand-700)); color: #fff; font-weight: 600; font-size: 14px; padding: 8px 14px; }
+  .lm-main { border-radius: 8px; background: rgb(var(--brand-700)); color: #fff; font-weight: 600; font-size: 13px; padding: 6px 12px; }
   .lm-main:hover { background: rgb(var(--brand-800)); }
   .lm-main:disabled { opacity: .5; }
-  .lm-sub { border-radius: 10px; border: 1px solid rgb(var(--brand-400)); background: #fff; color: rgb(var(--brand-800)); font-weight: 500; font-size: 14px; padding: 8px 12px; }
+  .lm-sub { border-radius: 8px; border: 1px solid rgb(var(--brand-400)); background: #fff; color: rgb(var(--brand-800)); font-weight: 500; font-size: 13px; padding: 6px 10px; }
   .lm-sub:hover { background: rgb(var(--brand-50)); }
   .checks-box > summary { list-style: none; }
   .checks-box > summary::-webkit-details-marker { display: none; }
@@ -2246,7 +2280,12 @@
       document.getElementById("sel-only").addEventListener("click", function () { applyFilter("SELECTED", "фақат танланганлар"); });
       document.addEventListener("keydown", function (e) {
         var inField = e.target.closest && e.target.closest("input:not([type=checkbox]), select, textarea");
-        if (e.key === "Escape" && sel.size && !inField) { sel.clear(); render(); }
+        // Esc — Excel'даги каби: белгилар олинади, панел ёпилади (нарх катагида турган бўлса ҳам)
+        var inBar = e.target.closest && e.target.closest("#sel-bar");
+        if (e.key === "Escape" && sel.size && (!inField || inBar)) {
+          if (inBar && e.target.blur) e.target.blur();
+          sel.clear(); render();
+        }
       });
 
       // таклиф қилинган биринчи қаторга ўтиб, бир зум ёритади

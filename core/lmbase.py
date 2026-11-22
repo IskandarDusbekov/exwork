@@ -27,6 +27,7 @@ class Hit:
     reason: str   # смета­чига: «базада: 12 та RES'да ускуна бўлимида»
     strong: bool  # админ ўргатган ёки бир неча манба бир хил — «Автоматик»да ўзи олинади
     how: str      # code | name | fuzzy
+    res_only: bool = False  # фақат RES бўлимларидан йиғилган (админ ҳам, смета­чи ҳам айтмаган)
 
 
 class LMBase:
@@ -55,7 +56,7 @@ class LMBase:
         reason = e.get("reason") or "базада"
         if how == "fuzzy":
             reason = f"базадаги «{e.get('name') or e['key']}» ({round(score)}%) — {reason}"
-        return Hit(KINDS[e["category"]], reason, bool(e.get("strong")) and how != "fuzzy", how)
+        return Hit(KINDS[e["category"]], reason, bool(e.get("strong")) and how != "fuzzy", how, bool(e.get("res_only")))
 
     def lookup(self, name, code=None) -> Optional[Hit]:
         c = norm_code(str(code or ""))

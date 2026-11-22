@@ -148,9 +148,11 @@ def create_project(owner, files, paths, skipped=()) -> Project:
                 folders.setdefault("" if parent == "." else parent, []).append(e["path"])
         if not folders:
             raise UploadError("Папкада нархланадиган Excel файл топилмади (фақат .xls, .xlsx, .xlsm)")
+        from .services import nf_auto_of
+        auto = nf_auto_of(project.owner_id)  # усул юклашда қотади
         for folder, srcs in sorted(folders.items()):
             Batch.objects.create(
-                owner_id=project.owner_id, project=project, folder=folder, stage=Batch.Stage.QUEUED,
+                owner_id=project.owner_id, project=project, folder=folder, stage=Batch.Stage.QUEUED, auto=auto,
                 name=PurePosixPath(folder).name or project.name,
                 files=[{"name": PurePosixPath(s).name, "src": s, "path": "", "sheets": []} for s in srcs],
             )

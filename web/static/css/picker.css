@@ -1,6 +1,6 @@
 /* Юклаш → листлар → жуфтлаш → усул → Бошлаш (jobs/_picker.html, static/js/picker.js).
    Қоида: ҳозирги қадам ялтирайди, тасдиқлаш тугмалари доим яшил, кейинги қадам олдингиси тугагач очилади. */
-.pk, .pp-go, .pp-mode, .pp-hint { --g: rgb(var(--ok-600)); --g-d: rgb(var(--ok-700)); --g-l: rgb(var(--ok-100)); --loc: rgb(var(--ok-600)); --res: rgb(var(--brand-600)); --off: rgb(var(--ink-400)); color: rgb(var(--ink-900)); }
+.pk, .pp-go, .pp-mode, .pp-hint, .pk-modes, .pk-modebar, .pp-set { --g: rgb(var(--ok-600)); --g-d: rgb(var(--ok-700)); --g-l: rgb(var(--ok-100)); --loc: rgb(var(--ok-600)); --res: rgb(var(--brand-600)); --off: rgb(var(--ink-400)); color: rgb(var(--ink-900)); }
 .pk-form { display: grid; gap: 16px; }
 
 /* ---- «i» белги: керакли изоҳ босганда/устига келганда очилади (ортиқча матнсиз, тоза) ---- */
@@ -154,8 +154,8 @@
 @keyframes pk-stripes { to { background-position: 28px 0, 0 0; } }
 .pk-prog p { margin-top: 6px; display: flex; justify-content: space-between; gap: 12px; font-size: 15px; font-weight: 600; color: rgb(var(--ink-900)); }
 .pk-err { width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid rgb(var(--bad-200)); background: rgb(var(--bad-50)); color: rgb(var(--bad-800)); font-size: 14px; }
-.pk-toast { position: fixed; left: 50%; bottom: 24px; z-index: 70; transform: translateX(-50%); padding: 10px 18px; border-radius: 12px; background: rgb(var(--ink-900)); color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 10px 30px rgba(15, 23, 42, .3); animation: pk-in .3s both; }
-.pk-toast.is-ok { background: var(--g-d); }
+.pk-toast { position: fixed; left: 50%; top: 72px; z-index: 90; transform: translateX(-50%); padding: 10px 18px; border-radius: 12px; background: rgb(var(--ink-900)); color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 10px 30px rgba(15, 23, 42, .3); animation: pk-in .3s both; }
+.pk-toast.is-ok { background: rgb(var(--ok-700)); }  /* хабар body ичида — --g-d бу ерда йўқ, шунинг учун аниқ ранг */
 
 @media (max-width: 860px) {
   .pk-pair { grid-template-columns: auto minmax(0, 1fr); }
@@ -188,8 +188,8 @@
 /* ===== битта жадвал: лист → тури → ресурси (кўп файлда ҳам ихчам) ===== */
 .pk-h .pk-ht { flex: 1; min-width: 0; }
 .pk-modebar { display: inline-flex; flex-shrink: 0; padding: 3px; gap: 3px; border-radius: 12px; background: rgb(var(--ink-100)); }
-.pk-modebar .pk-mode { display: block; padding: 6px 12px; border: 0; border-radius: 9px; font-size: 13px; font-weight: 700; color: rgb(var(--ink-500)); box-shadow: none; background: none; }
-.pk-modebar .pk-mode.is-on { background: var(--g); color: #fff; box-shadow: none; }
+.pk-modebar .pk-mode { display: block; padding: 6px 14px; cursor: pointer; border: 0; border-radius: 9px; font-size: 13px; font-weight: 700; color: rgb(var(--ink-500)); box-shadow: none; background: none; }
+.pk-modebar .pk-mode.is-on { background: rgb(var(--ok-600)); color: #fff; box-shadow: 0 1px 3px rgba(5, 150, 105, .35); }  /* --g ҳамма жойда эмас (папка созламалари) */
 .pk-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
 .pk-filters { display: flex; flex-wrap: wrap; gap: 6px; }
 .pk-filters button { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid rgb(var(--ink-200)); background: #fff; font-size: 13px; font-weight: 600; color: rgb(var(--ink-700)); }
@@ -232,11 +232,11 @@
 .pk-nores { padding: 16px; text-align: center; font-size: 14px; color: rgb(var(--ink-500)); }
 .pk-skip { margin-top: 12px; }
 /* «Керак эмас деб топилганлар» — аниқ тугма: белги, сони, «Кўрсатиш / Яшириш» */
-.pk .pk-skip > summary.pk-skip-btn { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1.5px dashed rgb(var(--ink-300)); border-radius: 12px;
+.pk .pk-skip > summary.pk-skip-btn { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 1.5px dashed rgb(var(--ink-300)); border-radius: 12px;
   background: rgb(var(--ink-50)); color: rgb(var(--ink-700)); }
 .pk .pk-skip > summary.pk-skip-btn:hover { border-color: rgb(var(--ink-400)); background: rgb(var(--ink-100)); }
 .pk .pk-skip[open] > summary.pk-skip-btn { border-style: solid; border-radius: 12px 12px 0 0; }
-.pk-skip-ic { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; background: rgb(var(--ink-200)); color: rgb(var(--ink-500)); }
+.pk-skip-ic { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border-radius: 10px; background: rgb(var(--ink-200)); color: rgb(var(--ink-500)); }
 .pk-skip-t { display: grid; gap: 1px; min-width: 0; flex: 1; }
 .pk-skip-t b { font-size: 14px; color: rgb(var(--ink-900)); }
 .pk .pk-skip summary .pk-skip-t small { font-size: 12px; color: rgb(var(--ink-500)); }
@@ -522,6 +522,11 @@ button.rs-chip { cursor: pointer; transition: filter .15s; } button.rs-chip:hove
 .pk-skip-sel { display: flex; justify-content: flex-end; padding: 8px 10px 0; border: 1.5px solid rgb(var(--ink-300)); border-top: 0; border-bottom: 0; background: #fff; }
 .pk-skip[open] > .pk-skip-sel + .pk-table { border-top: 0; }
 .pk-group.is-dropped > h3 { color: rgb(var(--ink-600)); font-size: 14px; }
+.pk-skip[open] > .pk-group.is-dropped { margin: 0; padding: 8px; border: 1.5px solid rgb(var(--ink-300)); border-top: 0; background: #fff; }
+.pk-skip[open] > .pk-group.is-dropped + .pk-group.is-dropped { border-top: 1px dashed rgb(var(--ink-200)); }
+.pk-skip[open] > .pk-group + .pk-sfiles { border-top: 1px dashed rgb(var(--ink-200)); }
+.pk-skip > .pk-group.is-dropped > h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; }
+.pk-skip-t b i { font-style: normal; font-weight: 600; color: rgb(var(--ink-500)); margin-left: 4px; }
 .pk-group.is-dropped .pk-row { background: rgb(var(--ink-50)); }
 .pk-dropped-back, .pk-unpick { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 10px; border-radius: 9px; border: 1px solid rgb(var(--ink-300)); background: #fff;
   font-size: 13px; font-weight: 600; color: rgb(var(--ink-700)); white-space: nowrap; }
@@ -542,3 +547,24 @@ button.rs-chip { cursor: pointer; transition: filter .15s; } button.rs-chip:hove
 .pk-toast-act { flex-shrink: 0; height: 32px; padding: 0 12px; border-radius: 9px; background: #fff; color: rgb(var(--ink-900)); font-size: 13px; font-weight: 700; }
 .pk-toast-act:hover { background: rgb(var(--warn-100)); }
 @media (max-width: 640px) { .pk-acts { width: 100%; } .pk-bulk-acts { margin: 0; width: 100%; } .pk-bulk-acts button { flex: 1; } .pk-undo small { display: none; } }
+
+/* «Бошлаш» олдидан: сводка фоизлари ойнанинг ўзида тўғриланади */
+.pctd { display: grid; gap: 6px; }
+.pctd-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 10px; padding: 6px 10px; border-radius: 10px; background: rgb(var(--ink-50)); font-size: 14px; color: rgb(var(--ink-700)); }
+.pctd-row.is-changed { background: #fef9c3; }
+.pctd-c { display: inline-flex; align-items: center; gap: 4px; }
+.pctd-c i { font-style: normal; color: rgb(var(--ink-500)); }
+.pctd-in { width: 72px; height: 32px; padding: 0 8px; border: 1px solid rgb(var(--ink-300)); border-radius: 8px; text-align: right; font-size: 14px; background: #fff; color: rgb(var(--ink-900)); }
+.pctd-in:focus { outline: none; border-color: rgb(var(--ink-900)); box-shadow: 0 0 0 3px rgba(15, 23, 42, .1); }
+.pctd-std { grid-column: 1 / -1; font-size: 11px; color: #854d0e; }
+.pctd-std:empty { display: none; }
+.pctd-note { margin-top: 4px; font-size: 12px; color: rgb(var(--ink-500)); }
+
+/* «Белгилаш» — фақат тизим тушунмаганда катта; бошқа ҳолда кичик қалам (камдан-кам керак) */
+.pk-mark.is-mini { width: 32px; height: 32px; padding: 0; justify-content: center; border-color: transparent; background: transparent; color: rgb(var(--ink-400)); }
+.pk-mark.is-mini:hover { border-color: rgb(var(--ink-300)); background: #fff; color: rgb(var(--ink-800)); }
+/* белгиланмаган листда — тизим таклифини бир босишда қабул қилиш */
+.pk-take { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 10px; border: 1.5px solid rgb(var(--ok-500)); background: rgb(var(--ok-50)); color: rgb(var(--ok-800)); font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.pk-take small { font-weight: 500; color: rgb(var(--ok-700)); }
+.pk-take:hover { background: rgb(var(--ok-600)); border-color: rgb(var(--ok-600)); color: #fff; }
+.pk-take:hover small { color: #fff; }

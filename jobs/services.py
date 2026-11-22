@@ -116,6 +116,62 @@ def nf_auto_of(owner) -> bool:
     return not (s and isinstance(s.value, dict) and s.value.get("auto") is False)
 
 
+def batch_auto(batch) -> bool:
+    """Пакетнинг усули — юклашда танлангани (кейин бошқа жойда созлама ўзгарса ҳам шу пакетга таъсир қилмайди)."""
+    return batch.auto if batch.auto is not None else nf_auto_of(batch.owner_id)
+
+
+def job_auto(job) -> bool:
+    """Сметанинг усули: ўзида сақлангани, бўлмаса пакетники, бўлмаса фойдаланувчи созламаси."""
+    if job.auto is not None:
+        return job.auto
+    if job.batch_id:
+        return batch_auto(job.batch)
+    return nf_auto_of(job.owner_id)
+
+
+def project_auto(project) -> bool:
+    """Папканинг усули — қисмлари бир хил усулда (папка саҳифасида битта танлов)."""
+    b = project.parts.exclude(auto=None).only("auto").first()
+    return b.auto if b else nf_auto_of(project.owner_id)
+
+
+PRICE_MEMO_MAX = 5000
+
+
+def _memo_key(name, unit) -> str:
+    from core.lmbase import lm_key
+    k = lm_key(name)
+    return f"{k}|{str(unit or '').strip().lower()}" if k else ""
+
+
+def price_memo_of(owner) -> dict:
+    """Смета­чи «сиз учун эслаб қолинсин» деб ёзган нархлар ``{ном|бирлик: {"p", "n", "u"}}`` — фақат ўзига,
+    кейинги сметаларида шу ресурсга таклиф бўлади (ўзи қўйилмайди)."""
+    s = Setting.objects.filter(owner_id=getattr(owner, "pk", owner), key="price_memo").first()
+    return dict(s.value) if s and isinstance(s.value, dict) else {}
+
+
+def remember_prices(owner, items) -> int:
+    """``items`` — [(қатор, нарх)]: номи ва бирлиги бўйича эслаб қолади (охиргиси устун)."""
+    memo, n = price_memo_of(owner), 0
+    for row, price in items:
+        k = _memo_key(row.get("name"), row.get("unit"))
+        if k and price is not None:
+            memo.pop(k, None)
+            memo[k] = {"p": price, "n": str(row.get("name") or "")[:200], "u": str(row.get("unit") or "")[:30]}
+            n += 1
+    if n:
+        memo = dict(list(memo.items())[-PRICE_MEMO_MAX:])
+        Setting.objects.update_or_create(owner_id=getattr(owner, "pk", owner), key="price_memo", defaults={"value": memo})
+    return n
+
+
+def memo_price(memo: dict, row):
+    m = memo.get(_memo_key(row.get("name"), row.get("unit"))) if memo else None
+    return m["p"] if m else None
+
+
 def remember_nf_auto(owner, auto: bool):
     Setting.objects.update_or_create(owner_id=getattr(owner, "pk", owner), key="nf_mode", defaults={"value": {"auto": bool(auto)}})
 
@@ -186,7 +242,7 @@ def base_options(job: Job) -> dict:
     («Фақат ресурс базаси» yoki juftlikda «Ресурс базаси» tanlangan) smetada."""
     from resbase.lm import load_base
     from resbase.services import period_label, price_map
-    lm = ({"lm_base": load_base(job.owner_id, job.id), "lm_auto": lm_auto_of(job.owner_id)}  # ускуна ва кабель базаси — L/M таклифи
+    lm = ({"lm_base": load_base(job.owner_id, job.id), "lm_auto": lm_auto_of(job.owner_id) and job_auto(job)}  # ускуна ва кабель базаси — L/M таклифи
           if job.mode == "smart" else {})
     if job.res_path:
         return {"base_prices": None, "base_label": "", **lm}
@@ -209,7 +265,7 @@ def create_job(owner, local_file, res_file=None) -> Job:
 
     job = Job(owner=owner, local_name=Path(local_file.name).name, res_name=Path((res_file or local_file).name).name,
               percents=remembered_percents(owner), base_period=base_period_of(owner), fuzzy=_fuzzy_default(),
-              auto_cleared=not nf_auto_of(owner))  # «Қўлда» усули: бўлим номлари ўзи тозаланмайди
+              auto_cleared=not nf_auto_of(owner), auto=nf_auto_of(owner))  # «Қўлда» усули: бўлим номлари ўзи тозаланмайди
     clock = FileClock()
     try:
         _save(local_file, job.abs(f"upload/local{local_ext}"))
@@ -433,7 +489,7 @@ def auto_apply(job: Job) -> bool:
     2-босқич: кабель / ускуна таклифлари L / M га ўтказилади ва жадвал «текширилди» бўлади.
     Сводка фоизлари — юклашда тасдиқланган (эслаб қолинган) фоизлар. True — бирор нарса ўзгарди."""
     from .views import _lm_stage, _not_found_stage, _res_groups, column_labels
-    if job.mode != "smart" or job.status != Job.Status.DONE or not nf_auto_of(job.owner_id):
+    if job.mode != "smart" or job.status != Job.Status.DONE or not job_auto(job):
         return False
     rows = job.result.get("rows", [])
     prices, categories = {**(job.prices or {}), **open_suggestions(job)}, dict(job.categories or {})
@@ -533,7 +589,8 @@ def create_batch(owner, files) -> "Batch":
     if len(files) > limit:
         raise UploadError(f"Бир марта кўпи билан {limit} та файл юкланг")
     names = [Path(f.name).name for f in files]
-    batch = Batch(owner=owner, name=names[0] if len(names) == 1 else f"{names[0]} + {len(names) - 1} та файл")
+    batch = Batch(owner=owner, name=names[0] if len(names) == 1 else f"{names[0]} + {len(names) - 1} та файл",
+                  auto=nf_auto_of(owner))
     clock, seconds = FileClock(), {}
     try:
         for i, f in enumerate(files):
@@ -542,7 +599,7 @@ def create_batch(owner, files) -> "Batch":
             xlsx = clock.open(batch.abs(f"upload/{i}{ext}"), batch.abs(f"conv/{i}"), names[i], i)
             batch.files.append({"name": names[i], "path": str(xlsx.relative_to(batch.dir)), "sheets": clock.read(xlsx, i)})
         # «Қўлда» усули: листлар ажратилмайди (вақт кетмайди) — смета­чи белгилагач ёки «Автоматик ажратиш»да
-        analyze_batch(batch, timings=seconds, lazy=not nf_auto_of(owner))
+        analyze_batch(batch, timings=seconds, lazy=not batch.auto)
         batch.name = object_name(batch, names)
         clock.analyzed(seconds)
     except convert.ConversionError as e:
@@ -1056,7 +1113,7 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
             if not p.get("res"):
                 p["base"] = False
     todo = sum(1 for p in batch.pairs if pair_ready(p))
-    nf_auto = nf_auto_of(batch.owner_id)
+    nf_auto = batch_auto(batch)
     for n, p in enumerate(batch.pairs):
         if not pair_ready(p):
             continue
@@ -1072,7 +1129,7 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
                   local_sheets=lf["sheets"], res_sheets=rf["sheets"] if rf else [],
                   local_sheet=loc["sheet"], res_sheet=res["sheet"] if res else "", mode="smart",
                   percents=remembered_percents(batch.owner_id), base_period=base_period, fuzzy=_fuzzy_default(),
-                  auto_cleared=not nf_auto,  # «Қўлда» усули: бўлим номлари ўзи тозаланмайди
+                  auto_cleared=not nf_auto, auto=nf_auto,  # «Қўлда» усули: бўлим номлари ўзи тозаланмайди
                   # қўлда кўрсатилгани, бўлмаса — смета­чининг аввалги созламаси (шундай тузилмали листда)
                   local_columns=(batch.columns or {}).get(p["local"]) or loc.get("recall") or {},
                   res_columns=((batch.columns or {}).get(p["res"]) or res.get("recall") or {}) if res else {})

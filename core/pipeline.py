@@ -346,6 +346,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     start_r, end_r = priced.start, priced.end
 
     default_kinds = {r: row_kind(_peek(ws, r, ln), _peek(ws, r, lu)) for r in range(start_r, end_r + 1)}
+    lm_from_base = set()
     if smart:
         # Kategoriya (I/J/K/L/M) resurs faylidagi bo'lim bo'yicha joylanadi: aniq topilgan resurs
         # «ОБОРУДОВАНИЕ» da bo'lsa — M, «…МАТЕРИАЛЬНЫЕ/МАТЕРИАЛЫ…» — K, «…МАШИНЫ…» — J,
@@ -357,6 +358,8 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
         for r, section in priced.sections.items():
             if (start_r <= r <= end_r and priced.status.get(r) not in (WORK_HEADER, MACHINIST)
                     and (section[0] not in (CABLE, EQUIPMENT) or (section[1] == BASE_SECTION and opts.lm_auto))):
+                if section[0] in (CABLE, EQUIPMENT) and default_kinds[r] != section[0]:
+                    lm_from_base.add(r)  # ресурс базасидаги тури бўйича ўзи ўтди — сайтда шундай кўрсатилади
                 default_kinds[r] = section[0]
     kinds = dict(default_kinds)
     applied_categories: Dict[int, str] = {}
@@ -490,6 +493,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
             "category": target_column(kinds[r]),
             "default_category": target_column(default_kinds[r]),
             "override": r in applied_categories,
+            "lm_base": r in lm_from_base,
             "suggested_category": None,
             "suggest_reason": "",
             "status": status,
@@ -673,7 +677,7 @@ def _category_hints(ws, priced: "_Priced", default_kinds: Dict[int, str], ln: in
         if section:  # RES'да материал бўлимида — админ ўргатгани бошқа деса ёки номи аниқ кабель бўлса
             if hit and hit.strong and hit.how != "fuzzy" and hit.kind != OTHER:
                 hints[r] = (hit.kind, hit.reason, True)
-            elif not (hit and hit.strong and hit.kind == OTHER):
+            elif not (hit and hit.strong and hit.kind == OTHER and not hit.res_only):
                 # кўп RES'да кабеллар «материалы» бўлимида туради, лекин сводкада кабель-ўтказгич маҳсулоти
                 # алоҳида (транспорт 1,5%, материал 3%) — номи «кабель …/провод …» бўлса L таклиф қилинади
                 hint = name_hint(name)

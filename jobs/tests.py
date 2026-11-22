@@ -371,9 +371,14 @@ class FlowTests(LoggedInTestCase):
         # 10 tasini taklif bo'yicha, bittasini qo'lda, bitta EXACT qatorda taklif yo'q — o'tkazib yuboriladi
         r = post({"rows": red[:10] + [exact], "action": "accept"})
         # нарх ёзиш — қайта нархламасдан, натижа Excel'нинг ўзида
-        self.assertEqual(r.json(), {"ok": True, "queued": False, "patched": True, "changed": 10, "skipped": 1, "to_base": 0})
-        r = post({"rows": [red[10]], "action": "set", "price": "4 500 000"})
+        self.assertEqual(r.json(), {"ok": True, "queued": False, "patched": True, "changed": 10, "skipped": 1, "to_base": 0,
+                                    "remembered": 0})
+        r = post({"rows": [red[10]], "action": "set", "price": "4 500 000", "remember": True})
         self.assertTrue(r.json()["patched"])
+        self.assertEqual(r.json()["remembered"], 1)  # «сиз учун эслаб қолинсин» — кейинги сметада таклиф
+        from .services import memo_price, price_memo_of
+        row10 = next(x for x in job.result["rows"] if x["row"] == red[10])
+        self.assertEqual(memo_price(price_memo_of(self.user), row10), 4500000)
         job.refresh_from_db()
         # ямалган натижа — тўлиқ қайта ҳисобдагидек
         from .services import recompute
@@ -743,6 +748,20 @@ class FolderTests(LoggedInTestCase):
         self.assertEqual(part.stage, Batch.Stage.READY, part.message)
         self.assertTrue(any(p.get("res") for p in part.pairs))
 
+    def test_folder_auto_split_marks_all_parts(self):
+        """«Қўлда» юкланган папка: «Ҳаммасини автоматик ажратиш» — белгиланмаган ҳамма қисмда тизим ажратади."""
+        from .views import manual_left
+        self.client.post(reverse("nf_mode"), {"nf_mode": "manual"})
+        project, data = self._upload()
+        project.parts.update(auto=False)
+        left = [b for b in project.parts.all() if manual_left(b)]
+        self.assertTrue(left)
+        self.assertContains(self.client.get(data["url"]), "Ҳаммасини автоматик ажратиш")
+        r = self.client.post(reverse("project_auto_split", args=[project.id]))
+        self.assertRedirects(r, reverse("project", args=[project.id]), fetch_redirect_response=False)
+        self.assertFalse([b for b in project.parts.all() if manual_left(b)])
+        self.client.post(reverse("nf_mode"), {"nf_mode": "auto"})
+
     def test_stop_during_pricing_then_resume(self):
         """Нархлаш тўхтатилса — «Давом эттириш» катта тугма бўлиб чиқади ва қолган қисмлар нархланади."""
         from unittest import mock
@@ -1037,8 +1056,13 @@ class NfModeTests(LoggedInTestCase):
         self.client.post(reverse("index"), {"files": files})
         picker = reverse("batch", args=[Batch.objects.latest("created").id]) + "?partial=picker"
         self.assertContains(self.client.get(picker), 'value="auto" checked')
+        batch = Batch.objects.latest("created")
+        # бошқа жойда созлама ўзгарса — олдин юкланган пакет ўз усулида қолади
         self.assertEqual(self.client.post(reverse("nf_mode"), {"nf_mode": "manual"}).status_code, 200)
         self.assertFalse(nf_auto_of(self.user))
+        self.assertContains(self.client.get(picker), 'value="auto" checked')
+        # шу пакетнинг ўзида танланса — фақат шу пакет ўзгаради
+        self.assertEqual(self.client.post(reverse("nf_mode"), {"nf_mode": "manual", "batch": batch.id}).status_code, 200)
         self.assertContains(self.client.get(picker), 'value="manual" checked')
         self.client.post(reverse("nf_mode"), {"nf_mode": "auto"})
         self.assertTrue(nf_auto_of(self.user))

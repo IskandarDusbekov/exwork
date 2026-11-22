@@ -111,8 +111,8 @@ class AutoModeTests(LoggedInTestCase):
         # смета саҳифасида L/M картаси: «таклиф йўқ» эмас — нечтаси қабул қилингани кўринади
         if auto_set:
             page = self.client.get(reverse("job", args=[auto_set[0][0].id]))
-            self.assertContains(page, "тизим таклифи қабул қилинди")
-            self.assertContains(page, 'class="cat-chip lm-see"')
+            self.assertContains(page, "тизим ўзи ўтказди")  # «Автоматик»: ким ўтказгани аниқ ёзилади
+            self.assertContains(page, 'class="lm-chip ok cat-chip"')
         self.assertFalse(LMVote.objects.filter(kind="user").exists())  # «Автоматик» ўз таклифига овоз бермайди
         # RES овозлари файл бўйича: битта RES файлдан келган ҳар ёзувда RES овози ≤ 1
         srcs = {j.id: j.res_path for j in jobs}
@@ -155,6 +155,14 @@ class AutoModeTests(LoggedInTestCase):
         jobs = self._price_object()
         self.assertTrue(jobs)
         self.assertTrue(all(not j.table_checked and not j.prices and not j.categories for j in jobs))
+        # кейин созлама «Автоматик»га ўтса ҳам, «Қўлда» нархланган смета очилганда ҳеч нарса ўзи қўйилмайди
+        self.assertTrue(all(j.auto is False for j in jobs))
+        self.client.post(reverse("nf_mode"), {"nf_mode": "auto"})
+        for j in jobs:
+            page = self.client.get(reverse("job", args=[j.id]))
+            self.assertContains(page, 'st2-mode')
+            j.refresh_from_db()
+            self.assertTrue(not j.table_checked and not j.prices and not j.categories)
 
     def _manual_upload(self):
         from core.tests.test_batch import OBJ_LOCAL, OBJ_RES
@@ -199,7 +207,7 @@ class AutoModeTests(LoggedInTestCase):
         batch.refresh_from_db()
         self.assertEqual({k: batch.roles[k] for k in keys}, {k: "unknown" for k in keys})
         page = self.client.get(reverse("batch", args=[batch.id]) + "?partial=picker")
-        self.assertContains(page, "Сиз «керак эмас» деганлар")
+        self.assertContains(page, "Сиз белгилаганлар")  # йиғиқ «Керак эмас» ичида
         self.assertContains(page, "Ортга қайтариш")
         # бир хил танлов қайта юборилса — ўзгариш йўқ
         self.assertEqual(self.client.post(pick, {"what": "role", "key": keys, "role": "unknown"}).status_code, 400)

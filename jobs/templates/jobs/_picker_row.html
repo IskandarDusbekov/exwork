@@ -10,7 +10,7 @@
   <div class="pk-sn">
     <div class="pk-sname">{% if r.tag and r.show != "none" %}<span class="pk-tag">{{ r.tag }}</span>{% endif %}<b title="{{ r.title }}">{{ r.title }}</b>{% if r.hidden %}<span class="pk-mini">яширин</span>{% endif %}</div>
     <div class="pk-ssub" title="{{ r.reason }}">{{ r.file_name }}{% if p %} · {{ r.sheet }} · {{ p.rows }} ресурс{% elif r.show != "none" and r.sheet != r.title %} · {{ r.sheet }}{% endif %}
-      {% if r.dup %} · нусха — {{ r.verdict.hint }}{% elif r.show == "none" and r.pending %} · <span class="pk-v pk-v-warn">белгиланмаган</span>{% elif r.show == "none" %} · <span class="pk-v pk-v-warn">белгиланмаган</span> — тизим таклифи: {% if r.role == "local" %}Локал{% elif r.role == "resource" %}Ресурс{% else %}Ўтказиш{% endif %}{% elif r.show == "unknown" %} · {{ r.verdict.hint|default:r.verdict.text }}{% endif %}</div>
+      {% if r.dup %} · нусха — {{ r.verdict.hint }}{% elif r.show == "none" and r.pending %} · <span class="pk-v pk-v-warn">белгиланмаган</span>{% elif r.show == "none" %} · <span class="pk-v pk-v-warn">белгиланмаган</span>{% elif r.show == "unknown" %} · {{ r.verdict.hint|default:r.verdict.text }}{% endif %}</div>
   </div>
   <div class="pk-seg" role="radiogroup" aria-label="{{ r.sheet }} — тури">
     {% for v, t in pk_roles %}<button type="button" data-role="{{ v }}" class="{% if r.show == v %}is-on{% endif %}" role="radio" aria-checked="{% if r.show == v %}true{% else %}false{% endif %}"{% if r.dup %} disabled{% endif %}>{{ t }}</button>{% endfor %}
@@ -33,7 +33,8 @@
     {% elif r.show == "resource" %}
     <span class="pk-used" data-res="{{ r.key }}">нарх манбаи</span>{% include "jobs/_mark_btn.html" with k=r.key %}
     {% elif r.show == "none" %}
-    <span class="pk-hint">← аввал турини белгиланг</span>{% include "jobs/_mark_btn.html" with k=r.key %}
+    {% if not r.pending and r.role %}<button type="button" class="pk-take" data-role="{{ r.role }}" title="Тизим шундай деб ўйлайди — тўғри бўлса босинг">✓ {% if r.role == "local" %}Локал{% elif r.role == "resource" %}Ресурс{% else %}Ўтказиш{% endif %} <small>тизим таклифи</small></button>
+    {% else %}<span class="pk-hint">← турини танланг</span>{% endif %}{% include "jobs/_mark_btn.html" with k=r.key %}
     {% elif r.show == "local" %}
     <span class="pk-hint">жуфтлик тузилмади — саҳифани янгиланг</span>
     {% else %}
