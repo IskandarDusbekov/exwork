@@ -9,7 +9,7 @@
   </div>
   <div class="pk-sn">
     <div class="pk-sname">{% if r.tag and r.show != "none" %}<span class="pk-tag">{{ r.tag }}</span>{% endif %}<b title="{{ r.title }}">{{ r.title }}</b>{% if r.hidden %}<span class="pk-mini">яширин</span>{% endif %}</div>
-    <div class="pk-ssub" title="{{ r.reason }}">{{ r.file_name }}{% if p %} · {{ r.sheet }} · {{ p.rows }} ресурс{% elif r.show != "none" and r.sheet != r.title %} · {{ r.sheet }}{% endif %}
+    <div class="pk-ssub" title="{{ r.reason|msg }}">{{ r.file_name }}{% if p %} · {{ r.sheet }} · {{ p.rows }} ресурс{% elif r.show != "none" and r.sheet != r.title %} · {{ r.sheet }}{% endif %}
       {% if r.dup %} · нусха — {{ r.verdict.hint }}{% elif r.show == "none" and r.pending %} · <span class="pk-v pk-v-warn">белгиланмаган</span>{% elif r.show == "none" %} · <span class="pk-v pk-v-warn">белгиланмаган</span>{% elif r.show == "unknown" %} · {{ r.verdict.hint|default:r.verdict.text }}{% endif %}</div>
   </div>
   <div class="pk-seg" role="radiogroup" aria-label="{{ r.sheet }} — тури">

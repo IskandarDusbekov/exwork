@@ -1,6 +1,6 @@
 {% extends "jobs/_public.html" %}
 {% load narx seo %}
-{% block seo %}{% url 'blog_video' video.id as here %}{% seo_head title=video.title|add:" — видео қўлланма · mhisobot" canonical=here description=description image=thumb og_type="video.other" %}{% endblock %}
+{% block seo %}{% url 'blog_video' video.id as here %}{% seo_head title=video.title|add:_(" — видео қўлланма · mhisobot") canonical=here description=description image=thumb og_type="video.other" %}{% endblock %}
 {% block css %}{% include "jobs/_blog_css.html" %}{% endblock %}
 {% block content %}
 <div class="wrap art">

@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from .models import MyOfyorta, SiteObject
 from .services import import_ofyorta
+from django.utils.translation import gettext_noop as _noop
 
 log = logging.getLogger(__name__)
 STALE_AFTER = dt.timedelta(minutes=5)
@@ -66,8 +67,8 @@ def run(obj_id, worker: str):
         else:
             import_ofyorta(obj, progress=beat)
     except Exception:  # noqa: BLE001
-        log.exception("офёртани ўқиш: %s", obj_id)
-        SiteObject.objects.filter(pk=obj_id).update(status=SiteObject.Status.FAILED, error="кутилмаган хато")
+        log.exception("офёртани ўқиш: %s", obj_id)  # i18n: ok
+        SiteObject.objects.filter(pk=obj_id).update(status=SiteObject.Status.FAILED, error=_noop("кутилмаган хато"))
     finally:
         SiteObject.objects.filter(pk=obj_id, worker=worker).update(worker="", heartbeat=None)
 
@@ -78,8 +79,8 @@ def _run_build(doc_id, worker: str):
     try:
         build.make(MyOfyorta.objects.get(pk=doc_id), progress=beat)
     except Exception:  # noqa: BLE001
-        log.exception("офёрта тузиш: %s", doc_id)
-        MyOfyorta.objects.filter(pk=doc_id).update(status=MyOfyorta.Status.FAILED, error="кутилмаган хато")
+        log.exception("офёрта тузиш: %s", doc_id)  # i18n: ok
+        MyOfyorta.objects.filter(pk=doc_id).update(status=MyOfyorta.Status.FAILED, error=_noop("кутилмаган хато"))
     finally:
         MyOfyorta.objects.filter(pk=doc_id, worker=worker).update(worker="", heartbeat=None)
 
@@ -91,8 +92,8 @@ def _run_project_ofyorta(doc_id, worker: str):
     try:
         ofyorta.make(ProjectOfyorta.objects.select_related("project", "batch").get(pk=doc_id), progress=beat)
     except Exception:  # noqa: BLE001
-        log.exception("папка офёртаси: %s", doc_id)
-        ProjectOfyorta.objects.filter(pk=doc_id).update(status=ProjectOfyorta.Status.FAILED, error="кутилмаган хато")
+        log.exception("папка офёртаси: %s", doc_id)  # i18n: ok
+        ProjectOfyorta.objects.filter(pk=doc_id).update(status=ProjectOfyorta.Status.FAILED, error=_noop("кутилмаган хато"))
     finally:
         ProjectOfyorta.objects.filter(pk=doc_id, worker=worker).update(worker="", heartbeat=None)
 

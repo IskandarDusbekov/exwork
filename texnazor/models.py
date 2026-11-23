@@ -11,21 +11,22 @@ from pathlib import Path
 
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _l
 
 COST_FIELDS = {"J": "cost_j", "K": "cost_k", "L": "cost_l", "M": "cost_m", "N": "cost_n", "O": "cost_o", "X": "cost_x"}
 
 
 class SiteObject(models.Model):
     class Status(models.TextChoices):
-        PARSING = "parsing", "Офёрта ўқиляпти"
-        CHOOSE = "choose", "Лист танланади"
-        MARK = "mark", "Қаторлар белгиланади"  # tizim jadvalni tushunmadi — foydalanuvchi sarlavha / ishlar / ustunlarni ko'rsatadi
-        READY = "ready", "Тайёр"
-        FAILED = "failed", "Хато"
+        PARSING = "parsing", _l("Офёрта ўқиляпти")
+        CHOOSE = "choose", _l("Лист танланади")
+        MARK = "mark", _l("Қаторлар белгиланади")  # tizim jadvalni tushunmadi — foydalanuvchi sarlavha / ishlar / ustunlarni ko'rsatadi
+        READY = "ready", _l("Тайёр")
+        FAILED = "failed", _l("Хато")
 
     class Mode(models.TextChoices):
-        MONTHS = "months", "Ойлар (эски)"  # bo'limlarga ajratilgan ofyorta, oyma-oy hajmlar
-        ACTS = "acts", "Далолатномалар"    # list fayldagidek (``RawRow``), №1, №2 … dalolatnomalar
+        MONTHS = "months", _l("Ойлар (эски)")  # bo'limlarga ajratilgan ofyorta, oyma-oy hajmlar
+        ACTS = "acts", _l("Далолатномалар")    # list fayldagidek (``RawRow``), №1, №2 … dalolatnomalar
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created = models.DateTimeField(auto_now_add=True)
@@ -82,10 +83,10 @@ class Section(models.Model):
 
 class Item(models.Model):
     class Kind(models.TextChoices):
-        WORK = "work", "Иш"
-        FREE = "free", "Мустақил ресурс"
-        EXTRA = "extra", "Қўшимча"
-        RES = "res", "Ресурс"
+        WORK = "work", _l("Иш")
+        FREE = "free", _l("Мустақил ресурс")
+        EXTRA = "extra", _l("Қўшимча")
+        RES = "res", _l("Ресурс")
 
     obj = models.ForeignKey(SiteObject, on_delete=models.CASCADE, related_name="items")
     section = models.ForeignKey(Section, null=True, blank=True, on_delete=models.CASCADE, related_name="items")
@@ -134,8 +135,8 @@ class Period(models.Model):
         ordering = ["year", "month"]
         constraints = [models.UniqueConstraint(fields=["obj", "year", "month"], name="tn_period_unique")]
 
-    MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь",
-              "Ноябрь", "Декабрь"]
+    MONTHS = [_l("Январь"), _l("Февраль"), _l("Март"), _l("Апрель"), _l("Май"), _l("Июнь"), _l("Июль"), _l("Август"),
+              _l("Сентябрь"), _l("Октябрь"), _l("Ноябрь"), _l("Декабрь")]  # Excel'да web.i18n.excel — доим кирилл
 
     @property
     def title(self) -> str:
@@ -181,9 +182,9 @@ class MyOfyorta(models.Model):
     ichidagi «РАЗДЕЛ»lar — bo'limlar. Tuzilishi (qaysi sarlavha blok) ``structure`` da aniq yoziladi — texnazor
     Excel'dagi rang yoki nomga qarab taxmin qilmaydi."""
     class Status(models.TextChoices):
-        BUILDING = "building", "Тузиляпти"
-        READY = "ready", "Тайёр"
-        FAILED = "failed", "Хато"
+        BUILDING = "building", _l("Тузиляпти")
+        READY = "ready", _l("Тайёр")
+        FAILED = "failed", _l("Хато")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created = models.DateTimeField(auto_now_add=True)

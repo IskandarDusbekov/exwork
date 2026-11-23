@@ -10,7 +10,7 @@
   <div class="pp-sum">
     {% if p.pairs|length > 1 %}
       {% for x in p.pairs|slice:":3" %}<span class="pp-pair">{{ x.title }}</span>{% endfor %}{% if p.pairs|length > 3 %}<span class="pp-more">+{{ p.pairs|length|add:"-3" }} та</span>{% endif %}
-    {% elif p.pairs %}{% for x in p.pairs %}<span class="pp-pair"><i class="t-loc">Л</i> {{ x.title }} <i class="pp-arr">→</i> <i class="t-res">Р</i> {{ x.job.res_sheet|default:"база" }}</span>{% endfor %}
+    {% elif p.pairs %}{% for x in p.pairs %}<span class="pp-pair"><i class="t-loc">Л</i> {{ x.title }} <i class="pp-arr">→</i> <i class="t-res">Р</i> {{ x.job.res_sheet|default:_("база") }}</span>{% endfor %}
     {% elif p.planned|length > 3 %}
       <span class="pp-pair"><i class="t-loc">Л</i> {{ p.planned|length }} локал <i class="pp-arr">→</i> <i class="t-res">Р</i> {{ p.n_res }} ресурс</span>
       {% if p.n_miss %}<span class="pp-pair is-miss">{{ p.n_miss }} тасида ресурс танланмаган</span>{% endif %}
@@ -22,7 +22,7 @@
   <div class="pp-chips">
   {% if p.left %}<span class="pp-chip tone-amber" data-chip>{{ p.left }} та лист белгиланмаган</span>
   {% else %}<span class="pp-chip tone-{{ st.1 }}" data-chip>{% if p.state == "warn" %}{{ p.not_priced }} та қатор нархланмади{% else %}{{ st.0 }}{% endif %}</span>{% endif %}
-  {% if b.message and p.state != "done" %}<span class="pk-i is-warn" tabindex="0" role="button" aria-label="Изоҳ">!<span class="pk-i-pop is-right">{{ b.message }}</span></span>{% endif %}
+  {% if b.message and p.state != "done" %}<span class="pk-i is-warn" tabindex="0" role="button" aria-label="Изоҳ">!<span class="pk-i-pop is-right">{{ b.message|msg }}</span></span>{% endif %}
   </div>
   {% if p.jobs %}<b class="pp-total num" title="Всего с НДС">{{ p.total|som }}</b>{% endif %}
   <div class="pp-acts">

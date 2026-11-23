@@ -9,6 +9,7 @@ from django.views.decorators.http import require_safe
 
 from . import pages, site
 from .richtext import image_path, plain, sanitize
+from django.utils.translation import gettext as _
 
 
 def _posts():
@@ -82,11 +83,11 @@ def blog_index(request):
     cat = request.GET.get("c", "")
     cats = [c for c in Category.objects.all() if any(p.category_id == c.pk for p in posts)]
     shown = [p for p in posts if p.category and p.category.slug == cat] if cat else posts
-    ld = [_crumbs(request, ("Бош саҳифа", reverse("index")), ("Блог", reverse("blog")))]
+    ld = [_crumbs(request, (_("Бош саҳифа"), reverse("index")), (_("Блог"), reverse("blog")))]
     return render(request, "jobs/blog.html", {
         "posts": shown, "total": len(posts), "cats": cats, "cat": cat, "ld": ld,
         "video_count": sum(len(s["videos"]) for s in site.video_sections()),
-        "description": "mhisobot блоги: смета нархлаш, ресурс нархлари ва техник назорат бўйича мақолалар."})
+        "description": _("mhisobot блоги: смета нархлаш, ресурс нархлари ва техник назорат бўйича мақолалар.")})
 
 
 @login_not_required
@@ -97,12 +98,12 @@ def guide_page(request):
     _video_views(sections)
     from .guide import FLOW, help_groups
     groups = [{"title": t, "slug": f"t{i + 1}", "items": items} for i, (t, items) in enumerate(help_groups())]
-    ld = [_crumbs(request, ("Бош саҳифа", reverse("index")), ("Видео қўлланма", reverse("guide")))]
+    ld = [_crumbs(request, (_("Бош саҳифа"), reverse("index")), (_("Видео қўлланма"), reverse("guide")))]
     return render(request, "jobs/guide.html", {
         "sections": sections, "video_count": sum(len(s["videos"]) for s in sections), "ld": ld,
         "flow": FLOW, "groups": groups, "term_count": sum(len(g["items"]) for g in groups),
         "post_count": _posts().count(),
-        "description": "mhisobot видео қўлланмаси: смета нархлаш ва техник назоратни қисқа видеоларда ўрганинг."})
+        "description": _("mhisobot видео қўлланмаси: смета нархлаш ва техник назоратни қисқа видеоларда ўрганинг.")})
 
 
 @login_not_required
@@ -114,13 +115,13 @@ def blog_video(request, video_id):
     url = request.build_absolute_uri(reverse("blog_video", args=[video_id]))
     thumb = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
     plain = " ".join(video["note"].replace("## ", "").replace("- ", " ").split())
-    desc = plain[:300] or f"{video['title']} — mhisobot видео қўлланмаси ({section['label']})."
+    desc = plain[:300] or _("{0} — mhisobot видео қўлланмаси ({1}).").format(video['title'], section['label'])
     obj = {"@context": "https://schema.org", "@type": "VideoObject", "name": video["title"], "description": desc,
            "thumbnailUrl": [thumb], "embedUrl": f"https://www.youtube-nocookie.com/embed/{video_id}",
            "contentUrl": f"https://www.youtube.com/watch?v={video_id}", "url": url, "inLanguage": "uz"}
     if video.get("added"):
         obj["uploadDate"] = video["added"]
-    ld = [obj, _crumbs(request, ("Бош саҳифа", reverse("index")), ("Видео қўлланма", reverse("guide")),
+    ld = [obj, _crumbs(request, (_("Бош саҳифа"), reverse("index")), (_("Видео қўлланма"), reverse("guide")),
                        (video["title"], reverse("blog_video", args=[video_id])))]
     pages.hit(request, "video", video_id)
     more = [v for v in section["videos"] if v["id"] != video_id][:6]
@@ -143,7 +144,7 @@ def blog_post(request, slug):
            "datePublished": post.created.isoformat(), "dateModified": post.updated.isoformat(), "inLanguage": "uz",
            "mainEntityOfPage": url, "author": {"@type": "Organization", "name": "mhisobot"},
            "publisher": {"@type": "Organization", "name": "mhisobot"}},
-          _crumbs(request, ("Бош саҳифа", reverse("index")), ("Блог", reverse("blog")),
+          _crumbs(request, (_("Бош саҳифа"), reverse("index")), (_("Блог"), reverse("blog")),
                   (post.title, reverse("blog_post", args=[slug])))]
     pages.hit(request, "post", post.pk)
     cover = post_cover(post)
@@ -164,10 +165,10 @@ def blog_category(request, slug):
     posts = _decorate(_posts().filter(category=cat)[:200])
     if not posts:
         raise Http404
-    ld = [_crumbs(request, ("Бош саҳифа", reverse("index")), ("Блог", reverse("blog")),
+    ld = [_crumbs(request, (_("Бош саҳифа"), reverse("index")), (_("Блог"), reverse("blog")),
                   (cat.name, reverse("blog_category", args=[slug])))]
     return render(request, "jobs/blog_category.html", {
-        "cat": cat, "posts": posts, "ld": ld, "description": f"{cat.name}: mhisobot мақолалари ({len(posts)} та)."})
+        "cat": cat, "posts": posts, "ld": ld, "description": _("{0}: mhisobot мақолалари ({1} та).").format(cat.name, len(posts))})
 
 
 @login_not_required
@@ -176,7 +177,7 @@ def about_page(request):
     d = pages.about()
     ld = [{"@context": "https://schema.org", "@type": "Organization", "name": "mhisobot",
            "url": request.build_absolute_uri("/"), "description": d["lead"][:300]},
-          _crumbs(request, ("Бош саҳифа", reverse("index")), ("Биз ҳақимизда", reverse("about_us")))]
+          _crumbs(request, (_("Бош саҳифа"), reverse("index")), (_("Биз ҳақимизда"), reverse("about_us")))]
     return render(request, "jobs/about.html", {"a": d, "ld": ld, "description": d["lead"][:300]})
 
 
@@ -184,7 +185,7 @@ def about_page(request):
 @require_safe
 def terms_page(request):
     t = pages.terms()
-    return render(request, "jobs/terms.html", {"t": t, "description": "mhisobot.uz сайтидан фойдаланиш шартлари."})
+    return render(request, "jobs/terms.html", {"t": t, "description": _("mhisobot.uz сайтидан фойдаланиш шартлари.")})
 
 
 @login_not_required

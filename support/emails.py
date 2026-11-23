@@ -4,8 +4,12 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.templatetags.static import static
+from django.utils import translation
 
-SUBJECT = "mhisobot: ёрдам хизматидан жавоб келди"
+from web.i18n import DEFAULT, user_lang
+from django.utils.translation import gettext_lazy as _l
+
+SUBJECT = _l("mhisobot: ёрдам хизматидан жавоб келди")
 
 
 def reply_message(base_url: str, name: str, link: str) -> tuple:
@@ -16,7 +20,8 @@ def reply_message(base_url: str, name: str, link: str) -> tuple:
 
 
 def send_reply(base_url: str, user, link: str) -> None:
-    subject, text, html = reply_message(base_url, user.get_full_name() or user.email, link)
-    msg = EmailMultiAlternatives(subject, text, settings.DEFAULT_FROM_EMAIL, [user.email])
+    with translation.override(user_lang(user, DEFAULT)):  # жавоб панелдан (кирилл) — хат фойдаланувчи тилида
+        subject, text, html = reply_message(base_url, user.get_full_name() or user.email, link)
+    msg = EmailMultiAlternatives(str(subject), text, settings.DEFAULT_FROM_EMAIL, [user.email])
     msg.attach_alternative(html, "text/html")
     msg.send(fail_silently=False)

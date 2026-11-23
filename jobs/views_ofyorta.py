@@ -9,11 +9,13 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from panel.audit import log as audit
+from web.i18n import ui
 from panel.models import Event
 
 from . import ofyorta
 from .models import Batch, Project, ProjectOfyorta
 from .views import _audit_download, _get_work, crumbs_for
+from django.utils.translation import gettext as _
 
 
 def _work(request, project_id=None, batch_id=None):
@@ -34,8 +36,8 @@ def _state(doc: ProjectOfyorta) -> dict:
     (прогресс ``.update()`` билан ёзилади, ``updated`` ўзгармайди)."""
     p = doc.progress or {}
     done, total = p.get("done", 0), p.get("total", 0)
-    return {"status": doc.status, "label": doc.get_status_display(), "error": doc.error,
-            "step": p.get("step", ""), "done": done, "total": total, "job": p.get("job", ""),
+    return {"status": doc.status, "label": doc.get_status_display(), "error": ui(doc.error),
+            "step": ui(p.get("step", "")), "done": done, "total": total, "job": p.get("job", ""),
             "pct": round(100 * done / total) if total else 0,
             "since": doc.updated.isoformat() if doc.updated else ""}
 
@@ -46,7 +48,7 @@ def ofyorta_page(request, project_id=None, batch_id=None):
     doc = ofyorta.for_project(project, save=own)
     jobs = {str(j.pk): j for j in ofyorta.priced_jobs(project)}
     included = [p for p in doc.parts if p["include"]]
-    crumbs = (crumbs_for(project=project) if kind == "project" else crumbs_for(batch=project)) + [{"label": "Офёрта", "url": "", "icon": "sheet", "color": "text-amber-500"}]
+    crumbs = (crumbs_for(project=project) if kind == "project" else crumbs_for(batch=project)) + [{"label": _("Офёрта"), "url": "", "icon": "sheet", "color": "text-amber-500"}]
     return render(request, "jobs/ofyorta.html", {
         "crumbs": crumbs, "project": project, "doc": doc, "urls": _urls(kind, project), "back": back,
         "is_folder": kind == "project", "nodes": ofyorta.tree(doc.parts, jobs), "own": own,
@@ -61,9 +63,9 @@ def _parse(raw: str, allowed: set) -> list:
     try:
         data = json.loads(raw or "[]")
     except ValueError:
-        raise ValueError("Тартиб нотўғри юборилди — саҳифани янгиланг")
+        raise ValueError(_("Тартиб нотўғри юборилди — саҳифани янгиланг"))
     if not isinstance(data, list):
-        raise ValueError("Тартиб нотўғри юборилди — саҳифани янгиланг")
+        raise ValueError(_("Тартиб нотўғри юборилди — саҳифани янгиланг"))
     out, seen = [], set()
     for p in data[:2000]:
         if not isinstance(p, dict):
@@ -82,7 +84,7 @@ def ofyorta_save(request, project_id=None, batch_id=None):
     doc = ofyorta.for_project(project)
     url = _urls(kind, project)["page"]
     if doc.status == ProjectOfyorta.Status.BUILDING:
-        messages.info(request, "Офёрта ҳозир тузиляпти — тугагач, тартибни ўзгартиришингиз мумкин.")
+        messages.info(request, _("Офёрта ҳозир тузиляпти — тугагач, тартибни ўзгартиришингиз мумкин."))
         return redirect(url)
     try:
         parts = _parse(request.POST.get("parts"), {p["job"] for p in doc.parts})
@@ -95,19 +97,19 @@ def ofyorta_save(request, project_id=None, batch_id=None):
     if build:
         if not any(p["include"] for p in doc.parts):
             doc.save(update_fields=["parts", "name", "updated"])
-            messages.error(request, "Камида битта сметани белгиланг.")
+            messages.error(request, _("Камида битта сметани белгиланг."))
             return redirect(url)
         doc.status, doc.error = ProjectOfyorta.Status.BUILDING, ""
-        doc.progress = {"step": "Навбатда", "done": 0, "total": sum(p["include"] for p in doc.parts)}
+        doc.progress = {"step": "Навбатда", "done": 0, "total": sum(p["include"] for p in doc.parts)}  # i18n: ok
         doc.worker, doc.heartbeat = "", None
     doc.save()
     if build:
         from texnazor import tasks
-        audit(request, Event.Kind.TEXNAZOR, detail=f"{'Папка' if kind == 'project' else 'Объект'} офёртаси тузилмоқда: {project.name} "
-                                                    f"({doc.progress['total']} та смета)")
+        audit(request, Event.Kind.TEXNAZOR, detail=f"{'Папка' if kind == 'project' else 'Объект'} офёртаси тузилмоқда: {project.name} "  # i18n: ok
+                                                    f"({doc.progress['total']} та смета)")  # i18n: ok
         tasks.start(doc.pk)
     else:
-        messages.success(request, "Тартиб сақланди.")
+        messages.success(request, _("Тартиб сақланди."))
     return redirect(url)
 
 
@@ -115,7 +117,7 @@ def ofyorta_state(request, project_id=None, batch_id=None):
     project, kind, _b, _k = _work(request, project_id, batch_id)
     doc = ProjectOfyorta.objects.filter(**{kind: project}).first()
     if doc is None:
-        raise Http404("Офёрта йўқ")
+        raise Http404(_("Офёрта йўқ"))
     return JsonResponse(_state(doc))
 
 
@@ -123,10 +125,10 @@ def ofyorta_file(request, project_id=None, batch_id=None):
     project, kind, _b, audit_kind = _work(request, project_id, batch_id)
     doc = ProjectOfyorta.objects.filter(**{kind: project}).first()
     if doc is None or doc.status != ProjectOfyorta.Status.READY or not doc.file:
-        raise Http404("Офёрта ҳали тузилмаган")
+        raise Http404(_("Офёрта ҳали тузилмаган"))
     path = project.abs(doc.file)
     if not path.is_file():
-        raise Http404("Офёрта файли топилмади — қайта тузинг")
-    name = f"Офёрта — {doc.name}.xlsx".replace("/", "-").replace("\\", "-")
+        raise Http404(_("Офёрта файли топилмади — қайта тузинг"))
+    name = f"Офёрта — {doc.name}.xlsx".replace("/", "-").replace("\\", "-")  # i18n: ok
     _audit_download(request, project, audit_kind, name)
     return FileResponse(open(path, "rb"), as_attachment=True, filename=name)

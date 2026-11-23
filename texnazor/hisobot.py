@@ -6,6 +6,7 @@ Blokda ofyortaning E..L ustunlari takrorlanadi: formulalar ustuni surilib ko'chi
 svodkada ``=H1257*F1258`` -> ``=Q1257*O1258``), faqat hajm kataklari dalolatnomadagi bilan almashadi. Excel ochilganda
 hammasini o'zi hisoblaydi — sayt hisobi bilan bir xil (``sheet.Book`` ham shu formulalarni ishlatadi).
 """
+from web.i18n import excel
 import html
 import io
 import re
@@ -24,6 +25,7 @@ from . import services_acts as sa
 from .formula import Err, move_refs
 from .sheet import hidden_set, strip_const
 from .models import Act, SiteObject
+from django.utils.translation import gettext as _
 
 # hisobot qoidalari o'zgarsa oshiriladi — diskda saqlangan eski Excel fayllar qayta yasaladi
 VERSION = 3
@@ -68,7 +70,7 @@ def _only_sheet(path, name: str):
 def _source(obj: SiteObject, b=None):
     wb = load_workbook(_only_sheet(sa._xlsx(obj), obj.sheet), keep_links=False)
     if obj.sheet not in wb.sheetnames:
-        raise sa.TexnazorError(f"Файлда «{obj.sheet}» листи топилмади")
+        raise sa.TexnazorError(_("Файлда «{0}» листи топилмади").format(obj.sheet))
     src = wb[obj.sheet]
     for ws in list(wb.worksheets):
         if ws is not src:
@@ -206,7 +208,7 @@ def _act_values(b, qty: Dict[int, float]) -> Dict[Tuple[int, int], float]:
 def _blocks(obj: SiteObject, b) -> List[Tuple[str, Dict[int, float], Optional[Act]]]:
     per = sa.all_qty(obj)
     out = [(a.label + (f" ({a.date:%d.%m.%Y})" if a.date else ""), per.get(a.pk, {}), a) for a in obj.acts.all()]
-    out.append(("Остатка", sa.rest_qty(b, per), None))
+    out.append(("Остатка", sa.rest_qty(b, per), None))  # i18n: ok
     return out
 
 
@@ -286,6 +288,7 @@ def _clear_right(ws, col: int):
             del ws.column_dimensions[key]
 
 
+@excel
 def build_report(obj: SiteObject, collapsed=()) -> bytes:
     """Narxlangan ofyorta: bitta list — ofyorta, yonida (oraliqsiz) har dalolatnoma va «Остатка» bloklari.
     collapsed — saytda yig'ilgan bloklar («a1», «a3», «rest»): Excel'da ham yig'ilgan. (Ф-2 alohida — ``build_f2``.)"""
@@ -301,7 +304,7 @@ def build_report(obj: SiteObject, collapsed=()) -> bytes:
         if w.get("fix") == "relink_on":
             for cell, _old, new in w.get("items") or ():
                 ws[cell].value = new
-    ws.title = _title(wb, "Офёрта")
+    ws.title = _title(wb, "Офёрта")  # i18n: ok
     starts = [lay.block_end + 1 + k * width for k in range(len(blocks))]
     last = ws.max_row
     for k, (start, (title, qty, act)) in enumerate(zip(starts, blocks)):
@@ -444,6 +447,7 @@ def _filter(ws, src, b, qty: Dict[int, float]):
                            end_column=m.max_col)
 
 
+@excel
 def build_f2(obj: SiteObject, act: Act) -> bytes:
     b = sa.book(obj)
     wb, src = _source(obj, b)
@@ -454,6 +458,6 @@ def build_f2(obj: SiteObject, act: Act) -> bytes:
     _hide_types(ws, b.lay)
     wb.remove(src)
     _first_sheet(wb)
-    ws.title = _title(wb, f"Ф-2 {act.title}")
+    ws.title = _title(wb, f"Ф-2 {act.title}")  # i18n: ok
     ev, old = b.evaluate(qty), {i: r for i, r in enumerate(_keep_rows(b, qty), start=1)}
     return _save(wb, lambda c, r: ev(c, old[r]))

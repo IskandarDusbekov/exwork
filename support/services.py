@@ -7,6 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import Conversation, Message
+from django.utils.translation import gettext as _
 
 log = logging.getLogger(__name__)
 
@@ -35,18 +36,18 @@ def check_file(f) -> bool:
     """Тури ва ҳажми; ичи номига мос келиши. Қайтаради: расмми."""
     ext = Path(f.name or "").suffix.lower()
     if ext not in ALLOWED_EXT:
-        raise SupportError("Бу турдаги файл қабул қилинмайди. Расм (PNG, JPG), PDF, Excel, Word, TXT ёки ZIP юборинг.")
+        raise SupportError(_("Бу турдаги файл қабул қилинмайди. Расм (PNG, JPG), PDF, Excel, Word, TXT ёки ZIP юборинг."))
     if f.size > MAX_FILE:
-        raise SupportError(f"Файл жуда катта ({f.size // 2**20} МБ). Энг кўпи — {MAX_FILE // 2**20} МБ.")
+        raise SupportError(_("Файл жуда катта ({0} МБ). Энг кўпи — {1} МБ.").format(f.size // 2**20, MAX_FILE // 2**20))
     if not f.size:
-        raise SupportError("Файл бўш.")
+        raise SupportError(_("Файл бўш."))
     head = f.read(12)
     f.seek(0)
     sigs = _MAGIC.get(ext)
     if sigs and not any(head.startswith(s) for s in sigs):
-        raise SupportError("Файлнинг ичи номига мос келмайди (масалан, .png деб номланган, лекин расм эмас).")
+        raise SupportError(_("Файлнинг ичи номига мос келмайди (масалан, .png деб номланган, лекин расм эмас)."))
     if ext == ".webp" and head[8:12] != b"WEBP":
-        raise SupportError("Файлнинг ичи номига мос келмайди.")
+        raise SupportError(_("Файлнинг ичи номига мос келмайди."))
     return ext in IMAGE_EXT
 
 
@@ -68,7 +69,7 @@ def rate_wait(user) -> int:
 def clean_text(text: str) -> str:
     text = (text or "").replace("\r\n", "\n").replace("\x00", "").strip()
     if len(text) > MAX_TEXT:
-        raise SupportError(f"Хабар жуда узун ({len(text)} белги). Энг кўпи — {MAX_TEXT} белги.")
+        raise SupportError(_("Хабар жуда узун ({0} белги). Энг кўпи — {1} белги.").format(len(text), MAX_TEXT))
     return text
 
 
@@ -84,7 +85,7 @@ def post(conv: Conversation, author, text: str, upload=None, *, from_staff: bool
     text = clean_text(text)
     is_image = check_file(upload) if upload else False
     if not text and not upload:
-        raise SupportError("Хабар ёзинг ёки файл бириктиринг.")
+        raise SupportError(_("Хабар ёзинг ёки файл бириктиринг."))
     m = Message(conversation=conv, author=author, from_staff=from_staff, text=text, is_image=is_image)
     if upload:
         m.attachment_name = Path(upload.name).name[:150]
@@ -149,6 +150,6 @@ def notify_reply(request, conv: Conversation) -> bool:
         send_reply(request.build_absolute_uri("/"), user, request.build_absolute_uri(reverse("support:page")))
         return True
     except Exception:  # noqa: BLE001
-        log.exception("ёрдам хизмати: жавоб ҳақида хат юборилмади (%s)", user.email)
+        log.exception("ёрдам хизмати: жавоб ҳақида хат юборилмади (%s)", user.email)  # i18n: ok
         cache.delete(key)
         return False

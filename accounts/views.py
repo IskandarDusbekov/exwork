@@ -24,8 +24,9 @@ from . import throttle, totp
 from .emails import send_reset, send_verify
 from .forms import LoginForm, RegisterForm, ResetRequestForm, SetPasswordForm
 from .models import AuthAttempt, TwoFactor, User, normalize_email
+from django.utils.translation import gettext as _, gettext_lazy as _l
 
-BLOCKED = "Жуда кўп уриниш. 15 дақиқадан кейин қайта уриниб кўринг."
+BLOCKED = _l("Жуда кўп уриниш. 15 дақиқадан кейин қайта уриниб кўринг.")
 logger = logging.getLogger(__name__)
 
 
@@ -54,16 +55,16 @@ def login_view(request):
     error = None
     if request.method == "POST":
         if not form.is_valid():
-            error = "Email ва паролни киритинг."
+            error = _("Email ва паролни киритинг.")
         elif throttle.login_blocked(request, form.cleaned_data["email"]):
             error = BLOCKED
-            audit(request, Event.Kind.LOGIN_FAILED, email=form.cleaned_data["email"], detail="блокланган")
+            audit(request, Event.Kind.LOGIN_FAILED, email=form.cleaned_data["email"], detail="блокланган")  # i18n: ok
         else:
             email = form.cleaned_data["email"]
             user = authenticate(request, username=email, password=form.cleaned_data["password"])
             if user is None:
                 throttle.record(request, AuthAttempt.Kind.LOGIN, email)
-                error = "Email ёки пароль нотўғри."  # қайси бири нотўғрилигини айтмаймиз
+                error = _("Email ёки пароль нотўғри.")  # қайси бири нотўғрилигини айтмаймиз
             else:
                 if TwoFactor.objects.filter(user=user).exists():  # иккинчи босқич: телефондаги код
                     _pending(request, user, _next_url(request))
@@ -98,7 +99,7 @@ def login_code_view(request):
     p = request.session.get(PENDING)
     if not p or time.time() - p["at"] > CODE_TTL:
         request.session.pop(PENDING, None)
-        messages.error(request, "Вақт тугади — қайтадан киринг.")
+        messages.error(request, _("Вақт тугади — қайтадан киринг."))
         return redirect("login")
     user = User.objects.filter(pk=p["user"], is_active=True).first()
     tf = TwoFactor.objects.filter(user=user).first() if user else None
@@ -112,12 +113,12 @@ def login_code_view(request):
             p["tries"] += 1
             request.session[PENDING] = p
             throttle.record(request, AuthAttempt.Kind.LOGIN, user.email)  # email бўйича блок шу ҳисобга ҳам киради
-            audit(request, Event.Kind.TWOFA_FAILED, actor=False, target=user, email=user.email, detail=f"{p['tries']}-уриниш")
+            audit(request, Event.Kind.TWOFA_FAILED, actor=False, target=user, email=user.email, detail=f"{p['tries']}-уриниш")  # i18n: ok
             if p["tries"] >= CODE_TRIES:
                 request.session.pop(PENDING, None)
-                messages.error(request, "Код кўп марта нотўғри киритилди — қайтадан киринг.")
+                messages.error(request, _("Код кўп марта нотўғри киритилди — қайтадан киринг."))
                 return redirect("login")
-            error = "Код нотўғри ёки эскирган — иловадаги янги кодни киритинг."
+            error = _("Код нотўғри ёки эскирган — иловадаги янги кодни киритинг.")
         elif TwoFactor.objects.filter(pk=tf.pk, last_step__lt=step).update(last_step=step):
             request.session.pop(PENDING, None)
             throttle.clear_login_failures(user.email)
@@ -128,7 +129,7 @@ def login_code_view(request):
             request.session[VERIFIED] = user.pk
             return redirect(p["next"] or HOME)
         else:
-            error = "Бу код ишлатилган — иловадаги кейинги кодни кутинг."
+            error = _("Бу код ишлатилган — иловадаги кейинги кодни кутинг.")
     return render(request, "accounts/login_code.html", {"error": error, "email": user.email})
 
 
@@ -149,14 +150,14 @@ def twofa_setup_view(request):
     if request.method == "POST":
         step = totp.verify(secret, request.POST.get("code"))
         if step is None:
-            error = "Код нотўғри. Телефондаги соат тўғрилигини ва калит тўлиқ киритилганини текширинг."
+            error = _("Код нотўғри. Телефондаги соат тўғрилигини ва калит тўлиқ киритилганини текширинг.")
         else:
             TwoFactor.objects.create(user=request.user, secret=secret, last_step=step)
             request.session.pop(SETUP, None)
             request.session.cycle_key()
             request.session[VERIFIED] = request.user.pk
             audit(request, Event.Kind.TWOFA_ON, detail=request.user.email)
-            messages.success(request, "Икки босқичли кириш ёқилди: энди ҳар киришда иловадаги код сўралади.")
+            messages.success(request, _("Икки босқичли кириш ёқилди: энди ҳар киришда иловадаги код сўралади."))
             return redirect(nxt or "twofa_setup")
     return render(request, "accounts/twofa_setup.html", {"secret": totp.pretty(secret), "uri": totp.uri(secret, request.user.email),
                                                          "error": error, "next": nxt,
@@ -268,7 +269,7 @@ def reset_code_view(request):
         request.session[RESET_CODE] = entry
         left = RESET_CODE_TRIES - entry["tries"]
         expired = left <= 0
-        error = f"Код нотўғри. Яна {left} марта уриниш мумкин." if left > 0 else None
+        error = _("Код нотўғри. Яна {0} марта уриниш мумкин.").format(left) if left > 0 else None
     return render(request, "accounts/reset_request.html", {
         "sent": True, "email": entry["email"], "error": error, "expired": expired,
         "minutes": settings.PASSWORD_RESET_CODE_MINUTES})
@@ -302,7 +303,7 @@ def reset_confirm_view(request, uidb64, token):
         request.session.pop(RESET_SESSION_TOKEN, None)
         throttle.clear_login_failures(user.email)
         audit(request, Event.Kind.PASSWORD_RESET, actor=user, detail=user.email)
-        messages.success(request, "Пароль ўзгартирилди — янги парол билан киринг.")
+        messages.success(request, _("Пароль ўзгартирилди — янги парол билан киринг."))
         return redirect("login")
     return render(request, "accounts/reset_confirm.html", {"form": form, "email": user.email})
 
@@ -314,7 +315,7 @@ def reset_confirm_view(request, uidb64, token):
 VERIFY_CODE = "_verify_code"  # {"hash", "exp", "tries", "email"}
 VERIFY_TRIES = 5
 VERIFY_SALT = "accounts.verify-email"
-MAIL_FAILED = "Тасдиқлаш хати юборилмади — почта сервери ишламаяпти. Бироздан кейин «Кодни қайта юбориш»ни босинг."
+MAIL_FAILED = _l("Тасдиқлаш хати юборилмади — почта сервери ишламаяпти. Бироздан кейин «Кодни қайта юбориш»ни босинг.")
 
 
 def _verify_hash(code):
@@ -334,7 +335,7 @@ def send_verify_code(request, user) -> bool:
     try:
         send_verify(request.build_absolute_uri("/"), user, code, link)
     except Exception:  # noqa: BLE001 — почта ишламаса ҳам рўйхат тўхтамасин
-        logger.exception("email тасдиқлаш хати кетмади: %s", user.email)
+        logger.exception("email тасдиқлаш хати кетмади: %s", user.email)  # i18n: ok
         return False
     return True
 
@@ -348,7 +349,7 @@ def _mark_verified(request, user, how):
 
 
 def _wait_text(sec):
-    return f"{sec} сония" if sec < 60 else f"{(sec + 59) // 60} дақиқа"
+    return _("{0} сония").format(sec) if sec < 60 else _("{0} дақиқа").format((sec + 59) // 60)
 
 
 @never_cache
@@ -365,26 +366,26 @@ def verify_email_view(request):
     if request.method == "POST" and request.POST.get("action") == "send":
         wait = throttle.verify_wait(user.email)
         if wait:
-            messages.error(request, f"Янги хатни {_wait_text(wait)}дан кейин юбориш мумкин.")
+            messages.error(request, _("Янги хатни {0}дан кейин юбориш мумкин.").format(_wait_text(wait)))
         elif send_verify_code(request, user):
-            messages.success(request, f"Янги код {user.email} га юборилди.")
+            messages.success(request, _("Янги код {0} га юборилди.").format(user.email))
         else:
             messages.error(request, MAIL_FAILED)
         return redirect("verify_email")
     if request.method == "POST":
         code = "".join(ch for ch in request.POST.get("code", "") if ch.isdigit())
         if expired:
-            error = "Код эскирди ёки кўп марта хато киритилди — янги код сўранг."
+            error = _("Код эскирди ёки кўп марта хато киритилди — янги код сўранг.")
         elif len(code) == 6 and hmac_equal(_verify_hash(code), entry["hash"]):
-            _mark_verified(request, user, "код")
+            _mark_verified(request, user, "код")  # i18n: ok
             return redirect("verify_email")  # «Email тасдиқланган» саҳифаси
         else:
             entry["tries"] += 1
             request.session[VERIFY_CODE] = entry
             left = VERIFY_TRIES - entry["tries"]
             expired = left <= 0
-            error = (f"Код нотўғри. Яна {left} марта уриниш мумкин." if left > 0
-                     else "Код кўп марта хато киритилди — янги код сўранг.")
+            error = (_("Код нотўғри. Яна {0} марта уриниш мумкин.").format(left) if left > 0
+                     else _("Код кўп марта хато киритилди — янги код сўранг."))
     return render(request, "accounts/verify_email.html", {
         "email": user.email, "error": error, "expired": expired, "has_code": entry is not None,
         "minutes": settings.PASSWORD_RESET_CODE_MINUTES, "wait": throttle.verify_wait(user.email)})
@@ -401,7 +402,7 @@ def verify_link_view(request, token):
     user = User.objects.filter(pk=data.get("u"), is_active=True).first() if isinstance(data, dict) else None
     if user is None or user.email != data.get("e"):
         return render(request, "accounts/verify_email.html", {"invalid": True}, status=400)
-    _mark_verified(request, user, "ҳавола")
+    _mark_verified(request, user, "ҳавола")  # i18n: ok
     if request.user.is_authenticated and request.user.pk == user.pk:
         return redirect("verify_email")
     return render(request, "accounts/verify_email.html", {"done": True, "email": user.email, "guest": True})

@@ -34,6 +34,8 @@ from .services import (
     ALLOWED_EXT, FileClock, UploadError, _save, analyze_batch, apply_decisions, batch_outputs, confirm_batch,
     pair_ready, save_timings, sheet_names, unpriced_res,
 )
+from web.i18n import ui
+from django.utils.translation import gettext as _, gettext_noop as _noop
 
 log = logging.getLogger(__name__)
 
@@ -47,11 +49,11 @@ def skip_reason(rel: str) -> str:
     """Nega fayl olinmaydi ("" — olinadi)."""
     name = PurePosixPath(rel).name
     if name.startswith("~$"):
-        return "вақтинча файл (Excel очиқ)"
+        return _noop("вақтинча файл (Excel очиқ)")
     if PurePosixPath(name).suffix.lower() not in ALLOWED_EXT:
-        return "Excel файл эмас"
+        return _noop("Excel файл эмас")
     if "_narxlandi" in PurePosixPath(name).stem.lower():
-        return "олдинги натижа"
+        return _noop("олдинги натижа")
     return ""
 
 
@@ -67,7 +69,7 @@ def clean_path(raw: str) -> PurePosixPath:
     parts = [safe_part(p) for p in parts if p and p not in (".", "..") and not p.endswith(":")]
     parts = [p for p in parts if p]
     if not parts:
-        raise UploadError(f"Нотўғри файл йўли: {raw!r}")
+        raise UploadError(_("Нотўғри файл йўли: {0!r}").format(raw))
     return PurePosixPath(*parts)
 
 
@@ -76,9 +78,9 @@ def create_project(owner, files, paths, skipped=()) -> Project:
     ``skipped`` — brauzer yubormagan fayllar yo'li (daraxtda ko'rsatish uchun). ZIP/RAR/7z arxivlar
     ochiladi (ichma-ich): ichidagi Excel'lar arxiv turgan joyda, arxiv nomli papkada bo'ladi."""
     if not files:
-        raise UploadError("Папкада Excel файл топилмади")
+        raise UploadError(_("Папкада Excel файл топилмади"))
     if len(files) != len(paths):
-        raise UploadError("Файллар ва йўллар сони мос эмас")
+        raise UploadError(_("Файллар ва йўллар сони мос эмас"))
     project = Project(owner=owner)
     items = []  # (yo'l, manba: yuklangan fayl yoki arxivdan chiqqan fayl, hajmi)
     archives = []
@@ -89,7 +91,7 @@ def create_project(owner, files, paths, skipped=()) -> Project:
                 items.append((rel, f, f.size))
                 continue
             if f.size > conf.get("max_archive_mb"):
-                raise UploadError(f"{rel.name}: архив жуда катта ({f.size // (1024 * 1024)} МБ)")
+                raise UploadError(_("{0}: архив жуда катта ({1} МБ)").format(rel.name, f.size // (1024 * 1024)))
             saved = project.abs(f"unpack/{len(archives)}{rel.suffix.lower()}")
             _save(f, saved)
             archives.append(rel)
@@ -100,16 +102,16 @@ def create_project(owner, files, paths, skipped=()) -> Project:
             items += [(r, p, p.stat().st_size) for r, p in found]
         limit = conf.get("max_project_files")
         if len(items) > limit:
-            raise UploadError(f"Бир марта кўпи билан {limit} та файл")
+            raise UploadError(_("Бир марта кўпи билан {0} та файл").format(limit))
         rels = [r for r, _src, _size in items]
         others = [clean_path(p) for p in skipped]
         if not any(is_shown(str(r)) for r in rels):
-            raise UploadError("Папкада ва архивларда Excel файл топилмади (фақат .xls, .xlsx, .xlsm)")
+            raise UploadError(_("Папкада ва архивларда Excel файл топилмади (фақат .xls, .xlsx, .xlsm)"))
         # ildiz papka nomi — loyiha nomi; yo'llar undan boshlab saqlanadi
         roots = {r.parts[0] for r in rels + others if len(r.parts) > 1}
         root = roots.pop() if len(roots) == 1 and all(len(r.parts) > 1 for r in rels) else ""
         strip = (lambda r: PurePosixPath(*r.parts[1:])) if root else (lambda r: r)
-        project.name = root or (archives[0].stem if len(archives) == 1 else "Папка")
+        project.name = root or (archives[0].stem if len(archives) == 1 else "Папка")  # i18n: ok
 
         entries, seen = [], set()
         for rel, src, size in items:
@@ -119,7 +121,7 @@ def create_project(owner, files, paths, skipped=()) -> Project:
             seen.add(str(rel).lower())
             reason = skip_reason(str(rel))
             if not reason and size > conf.get("max_upload_mb"):
-                reason = f"жуда катта ({size // (1024 * 1024)} МБ)"
+                reason = _noop("жуда катта ({0} МБ)").format(size // (1024 * 1024))
             if not reason:
                 dest = project.abs(f"src/{rel}")
                 try:
@@ -129,13 +131,13 @@ def create_project(owner, files, paths, skipped=()) -> Project:
                     else:
                         _save(src, dest)
                 except OSError as e:  # bitta fayl (nomi, yo'l uzunligi) butun yuklashni to'xtatmasin
-                    reason = f"сақлаб бўлмади: {e.strerror or e}"
+                    reason = _noop("сақлаб бўлмади: {0}").format(e.strerror or e)
             if is_shown(str(rel)):
                 entries.append({"path": str(rel), "size": size, "skip": reason})
         for rel in others:
             rel = strip(rel)
             if is_shown(str(rel)):
-                entries.append({"path": str(rel), "size": None, "skip": skip_reason(str(rel)) or "юкланмади"})
+                entries.append({"path": str(rel), "size": None, "skip": skip_reason(str(rel)) or _noop("юкланмади")})
         entries.sort(key=lambda e: e["path"].lower())
         project.files = entries
         shutil.rmtree(project.abs("unpack"), ignore_errors=True)
@@ -147,7 +149,7 @@ def create_project(owner, files, paths, skipped=()) -> Project:
                 parent = str(PurePosixPath(e["path"]).parent)
                 folders.setdefault("" if parent == "." else parent, []).append(e["path"])
         if not folders:
-            raise UploadError("Папкада нархланадиган Excel файл топилмади (фақат .xls, .xlsx, .xlsm)")
+            raise UploadError(_("Папкада нархланадиган Excel файл топилмади (фақат .xls, .xlsx, .xlsm)"))
         from .services import nf_auto_of
         auto = nf_auto_of(project.owner_id)  # усул юклашда қотади
         for folder, srcs in sorted(folders.items()):
@@ -333,7 +335,7 @@ def _run(project_id, worker: str = ""):
             # ishlangan qism navbatda qolib ketmasin (aks holda keyingi aylanishda yana olinadi — cheksiz)
             stuck = [pid for pid, stage in done if project.parts.filter(id=pid, stage=stage).exists()]
             project.parts.filter(id__in=stuck, stage__in=WORKING).update(
-                stage=Batch.Stage.FAILED, message="ишлов берилмади — қайта юклаб кўринг")
+                stage=Batch.Stage.FAILED, message=_noop("ишлов берилмади — қайта юклаб кўринг"))
         if project.stop_requested:
             _finish_stop(project)
         else:
@@ -389,13 +391,13 @@ def start_pricing(project: Project, exclude=()) -> int:
     return n
 
 
-PAUSED = "нархлаш тўхтатилди — «Давом эттириш» билан давом этади"
+PAUSED = _noop("нархлаш тўхтатилди — «Давом эттириш» билан давом этади")
 
 
 def _finish_stop(project: Project):
     """To'xtatilgandan keyin: ochilmagan qismlar «Тўхтатилди», narxlash navbatidagilari yana «тайёр»."""
     project.parts.filter(stage__in=(Batch.Stage.QUEUED, Batch.Stage.CONVERTING)).update(
-        stage=Batch.Stage.STOPPED, message="тўхтатилди — «Давом эттириш» билан қайта бошланади")
+        stage=Batch.Stage.STOPPED, message=_noop("тўхтатилди — «Давом эттириш» билан қайта бошланади"))
     project.parts.filter(stage=Batch.Stage.PRICING).update(stage=Batch.Stage.READY, message=PAUSED)
     project.stop_requested = False
     project.save(update_fields=["stop_requested"])
@@ -453,10 +455,10 @@ def delete_project(project: Project, force: bool = False):
     ``force`` — ishlayotgan bo'lsa, avval to'xtatiladi."""
     if is_working(project):
         if not force:
-            raise UploadError("Ҳозир ишланяпти — аввал тўхтатинг")
+            raise UploadError(_("Ҳозир ишланяпти — аввал тўхтатинг"))
         stop_project(project)
         if not wait_stopped(project):
-            raise UploadError("Тўхтатиляпти — бир неча сониядан кейин қайта ўчиринг")
+            raise UploadError(_("Тўхтатиляпти — бир неча сониядан кейин қайта ўчиринг"))
     dirs = [project.dir]
     for part in project.parts.all():
         dirs.append(part.dir)
@@ -490,7 +492,7 @@ def _step(part: Batch, text: str):
     Project.objects.filter(id=part.project_id).update(heartbeat=now)
 
 
-_LIVE_RE = re.compile(r"^(\d+)/(\d+) (файл очиляпти|файл таҳлил қилиняпти|смета нархланяпти): (.*)$", re.S)
+_LIVE_RE = re.compile(r"^(\d+)/(\d+) (файл очиляпти|файл таҳлил қилиняпти|смета нархланяпти): (.*)$", re.S)  # i18n: ok
 # нархлаш босқичлари бир смета ичида қанча вазн олади (ўқиш тез, нархлаш ва ёзиш — асосий вақт)
 _PHASE_SPAN = {"read": (0.0, 0.08), "price": (0.08, 0.72), "write": (0.8, 0.15), "save": (0.95, 0.03), "auto": (0.98, 0.02)}
 
@@ -505,28 +507,28 @@ def live_step(part: Batch) -> dict:
            "phase": "", "since": part.step_since}
     m = _LIVE_RE.match(part.step or "")
     if not m:
-        if (part.step or "").startswith("листлар таҳлил"):
-            out.update(frac=0.6, what="Листлар таҳлил қилиняпти")
+        if (part.step or "").startswith("листлар таҳлил"):  # i18n: ok
+            out.update(frac=0.6, what=_("Листлар таҳлил қилиняпти"))
         elif part.step:
             out["what"] = part.step
         return out
     at, of, kind, rest = int(m.group(1)), max(int(m.group(2)), 1), m.group(3), m.group(4)
     out.update(at=at, of=of)
-    if kind == "файл очиляпти":  # очиш — қисм вақтининг ~60%, таҳлил — қолгани
-        name, _, wait = rest.partition(" — Сервер банд")
-        out.update(frac=0.6 * (at - 1) / of, what="Файллар очиляпти", unit="файл", name=name,
-                   wait=("Сервер банд" + wait) if wait else "")  # LibreOffice навбати (``lo_queue``)
-    elif kind == "файл таҳлил қилиняпти":
-        out.update(frac=0.6 + 0.4 * (at - 1) / of, what="Листлар таҳлил қилиняпти", unit="файл", name=rest)
+    if kind == "файл очиляпти":  # очиш — қисм вақтининг ~60%, таҳлил — қолгани · i18n: ok
+        name, _x, wait = rest.partition(" — Сервер банд")  # i18n: ok
+        out.update(frac=0.6 * (at - 1) / of, what=_("Файллар очиляпти"), unit=_("файл"), name=name,
+                   wait=ui("Сервер банд" + wait) if wait else "")  # LibreOffice навбати (``lo_queue``) · i18n: ok
+    elif kind == "файл таҳлил қилиняпти":  # i18n: ok
+        out.update(frac=0.6 + 0.4 * (at - 1) / of, what=_("Листлар таҳлил қилиняпти"), unit=_("файл"), name=rest)
     else:
         tail = parse_step_tail(rest)
         lo, span = _PHASE_SPAN.get(tail["phase"], (0.0, 0.0))
         inner = lo + (span * tail["done"] / tail["total"] if tail["total"] and tail["done"] else 0)
-        out.update(frac=((at - 1) + inner) / of, what="Сметалар нархланяпти", unit="смета",
+        out.update(frac=((at - 1) + inner) / of, what=_("Сметалар нархланяпти"), unit=_("смета"),
                    name=tail["text"].strip(), phase=tail["phase"], rows_done=tail["done"], rows=tail["total"])
         if tail["phase"]:
             from .services import PHASE_TEXT
-            out["phase_text"] = PHASE_TEXT[tail["phase"]]
+            out["phase_text"] = _(PHASE_TEXT[tail["phase"]])
     out["frac"] = max(0.0, min(out["frac"], 0.99))
     return out
 
@@ -537,21 +539,21 @@ def ready_stage(part: Batch):
     locals_ = [s for s in part.sheets if s["role"] == "local" and not s.get("duplicate_of")]
     zero = unpriced_res(part)
     if ready and all(p["res"] in zero for p in ready):
-        return Batch.Stage.REVIEW, ("RES листларида нарх йўқ («ЦЕНА» устуни ҳамма жойда 0) — нархланган RES "
-                                    "файлни қўшинг ёки бошқа RES танланг")
+        return Batch.Stage.REVIEW, (_noop("RES листларида нарх йўқ («ЦЕНА» устуни ҳамма жойда 0) — нархланган RES "
+                                    "файлни қўшинг ёки бошқа RES танланг"))
     if ready:
         # смета­чи атайлаб олиб ташлаган локал (белгини олган) — «топилмади» эмас
         missing = sum(1 for p in part.pairs if not pair_ready(p) and not (p.get("picked") and not p.get("include")))
         notes = []
         if missing:
-            notes.append(f"{missing} та локал учун ресурс топилмади — қўлда танланг")
+            notes.append(_noop("{0} та локал учун ресурс топилмади — қўлда танланг").format(missing))
         if any(p["res"] in zero for p in ready):
-            notes.append(f"{sum(1 for p in ready if p['res'] in zero)} та локалнинг RES'ида нарх йўқ")
+            notes.append(_noop("{0} та локалнинг RES'ида нарх йўқ").format(sum(1 for p in ready if p['res'] in zero)))
         return Batch.Stage.READY, "; ".join(notes)
     if locals_:
-        return Batch.Stage.REVIEW, "локал бор, лекин унга мос ресурс топилмади — қўлда танланг"
+        return Batch.Stage.REVIEW, _noop("локал бор, лекин унга мос ресурс топилмади — қўлда танланг")
     kinds = sorted({KIND_LABELS[s["kind"]] for s in part.sheets if s.get("kind") in KIND_LABELS})
-    return Batch.Stage.EMPTY, f"смета эмас ({', '.join(kinds) or 'умумий ҳисоб ёки бошқа файл'}) — нархланмайди"
+    return Batch.Stage.EMPTY, _noop("смета эмас ({0}) — нархланмайди").format(', '.join(kinds) or _noop('умумий ҳисоб ёки бошқа файл'))
 
 
 def convert_files(part: Batch, clock: Optional[FileClock] = None, only_missing: bool = False) -> int:
@@ -564,10 +566,10 @@ def convert_files(part: Batch, clock: Optional[FileClock] = None, only_missing: 
         _check_stop(part.project_id)
         src = project.abs(f"src/{f['src']}")
         size = f" ({hsize(src.stat().st_size)})" if src.exists() else ""
-        head = f"{i + 1}/{len(part.files)} файл очиляпти: {f['name']}{size}"
+        head = f"{i + 1}/{len(part.files)} файл очиляпти: {f['name']}{size}"  # i18n: ok
         _step(part, head)
 
-        short = f"{i + 1}/{len(part.files)} файл очиляпти: {f['name'][:100]}"  # step — 300 белги, хабар сиғсин
+        short = f"{i + 1}/{len(part.files)} файл очиляпти: {f['name'][:100]}"  # step — 300 белги, хабар сиғсин · i18n: ok
 
         def queued(busy_n, ahead, waited, head=head, short=short):  # LibreOffice банд — фойдаланувчи папка саҳифасида кўради
             text = head if busy_n is None else f"{short} — {lo_queue.wait_text(busy_n, ahead, waited)}"
@@ -592,9 +594,9 @@ def analyze_part(part: Batch):
     try:
         _set(part, Batch.Stage.CONVERTING)
         convert_files(part, clock)
-        _step(part, f"листлар таҳлил қилиняпти ({len(part.files)} та файл)")
+        _step(part, f"листлар таҳлил қилиняпти ({len(part.files)} та файл)")  # i18n: ok
         analyze_batch(part, timings=seconds,
-                      on_file=lambda i, n, name: _step(part, f"{i + 1}/{n} файл таҳлил қилиняпти: {name}"))
+                      on_file=lambda i, n, name: _step(part, f"{i + 1}/{n} файл таҳлил қилиняпти: {name}"))  # i18n: ok
         clock.analyzed(seconds)
         # Papkada bitta resurs bo'lsa — juftsiz qolgan lokallar shu bilan narxlanadi
         # (smetachi har bir smetani o'z papkasiga «…_lokal» + «…_res» qilib qo'yadi)
@@ -603,11 +605,11 @@ def analyze_part(part: Batch):
             for p in part.pairs:
                 if not p.get("res") and not p.get("base"):  # «ресурс базасидан»: RES (ягона бўлса ҳам) олинмайди
                     p["res"], p["include"] = resources[0]["key"], True
-                    p.setdefault("reasons", []).append("папкада ягона ресурс")
+                    p.setdefault("reasons", []).append(_noop("папкада ягона ресурс"))
         part.save()
         _set(part, *ready_stage(part))
     except Stopped:
-        _set(part, Batch.Stage.STOPPED, "тўхтатилди — «Давом эттириш» билан қайта бошланади")
+        _set(part, Batch.Stage.STOPPED, _noop("тўхтатилди — «Давом эттириш» билан қайта бошланади"))
         raise
     except Exception as e:  # bitta papka xatosi butun loyihani to'xtatmasin
         log.exception("qism ochilmadi: %s (loyiha %s)", part.folder, part.project_id)
@@ -629,7 +631,7 @@ def price_part(part: Batch, decisions=None):
         elif not jobs:
             _set(part, *ready_stage(part))
         elif missing:
-            _set(part, Batch.Stage.REVIEW, f"{missing} та локал учун ресурс танланмаган")
+            _set(part, Batch.Stage.REVIEW, _noop("{0} та локал учун ресурс танланмаган").format(missing))
         else:
             _set(part, Batch.Stage.DONE)
     except Exception as e:
@@ -792,5 +794,5 @@ def build_project_zip(project: Project) -> Path:
                 z.write(path, str(PurePosixPath(part.folder) / path.name) if part.folder else path.name)
                 n += 1
     if not n:
-        raise UploadError("Ҳали нархланган қисм йўқ")
+        raise UploadError(_("Ҳали нархланган қисм йўқ"))
     return zpath

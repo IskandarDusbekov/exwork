@@ -20,6 +20,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 from openpyxl import load_workbook
 
 from .formula import Err, Evaluator, compile_formula, deps, refs
+from django.utils.translation import gettext_noop as _noop
 
 NUM = re.compile(r"^\s*(\d+)(?:\s*[.,]\s*(\d+))?\s*\.?\s*$")  # «3. 1» (bo'shliq bilan), «26.7.» (oxirida nuqta) ham
 MAX_COLS = 80  # undan o'ngdagi ustunlar (tasodifiy yozuvlar) olinmaydi
@@ -36,7 +37,7 @@ def _text(v) -> str:
 
 
 def _low(v) -> str:
-    return _text(v).lower().replace("ё", "е")
+    return _text(v).lower().replace("ё", "е")  # i18n: ok
 
 
 def _cell_value(v):
@@ -161,9 +162,9 @@ def signature(rows: List[tuple], lay: Layout) -> str:
 
 def _is_header(row) -> bool:
     texts = [_low(v) for v in row if v is not None]
-    if not any("наименование" in t for t in texts):
+    if not any("наименование" in t for t in texts):  # i18n: ok
         return False
-    return any(("единиц" in t or "шифр" in t or "кол" in t) for t in texts)
+    return any(("единиц" in t or "шифр" in t or "кол" in t) for t in texts)  # i18n: ok
 
 
 def _is_numbering(row) -> bool:
@@ -190,11 +191,11 @@ def find_layout(rows: List[tuple], at: Optional[int] = None) -> Optional[Layout]
             t = _low(v)
             if not t:
                 continue
-            for key, needles in (("num", ("№", "n п", "п/п", "п.п")), ("name", ("наименование",)),
-                                 ("unit", ("единиц", "ед.изм", "ед. изм", "ед изм", "ед.")),
-                                 ("qty", ("количество", "кол-во", "кол.")), ("total", ("по проект",)),
-                                 ("price", ("стоимость", "цена")), ("amount", ("сумма",))):
-                if key == "unit" and t.startswith("на "):  # «на единицу измерения» — me'yor ustuni, birlik emas
+            for key, needles in (("num", ("№", "n п", "п/п", "п.п")), ("name", ("наименование",)),  # i18n: ok
+                                 ("unit", ("единиц", "ед.изм", "ед. изм", "ед изм", "ед.")),  # i18n: ok
+                                 ("qty", ("количество", "кол-во", "кол.")), ("total", ("по проект",)),  # i18n: ok
+                                 ("price", ("стоимость", "цена")), ("amount", ("сумма",))):  # i18n: ok
+                if key == "unit" and t.startswith("на "):  # «на единицу измерения» — me'yor ustuni, birlik emas · i18n: ok
                     continue
                 if key not in found and any(n in t for n in needles):
                     found[key] = j
@@ -209,7 +210,7 @@ def find_layout(rows: List[tuple], at: Optional[int] = None) -> Optional[Layout]
     for i in range(h + 1, min(h + 4, len(rows))):
         r = rows[i]
         texts = [_low(v) for v in r if v is not None and _text(v)]
-        if _is_numbering(r) or any(k in t for t in texts for k in ("на ед", "на. ед", "по проект", "сумма", "измерения")):
+        if _is_numbering(r) or any(k in t for t in texts for k in ("на ед", "на. ед", "по проект", "сумма", "измерения")):  # i18n: ok
             end = i
         elif texts:
             break
@@ -218,13 +219,13 @@ def find_layout(rows: List[tuple], at: Optional[int] = None) -> Optional[Layout]
 
 
 # ===================== listlar (yuklagach tanlash uchun) =====================
-_GOOD = ("офер", "оферт", "ofyorta", "oferta", "офёрт")
-_BAD = ("ф-2", "ф2", "ф-3", "ф3", "остат", "хисобот", "ҳисобот", "свод", "акт", "f-2", "f-3", "buyurtmachi")
+_GOOD = ("офер", "оферт", "ofyorta", "oferta", "офёрт")  # i18n: ok
+_BAD = ("ф-2", "ф2", "ф-3", "ф3", "остат", "хисобот", "ҳисобот", "свод", "акт", "f-2", "f-3", "buyurtmachi")  # i18n: ok
 
 
-_SVOD_NAME = re.compile(r"^(JAMI\b|ИТОГО\b|ВСЕГО\b|ЗАРПЛАТА|ЗАРАБОТНАЯ|QURUVCHI-ISHCHILAR|ISH\s*HAQQI|ИШ\s*ҲАҚИ)", re.I)
+_SVOD_NAME = re.compile(r"^(JAMI\b|ИТОГО\b|ВСЕГО\b|ЗАРПЛАТА|ЗАРАБОТНАЯ|QURUVCHI-ISHCHILAR|ISH\s*HAQQI|ИШ\s*ҲАҚИ)", re.I)  # i18n: ok
 # narxlash svodkasi endi «ЗАТРАТЫ ТРУДА РАБОЧИХ-СТРОИТЕЛЕЙ» deb yozadi; resurs qatoridan (ЧЕЛ.-Ч) farqi — birligi yo'q
-_SVOD_LABOUR = re.compile(r"^ЗАТРАТЫ\s+ТРУДА\s+РАБОЧИХ", re.I)
+_SVOD_LABOUR = re.compile(r"^ЗАТРАТЫ\s+ТРУДА\s+РАБОЧИХ", re.I)  # i18n: ok
 _MANUAL = re.compile(r"\)\s*[-+]\s*\d|[A-Z]\$?\d+\s*[-+]\s*\d+(?:[.,]\d+)?\s*$", re.I)  # «SUM(…)+124,25», «…+H4573-1»
 _NUM = r"\d+(?:[.,]\d+)?(?:[eE][-+]?\d+)?"
 _CONST_PAREN = re.compile(rf"\)\s*[-+]\s*{_NUM}(?=\s*(?:[-+]|$))")  # «SUM(…)+124,25» (keyin * / , kelsa — tegilmaydi)
@@ -241,8 +242,8 @@ def strip_const(f: str) -> str:
     return f
 
 
-_TOTAL = re.compile(r"итог|всего|jami|жами|ҳаммаси|hammasi|qiymati|қиймати")
-_VAT = re.compile(r"ндс|qqs|ққс|ккс")
+_TOTAL = re.compile(r"итог|всего|jami|жами|ҳаммаси|hammasi|qiymati|қиймати")  # i18n: ok
+_VAT = re.compile(r"ндс|qqs|ққс|ккс")  # i18n: ok
 _SUM = re.compile(r"SUM\(\$?[A-Z]{1,3}\$?(\d+):\$?[A-Z]{1,3}\$?(\d+)\)", re.I)
 
 
@@ -261,7 +262,7 @@ def svod_start(rows: List[tuple], lay: Layout, formulas: Optional[List[dict]] = 
         r = rows[i - 1]
         name = _text(r[lay.name]) if lay.name < len(r) else ""
         unit = _text(r[lay.unit]) if lay.unit < len(r) else ""
-        if name and (_SVOD_NAME.match(name) or (_SVOD_LABOUR.match(name) and not unit)) and unit.upper() not in ("ЧЕЛ.-Ч", "ЧЕЛ-Ч.", "ЧЕЛ.-Ч.", "ЧЕЛ-Ч"):
+        if name and (_SVOD_NAME.match(name) or (_SVOD_LABOUR.match(name) and not unit)) and unit.upper() not in ("ЧЕЛ.-Ч", "ЧЕЛ-Ч.", "ЧЕЛ.-Ч.", "ЧЕЛ-Ч"):  # i18n: ok
             return i
     return None
 
@@ -338,10 +339,10 @@ def _classify(rows: List[tuple], lay: Layout, formulas: Optional[List[dict]] = N
     return kinds, last_item
 
 
-_MONEY_UNITS = ("СУМ", "СЎМ", "SO'M", "SUM", "РУБ", "%")
+_MONEY_UNITS = ("СУМ", "СЎМ", "SO'M", "SUM", "РУБ", "%")  # i18n: ok
 # ish shifri (me'yor kodi): «E1605-001-01», «Е47-2-99-1», «E22-8-1-3 ШНК.ДОП.3», «Ц1803-001-04ДОП.14» — bitta-ikki harf,
 # keyin «raqam-raqam(-raqam)». Resurs kodi faqat raqam («000001», «43113»), material — «С», «ЦЕНА», «СЦЕНА-72».
-_SHIFR = re.compile(r"^\s*[A-ZА-ЯЁ]{1,2}\s?\d{1,5}(?:\s?[-–.]\s?\d{1,4}){1,4}", re.I)
+_SHIFR = re.compile(r"^\s*[A-ZА-ЯЁ]{1,2}\s?\d{1,5}(?:\s?[-–.]\s?\d{1,4}){1,4}", re.I)  # i18n: ok
 
 
 def _shifr(r, lay: Layout) -> bool:
@@ -458,7 +459,7 @@ def _sheet_facts(rows, lay: Layout, kinds: dict) -> dict:
         r = rows[i - 1]
         text = " ".join(_text(v) for v in r[:max(lay.amount, lay.name + 1)] if isinstance(v, str)).strip()
         v = _num(r[lay.amount], text=True) if lay.amount < len(r) else None
-        if v and re.search(r"всего|итого|жами|jami", text.lower()) and (total is None or v > total):  # eng kattasi — odatda ҚҚС bilan
+        if v and re.search(r"всего|итого|жами|jami", text.lower()) and (total is None or v > total):  # eng kattasi — odatda ҚҚС bilan · i18n: ok
             total, label = v, text
     return {"res": sum(1 for k in kinds.values() if k[0] == "res"), "svod": len(svod),
             "head": [lay.header, lay.header_end], "span": [tops[0], tops[-1]] if tops else None,
@@ -509,7 +510,7 @@ def list_sheets(path: Path) -> List[dict]:
                                     amt = (amt or 0) + v2
                         info["preview"].append([k[1], _text(g(lay.name))[:140], _text(g(lay.unit)), g(lay.qty), shifr, i, amt, n_res])
                 info.update(_sheet_facts(rows, lay, kinds))
-            low = ws.title.lower().replace("ё", "е")
+            low = ws.title.lower().replace("ё", "е")  # i18n: ok
             # resurslari bor ish va shifrli qator — ofyortaning asosiy belgisi: «Сводная ресурсная ведомость» (1964 ta
             # resurs, ishi yo'q) ofyortadan (577 ta ish) ustun chiqmasin
             score = info["items"] + 5 * info["works"] + 5 * info.get("shifr", 0) + (10 ** 6 if lay else 0)
@@ -538,7 +539,7 @@ def sheet_values(path: Path, sheet: str) -> List[tuple]:
     wb = load_workbook(path, read_only=True, data_only=True, keep_links=False)
     try:
         if sheet not in wb.sheetnames:
-            raise SheetError(f"Файлда «{sheet}» листи йўқ")
+            raise SheetError(_noop("Файлда «{0}» листи йўқ").format(sheet))
         rows = [tuple(_cell_value(v) for v in r[:MAX_COLS]) for r in wb[sheet].iter_rows(values_only=True)]
     finally:
         wb.close()
@@ -579,7 +580,7 @@ def read(path: Path, sheet: str, progress: Callable[[int, int], None] = None, ma
     wb = load_workbook(path, read_only=True, data_only=True, keep_links=False)
     try:
         if sheet not in wb.sheetnames:
-            raise SheetError(f"Файлда «{sheet}» листи йўқ")
+            raise SheetError(_noop("Файлда «{0}» листи йўқ").format(sheet))
         ws = wb[sheet]
         total = ws.max_row or 0
         values = []
@@ -599,7 +600,7 @@ def read(path: Path, sheet: str, progress: Callable[[int, int], None] = None, ma
     head = (manual or {}).get("header")
     lay = find_layout(values, at=head - 1 if isinstance(head, int) and head > 0 else None)
     if lay is None:
-        raise SheetError("Бу листда офёрта жадвали топилмади: «Наименование работ…» сарлавҳали қатор йўқ")
+        raise SheetError(_noop("Бу листда офёрта жадвали топилмади: «Наименование работ…» сарлавҳали қатор йўқ"))
     _apply_manual(lay, manual)  # sarlavha chegarasi foydalanuvchiniki bo'lsa — shablon ham shu qatorlardan
     sig = signature(values, lay)
     if memo and not any(k in (manual or {}) for k in COL_KEYS):  # ustunlar ko'rsatilmagan — shablondan (yig'ilganlar qoladi)
@@ -611,7 +612,7 @@ def read(path: Path, sheet: str, progress: Callable[[int, int], None] = None, ma
     _money_cols(values, formulas, kinds, lay)
     _apply_manual(lay, manual)  # foydalanuvchi ko'rsatgani — formulalardan topilgandan ustun
     if not last_item:
-        raise SheetError("Листда иш қатори топилмади (А устунида 1, 2, 3 … ва 1.1, 1.2 … рақамлар, ёнида номи)")
+        raise SheetError(_noop("Листда иш қатори топилмади (А устунида 1, 2, 3 … ва 1.1, 1.2 … рақамлар, ёнида номи)"))
     # bo'sh oxirgi qatorlar va ustunlar
     while values and not any(v is not None for v in values[-1]) and not (formulas and formulas[len(values) - 1]):
         values.pop()
@@ -732,10 +733,8 @@ def _fix_cache(grid: Grid):
             r["vals"][j] = v
             fixed += 1
     if fixed:
-        grid.warnings.append({"row": bad[0][0]["row"], "title": "Файлда хато қийматлар бор эди",
-                              "text": f"{fixed} та катакда файлда «{first}» каби хато "
-                                      "сақланган эди (одатда .xls очилганда матн кўринишидаги сонлар туфайли). "
-                                      "Тизим уларни формула бўйича қайта ҳисоблади."})
+        grid.warnings.append({"row": bad[0][0]["row"], "title": _noop("Файлда хато қийматлар бор эди"),
+                              "text": _noop("{0} та катакда файлда «{1}» каби хато сақланган эди (одатда .xls очилганда матн кўринишидаги сонлар туфайли). Тизим уларни формула бўйича қайта ҳисоблади.").format(fixed, first)})
 
 
 def _check(grid: Grid):
@@ -743,9 +742,9 @@ def _check(grid: Grid):
     lay = grid.layout
     svod_f = sum(len(r["fmls"]) for r in grid.rows if r["kind"] == "svod")
     if not svod_f and any(r["kind"] == "svod" and any(v is not None for v in r["vals"]) for r in grid.rows):
-        grid.warnings.append({"row": 0, "code": "svod_nofml", "title": "Сводкада формула йўқ",
-                              "text": "Офёрта пастидаги сводка (иш ҳақи, фоизлар, ҚҚС) сон сифатида ёзилган. "
-                                      "Далолатномаларда сводка қаторлари ҳисобланмайди — фақат иш қаторлари."})
+        grid.warnings.append({"row": 0, "code": "svod_nofml", "title": _noop("Сводкада формула йўқ"),
+                              "text": _noop("Офёрта пастидаги сводка (иш ҳақи, фоизлар, ҚҚС) сон сифатида ёзилган. "
+                                      "Далолатномаларда сводка қаторлари ҳисобланмайди — фақат иш қаторлари.")})
     manual = [(r["row"], f) for r in grid.rows if r["kind"] == "svod" for f in r["fmls"].values() if _MANUAL.search(f)]
     if manual:
         items = [[f"{col_letter(int(j))}{r['row']}", "=" + f.lstrip("="), "=" + strip_const(f).lstrip("=")]
@@ -757,16 +756,12 @@ def _check(grid: Grid):
             extra = ""
         if lay.drop_const:
             grid.warnings.append({"row": manual[0][0], "fix": "drop_const_on", "items": items, "count": len(items), "amount": extra,
-                                  "title": "Қўлда қўшилган сон далолатномаларда олинмайди (сиз тасдиқлагансиз)",
-                                  "text": f"{len(items)} та сводка формуласидаги қўлда қўшилган сон далолатномаларга тушмайди. "
-                                          "Офёрта ва «Остатка» файлдагидек (шу сон билан) қолади."})
+                                  "title": _noop("Қўлда қўшилган сон далолатномаларда олинмайди (сиз тасдиқлагансиз)"),
+                                  "text": _noop("{0} та сводка формуласидаги қўлда қўшилган сон далолатномаларга тушмайди. Офёрта ва «Остатка» файлдагидек (шу сон билан) қолади.").format(len(items))})
         else:
             grid.warnings.append({"row": manual[0][0], "fix": "drop_const", "items": items, "count": len(items), "amount": extra,
-                                  "title": "Сводка формуласида қўлда қўшилган сон бор",
-                                  "text": f"{len(manual)} та формулада ҳисобга қўлда сон қўшилган ёки айрилган (масалан "
-                                          f"{manual[0][0]}-қатор: {manual[0][1][:60]}). Тизим уни файлдагидек қолдиради, шунинг учун бу сон "
-                                          "ҳар бир далолатномага тушади (ҳажм ёзилмаса ҳам). Смета тузувчи билан аниқлаштиринг "
-                                          "ёки пастдаги тугмани босинг."})
+                                  "title": _noop("Сводка формуласида қўлда қўшилган сон бор"),
+                                  "text": _noop("{0} та формулада ҳисобга қўлда сон қўшилган ёки айрилган (масалан {1}-қатор: {2}). Тизим уни файлдагидек қолдиради, шунинг учун бу сон ҳар бир далолатномага тушади (ҳажм ёзилмаса ҳам). Смета тузувчи билан аниқлаштиринг ёки пастдаги тугмани босинг.").format(len(manual), manual[0][0], manual[0][1][:60])})
     # resurs jami boshqa qatordagi hajmga ko'paytirilgan («=E4880*$E$149» — formula ko'chirilganda $ qotib qolgan):
     # bu pul o'z ishining hajmiga bog'lanmagan, faylning jamisi ham shu qism bo'yicha noto'g'ri bo'lishi mumkin
     foreign: Dict[int, set] = {}
@@ -803,9 +798,8 @@ def _check(grid: Grid):
         new_total = b.contract_total()
         grid.warnings.append({"row": next(iter(foreign)), "fix": "relink_on", "items": items, "count": len(items),
                               "total_old": old_total, "total_new": new_total,
-                              "title": "Ресурслар формуласи тузатилди (сиз тасдиқлагансиз)",
-                              "text": f"{len(items)} та ресурс жами ўз иши ҳажмига уланди. Офёрта жами "
-                                      f"{_money(old_total)} → {_money(new_total)} сўм. Excel ҳисоботга ҳам тузатилган формула ёзилади."})
+                              "title": _noop("Ресурслар формуласи тузатилди (сиз тасдиқлагансиз)"),
+                              "text": _noop("{0} та ресурс жами ўз иши ҳажмига уланди. Офёрта жами {1} → {2} сўм. Excel ҳисоботга ҳам тузатилган формула ёзилади.").format(len(items), _money(old_total), _money(new_total))})
     elif foreign and lay.prop_res:  # foydalanuvchi tasdiqlagan: formula olinadi — Book.override F ni hajmga mutanosib qiladi
         ev = None
         for r in done:
@@ -820,29 +814,22 @@ def _check(grid: Grid):
         for r in done:
             r["fmls"].pop(lay.total, None)
         top = next(iter(foreign))
-        grid.warnings.append({"row": top, "fix": "prop_res_on", "title": "Ресурслар ўз иши ҳажмига мутаносиб қилинди (сиз тасдиқлагансиз)",
-                              "text": f"{len(done)} та ресурснинг жами бошқа қатордаги ҳажмга кўпайтирилган эди. Офёрта жами "
-                                      f"файлдагидек қолди; далолатномада бу ресурслар ўз иши ҳажмига мутаносиб ҳисобланади."})
+        grid.warnings.append({"row": top, "fix": "prop_res_on", "title": _noop("Ресурслар ўз иши ҳажмига мутаносиб қилинди (сиз тасдиқлагансиз)"),
+                              "text": _noop("{0} та ресурснинг жами бошқа қатордаги ҳажмга кўпайтирилган эди. Офёрта жами файлдагидек қолди; далолатномада бу ресурслар ўз иши ҳажмига мутаносиб ҳисобланади.").format(len(done))})
     elif foreign:
         by_row = {r["row"]: r for r in grid.rows}
         top, src = next(iter(foreign.items()))
         n_res = sum(1 for r in grid.rows if r["kind"] == "res" and r["parent"] in foreign)
         q = lambda row: _text(by_row[row]["vals"][lay.qty]).replace(".", ",") if row in by_row and lay.qty < len(by_row[row]["vals"]) else "?"  # noqa: E731
         E = col_letter(lay.qty)
-        grid.warnings.append({"row": top, "title": "Ресурслар бошқа қатордаги ҳажмга кўпайтирилган",
-                              "text": f"{by_row[top]['num'] if top in by_row else top}-иш ({top}-қатор, ҳажми {q(top)}) ресурсларининг "
-                                      f"жами ўз иши ҳажмига эмас, {', '.join(f'{E}{s} ({q(s)})' for s in sorted(src)[:3])} га "
-                                      f"кўпайтирилган — формула кўчирилганда «$» қотиб қолган бўлиши мумкин. Бу пул далолатномада "
-                                      f"иш ҳажмига мутаносиб ўзгармайди, файлдаги жами ҳам шу қисм бўйича нотўғри бўлиши мумкин. "
-                                      f"Жами {len(foreign)} та ишда, {n_res} та ресурс. Смета тузувчи формулани тузатсин "
-                                      f"ёки «Мутаносиб қилиш» тугмасини босинг.", "fix": "prop_res",
+        grid.warnings.append({"row": top, "title": _noop("Ресурслар бошқа қатордаги ҳажмга кўпайтирилган"),
+                              "text": _noop("{0}-иш ({1}-қатор, ҳажми {2}) ресурсларининг жами ўз иши ҳажмига эмас, {3} га кўпайтирилган — формула кўчирилганда «$» қотиб қолган бўлиши мумкин. Бу пул далолатномада иш ҳажмига мутаносиб ўзгармайди, файлдаги жами ҳам шу қисм бўйича нотўғри бўлиши мумкин. Жами {4} та ишда, {5} та ресурс. Смета тузувчи формулани тузатсин ёки «Мутаносиб қилиш» тугмасини босинг.").format(by_row[top]['num'] if top in by_row else top, top, q(top), ', '.join(f'{E}{s} ({q(s)})' for s in sorted(src)[:3]), len(foreign), n_res), "fix": "prop_res",
                               "example": f"{col_letter(lay.total)}{bad_res[0]['row']}: {bad_res[0]['fmls'][lay.total]}",
                               **_relink_offer(grid, done)})
     other = sorted({r["row"] for r in grid.rows for f in r["fmls"].values() if "!" in f})
     if other:
-        grid.warnings.append({"row": other[0], "title": "Бошқа листга ҳавола қилувчи формулалар бор",
-                              "text": f"{len(other)} та қаторда формула бошқа листдаги катакни олади "
-                                      f"(биринчиси {other[0]}-қатор). Бундай катакларда файлда сақланган қиймат олинади (далолатномада ўзгармайди)."})
+        grid.warnings.append({"row": other[0], "title": _noop("Бошқа листга ҳавола қилувчи формулалар бор"),
+                              "text": _noop("{0} та қаторда формула бошқа листдаги катакни олади (биринчиси {1}-қатор). Бундай катакларда файлда сақланган қиймат олинади (далолатномада ўзгармайди).").format(len(other), other[0])})
 
 
 def relink_formula(f: str, qty: int, row: int, parent: int) -> str:
@@ -1163,11 +1150,8 @@ class Book:
             return []
         rows = ", ".join(f"{g['rows'][0]}–{g['rows'][1]}" for g in gs[:4]) + (" …" if len(gs) > 4 else "")
         return [{"row": gs[0]["rows"][0], "code": "svod_prop",
-                 "title": f"Сводка сон билан ёзилган — далолатномада ишларга мутаносиб ({len(gs)} та жамлама)",
-                 "text": f"Бўлим жамлари («ЗАТРАТЫ ТРУДА…», «ЕСП 15%», «ИТОГО С УЧЕТОМ КОЭФФ.» ва ҳ.к.) файлда формуласиз "
-                         f"сон ({rows}-қаторлар). Тизим уларни далолатномага ўзгармай қўшмайди: ҳар бир жамлама ўз бўлими "
-                         "ишларининг пулига мутаносиб ҳисобланади (ҳажм ёзилмаса — 0, бўлим тўлиқ бажарилса — файлдагидек). "
-                         "Иш ҳақи ва материал улуши бўлимда ҳар хил бўлса, бир неча сўм фарқ бўлиши мумкин."}]
+                 "title": _noop("Сводка сон билан ёзилган — далолатномада ишларга мутаносиб ({0} та жамлама)").format(len(gs)),
+                 "text": _noop("Бўлим жамлари («ЗАТРАТЫ ТРУДА…», «ЕСП 15%», «ИТОГО С УЧЕТОМ КОЭФФ.» ва ҳ.к.) файлда формуласиз сон ({0}-қаторлар). Тизим уларни далолатномага ўзгармай қўшмайди: ҳар бир жамлама ўз бўлими ишларининг пулига мутаносиб ҳисобланади (ҳажм ёзилмаса — 0, бўлим тўлиқ бажарилса — файлдагидек). Иш ҳақи ва материал улуши бўлимда ҳар хил бўлса, бир неча сўм фарқ бўлиши мумкин.").format(rows)}]
 
     def block(self, ev: Evaluator, rows=None) -> Dict[int, list]:
         """Blok qiymatlari (E..oxirgi ustun) — ish, resurs va svodka qatorlari uchun; bo'sh qator yuborilmaydi."""
@@ -1200,10 +1184,8 @@ class Book:
         for top, (n, s) in by_top.items():
             t = self.by_row[top]
             name = next((str(v) for v in t["vals"][lay.name:lay.name + 1] if v), "")[:70]
-            out.append({"row": top, "title": f"{t['num']}-иш «{name}»: ҳажмга боғлиқ бўлмаган {s:,.2f} сўм".replace(",", " "),
-                        "text": f"Excel формуласида {n} та қатор суммаси ҳажмга боғланмаган (масалан, «нарх × меъёр», "
-                                "«нарх × жами» ўрнига). Тизим файлдагидек ҳисоблайди, шунинг учун бу пул ҳар бир "
-                                "далолатномада чиқади. Смета тузувчи билан аниқлаштиринг."})
+            out.append({"row": top, "title": _noop("{0}-иш «{1}»: ҳажмга боғлиқ бўлмаган {2:,.2f} сўм").format(t['num'], name, s).replace(",", " "),
+                        "text": _noop("Excel формуласида {0} та қатор суммаси ҳажмга боғланмаган (масалан, «нарх × меъёр», «нарх × жами» ўрнига). Тизим файлдагидек ҳисоблайди, шунинг учун бу пул ҳар бир далолатномада чиқади. Смета тузувчи билан аниқлаштиринг.").format(n)})
         return out
 
     def final_cell(self) -> Optional[Tuple[int, int]]:
@@ -1242,9 +1224,9 @@ class Book:
         if file_v is None or abs(file_v - calc) <= max(1.0, abs(file_v) * 1e-7):
             return []
         f = lambda x: f"{x:,.2f}".replace(",", " ")  # noqa: E731
-        return [{"row": fc[1], "title": f"Файлдаги жами {f(file_v)}, тизим ҳисоби {f(calc)} (фарқ {f(calc - file_v)})",
-                 "text": "Тизим ҳамма формулаларни қайта ҳисоблади. Фарқ одатда сводкада қўлда ёзилган ёки эскирган "
-                         "сондан бўлади — смета тузувчи билан текширинг. Далолатномалар тизим ҳисоби бўйича."}]
+        return [{"row": fc[1], "title": _noop("Файлдаги жами {0}, тизим ҳисоби {1} (фарқ {2})").format(f(file_v), f(calc), f(calc - file_v)),
+                 "text": _noop("Тизим ҳамма формулаларни қайта ҳисоблади. Фарқ одатда сводкада қўлда ёзилган ёки эскирган "
+                         "сондан бўлади — смета тузувчи билан текширинг. Далолатномалар тизим ҳисоби бўйича.")}]
 
     def self_check(self) -> dict:
         """O'qilgan ofyortani o'zi tekshiradi — hisob ishonchlimi:
@@ -1259,24 +1241,26 @@ class Book:
         file_v = _num(self.values.get(fc)) if fc else None
         fails = []
         if not self.tops or abs(full) < 1:
-            fails.append({"code": "zero", "row": 0, "title": "Офёрта жами 0 чиқди",
-                          "text": "Тизим иш қаторлари ёки уларнинг суммасини топа олмади (устунлар бошқача жойлашган бўлиши "
-                                  "мумкин). Далолатнома суммалари нотўғри бўлади."})
+            fails.append({"code": "zero", "row": 0, "title": _noop("Офёрта жами 0 чиқди"),
+                          "text": _noop("Тизим иш қаторлари ёки уларнинг суммасини топа олмади (устунлар бошқача жойлашган бўлиши "
+                                  "мумкин). Далолатнома суммалари нотўғри бўлади.")})
         else:
             if abs(empty) > max(1000.0, abs(full) * 1e-6):
                 src = self._empty_sources(ev0)
-                where = ", ".join(f"{r}-қатор" for r, _v in src[:3])
+                where = ", ".join(_noop("{0}-қатор").format(r) for r, _v in src[:3])
                 fails.append({"code": "empty", "row": src[0][0] if src else 0,
-                              "title": f"Ҳажм ёзилмаса ҳам {f(empty)} сўм чиқяпти",
-                              "text": "Файлда айрим суммалар ҳажмга боғланмаган (формула ўрнига сон ёки бошқа устунга ҳавола)"
-                                      + (f": {where}" if where else "") + ". Бу пул ҳар бир далолатномага тушади."})
+                              "title": _noop("Ҳажм ёзилмаса ҳам {0} сўм чиқяпти").format(f(empty)),
+                              "text": (_noop("Файлда айрим суммалар ҳажмга боғланмаган (формула ўрнига сон ёки бошқа устунга ҳавола): {0}. "
+                                             "Бу пул ҳар бир далолатномага тушади.").format(where) if where else
+                                       _noop("Файлда айрим суммалар ҳажмга боғланмаган (формула ўрнига сон ёки бошқа устунга ҳавола). "
+                                             "Бу пул ҳар бир далолатномага тушади."))})
             ratio = half / full
             if abs(ratio - 0.5) > 0.002:
-                fails.append({"code": "half", "row": 0, "title": f"Ярим ҳажмда жами {ratio * 100:.1f}% чиқди (50% бўлиши керак)",
-                              "text": "Суммаларнинг бир қисми ҳажмга мутаносиб эмас — далолатнома фоизи нотўғри кўрсатилади."})
+                fails.append({"code": "half", "row": 0, "title": _noop("Ярим ҳажмда жами {0:.1f}% чиқди (50% бўлиши керак)").format(ratio * 100),
+                              "text": _noop("Суммаларнинг бир қисми ҳажмга мутаносиб эмас — далолатнома фоизи нотўғри кўрсатилади.")})
             if file_v is not None and abs(file_v - full) > max(1000.0, abs(file_v) * 1e-3):
-                fails.append({"code": "file", "row": fc[1], "title": f"Тизим ҳисоби {f(full)}, файлда {f(file_v)}",
-                              "text": "Тўлиқ ҳажмда ҳам жами файлдагидан фарқ қиляпти — формулаларнинг бир қисми тушунилмаган."})
+                fails.append({"code": "file", "row": fc[1], "title": _noop("Тизим ҳисоби {0}, файлда {1}").format(f(full), f(file_v)),
+                              "text": _noop("Тўлиқ ҳажмда ҳам жами файлдагидан фарқ қиляпти — формулаларнинг бир қисми тушунилмаган.")})
         return {"ok": not fails, "full": full, "empty": empty, "half": half, "file": file_v, "fails": fails}
 
     def _empty_sources(self, ev0: Evaluator) -> List[Tuple[int, float]]:

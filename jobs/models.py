@@ -4,6 +4,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext as _, gettext_lazy as _l
 
 
 class Setting(models.Model):
@@ -25,9 +26,9 @@ class Project(models.Model):
     (одатда битта локал ва битта ресурс файл), фонда навбат билан нархланади."""
 
     class Status(models.TextChoices):
-        PROCESSING = "processing", "Ишланяпти"
-        READY = "ready", "Текширинг — ҳисоблашга тайёр"  # файллар очилди ва жуфтланди, смета­чи бошлашини кутади
-        DONE = "done", "Тайёр"
+        PROCESSING = "processing", _l("Ишланяпти")
+        READY = "ready", _l("Текширинг — ҳисоблашга тайёр")  # файллар очилди ва жуфтланди, смета­чи бошлашини кутади
+        DONE = "done", _l("Тайёр")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created = models.DateTimeField(auto_now_add=True)
@@ -61,8 +62,8 @@ class Batch(models.Model):
     Tasdiqlangandan keyin har bir juftlik — alohida ``Job``."""
 
     class Status(models.TextChoices):
-        REVIEW = "review", "Текширишда"
-        DONE = "done", "Нархланди"
+        REVIEW = "review", _l("Текширишда")
+        DONE = "done", _l("Нархланди")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created = models.DateTimeField(auto_now_add=True)
@@ -84,15 +85,15 @@ class Batch(models.Model):
 
     # Papka yuklanganda: qaysi loyiha va qaysi ichki papka; fondagi ish bosqichi
     class Stage(models.TextChoices):
-        QUEUED = "queued", "Навбатда"
-        CONVERTING = "converting", "Файллар очиляпти"
-        READY = "ready", "Ҳисоблашга тайёр"  # жуфтликлар топилди — смета­чи «Ҳисоблашни бошлаш»ни босади
-        PRICING = "pricing", "Нархланяпти"
-        STOPPED = "stopped", "Тўхтатилди"  # смета­чи тўхтатди — «Давом эттириш» билан қайта бошланади
-        DONE = "done", "Тайёр"
-        REVIEW = "review", "Текширинг"
-        EMPTY = "empty", "Нархланадиган лист йўқ"
-        FAILED = "failed", "Хато"
+        QUEUED = "queued", _l("Навбатда")
+        CONVERTING = "converting", _l("Файллар очиляпти")
+        READY = "ready", _l("Ҳисоблашга тайёр")  # жуфтликлар топилди — смета­чи «Ҳисоблашни бошлаш»ни босади
+        PRICING = "pricing", _l("Нархланяпти")
+        STOPPED = "stopped", _l("Тўхтатилди")  # смета­чи тўхтатди — «Давом эттириш» билан қайта бошланади
+        DONE = "done", _l("Тайёр")
+        REVIEW = "review", _l("Текширинг")
+        EMPTY = "empty", _l("Нархланадиган лист йўқ")
+        FAILED = "failed", _l("Хато")
 
     project = models.ForeignKey(Project, null=True, blank=True, on_delete=models.CASCADE, related_name="parts")
     folder = models.CharField(max_length=500, blank=True)  # loyiha ichidagi yo'l, "" — ildiz
@@ -122,9 +123,9 @@ class Batch(models.Model):
 
 class Job(models.Model):
     class Status(models.TextChoices):
-        UPLOADED = "uploaded", "Юкланди"
-        DONE = "done", "Тайёр"
-        FAILED = "failed", "Хато"
+        UPLOADED = "uploaded", _l("Юкланди")
+        DONE = "done", _l("Тайёр")
+        FAILED = "failed", _l("Хато")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created = models.DateTimeField(auto_now_add=True)
@@ -249,10 +250,10 @@ class ProjectOfyorta(models.Model):
     сариқ сарлавҳа ва ўз сводкаси билан, охирида умумий жами (``jobs.ofyorta``). Ҳар папкага битта."""
 
     class Status(models.TextChoices):
-        DRAFT = "draft", "Тузилмаган"
-        BUILDING = "building", "Тузиляпти"
-        READY = "ready", "Тайёр"
-        FAILED = "failed", "Хато"
+        DRAFT = "draft", _l("Тузилмаган")
+        BUILDING = "building", _l("Тузиляпти")
+        READY = "ready", _l("Тайёр")
+        FAILED = "failed", _l("Хато")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created = models.DateTimeField(auto_now_add=True)
@@ -375,7 +376,7 @@ class UploadTiming(models.Model):
 
     @property
     def kind_label(self):
-        return {"object": "файллар", "folder": "папка ёки архив", "smeta": "смета"}.get(self.kind, self.kind)
+        return {"object": _("файллар"), "folder": _("папка ёки архив"), "smeta": _("смета")}.get(self.kind, self.kind)
 
     @property
     def mbps(self):
@@ -399,14 +400,14 @@ class TenderFactor(models.Model):
     бўлса ``user_text`` кўринади; ``note`` — фақат админ учун, ҳеч қаерда кўрсатилмайди."""
 
     class Scope(models.TextChoices):
-        ALL = "all", "Барча тўғри харажатлар"
-        I = "I", "Иш ҳақи (I)"
-        J = "J", "Машина ва механизмлар (J)"
-        K = "K", "Материаллар (K)"
-        L = "L", "Кабель маҳсулотлари (L)"
-        M = "M", "Ускуналар (M)"
-        PROCHIE = "prochie", "Прочие затраты (устама)"
-        REVENUE = "revenue", "Даромад (тўлов)"
+        ALL = "all", _l("Барча тўғри харажатлар")
+        I = "I", _l("Иш ҳақи (I)")
+        J = "J", _l("Машина ва механизмлар (J)")
+        K = "K", _l("Материаллар (K)")
+        L = "L", _l("Кабель маҳсулотлари (L)")
+        M = "M", _l("Ускуналар (M)")
+        PROCHIE = "prochie", _l("Прочие затраты (устама)")
+        REVENUE = "revenue", _l("Даромад (тўлов)")
 
     title = models.CharField(max_length=200)
     scope = models.CharField(max_length=10, choices=Scope.choices, default=Scope.ALL)

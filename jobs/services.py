@@ -23,6 +23,7 @@ from core.svodka import DEFAULT_PERCENTS, parse_text_number
 from django.utils import timezone
 
 from .models import Batch, Job, Project, Setting, SheetMemo
+from django.utils.translation import gettext as _, gettext_noop as _noop
 
 log = logging.getLogger(__name__)
 
@@ -45,26 +46,25 @@ def check_quota(user):
     from texnazor.models import MyOfyorta, SiteObject
     per_hour = conf.get("uploads_per_hour")
     # yuklashlar (narxlash va texnazor obyekti) va «Менинг офёртам» tuzish — o'nlab Excel ochiladi
-    heavy = Q(kind=Event.Kind.UPLOAD) | Q(kind=Event.Kind.TEXNAZOR, work_kind="tn_my", detail__endswith="тузилмоқда")
+    heavy = Q(kind=Event.Kind.UPLOAD) | Q(kind=Event.Kind.TEXNAZOR, work_kind="tn_my", detail__endswith="тузилмоқда")  # i18n: ok
     if per_hour and Event.objects.filter(heavy, actor=user,
                                          created__gte=timezone.now() - dt.timedelta(hours=1)).count() >= per_hour:
-        raise UploadError(f"Бир соатда кўпи билан {per_hour} та юклаш мумкин — бироздан кейин қайта уриниб кўринг.")
+        raise UploadError(_("Бир соатда кўпи билан {0} та юклаш мумкин — бироздан кейин қайта уриниб кўринг.").format(per_hour))
     quota = conf.user_quota(user)
     if quota:
         used = sum(dir_size(o.dir) for model in (Project, Batch, Job, SiteObject, MyOfyorta)
                    for o in model.objects.filter(owner=user).only("id"))
         if used >= quota:
-            raise UploadError(f"Дискдаги жойингиз тўлди ({used // 2**20} МБ / {quota // 2**20} МБ): "
-                              "эски ишларни ўчиринг ёки администраторга мурожаат қилинг.")
+            raise UploadError(_("Дискдаги жойингиз тўлди ({0} МБ / {1} МБ): эски ишларни ўчиринг ёки администраторга мурожаат қилинг.").format(used // 2**20, quota // 2**20))
 
 
 def _check_upload(f, label: str) -> str:
     ext = Path(f.name).suffix.lower()
     if ext not in ALLOWED_EXT:
-        raise UploadError(f"{label}: фақат .xls, .xlsx, .xlsm файллар қабул қилинади")
+        raise UploadError(_("{0}: фақат .xls, .xlsx, .xlsm файллар қабул қилинади").format(label))
     from panel import conf
     if f.size > conf.get("max_upload_mb"):
-        raise UploadError(f"{label}: файл жуда катта ({f.size // (1024 * 1024)} МБ)")
+        raise UploadError(_("{0}: файл жуда катта ({1} МБ)").format(label, f.size // (1024 * 1024)))
     return ext
 
 
@@ -260,8 +260,8 @@ def _fuzzy_default() -> int:
 
 def create_job(owner, local_file, res_file=None) -> Job:
     """Fayllarni saqlaydi, .xlsx ga o'giradi, listlarni o'qib standart juftlikni tanlaydi."""
-    local_ext = _check_upload(local_file, "Локал файл")
-    res_ext = _check_upload(res_file, "Ресурс файл") if res_file else local_ext
+    local_ext = _check_upload(local_file, _("Локал файл"))
+    res_ext = _check_upload(res_file, _("Ресурс файл")) if res_file else local_ext
 
     job = Job(owner=owner, local_name=Path(local_file.name).name, res_name=Path((res_file or local_file).name).name,
               percents=remembered_percents(owner), base_period=base_period_of(owner), fuzzy=_fuzzy_default(),
@@ -284,13 +284,13 @@ def create_job(owner, local_file, res_file=None) -> Job:
         raise UploadError(str(e)) from e
     except Exception as e:
         shutil.rmtree(job.dir, ignore_errors=True)
-        raise UploadError(f"Файлни очиб бўлмади: {e}") from e
+        raise UploadError(_("Файлни очиб бўлмади: {0}").format(e)) from e
 
     job.local_path = str(local_xlsx.relative_to(job.dir))
     job.res_path = str(res_xlsx.relative_to(job.dir))
     job.local_sheet, job.res_sheet = pair_sheets(job.local_sheets, job.res_sheets)
     if base_only(owner):  # «фақат ресурс базаси»: RES (юкланган бўлса ҳам) нархлашда ишлатилмайди
-        job.res_path, job.res_sheet, job.res_sheets, job.res_name = "", "", [], "ресурс базаси"
+        job.res_path, job.res_sheet, job.res_sheets, job.res_name = "", "", [], "ресурс базаси"  # i18n: ok
     job.save()
     save_timings(clock, job.owner_id, job=job)
     return job
@@ -478,7 +478,7 @@ def _patch_now(job: Job) -> bool:
     try:
         return _patch(job)
     except Exception:  # noqa: BLE001 — тўлиқ ҳисобга ўтилади
-        log.exception("автоматик танловни ямаб бўлмади: %s", job.pk)
+        log.exception("автоматик танловни ямаб бўлмади: %s", job.pk)  # i18n: ok
         return False
 
 
@@ -529,7 +529,7 @@ def open_suggestions(job: Job) -> dict:
     return out
 
 
-_LATIN_LOOKALIKE = str.maketrans("aceopxykmthb", "асеорхукмтнв")
+_LATIN_LOOKALIKE = str.maketrans("aceopxykmthb", "асеорхукмтнв")  # i18n: ok
 
 
 def _first_word(name) -> str:
@@ -575,21 +575,21 @@ def object_name(batch: "Batch", names: list) -> str:
     local_files = (sorted(i for i, (lo, re_) in count.items() if lo > re_)
                    or sorted(i for i, (lo, _) in count.items() if lo))
     if not local_files:
-        return names[0] if len(names) == 1 else f"{names[0]} + {len(names) - 1} та файл"
+        return names[0] if len(names) == 1 else f"{names[0]} + {len(names) - 1} та файл"  # i18n: ok
     first = Path(names[local_files[0]]).stem
-    return first if len(local_files) == 1 else f"{first} + {len(local_files) - 1} та локал"
+    return first if len(local_files) == 1 else f"{first} + {len(local_files) - 1} та локал"  # i18n: ok
 
 
 def create_batch(owner, files) -> "Batch":
     """Fayllarni saqlaydi, .xlsx ga o'giradi, har bir listni tahlil qilib juftliklarni taklif qiladi."""
     if not files:
-        raise UploadError("Камида битта файл танланг")
+        raise UploadError(_("Камида битта файл танланг"))
     from panel import conf
     limit = conf.get("max_files")
     if len(files) > limit:
-        raise UploadError(f"Бир марта кўпи билан {limit} та файл юкланг")
+        raise UploadError(_("Бир марта кўпи билан {0} та файл юкланг").format(limit))
     names = [Path(f.name).name for f in files]
-    batch = Batch(owner=owner, name=names[0] if len(names) == 1 else f"{names[0]} + {len(names) - 1} та файл",
+    batch = Batch(owner=owner, name=names[0] if len(names) == 1 else f"{names[0]} + {len(names) - 1} та файл",  # i18n: ok
                   auto=nf_auto_of(owner))
     clock, seconds = FileClock(), {}
     try:
@@ -611,7 +611,7 @@ def create_batch(owner, files) -> "Batch":
         raise
     except Exception as e:
         shutil.rmtree(batch.dir, ignore_errors=True)
-        raise UploadError(f"Файлни очиб бўлмади: {e}") from e
+        raise UploadError(_("Файлни очиб бўлмади: {0}").format(e)) from e
     batch.save()
     save_timings(clock, batch.owner_id, batch=batch)
     return batch
@@ -669,7 +669,7 @@ def save_timings(clock: FileClock, owner_id, project_id=None, batch=None, job=No
         pass
 
 
-PENDING_REASON = "ҳали таҳлил қилинмаган — турини белгиланг ёки «Автоматик ажратиш»ни босинг"
+PENDING_REASON = _noop("ҳали таҳлил қилинмаган — турини белгиланг ёки «Автоматик ажратиш»ни босинг")
 
 
 def _file_part(d: Optional[dict], i: int) -> dict:
@@ -944,7 +944,7 @@ def replace_batch_file(batch: "Batch", i: int, upload) -> "Batch":
     қўлда тузатишлари тегилмайди. Листлар қайта таҳлил қилинади; бошқа файллардаги локалларнинг
     танлови (ресурс, ном, белги) сақланади. Ҳисобланган натижалар ўчмайди — «Қайта ҳисоблаш» билан янгиланади."""
     if not 0 <= i < len(batch.files):
-        raise UploadError("Файл топилмади")
+        raise UploadError(_("Файл топилмади"))
     ext = _check_upload(upload, upload.name)
     name = Path(upload.name).name
     stamp = dt.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -959,7 +959,7 @@ def replace_batch_file(batch: "Batch", i: int, upload) -> "Batch":
         raise UploadError(str(e)) from e
     except Exception as e:
         orig.unlink(missing_ok=True)
-        raise UploadError(f"Файлни очиб бўлмади: {e}") from e
+        raise UploadError(_("Файлни очиб бўлмади: {0}").format(e)) from e
     finally:
         save_timings(clock, batch.owner_id, project_id=batch.project_id, batch=batch)
     new = dict(batch.files[i], name=name, path=str(xlsx.relative_to(batch.dir)), sheets=sheets,
@@ -985,7 +985,7 @@ def _swap_file(batch: "Batch", i: int, new: dict, push: bool) -> "Batch":
     try:
         analyze_batch(batch, roles, columns)
     except Exception as e:
-        raise UploadError(f"Файлни очиб бўлмади: {e}") from e
+        raise UploadError(_("Файлни очиб бўлмади: {0}").format(e)) from e
     resources = {s["key"] for s in batch.sheets if s["role"] == "resource" and not s.get("duplicate_of")}
     for p in batch.pairs:  # бошқа файллардаги локаллар: смета­чи танлови қолади (ресурси ҳали бор бўлса)
         was = keep.get(p["local"])
@@ -1006,16 +1006,16 @@ def can_undo_file(batch: "Batch", i: int) -> bool:
 def undo_batch_file(batch: "Batch", i: int) -> str:
     """Охирги алмаштиришни бекор қилади: файлнинг олдинги нусхаси қайтади. Қайтган файл номи."""
     if not can_undo_file(batch, i):
-        raise UploadError("Бу файл алмаштирилмаган — қайтариладиган олдинги нусха йўқ")
+        raise UploadError(_("Бу файл алмаштирилмаган — қайтариладиган олдинги нусха йўқ"))
     history = list(batch.files[i]["history"])
     prev = history.pop()
     if not prev.get("path") or not batch.abs(prev["path"]).is_file():
-        raise UploadError("Олдинги нусха дискда топилмади")
+        raise UploadError(_("Олдинги нусха дискда топилмади"))
     prev["history"] = history
     try:
         _swap_file(batch, i, prev, push=False)
     except Exception as e:
-        raise UploadError(f"Файлни қайтариб бўлмади: {e}") from e
+        raise UploadError(_("Файлни қайтариб бўлмади: {0}").format(e)) from e
     return prev.get("name", "")
 
 
@@ -1118,14 +1118,14 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
         if not pair_ready(p):
             continue
         # жонли жараён: папка панели ва юклаш саҳифасидаги аниқ прогресс (``batch_progress``) шуни ўқийди
-        head = f"{len(jobs) + 1}/{todo} смета нархланяпти: {p['label']}"
+        head = f"{len(jobs) + 1}/{todo} смета нархланяпти: {p['label']}"  # i18n: ok
         Batch.objects.filter(pk=batch.pk).update(step=head[:300], step_since=timezone.now(), heartbeat=timezone.now())
         if batch.project_id:
             Project.objects.filter(pk=batch.project_id).update(heartbeat=timezone.now())
         loc, res = batch.sheet(p["local"]), batch.sheet(p["res"]) if p.get("res") else None  # None — ресурс базасидан
         lf, rf = batch.files[loc["file"]], batch.files[res["file"]] if res else None
         job = Job(owner_id=batch.owner_id, batch=batch, batch_label=p["label"], batch_file=loc["file"], batch_order=n,
-                  local_name=p["label"], res_name=f'{rf["name"]} · {res["sheet"]}' if res else "ресурс базаси",
+                  local_name=p["label"], res_name=f'{rf["name"]} · {res["sheet"]}' if res else "ресурс базаси",  # i18n: ok
                   local_sheets=lf["sheets"], res_sheets=rf["sheets"] if rf else [],
                   local_sheet=loc["sheet"], res_sheet=res["sheet"] if res else "", mode="smart",
                   percents=remembered_percents(batch.owner_id), base_period=base_period, fuzzy=_fuzzy_default(),
@@ -1155,9 +1155,9 @@ def confirm_batch(batch: "Batch", decisions: dict) -> list:
 
 
 # нархлаш босқичлари — саҳифада оддий тилда; «қатор» сони билан (нечтаси ўтди, нечтаси қолди)
-PHASE_TEXT = {"read": "Excel ўқилмоқда", "price": "қаторлар нархланмоқда", "write": "Excel'га ёзилмоқда",
-              "save": "файл сақланмоқда", "auto": "таклифлар қўйилмоқда"}
-_PHASE_TAIL = re.compile(r" — (?P<text>[^—]+?)(?: (?P<done>[\d ]+) / (?P<total>[\d ]+) қатор| · (?P<rows>[\d ]+) қатор)?$")
+PHASE_TEXT = {"read": "Excel ўқилмоқда", "price": "қаторлар нархланмоқда", "write": "Excel'га ёзилмоқда",  # i18n: ok
+              "save": "файл сақланмоқда", "auto": "таклифлар қўйилмоқда"}  # i18n: ok
+_PHASE_TAIL = re.compile(r" — (?P<text>[^—]+?)(?: (?P<done>[\d ]+) / (?P<total>[\d ]+) қатор| · (?P<rows>[\d ]+) қатор)?$")  # i18n: ok
 
 
 def _n(v: int) -> str:
@@ -1177,13 +1177,13 @@ def step_reporter(batch_id, head: str, every: float = 1.0):
         state["phase"], state["at"] = key, now
         if total:
             state["rows"] = total
-            tail = f"{PHASE_TEXT.get(phase, phase)} {_n(done)} / {_n(total)} қатор"
+            tail = f"{PHASE_TEXT.get(phase, phase)} {_n(done)} / {_n(total)} қатор"  # i18n: ok
         else:
-            tail = PHASE_TEXT.get(phase, phase) + (f" · {_n(state['rows'])} қатор" if state["rows"] else "")
+            tail = PHASE_TEXT.get(phase, phase) + (f" · {_n(state['rows'])} қатор" if state["rows"] else "")  # i18n: ok
         try:
             Batch.objects.filter(pk=batch_id).update(step=f"{head[:200]} — {tail}", heartbeat=timezone.now())  # heartbeat — fon navbati (``jobs.pricing``)
         except Exception:  # noqa: BLE001 — прогресс ёзилмаса ҳам нархлаш давом этади
-            log.warning("прогресс ёзилмади: %s", batch_id, exc_info=True)
+            log.warning("прогресс ёзилмади: %s", batch_id, exc_info=True)  # i18n: ok
 
     return report
 
@@ -1227,7 +1227,7 @@ def batch_outputs(batch: "Batch") -> list:
     for job in batch.jobs.filter(status=Job.Status.DONE).order_by("batch_order"):
         groups[job.batch_file].append(job)
     if not groups:
-        raise UploadError("Нархланган қисм йўқ")
+        raise UploadError(_("Нархланган қисм йўқ"))
     out_dir = batch.abs("out")
     shutil.rmtree(out_dir, ignore_errors=True)
     out_dir.mkdir(parents=True)

@@ -1,3 +1,4 @@
+# i18n: ok-file — Excel сарлавҳалари / таниш учун калит сўзлар
 """Svodka bloki (reja §2.9) va uning summalarini Python'da hisoblash.
 
 Summalar yozilgan formulalarning o'zini Excel qoidalari bo'yicha baholab topiladi:

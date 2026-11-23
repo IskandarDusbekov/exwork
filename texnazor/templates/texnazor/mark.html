@@ -167,14 +167,23 @@ sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. S
 (function () {
   var ROWS_URL = "{% url 'texnazor:mark_rows' o.pk %}", SAVE_URL = "{% url 'texnazor:mark_save' o.pk %}";
   // ustun vazifalari: kalit, nomi, rangi, sarlavhadagi so'zlar (tizim sarlavhani topmaganda — foydalanuvchi bosgan qatordan taxmin)
+  var HW = {
+      num: ["№", "п/п", "п.п", "n п"],  // i18n: ok — сарлавҳа калит сўзлари (файл тилида)
+      name: ["наименование", "номи", "nomi"],  // i18n: ok — сарлавҳа калит сўзлари (файл тилида)
+      unit: ["единиц", "ед.изм", "ед. изм", "бирлик", "o'lchov", "ўлчов"],  // i18n: ok — сарлавҳа калит сўзлари (файл тилида)
+      qty: ["количество", "кол-во", "кол.", "ҳажм", "hajm", "миқдор"],  // i18n: ok — сарлавҳа калит сўзлари (файл тилида)
+      total: ["по проект"],  // i18n: ok — сарлавҳа калит сўзлари (файл тилида)
+      price: ["стоимость", "цена", "нарх", "narx"],  // i18n: ok — сарлавҳа калит сўзлари (файл тилида)
+      amount: ["сумма", "summa", "қиймат"]  // i18n: ok — сарлавҳа калит сўзлари (файл тилида)
+  };
   var ROLES = [
-    {k: "num", t: "№", c: "#475569", w: ["№", "п/п", "п.п", "n п"]},
-    {k: "name", t: "Номи", c: "#4f46e5", w: ["наименование", "номи", "nomi"]},
-    {k: "unit", t: "Бирлиги", c: "#0891b2", w: ["единиц", "ед.изм", "ед. изм", "бирлик", "o'lchov", "ўлчов"]},
-    {k: "qty", t: "Ҳажм", c: "#059669", w: ["количество", "кол-во", "кол.", "ҳажм", "hajm", "миқдор"]},
-    {k: "total", t: "Жами ҳажм", c: "#0d9488", w: ["по проект"]},
-    {k: "price", t: "Нарх", c: "#d97706", w: ["стоимость", "цена", "нарх", "narx"]},
-    {k: "amount", t: "Сумма", c: "#e11d48", w: ["сумма", "summa", "қиймат"]}
+    {k: "num", t: "№", c: "#475569", w: HW.num},
+    {k: "name", t: "Номи", c: "#4f46e5", w: HW.name},
+    {k: "unit", t: "Бирлиги", c: "#0891b2", w: HW.unit},
+    {k: "qty", t: "Ҳажм", c: "#059669", w: HW.qty},
+    {k: "total", t: "Жами ҳажм", c: "#0d9488", w: HW.total},
+    {k: "price", t: "Нарх", c: "#d97706", w: HW.price},
+    {k: "amount", t: "Сумма", c: "#e11d48", w: HW.amount}
   ];
   var BY = {}; ROLES.forEach(function (r) { BY[r.k] = r; });
   var NEED = {name: 1, qty: 1, amount: 1};
@@ -183,7 +192,7 @@ sarlavha, birinchi ish, ustunlar va oxirgi ish / jami qator bosib belgilanadi. S
   var $ = function (id) { return document.getElementById(id); };
 
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]; }); }
-  function low(v) { return v == null ? "" : String(v).toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim(); }
+  function low(v) { return v == null ? "" : String(v).toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim(); }  // i18n: ok — ё = е
   function fmt(v) {
     if (v == null) return "";
     if (typeof v === "number") {

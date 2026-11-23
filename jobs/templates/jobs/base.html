@@ -1,5 +1,5 @@
 {% load narx static %}<!doctype html>
-<html lang="uz" data-side="{% block side %}wide{% endblock %}" class="{% if ui and not ui.tips %}no-tips{% endif %}{% if ui.dense %} is-dense{% endif %}">
+<html lang="{{ LANG_HTML|default:'uz-Cyrl' }}" data-side="{% block side %}wide{% endblock %}" class="{% if ui and not ui.tips %}no-tips{% endif %}{% if ui.dense %} is-dense{% endif %}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -52,6 +52,7 @@
       html[data-side=rail] .app-side .side-link { justify-content: center; padding-left: 0; padding-right: 0; }
     }
   </style>
+  <script src="{% url 'jsi18n' %}"></script>{# static/js'даги gettext() учун таржималар #}
   <script>
     // меню ҳолати саҳифа чизилишидан олдин (сакраш бўлмасин): ҳар тур саҳифа учун ўз танлови
     (function () {
@@ -83,8 +84,10 @@
         {% icon "help" "h-4 w-4" %}<span class="hidden sm:inline">Йўриқнома</span></a>
       {% page_videos %}
       {% include "news/_bell.html" %}
+      {% include "jobs/_lang.html" %}
       {% else %}
       <div class="ml-auto flex items-center gap-2 text-sm">
+        {% include "jobs/_lang.html" %}
         <a href="{% url 'landing' %}" class="hidden rounded-lg px-3 py-1.5 font-medium text-slate-500 hover:text-slate-900 sm:block">Тизим ҳақида</a>
         <a href="{% url 'login' %}" class="rounded-lg px-3 py-1.5 font-medium text-slate-700 hover:text-slate-900">Кириш</a>
         {% if signup_open %}<a href="{% url 'register' %}" class="rounded-lg bg-slate-900 px-3 py-1.5 font-medium text-white hover:bg-slate-700">Рўйхатдан ўтиш</a>{% endif %}

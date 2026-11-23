@@ -4,9 +4,13 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.templatetags.static import static
+from django.utils import translation
 
-SUBJECT = "mhisobot: паролни тиклаш коди {code}"
-VERIFY_SUBJECT = "mhisobot: email тасдиқлаш коди {code}"
+from web.i18n import user_lang
+from django.utils.translation import gettext as _, gettext_lazy as _l
+
+SUBJECT = _l("mhisobot: паролни тиклаш коди {code}")
+VERIFY_SUBJECT = _l("mhisobot: email тасдиқлаш коди {code}")
 
 
 def pretty_code(code: str) -> str:
@@ -27,35 +31,37 @@ def reset_message(base_url: str, name: str, code: str, link: str) -> tuple:
     """(мавзу, матн, html). ``base_url`` — https://mhisobot.uz (расм ва ҳаволалар учун)."""
     hours = settings.PASSWORD_RESET_TIMEOUT // 3600
     return _message(SUBJECT, base_url, name, code, link,
-                    title="Паролни тиклаш", intro="mhisobot тизимида паролингизни тиклаш сўралди.",
-                    page="Паролни тиклаш",
-                    button_intro="Ёки бошқа қурилмадан бўлса — тугмани босиб, дарров янги пароль қўйинг:",
-                    button="Янги пароль қўйиш", link_note=f"{hours} соат амал қилади, бир марта ишлайди",
-                    ignore="Буни сиз сўрамаган бўлсангиз — хатни эътиборсиз қолдиринг, паролингиз ўзгармайди.")
+                    title=_("Паролни тиклаш"), intro=_("mhisobot тизимида паролингизни тиклаш сўралди."),
+                    page=_("Паролни тиклаш"),
+                    button_intro=_("Ёки бошқа қурилмадан бўлса — тугмани босиб, дарров янги пароль қўйинг:"),
+                    button=_("Янги пароль қўйиш"), link_note=_("{0} соат амал қилади, бир марта ишлайди").format(hours),
+                    ignore=_("Буни сиз сўрамаган бўлсангиз — хатни эътиборсиз қолдиринг, паролингиз ўзгармайди."))
 
 
 def verify_message(base_url: str, name: str, code: str, link: str) -> tuple:
     hours = settings.EMAIL_VERIFY_LINK_HOURS
     return _message(VERIFY_SUBJECT, base_url, name, code, link,
-                    title="Email манзилини тасдиқлаш",
-                    intro="mhisobot тизимида шу манзил билан ҳисоб очилди. Бу почта сизники эканини тасдиқланг.",
-                    page="Email тасдиқлаш",
-                    button_intro="Ёки бошқа қурилмадан бўлса — тугмани босинг, email дарров тасдиқланади:",
-                    button="Email'ни тасдиқлаш", link_note=f"{hours} соат амал қилади",
-                    ignore="Ҳисобни сиз очмаган бўлсангиз — хатни эътиборсиз қолдиринг: тасдиқланмаган ҳисоб "
-                           "шу почта орқали паролни тиклай олмайди.")
+                    title=_("Email манзилини тасдиқлаш"),
+                    intro=_("mhisobot тизимида шу манзил билан ҳисоб очилди. Бу почта сизники эканини тасдиқланг."),
+                    page=_("Email тасдиқлаш"),
+                    button_intro=_("Ёки бошқа қурилмадан бўлса — тугмани босинг, email дарров тасдиқланади:"),
+                    button=_("Email'ни тасдиқлаш"), link_note=_("{0} соат амал қилади").format(hours),
+                    ignore=_("Ҳисобни сиз очмаган бўлсангиз — хатни эътиборсиз қолдиринг: тасдиқланмаган ҳисоб "
+                           "шу почта орқали паролни тиклай олмайди."))
 
 
 def _send(message: tuple, to: str) -> None:
     subject, text, html = message
-    msg = EmailMultiAlternatives(subject, text, settings.DEFAULT_FROM_EMAIL, [to])
+    msg = EmailMultiAlternatives(str(subject), text, settings.DEFAULT_FROM_EMAIL, [to])
     msg.attach_alternative(html, "text/html")
     msg.send(fail_silently=False)
 
 
 def send_reset(base_url: str, user, code: str, link: str) -> None:
-    _send(reset_message(base_url, user.get_full_name() or user.email, code, link), user.email)
+    with translation.override(user_lang(user)):  # хат — фойдаланувчи тилида
+        _send(reset_message(base_url, user.get_full_name() or user.email, code, link), user.email)
 
 
 def send_verify(base_url: str, user, code: str, link: str) -> None:
-    _send(verify_message(base_url, user.get_full_name() or user.email, code, link), user.email)
+    with translation.override(user_lang(user)):
+        _send(verify_message(base_url, user.get_full_name() or user.email, code, link), user.email)

@@ -1,3 +1,4 @@
+# i18n: ok-file — ички маълумот / тил номлари (ҳар бири ўз ёзувида)
 """Нархлаш web: email + parol bilan kirish; har bir smetachi faqat o'z ishlarini ko'radi."""
 import os
 import sys
@@ -46,6 +47,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "web.i18n.LanguageMiddleware",  # тил: ҳисобдаги танлов / cookie / асосий (кирилл); панел — доим кирилл
     # Hamma sahifa sukut bo'yicha yopiq: ochiqlari (kirish, ro'yxat, «Тизим ҳақида») @login_not_required
     "django.contrib.auth.middleware.LoginRequiredMiddleware",
     "panel.middleware.StaffTwoFactorMiddleware",  # панел / админ — фақат икки босқичли кириш билан
@@ -62,8 +64,11 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [],
-        "APP_DIRS": True,
-        "OPTIONS": {"context_processors": [
+        "APP_DIRS": False,  # юкловчи пастда: app_directories + кирилл матнни таржимага ўраш (web/tr.py)
+        "OPTIONS": {
+            "loaders": [("django.template.loaders.cached.Loader", ["web.tr.Loader"])],
+            "builtins": ["web.tr"],  # {% tr %}, {% tra %}, {% trj %} — юкловчи қўйган теглар
+            "context_processors": [
             "django.template.context_processors.request",
             "django.contrib.auth.context_processors.auth",
             "django.contrib.messages.context_processors.messages",
@@ -71,6 +76,7 @@ TEMPLATES = [
             "support.context.support",
             "news.context.news",
             "jobs.context.ui",
+            "web.i18n.context",
         ]},
     },
 ]
@@ -136,9 +142,21 @@ NARXLASH_TASKS = os.environ.get("NARXLASH_TASKS", "thread" if DEBUG else "worker
 if NARXLASH_TASKS not in ("thread", "worker"):
     raise ImproperlyConfigured("NARXLASH_TASKS: thread yoki worker")
 
-LANGUAGE_CODE = "ru"
+# ===================== тил (web/i18n.py) =====================
+# асосий — кирилл ўзбекча (манба матнлар шу тилда); лотин ва рус — locale/ даги таржималар
+LANGUAGE_CODE = "uz-cyrl"
+LANGUAGES = [("uz-cyrl", "Ўзбекча"), ("uz-latn", "Oʻzbekcha"), ("ru", "Русский")]
+LOCALE_PATHS = [BASE_DIR / "locale"]
+# сон ва сана кўриниши уччала тилда ҳам аввалгидек (рус: 1 234,56; 23.11.2026)
+FORMAT_MODULE_PATH = ["web.formats"]
+from django.conf.locale import LANG_INFO  # noqa: E402 — Django бу иккита кодни билмайди
+
+LANG_INFO.update({
+    "uz-cyrl": {"bidi": False, "code": "uz-cyrl", "name": "Uzbek (Cyrillic)", "name_local": "Ўзбекча"},
+    "uz-latn": {"bidi": False, "code": "uz-latn", "name": "Uzbek (Latin)", "name_local": "Oʻzbekcha"},
+})
 TIME_ZONE = "Asia/Tashkent"
-USE_I18N = False
+USE_I18N = True
 USE_TZ = True
 
 # ===================== auth va xavfsizlik =====================

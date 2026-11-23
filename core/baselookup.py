@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Tuple
 from rapidfuzz import fuzz, process
 
 from .normalize import fold_name, name_unit_key, norm_code, norm_name, unit_key
+from django.utils.translation import gettext_noop as _noop
 
 _PUNCT = re.compile(r"[\W_]+")
 _NUMBERS = re.compile(r"\d+(?:[.,]\d+)?")
@@ -52,10 +53,10 @@ class BaseLookup:
         hits = self._loose.get(f"{loose_name(name)}|{unit_key(unit)}") or {}
         if len(hits) == 1:
             e = next(iter(hits.values()))
-            return e, f"тиниш белгилари бошқача: базада «{e.get('name') or ''}»"
+            return e, _noop("тиниш белгилари бошқача: базада «{0}»").format(e.get('name') or '')
         if hits:
             listed = ", ".join(f"«{e.get('name') or ''}» ({e['price']})" for e in list(hits.values())[:3])
-            return None, f"базада тиниш белгисиз {len(hits)} та ресурс: {listed} — қайсиниси, смета­чи танлайди"
+            return None, _noop("базада тиниш белгисиз {0} та ресурс: {1} — қайсиниси, смета­чи танлайди").format(len(hits), listed)
         return None, ""
 
     def near(self, name, unit, min_score: float) -> Optional[dict]:

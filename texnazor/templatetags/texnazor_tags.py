@@ -4,6 +4,7 @@ from django import template
 from django.utils.safestring import mark_safe
 
 from jobs.templatetags.narx import icon, qty, readable
+from django.utils.translation import gettext as _
 
 register = template.Library()
 
@@ -80,43 +81,35 @@ def item_row(r: dict, period, warn: dict, fixes: dict) -> str:
            f'data-qty="{_q(it.qty)}" data-unit="{unit}" data-done="{_q(r["done"])}">']
     if not closed:
         out.append('<td class="tn-ck"></td>' if r["prev"] else
-                   f'<td class="tn-ck"><input type="checkbox" class="tn-sel" aria-label="{num} — белгилаш"></td>')
+                   _("<td class=\"tn-ck\"><input type=\"checkbox\" class=\"tn-sel\" aria-label=\"{0} — белгилаш\"></td>").format(num))
     out.append(f'<td class="tn-g">{it.excel_row or ""}</td><td class="tn-n">')
     if r["res"]:
-        out.append(f'<button type="button" class="tn-rt" title="Ресурслари ({len(r["res"])} та) — очиш / ёпиш" aria-label="{num} ресурслари">'
-                   f'{icon("chevron-right", "h-3.5 w-3.5")}</button>')
+        out.append(_("<button type=\"button\" class=\"tn-rt\" title=\"Ресурслари ({0} та) — очиш / ёпиш\" aria-label=\"{1} ресурслари\">{2}</button>").format(len(r["res"]), num, icon("chevron-right", "h-3.5 w-3.5")))
     out.append(f'{num}</td><td class="tn-code">{_e(it.code)}</td><td class="tn-name">')
     if wt:
-        out.append(f'<span class="tn-warn" title="{_e(wt)}">⚠ офёртада хато</span> ')
+        out.append(_("<span class=\"tn-warn\" title=\"{0}\">⚠ офёртада хато</span> ").format(_e(wt)))
     if r["prev"]:
-        out.append(f'<span class="tn-prev">✓ {_e(r["prev"])}да тугаган</span> ')
+        out.append(_("<span class=\"tn-prev\">✓ {0}да тугаган</span> ").format(_e(r["prev"])))
     out.append(_e(xl(it.name)))
     if it.kind == "free":
-        out.append(f' <span class="tn-tag" title="Офёртада алоҳида қатор (ресурслари йўқ): ҳажм × нарх">{_e((r["cat"] or "материал").lower())}</span>')
+        out.append(_(" <span class=\"tn-tag\" title=\"Офёртада алоҳида қатор (ресурслари йўқ): ҳажм × нарх\">{0}</span>").format(_e((r["cat"] or _("материал")).lower())))
         if not it.price:
-            out.append(' <span class="tn-tag tn-tag-0" title="Офёртада нархи 0 — белгиланган ҳажм пулга айланмайди">нархи 0</span>')
+            out.append(_(' <span class="tn-tag tn-tag-0" title="Офёртада нархи 0 — белгиланган ҳажм пулга айланмайди">нархи 0</span>'))
     elif it.kind == "extra":
-        out.append(' <span class="tn-tag" title="Сводкада алоҳида қўшилган қатор">сводкадан</span>')
+        out.append(_(' <span class="tn-tag" title="Сводкада алоҳида қўшилган қатор">сводкадан</span>'))
     if it.qty < 0:
-        base = f' — {_e(r["base"].num)}-ишдан' if r["base"] else ""
-        out.append(' <span class="tn-tag tn-tag-minus" title="Офёртада ҳажми манфий: бу қатор асосий ишдан айирилади (масалан қалинлик '
-                   'камайтирилган). Ҳажмни мусбат ёзсангиз ҳам манфий сақланади; асосий иш бажарилса, буни ҳам белгиланг.">'
-                   f'айириш{base}</span>')
+        base = _(" — {0}-ишдан").format(_e(r["base"].num)) if r["base"] else ""
+        out.append(_(" <span class=\"tn-tag tn-tag-minus\" title=\"Офёртада ҳажми манфий: бу қатор асосий ишдан айирилади (масалан қалинлик камайтирилган). Ҳажмни мусбат ёзсангиз ҳам манфий сақланади; асосий иш бажарилса, буни ҳам белгиланг.\">айириш{0}</span>").format(base))
     if r.get("where"):
         b, s = r["where"]
         out.append(f'<div class="tn-where">{_e(readable(b)) + " › " if b else ""}{_e(readable(s))}</div>')
     out.append(f'</td><td class="tn-unit">{unit}</td><td class="num tn-qcell tn-norm tn-norm-w">')
     fx = fixes.get(it.pk)
     if fx:
-        out.append(f'<span class="tn-fixed" title="Тузатилган: {_q(fx.old_qty)} → {_q(fx.new_qty)}. Асос: {_e(fx.basis)}">тузатилган</span>')
-    out.append(f'{_q(it.qty)}<button type="button" class="tn-fix" aria-label="{num} — шартнома ҳажмини тузатиш">'
-               f'{icon("pencil", "h-3.5 w-3.5")}</button></td><td></td>'
-               f'<td class="num tn-dim">{_before(r)}</td>'
-               f'<td class="tn-cin"><input type="text" inputmode="decimal" class="tn-in num" value="{_q(r["this"]) if r["this"] else ""}" '
-               f'placeholder="{"тугаган" if r["prev"] else "ёзинг"}"{" disabled" if closed or r["prev"] else ""} '
-               f'aria-label="{num} — {_e(period.title)} ҳажми"></td><td class="num">')
+        out.append(_("<span class=\"tn-fixed\" title=\"Тузатилган: {0} → {1}. Асос: {2}\">тузатилган</span>").format(_q(fx.old_qty), _q(fx.new_qty), _e(fx.basis)))
+    out.append(_("{0}<button type=\"button\" class=\"tn-fix\" aria-label=\"{1} — шартнома ҳажмини тузатиш\">{2}</button></td><td></td><td class=\"num tn-dim\">{3}</td><td class=\"tn-cin\"><input type=\"text\" inputmode=\"decimal\" class=\"tn-in num\" value=\"{4}\" placeholder=\"{5}\"{6} aria-label=\"{7} — {8} ҳажми\"></td><td class=\"num\">").format(_q(it.qty), num, icon("pencil", "h-3.5 w-3.5"), _before(r), _q(r["this"]) if r["this"] else "", _("тугаган") if r["prev"] else _("ёзинг"), " disabled" if closed or r["prev"] else "", num, _e(period.title)))
     if not it.qty:
-        out.append('<span class="tn-dim" title="Шартномада ҳажми 0">—</span>')
+        out.append(_('<span class="tn-dim" title="Шартномада ҳажми 0">—</span>'))
     elif r["over"]:
         out.append(f'<span class="tn-bad">{_q(r["left"])}</span>')
     elif r["complete"]:
@@ -145,13 +138,8 @@ def head_row(kind: str, s, period, cols: int, st=None, block: str = "") -> str:
     if kind == "group":
         return f'<tr class="tn-gh" data-s="{s.pk}"><td colspan="{cols}">{_e(xl(s.title))}</td></tr>'
     pct = st["pct"]
-    fill = "" if period.closed else (f'<button type="button" class="tn-fill" data-sec="{s.pk}" title="Бўлимдаги ҳамма иш тўлиқ '
-                                     f'бажарилди деб белгилаш (етмаган қисми {_e(period.title)}га ёзилади)">100%</button>')
-    return (f'<tr class="tn-sh{" is-full" if st["contract"] and st["before"] >= st["contract"] * 0.9995 else ""}" id="tn-s-{s.pk}" data-section="{s.pk}" data-s="{s.pk}"><td colspan="{cols}"><div class="tn-sh-in">'
-            f'<span class="tn-sh-t">{_e(xl(s.title))}</span><span class="tn-sh-n">{s.items_count} та</span>'
-            f'<span class="tn-sh-r">{_e(period.title)}да: <b class="num tn-sec-this">{pul(st["this"])}</b>'
-            f'<span class="tn-meter"><span class="tn-sec-bar" style="width:{min(100.0, pct):.3f}%;{"min-width:3px" if pct > 0 else ""}"></span></span>'
-            f'<b class="num tn-sec-pct">{pct:.0f}%</b>{fill}</span></div></td></tr>')
+    fill = "" if period.closed else (_("<button type=\"button\" class=\"tn-fill\" data-sec=\"{0}\" title=\"Бўлимдаги ҳамма иш тўлиқ бажарилди деб белгилаш (етмаган қисми {1}га ёзилади)\">100%</button>").format(s.pk, _e(period.title)))
+    return (_("<tr class=\"tn-sh{0}\" id=\"tn-s-{1}\" data-section=\"{2}\" data-s=\"{3}\"><td colspan=\"{4}\"><div class=\"tn-sh-in\"><span class=\"tn-sh-t\">{5}</span><span class=\"tn-sh-n\">{6} та</span><span class=\"tn-sh-r\">{7}да: <b class=\"num tn-sec-this\">{8}</b><span class=\"tn-meter\"><span class=\"tn-sec-bar\" style=\"width:{9:.3f}%;{10}\"></span></span><b class=\"num tn-sec-pct\">{11:.0f}%</b>{12}</span></div></td></tr>").format(" is-full" if st["contract"] and st["before"] >= st["contract"] * 0.9995 else "", s.pk, s.pk, s.pk, cols, _e(xl(s.title)), s.items_count, _e(period.title), pul(st["this"]), min(100.0, pct), "min-width:3px" if pct > 0 else "", pct, fill))
 
 
 # ---- «Ҳамма ойлар»: ҳар ой алоҳида устун, охирида жами ва қолдиқ (ўқиш учун; ҳажм «шу ой» кўринишида ёзилади) ----
@@ -196,16 +184,15 @@ def item_row_months(r: dict, blocks, vals: dict, period) -> str:
     out = [f'<tr class="{cls}" data-item="{it.pk}" data-s="{it.section_id or ""}" id="tn-i-{it.pk}" data-qty="{_q(it.qty)}" data-unit="{unit}">'
            f'<td class="tn-g">{it.excel_row or ""}</td><td class="tn-n">']
     if edit and not r["prev"]:
-        out.append(f'<input type="checkbox" class="tn-sel" aria-label="{num} — белгилаш">')
+        out.append(_("<input type=\"checkbox\" class=\"tn-sel\" aria-label=\"{0} — белгилаш\">").format(num))
     if r["res"]:
-        out.append(f'<button type="button" class="tn-rt" title="Ресурслари ({len(r["res"])} та) — очиш / ёпиш" aria-label="{num} ресурслари">'
-                   f'{icon("chevron-right", "h-3.5 w-3.5")}</button>')
+        out.append(_("<button type=\"button\" class=\"tn-rt\" title=\"Ресурслари ({0} та) — очиш / ёпиш\" aria-label=\"{1} ресурслари\">{2}</button>").format(len(r["res"]), num, icon("chevron-right", "h-3.5 w-3.5")))
     out.append(f'{num}</td><td class="tn-code">{_e(it.code)}</td><td class="tn-name">')
     if r["prev"]:
-        out.append(f'<span class="tn-prev">✓ {_e(r["prev"])}да тугаган</span> ')
+        out.append(_("<span class=\"tn-prev\">✓ {0}да тугаган</span> ").format(_e(r["prev"])))
     out.append(_e(xl(it.name)))
     if it.qty < 0:
-        out.append(' <span class="tn-tag tn-tag-minus">айириш</span>')
+        out.append(_(' <span class="tn-tag tn-tag-minus">айириш</span>'))
     pct = 100 * total / it.qty if it.qty else 0.0
     tail = f'<small class="tn-bp">{pct:.0f}%</small>' if total and 0.5 <= pct < 99.95 else ""
     out.append(f'</td><td class="tn-unit">{unit}</td>')
@@ -214,8 +201,7 @@ def item_row_months(r: dict, blocks, vals: dict, period) -> str:
         v = sum(vals.get(pid, 0.0) for pid in pids)
         q = _q(v) if v else ""
         if sel and edit:  # yozish katagi — ish rejimidagi bilan bir xil (сон, фоиз, Enter, ↑ ↓)
-            q = (f'<input type="text" inputmode="decimal" class="tn-in num" value="{q}" placeholder="{"тугаган" if r["prev"] else "ёзинг"}"'
-                 f'{" disabled" if r["prev"] else ""} aria-label="{num} — {_e(period.title)} ҳажми">')
+            q = (_("<input type=\"text\" inputmode=\"decimal\" class=\"tn-in num\" value=\"{0}\" placeholder=\"{1}\"{2} aria-label=\"{3} — {4} ҳажми\">").format(q, _("тугаган") if r["prev"] else _("ёзинг"), " disabled" if r["prev"] else "", num, _e(period.title)))
         out.append(_blk2(q, _som(v * uc) if v else "", sel, " tn-cin" if sel and edit else ""))
     open_ = it.qty and not r["complete"]
     out.append(_blk2(_left(r) + tail, _som(r["left"] * uc) if open_ else "", cls=" tn-ml"))  # qisman — necha % bajarilgan
@@ -246,9 +232,7 @@ def head_row_months(s, blocks, money: dict, st: dict) -> str:
         on = " is-sel" if sel else ""
         return f'<td class="tn-b0{on}"></td><td class="num tn-shm{on}">{_som(v)}</td>'
 
-    return (f'<tr class="tn-sh tn-sh-m{full}" id="tn-s-{s.pk}" data-section="{s.pk}" data-s="{s.pk}"><td colspan="4"><div class="tn-sh-in">'
-            f'<span class="tn-sh-t">{_e(xl(s.title))}</span><span class="tn-sh-n">{s.items_count} та</span></div></td><td></td>'
-            f'<td class="tn-b0"></td><td></td><td></td><td class="num tn-shm">{_som(st["contract"])}</td>'
+    return (_("<tr class=\"tn-sh tn-sh-m{0}\" id=\"tn-s-{1}\" data-section=\"{2}\" data-s=\"{3}\"><td colspan=\"4\"><div class=\"tn-sh-in\"><span class=\"tn-sh-t\">{4}</span><span class=\"tn-sh-n\">{5} та</span></div></td><td></td><td class=\"tn-b0\"></td><td></td><td></td><td class=\"num tn-shm\">{6}</td>").format(full, s.pk, s.pk, s.pk, _e(xl(s.title)), s.items_count, _som(st["contract"]))
             + "".join(blk(sum(money.get(pid, 0.0) for pid in pids), sel) for pids, sel in blocks)
             + blk(st["contract"] - cum) + "</tr>")
 
@@ -285,8 +269,8 @@ def block_title(t: str) -> str:
 
 def svodka_f2(steps, chain: dict, cats: dict, hours: dict, cols: int) -> str:
     """Ф-2 охири: «JAMI» (турлар бўйича, чел-ч / маш-ч соатлари билан) ва сводка — «Сумма» устунида."""
-    out = [f'<tr class="tn-bh tn-svh"><td colspan="{cols}">JAMI ва сводка</td></tr>']
-    for key, label, extra in (("J", "Иш ҳақи (чел-ч)", hours.get("J")), ("K", "Машина ва механизмлар (маш-ч)", hours.get("K"))):
+    out = [_("<tr class=\"tn-bh tn-svh\"><td colspan=\"{0}\">JAMI ва сводка</td></tr>").format(cols)]
+    for key, label, extra in (("J", _("Иш ҳақи (чел-ч)"), hours.get("J")), ("K", _("Машина ва механизмлар (маш-ч)"), hours.get("K"))):
         out.append(f'<tr class="tn-sv"><td colspan="5" class="tn-svl">{label}</td><td class="num">{_q(round(extra, 4)) if extra else ""}</td>'
                    f'<td></td><td></td><td class="num tn-svv">{_som(cats.get(key))}</td></tr>')
     for key, label in steps:
@@ -301,7 +285,7 @@ SV_BOLD = {"direct", "direct_overhead", "base", "no_vat", "total", "contractor"}
 
 def svodka_months(steps, cols_label: str, contract: dict, chains: list, sels: list, left: dict) -> str:
     """«Ҳамма ойлар» oxiri — Ф-2 dagidek «JAMI» va svodka: har blok «Сумма» ustunida (ofyorta, oylar, qoldiq)."""
-    out = [f'<tr class="tn-bh tn-svh"><td colspan="{cols_label}">Жами ва сводка — ҳар блок бўйича (Ф-2 даги каби)</td></tr>']
+    out = [_("<tr class=\"tn-bh tn-svh\"><td colspan=\"{0}\">Жами ва сводка — ҳар блок бўйича (Ф-2 даги каби)</td></tr>").format(cols_label)]
     for key, label in steps:
         b = " is-b" if key in SV_BOLD else ""
         cells = [f'<td colspan="4" class="tn-svl">{_e(label)}</td><td></td>',

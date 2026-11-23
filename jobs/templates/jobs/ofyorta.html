@@ -66,7 +66,7 @@
           <span class="block text-xs text-emerald-100">{{ doc.built|date:"d.m.Y H:i" }} · {{ doc.total|som }}</span></span></a>
       {% elif state.status == "failed" %}
       <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">
-        <div class="font-semibold">Офёрта тузилмади</div><div class="mt-1 text-xs">{{ doc.error }}</div></div>
+        <div class="font-semibold">Офёрта тузилмади</div><div class="mt-1 text-xs">{{ doc.error|msg }}</div></div>
       {% endif %}
     </div>
   </div>
@@ -79,7 +79,7 @@
         <span class="absolute inset-0 animate-ping rounded-full bg-sky-400 opacity-30"></span>{% icon "sheet" "h-6 w-6" %}</span>
       <div class="min-w-0 flex-1 basis-64">
         <div class="text-lg font-semibold text-slate-900">Офёрта тузиляпти…</div>
-        <div class="mt-0.5 truncate text-sm text-sky-800" data-step title="{{ state.step }}">{{ state.step|default:"Навбатда" }}</div>
+        <div class="mt-0.5 truncate text-sm text-sky-800" data-step title="{{ state.step }}">{{ state.step|msg|default:_("Навбатда") }}</div>
       </div>
       <div class="text-right">
         <div class="num text-3xl font-bold leading-none text-sky-700"><span data-pct>{{ state.pct }}</span>%</div>
@@ -102,7 +102,7 @@
   {% for m in messages %}
   <div class="rounded-lg border px-4 py-2.5 text-sm {% if m.level_tag == 'error' %}border-rose-200 bg-rose-50 text-rose-800{% elif m.level_tag == 'info' %}border-sky-200 bg-sky-50 text-sky-800{% else %}border-emerald-200 bg-emerald-50 text-emerald-800{% endif %}" role="status">{{ m }}</div>
   {% endfor %}
-  {% if has_file and doc.error %}<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">{{ doc.error|linebreaksbr }}</div>{% endif %}
+  {% if has_file and doc.error %}<div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">{{ doc.error|msg|linebreaksbr }}</div>{% endif %}
 
   {% if not count %}
   <div class="rounded-xl border border-slate-200 bg-white p-6 text-center text-slate-600">Бу {% if is_folder %}папкада{% else %}объектда{% endif %} ҳали нархланган смета йўқ. Аввал нархланг — кейин офёрта тузилади.

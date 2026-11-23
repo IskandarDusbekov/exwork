@@ -15,6 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import Batch
+from django.utils.translation import gettext_noop as _noop
 
 log = logging.getLogger(__name__)
 STALE_AFTER = dt.timedelta(minutes=5)  # ishchi shuncha jim bo'lsa (o'chib qolgan) — boshqasi qaytadan oladi
@@ -35,7 +36,7 @@ def queue(batch: Batch, decisions: dict) -> bool:
     now = timezone.now()
     Batch.objects.filter(pk=batch.pk).update(
         pricing={str(n): d for n, d in decisions.items()}, worker="", heartbeat=None, price_error="",
-        step="Навбатда…", step_since=now)
+        step=_noop("Навбатда…"), step_since=now)
     return True
 
 
@@ -73,8 +74,8 @@ def run(batch_id, worker: str):
     try:
         confirm_batch(batch, {int(k): v for k, v in batch.pricing.items()})
     except Exception as e:  # noqa: BLE001 — sabab sahifada ko'rsatiladi, smetachi qayta urinadi
-        log.exception("нархлаш: %s", batch_id)
-        error = f"Нархлашда хато: {e}"[:500]
+        log.exception("нархлаш: %s", batch_id)  # i18n: ok
+        error = _noop("Нархлашда хато: {0}").format(e)[:500]
     finally:
         done = {"pricing": None, "worker": "", "heartbeat": None, "price_error": error}
         if error:

@@ -21,6 +21,7 @@ import time
 import zipfile
 from pathlib import Path
 from typing import Optional
+from django.utils.translation import gettext_noop as _noop
 
 SUPPORTED = (".xls", ".xlsx", ".xlsm")
 ENV_VAR = "NARXLASH_SOFFICE"
@@ -95,8 +96,7 @@ def check_xlsx(path: Path):
     except zipfile.BadZipFile:
         return  # ZIP emas — openpyxl o'zi tushunarli xato beradi
     if len(infos) > MAX_XLSX_PARTS or sum(i.file_size for i in infos) > MAX_XLSX_UNPACKED:
-        raise ConversionError(f"{path.name}: файл очилганда жуда катта ({MAX_XLSX_UNPACKED // 2**20} МБ дан ортиқ) "
-                              "— бу смета эмас ёки файл бузилган")
+        raise ConversionError(_noop("{0}: файл очилганда жуда катта ({1} МБ дан ортиқ) — бу смета эмас ёки файл бузилган").format(path.name, MAX_XLSX_UNPACKED // 2**20))
 
 
 def ensure_xlsx(path: Path, out_dir: Path, soffice: Optional[str] = None, timeout: int = 180,

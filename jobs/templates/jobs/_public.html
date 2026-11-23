@@ -1,7 +1,7 @@
 {% load narx static seo %}<!doctype html>
 {% comment %} Очиқ саҳифалар асоси (бош саҳифа, блог): <head>, сарлавҳа, пастки қисм. app.css юкланмайди — ранглар
 _site_css.html да. Блоклар: title (бўш — панелдаги бош саҳифа сарлавҳаси), canonical, description, css, content. {% endcomment %}
-<html lang="uz">
+<html lang="{{ LANG_HTML|default:'uz-Cyrl' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

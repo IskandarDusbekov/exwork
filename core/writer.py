@@ -1,3 +1,4 @@
+# i18n: ok-file — Excel ичидаги матн / маълумот (таржима қилинмайди)
 """Lokal listga yozish (reja §2.8): G narx, H summa, I/J/K ajratish, ramka, sum qatori.
 
 openpyxl faqat kerakli kataklarga yozadi; mavjud uslub, birlashtirish, ustun kengligi va

@@ -26,6 +26,7 @@ from openpyxl.utils.cell import coordinate_from_string
 from .log_sheet import excel_value
 from .svodka import make_evaluator
 from .writer import MARKED_FILL, UNPRICED_FILL, _cached_xml, _sheet_parts, number_text
+from django.utils.translation import gettext_noop as _noop
 
 # LOG listi ustunlari (log_sheet.HEADER + note): D — status, J — yozilgan qiymat, K — izoh
 LOG_STATUS, LOG_WRITTEN, LOG_NOTE = "D", "J", "K"
@@ -94,7 +95,7 @@ def apply_cells(path: Path, kit: dict, cells: Dict[str, object], drop: Iterable[
         parts = _sheet_parts(z)
         sheet_part = parts.get(kit["sheet"])
         if not sheet_part:
-            raise NotPatchable("натижа листи файлда йўқ")
+            raise NotPatchable(_noop("натижа листи файлда йўқ"))
         replace: Dict[str, str] = {}
         xml = _patch_sheet(z.read(sheet_part).decode("utf-8"), cells, drop, changed)
         if cf is not None:
@@ -128,7 +129,7 @@ def apply_prices(path: Path, kit: dict, prices: Dict[int, float], log_notes: Opt
     start, end = int(kit["start"]), int(kit["end"])
     for r in prices:
         if not start <= r <= end or f"G{r}" not in kit["written"] or not _formula(kit["written"].get(f"H{r}")):
-            raise NotPatchable(f"{r}-қатор нархланадиган қатор эмас")
+            raise NotPatchable(_noop("{0}-қатор нархланадиган қатор эмас").format(r))
     log = {r: ("MANUAL", p, (log_notes or {}).get(r, "")) for r, p in prices.items()} if log_notes is not None else None
     return apply_cells(path, kit, {f"G{r}": p for r, p in prices.items()}, log=log)
 
@@ -158,7 +159,7 @@ def _patch_sheet(xml: str, cells: Dict[str, object], drop: set, changed: Dict[st
             return _cell_xml(ref, attrs, cells[ref], changed.get(ref))
         f = _F_RE.search(m.group(4) or "")
         if not f:
-            raise NotPatchable(f"{ref}: формула файлда йўқ")
+            raise NotPatchable(_noop("{0}: формула файлда йўқ").format(ref))
         attrs = _T_ATTR.sub("", attrs)
         return _cached_xml(ref, attrs, f.group(0), changed[ref]) or f'<c r="{ref}"{attrs}>{f.group(0)}<v></v></c>'
 
@@ -170,7 +171,7 @@ def _patch_sheet(xml: str, cells: Dict[str, object], drop: set, changed: Dict[st
     donors: Dict[str, Optional[str]] = {}
     for ref in missing:
         if ref not in cells:
-            raise NotPatchable(f"{ref}: формула файлда йўқ")
+            raise NotPatchable(_noop("{0}: формула файлда йўқ").format(ref))
         col, row = coordinate_from_string(ref)
         if col not in donors:
             donors[col] = _donor_style(xml, col)
@@ -226,7 +227,7 @@ def _patch_cf(xml: str, styles: str, want: Dict[str, List[int]]):
         if not rows:
             continue
         if not blocks or "<dxfs" not in styles:
-            raise NotPatchable("шартли формат йўқ")
+            raise NotPatchable(_noop("шартли формат йўқ"))
         dxf_id = len(dxfs)
         dxfs.append("new")
         styles = re.sub(r'<dxfs count="(\d+)"', lambda m: f'<dxfs count="{int(m.group(1)) + 1}"', styles, count=1)
@@ -397,7 +398,7 @@ def _insert_cells(xml: str, add: Dict[int, List[tuple]]) -> str:
 
     xml = _ROW_RE.sub(fix, xml)
     if set(add) - done:
-        raise NotPatchable(f"{min(set(add) - done)}-қатор файлда йўқ")
+        raise NotPatchable(_noop("{0}-қатор файлда йўқ").format(min(set(add) - done)))
     return xml
 
 

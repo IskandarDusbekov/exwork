@@ -1,6 +1,6 @@
 {% extends "jobs/_public.html" %}
 {% load seo %}
-{% block seo %}{% url 'blog_category' cat.slug as here %}{% seo_head title=cat.name|add:" — мақолалар · mhisobot" canonical=here description=description %}{% endblock %}
+{% block seo %}{% url 'blog_category' cat.slug as here %}{% seo_head title=cat.name|add:_(" — мақолалар · mhisobot") canonical=here description=description %}{% endblock %}
 {% block css %}{% include "jobs/_blog_css.html" %}{% endblock %}
 {% block content %}
 <header class="ghead">

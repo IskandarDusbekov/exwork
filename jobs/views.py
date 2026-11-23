@@ -42,34 +42,36 @@ from .services import (
     can_undo_file, refresh_file_jobs, undo_batch_file,
 )
 from .templatetags.narx import file_title, pct as pct_text, pct_input, readable, som
+from web.i18n import ui
+from django.utils.translation import gettext as _, gettext_lazy as _l
 
 logger = logging.getLogger(__name__)
 
 STAT_CARDS = {
     "compat": [
-        ("EXACT", "Аниқ топилди", "emerald"),
-        ("FUZZY", "Ўхшаш (fuzzy)", "amber"),
-        ("AMBIGUOUS", "ШАБҲАЛИ", "orange"),
-        ("NOT_FOUND", "ТОПИЛМАДИ", "rose"),
-        ("ZERO_RULE", "Нол қоидаси", "slate"),
-        ("NON_NUMERIC", "G да рақам эмас", "rose"),
+        ("EXACT", _l("Аниқ топилди"), "emerald"),
+        ("FUZZY", _l("Ўхшаш (fuzzy)"), "amber"),
+        ("AMBIGUOUS", _l("ШАБҲАЛИ"), "orange"),
+        ("NOT_FOUND", _l("ТОПИЛМАДИ"), "rose"),
+        ("ZERO_RULE", _l("Нол қоидаси"), "slate"),
+        ("NON_NUMERIC", _l("G да рақам эмас"), "rose"),
     ],
     "smart": [
-        ("EXACT", "Аниқ топилди", "emerald"),
-        ("NOT_PRICED", "Нархланмади — қўлда", "rose"),
-        ("FUZZY", "Ўхшаш (аниқ эмас)", "rose"),
-        ("AMBIGUOUS", "ШАБҲАЛИ", "rose"),
-        ("UNIT_MISMATCH", "Бирлик бошқа", "rose"),
-        ("NO_PRICE", "Нархсиз ресурс", "rose"),
-        ("NOT_FOUND", "ТОПИЛМАДИ", "rose"),
-        ("BASE", "Ресурс базасидан", "violet"),
-        ("MANUAL", "Қўлда нархланди", "sky"),
-        ("WORK_HEADER", "Иш сарлавҳаси → 0", "slate"),
-        ("MACHINIST", "Машинист → 0", "slate"),
+        ("EXACT", _l("Аниқ топилди"), "emerald"),
+        ("NOT_PRICED", _l("Нархланмади — қўлда"), "rose"),
+        ("FUZZY", _l("Ўхшаш (аниқ эмас)"), "rose"),
+        ("AMBIGUOUS", _l("ШАБҲАЛИ"), "rose"),
+        ("UNIT_MISMATCH", _l("Бирлик бошқа"), "rose"),
+        ("NO_PRICE", _l("Нархсиз ресурс"), "rose"),
+        ("NOT_FOUND", _l("ТОПИЛМАДИ"), "rose"),
+        ("BASE", _l("Ресурс базасидан"), "violet"),
+        ("MANUAL", _l("Қўлда нархланди"), "sky"),
+        ("WORK_HEADER", _l("Иш сарлавҳаси → 0"), "slate"),
+        ("MACHINIST", _l("Машинист → 0"), "slate"),
     ],
 }
-MODE_LABELS = {"smart": "Smart (тавсия)", "compat": "Эски дастур каби (compat)"}
-CATEGORY_LABELS = {"I": "Иш ҳақи", "J": "Машина", "K": "Материал", "L": "Кабель", "M": "Ускуна"}
+MODE_LABELS = {"smart": _l("Smart (тавсия)"), "compat": _l("Эски дастур каби (compat)")}
+CATEGORY_LABELS = {"I": _l("Иш ҳақи"), "J": _l("Машина"), "K": _l("Материал"), "L": _l("Кабель"), "M": _l("Ускуна")}
 LAST_EXTRA_COLUMN = "Z"
 
 
@@ -91,7 +93,7 @@ def _get_work(request, model, **kw):
     return get_object_or_404(model, owner=request.user, **kw)
 
 
-def _audit_download(request, obj, kind, name, *, what="натижа", force=False):
+def _audit_download(request, obj, kind, name, *, what="натижа", force=False):  # i18n: ok
     """Админ бошқа одамнинг файлини юклаб олса — журналга: текширув режимида (``viewing_owner``)
     ёки панелдан (``force``; ``what`` — нима: «натижа», «асл файл», «асл файллар (ZIP)»)."""
     if force or getattr(request, "viewing_owner", None):
@@ -103,7 +105,7 @@ def column_labels(job) -> dict:
     names = job.column_names or {}
     labels = {c: (names.get(c) or label) for c, label in CATEGORY_LABELS.items()}
     for col, name in extra_columns_of(names):
-        labels[col] = name or f"Устун {col}"
+        labels[col] = name or _("Устун {0}").format(col)
     return labels
 
 
@@ -160,7 +162,7 @@ def index(request):
                 audit(request, Event.Kind.UPLOAD, work=job, work_kind="smeta", detail=job.local_name)
                 _upload_timing(request, "smeta", t0, job)
                 return redirect("job", job_id=job.id)
-            error = "Файлни танланг."
+            error = _("Файлни танланг.")
         except UploadError as e:
             error = str(e)
             request.track_detail = error[:200]
@@ -291,7 +293,7 @@ def upload_percents(request):
     data = {f"pct_{k}": (request.POST.get(f"pct_{k}", "").strip() or "0") for k in DEFAULT_PERCENTS
             if f"pct_{k}" in request.POST}  # бўш катак — 0 (смета саҳифасидагидек)
     if not data:
-        return JsonResponse({"ok": False, "error": "фоиз йўқ"}, status=400)
+        return JsonResponse({"ok": False, "error": _("фоиз йўқ")}, status=400)
     remember_percents(request.user, {**saved, **parse_percents(data, saved)})
     return JsonResponse({"ok": True})
 
@@ -315,22 +317,22 @@ def _job_sums(jobs):
 
 # Ишнинг умумий ҳолати (тарих ва дашборд): номи, ранги, белгиси
 WORK_STATES = {
-    "working": ("Ишланяпти", "sky", "loader"),
-    "awaiting": ("Ҳисоблашга тайёр", "violet", "clock"),
-    "stopped": ("Тўхтатилди", "slate", "stop"),
-    "review": ("Текширинг", "amber", "alert"),
-    "failed": ("Хато", "rose", "x-circle"),
-    "warn": ("Нархланмаган бор", "rose", "alert-circle"),
-    "done": ("Тайёр", "emerald", "check"),
-    "empty": ("Смета топилмади", "slate", "minus"),
+    "working": (_l("Ишланяпти"), "sky", "loader"),
+    "awaiting": (_l("Ҳисоблашга тайёр"), "violet", "clock"),
+    "stopped": (_l("Тўхтатилди"), "slate", "stop"),
+    "review": (_l("Текширинг"), "amber", "alert"),
+    "failed": (_l("Хато"), "rose", "x-circle"),
+    "warn": (_l("Нархланмаган бор"), "rose", "alert-circle"),
+    "done": (_l("Тайёр"), "emerald", "check"),
+    "empty": (_l("Смета топилмади"), "slate", "minus"),
 }
 # Нега смета топилмади — ўтказиб юборилган листлар тури (core.batch.KIND_*) бўйича
 SKIP_REASONS = {
-    "priced": "локал смета аллақачон нархланган",
-    "act": "дефект акти — ишлар рўйхати",
-    "summary": "сводка / умумий ҳисоб",
-    "catalog": "нарх каталоги (миқдор йўқ)",
-    "empty": "бўш лист",
+    "priced": _l("локал смета аллақачон нархланган"),
+    "act": _l("дефект акти — ишлар рўйхати"),
+    "summary": _l("сводка / умумий ҳисоб"),
+    "catalog": _l("нарх каталоги (миқдор йўқ)"),
+    "empty": _l("бўш лист"),
 }
 
 
@@ -338,15 +340,15 @@ def _skip_reason(sheets) -> str:
     """Листлар орасида локал смета йўқлигининг сабаби: «локал смета аллақачон нархланган · сводка»."""
     kinds = {s.get("kind") for s in sheets if s.get("role") != "local"}
     reasons = [r for k, r in SKIP_REASONS.items() if k in kinds]
-    return " · ".join(reasons) or "«Наименование» ва «Ед. изм.» жадвали топилмади"
+    return " · ".join(str(r) for r in reasons) or _("«Наименование» ва «Ед. изм.» жадвали топилмади")
 # Смета (папка қисми) босқичлари — дашборддаги «қувур»
 PIPELINE = [
-    ("opening", "Очиляпти", "sky", "Навбатда ёки файллари очиляпти"),
-    ("pricing", "Ҳисобланяпти", "indigo", "Ҳозир фонда нархланяпти"),
-    ("pending", "Ҳисобланмаган", "violet", "Тайёр ёки тўхтатилган — «Ҳисоблашни бошлаш»ни кутяпти"),
-    ("review", "Текширинг", "amber", "Ресурс танлаш ёки хатони кўриш керак"),
-    ("warn", "Нархланмаган қатор бор", "rose", "Ҳисобланди, лекин айрим қаторлар қўлда нархланиши керак"),
-    ("done", "Ҳисобланди", "emerald", "Тўлиқ нархланди"),
+    ("opening", _l("Очиляпти"), "sky", _l("Навбатда ёки файллари очиляпти")),
+    ("pricing", _l("Ҳисобланяпти"), "indigo", _l("Ҳозир фонда нархланяпти")),
+    ("pending", _l("Ҳисобланмаган"), "violet", _l("Тайёр ёки тўхтатилган — «Ҳисоблашни бошлаш»ни кутяпти")),
+    ("review", _l("Текширинг"), "amber", _l("Ресурс танлаш ёки хатони кўриш керак")),
+    ("warn", _l("Нархланмаган қатор бор"), "rose", _l("Ҳисобланди, лекин айрим қаторлар қўлда нархланиши керак")),
+    ("done", _l("Ҳисобланди"), "emerald", _l("Тўлиқ нархланди")),
 ]
 _STAGE_PIPE = {"queued": "opening", "converting": "opening", "pricing": "pricing", "ready": "pending",
                "stopped": "pending", "review": "review", "failed": "review"}
@@ -385,7 +387,7 @@ def work_items(user, limit=None):
         items.append({"kind": "folder", "name": pr.name, "url": reverse("project", args=[pr.id]), "created": pr.created,
                       "delete_url": reverse("work_delete", args=["folder", pr.id]),
                       "stop_url": reverse("project_stop", args=[pr.id]) if pr.status == Project.Status.PROCESSING else "",
-                      "meta": f"{len(parts)} та смета", "reason": reason, "working": state == "working",
+                      "meta": _("{0} та смета").format(len(parts)), "reason": reason, "working": state == "working",
                       "progress": f"{finished}/{len(parts)}", "percent": round(100 * finished / len(parts)) if parts else 100,
                       "total": total, "not_priced": not_priced, "review": review, "stopped": stopped, "awaiting": awaiting,
                       "state": state, "pipes": [_STAGE_PIPE.get(p.stage) or _pipe_of_jobs(list(p.jobs.all()), "done")
@@ -397,7 +399,7 @@ def work_items(user, limit=None):
         state = _pipe_of_jobs(jobs, "review") if b.status == Batch.Status.DONE else "review" if b.pairs else "empty"
         items.append({"kind": "object", "name": b.name, "url": reverse("batch", args=[b.id]), "created": b.created,
                       "delete_url": reverse("work_delete", args=["object", b.id]),
-                      "meta": f"{len(b.pairs)} та жуфтлик", "working": False,
+                      "meta": _("{0} та жуфтлик").format(len(b.pairs)), "working": False,
                       "reason": _skip_reason(b.sheets) if state == "empty" else "", "total": total, "not_priced": not_priced,
                       "review": 0 if b.status == Batch.Status.DONE else 1, "state": state, "pipes": [state]})
     for j in light_jobs(Job.objects.filter(owner=user, batch__isnull=True))[:limit]:
@@ -444,16 +446,16 @@ def _tn_recent(user, limit=8) -> list:
 def _todo(it) -> str:
     st = it["state"]
     if st == "warn":
-        return f"{it['not_priced']} та қаторга нарх ёзинг"
+        return _("{0} та қаторга нарх ёзинг").format(it['not_priced'])
     if st == "awaiting":
-        return f"{it['awaiting']} та қисмни ҳисоблашни бошланг" if it["kind"] == "folder" else "Ҳисоблашни бошланг"
+        return _("{0} та қисмни ҳисоблашни бошланг").format(it['awaiting']) if it["kind"] == "folder" else _("Ҳисоблашни бошланг")
     if st == "stopped":
-        return "Тўхтатилган — давом эттиринг"
+        return _("Тўхтатилган — давом эттиринг")
     if st == "failed":
-        return "Очиб бўлмади — сабабини кўринг"
+        return _("Очиб бўлмади — сабабини кўринг")
     if it["kind"] == "folder" and it.get("review"):
-        return f"{it['review']} та қисмни текширинг"
-    return "Ресурсни танланг ёки хатони кўринг"
+        return _("{0} та қисмни текширинг").format(it['review'])
+    return _("Ресурсни танланг ёки хатони кўринг")
 
 
 ATTENTION = ("warn", "awaiting", "stopped", "review", "failed")
@@ -515,16 +517,16 @@ def project_auto_split(request, project_id):
     for b in project.parts.filter(jobs__isnull=True).distinct():
         if not manual_left(b):
             continue
-        push_pick_undo(b, "автоматик ажратиш")
+        push_pick_undo(b, _("автоматик ажратиш"))
         analyze_batch(b, lazy=False, adopt=True)
         b.stage, b.message = ready_stage(b)
         b.save()
         done += 1
     if done:
         settle(project)
-        messages.success(request, f"✓ Тизим {done} та қисмда листларни ажратди — текшириб, «Ҳаммасини бошлаш»ни босинг.")
+        messages.success(request, _("✓ Тизим {0} та қисмда листларни ажратди — текшириб, «Ҳаммасини бошлаш»ни босинг.").format(done))
     else:
-        messages.info(request, "Белгиланмаган лист йўқ.")
+        messages.info(request, _("Белгиланмаган лист йўқ."))
     return redirect("project", project.id)
 
 
@@ -564,7 +566,7 @@ def work_delete(request, kind, work_id):
             name = work.local_name
             delete_job(work)
         else:
-            raise Http404("Нотўғри тур")
+            raise Http404(_("Нотўғри тур"))
     except UploadError as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=409)
     audit(request, Event.Kind.DELETE, work_kind=kind, detail=f"{name} ({work_id})")
@@ -578,7 +580,7 @@ def work_rename(request, kind, work_id):
     """Папка ёки объектни қайта номлаш (фақат эгаси)."""
     model = {"folder": Project, "object": Batch}.get(kind)
     if model is None:
-        raise Http404("Нотўғри тур")
+        raise Http404(_("Нотўғри тур"))
     work = _get_work(request, model, id=work_id)
     name = " ".join(request.POST.get("name", "").split())[:255]
     if name and name != work.name:
@@ -610,17 +612,17 @@ def crumbs_for(project=None, batch=None, job=None):
 
 # ===================== butun papka =====================
 PART_STATES = {
-    "queued": ("Навбатда", "slate"),
-    "converting": ("Файллар очиляпти", "sky"),
-    "ready": ("Ҳисоблашга тайёр", "violet"),
-    "stopped": ("Тўхтатилди", "slate"),
-    "pricing": ("Нархланяпти", "sky"),
-    "recalc": ("Қайта ҳисобланяпти", "sky"),
-    "done": ("Тайёр", "emerald"),
-    "warn": ("Нархланмаган қатор бор", "rose"),
-    "review": ("Текширинг", "amber"),
-    "empty": ("Локал топилмади", "slate"),
-    "failed": ("Хато", "rose"),
+    "queued": (_l("Навбатда"), "slate"),
+    "converting": (_l("Файллар очиляпти"), "sky"),
+    "ready": (_l("Ҳисоблашга тайёр"), "violet"),
+    "stopped": (_l("Тўхтатилди"), "slate"),
+    "pricing": (_l("Нархланяпти"), "sky"),
+    "recalc": (_l("Қайта ҳисобланяпти"), "sky"),
+    "done": (_l("Тайёр"), "emerald"),
+    "warn": (_l("Нархланмаган қатор бор"), "rose"),
+    "review": (_l("Текширинг"), "amber"),
+    "empty": (_l("Локал топилмади"), "slate"),
+    "failed": (_l("Хато"), "rose"),
 }
 
 
@@ -753,10 +755,9 @@ def project_price(request, project_id):
     skip = [b.id for b in project.parts.filter(stage=Batch.Stage.READY) if not batch_auto(b) and manual_left(b)]
     n = start_pricing(project, exclude=skip)
     if skip:
-        messages.warning(request, f"{len(skip)} та қисмда листлар ҳали белгиланмаган — улар нархланмади. "
-                                  "Қисмни очиб, ҳар бир листни белгиланг ва қайта «Бошлаш»ни босинг.")
+        messages.warning(request, _("{0} та қисмда листлар ҳали белгиланмаган — улар нархланмади. Қисмни очиб, ҳар бир листни белгиланг ва қайта «Бошлаш»ни босинг.").format(len(skip)))
     elif not n:
-        messages.warning(request, "Нархлашга тайёр қисм йўқ.")
+        messages.warning(request, _("Нархлашга тайёр қисм йўқ."))
     return redirect("project", project_id=project.id)
 
 
@@ -771,20 +772,20 @@ def project_unpriced(request, project_id):
             return JsonResponse({"pending": bulk_price.pending(project)})
         return JsonResponse({"groups": bulk_price.groups(project), "pending": bulk_price.pending(project)})
     if project.status == Project.Status.PROCESSING:
-        return JsonResponse({"ok": False, "error": "Папка ҳали ишланяпти — тугагач нарх қўйинг"}, status=400)
+        return JsonResponse({"ok": False, "error": _("Папка ҳали ишланяпти — тугагач нарх қўйинг")}, status=400)
     try:
         data = json.loads(request.body or b"{}")
         items = []
         for it in data["items"]:
             price = _as_price(it["price"])
             if price is None or price < 0:
-                return JsonResponse({"ok": False, "error": f"нарх рақам бўлиши керак: «{it['price']}»"}, status=400)
+                return JsonResponse({"ok": False, "error": _("нарх рақам бўлиши керак: «{0}»").format(it['price'])}, status=400)
             rows = {str(uuid.UUID(str(j))): [int(r) for r in rs] for j, rs in dict(it["rows"]).items()}
             items.append({"price": price, "rows": rows})
     except (ValueError, TypeError, KeyError, AttributeError):
-        return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров")}, status=400)
     if not items:
-        return JsonResponse({"ok": False, "error": "нарх ёзилмаган"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нарх ёзилмаган")}, status=400)
     return JsonResponse({"ok": True, **bulk_price.apply(project, items, undo=bool(data.get("undo")))})
 
 
@@ -816,23 +817,23 @@ def landing(request):
 
 
 # ===================== obyekt (bir/ko'p fayl) =====================
-ROLE_LABELS = {"local": "Локал", "resource": "Ресурс", "unknown": "Ўтказиш"}
+ROLE_LABELS = {"local": _l("Локал"), "resource": _l("Ресурс"), "unknown": _l("Ўтказиш")}
 # Устунлар вазифаси (smetachi qo'lda ko'rsatishi mumkin): калит, номи, қайси лист турига тегишли, нима эканлиги
 COLUMN_ROLES = [
-    ("name", "Ном", ("local", "resource"),
-     "Иш ёки ресурс номи (матн). Масалан: «Щебень фракции 20-40 мм». Шу ном бўйича RES'дан нарх қидирилади."),
-    ("unit", "Бирлик", ("local", "resource"),
-     "Ўлчов бирлиги: м3, т, км, чел.-ч, маш.-ч. Ном билан бирга солиштирилади — бирлиги бошқа бўлса, нарх олинмайди."),
-    ("qty_unit", "Миқдор (бирликка)", ("local",),
-     "1 бирлик иш учун сарф — норма. Масалан: 1000 м3 грунт қазишга 21,4 маш.-ч экскаватор. Бу устун бўлмаса — «йўқ»."),
-    ("qty_total", "Миқдор (жами)", ("local",),
-     "Бутун иш ҳажмига сарф = норма × иш ҳажми (21,4 × 0,84 = 17,98 маш.-ч). Сумма шундан ҳисобланади: жами × нарх."),
-    ("price", "Нарх", ("resource",),
-     "RES'даги 1 бирлик ресурснинг нархи (сўм). Мос келган ресурснинг шу нархи локалга ёзилади."),
+    ("name", _l("Ном"), ("local", "resource"),
+     _l("Иш ёки ресурс номи (матн). Масалан: «Щебень фракции 20-40 мм». Шу ном бўйича RES'дан нарх қидирилади.")),
+    ("unit", _l("Бирлик"), ("local", "resource"),
+     _l("Ўлчов бирлиги: м3, т, км, чел.-ч, маш.-ч. Ном билан бирга солиштирилади — бирлиги бошқа бўлса, нарх олинмайди.")),
+    ("qty_unit", _l("Миқдор (бирликка)"), ("local",),
+     _l("1 бирлик иш учун сарф — норма. Масалан: 1000 м3 грунт қазишга 21,4 маш.-ч экскаватор. Бу устун бўлмаса — «йўқ».")),
+    ("qty_total", _l("Миқдор (жами)"), ("local",),
+     _l("Бутун иш ҳажмига сарф = норма × иш ҳажми (21,4 × 0,84 = 17,98 маш.-ч). Сумма шундан ҳисобланади: жами × нарх.")),
+    ("price", _l("Нарх"), ("resource",),
+     _l("RES'даги 1 бирлик ресурснинг нархи (сўм). Мос келган ресурснинг шу нархи локалга ёзилади.")),
 ]
 ROW_HINTS = {
-    "start": "Биринчи иш ёки ресурс ёзилган қатор — сарлавҳа ва «1 2 3 4…» рақамлаш қаторидан кейингиси.",
-    "end": "Охирги ресурс қатори. Ундан пасти («Итого», имзолар) нархланмайди.",
+    "start": _l("Биринчи иш ёки ресурс ёзилган қатор — сарлавҳа ва «1 2 3 4…» рақамлаш қаторидан кейингиси."),
+    "end": _l("Охирги ресурс қатори. Ундан пасти («Итого», имзолар) нархланмайди."),
 }
 
 
@@ -860,32 +861,32 @@ def _sheet_verdict(s, cv, by_key, chosen=False) -> dict:
     ``chosen`` — турини смета­чи ўзи танлаган (тизим тушунмади деб сўралмайди)."""
     if s.get("duplicate_of"):
         twin = by_key.get(s["duplicate_of"], {})
-        return {"tone": "off", "text": "Нусха", "hint": f'«{twin.get("sheet", "")}» билан бир хил — ўтказилди'}
+        return {"tone": "off", "text": _("Нусха"), "hint": _("«{0}» билан бир хил — ўтказилди").format(twin.get("sheet", ""))}
     if s.get("pending") and not chosen:  # «Қўлда»: файл ҳали ўқилмаган — тизим ҳеч нарса демайди
-        return {"tone": "wait", "text": "Белгиланг", "hint": ""}
+        return {"tone": "wait", "text": _("Белгиланг"), "hint": ""}
     if s["role"] == "unknown" and not s.get("kind") and not chosen:
         # свод / акт / бўш эмас — тизим жадвални умуман тополмади: йиғиқ рўйхатга эмас, кўринадиган жойга
-        return {"tone": "ask", "text": "Тизим тушунмади", "hint": "Жадвал топилмади — «Белгилаш»ни босиб кўрсатинг"}
+        return {"tone": "ask", "text": _("Тизим тушунмади"), "hint": _("Жадвал топилмади — «Белгилаш»ни босиб кўрсатинг")}
     if s["role"] == "unknown":
-        kind = KIND_LABELS.get(s.get("kind", ""), "")
-        hint = "Қайта нархлаш керак бўлса — турини «Локал» қилинг" if s.get("kind") == "priced" else (
-            "" if kind else "Локал ёки ресурс бўлса — турини ўзгартиринг")
-        return {"tone": "off", "text": f"Ўтказилди — {kind}" if kind else "Ўтказилди", "hint": hint}
+        kind = ui(KIND_LABELS.get(s.get("kind", ""), ""))
+        hint = _("Қайта нархлаш керак бўлса — турини «Локал» қилинг") if s.get("kind") == "priced" else (
+            "" if kind else _("Локал ёки ресурс бўлса — турини ўзгартиринг"))
+        return {"tone": "off", "text": _("Ўтказилди — {0}").format(kind) if kind else _("Ўтказилди"), "hint": hint}
     if cv["missing"]:
-        return {"tone": "warn", "text": "Устун топилмади", "hint": "«тузатиш»ни босиб, қизил устунни кўрсатинг"}
+        return {"tone": "warn", "text": _("Устун топилмади"), "hint": _("«тузатиш»ни босиб, қизил устунни кўрсатинг")}
     if not s.get("rows"):
-        return {"tone": "warn", "text": "Маълумот топилмади" if s["role"] == "local" else "Нарх топилмади",
-                "hint": "«тузатиш»да қаторлар оралиғи ва устунларни текширинг"}
+        return {"tone": "warn", "text": _("Маълумот топилмади") if s["role"] == "local" else _("Нарх топилмади"),
+                "hint": _("«тузатиш»да қаторлар оралиғи ва устунларни текширинг")}
     if s["role"] == "local":
-        return {"tone": "ok", "text": "Нархланади", "hint": f'{s.get("rows") or 0} та қатор'}
-    return {"tone": "res", "text": "Нарх манбаи", "hint": f'{s.get("rows") or 0} та нарх'}
+        return {"tone": "ok", "text": _("Нархланади"), "hint": _("{0} та қатор").format(s.get("rows") or 0)}
+    return {"tone": "res", "text": _("Нарх манбаи"), "hint": _("{0} та нарх").format(s.get("rows") or 0)}
 
 
 def _by_kind(sheets) -> list:
     """Ўтказилган листлар тури бўйича: [(«сводка / умумий ҳисоб», [листлар]), …] — ҳар бирига ёрлиқ қайта ёзилмайди."""
     groups: dict = {}
     for s in sheets:
-        groups.setdefault(KIND_LABELS.get(s.get("kind"), "бошқа"), []).append(s)
+        groups.setdefault(ui(KIND_LABELS.get(s.get("kind"))) or _("бошқа"), []).append(s)
     return list(groups.items())
 
 
@@ -927,9 +928,9 @@ def _parse_columns(post, i) -> dict:
 
 def _batch_tags(batch):
     """Боғланишни кўрсатиш учун белгилар: ҳар бир локал «Л1, Л2…» (жуфтлик тартибида), ресурс «Р1, Р2…»."""
-    loc_tag = {p["local"]: f"Л{n + 1}" for n, p in enumerate(batch.pairs)}
+    loc_tag = {p["local"]: _("Л{0}").format(n + 1) for n, p in enumerate(batch.pairs)}
     resources = [s for s in batch.sheets if s["role"] == "resource" and not s.get("duplicate_of")]
-    res_tag = {s["key"]: f"Р{i + 1}" for i, s in enumerate(resources)}
+    res_tag = {s["key"]: _("Р{0}").format(i + 1) for i, s in enumerate(resources)}
     return loc_tag, res_tag, resources
 
 
@@ -991,11 +992,11 @@ def batch_sheet(request, batch_id):
     key = request.GET.get("k", "")
     info = batch.sheet(key)
     if info is None:
-        raise Http404("Лист топилмади")
+        raise Http404(_("Лист топилмади"))
     f = batch.files[info["file"]]
     path = batch.abs(f["path"])
     if not f.get("path") or not path.is_file():
-        raise Http404("Файл ҳали очилмаган")
+        raise Http404(_("Файл ҳали очилмаган"))
     try:
         n = max(20, min(int(request.GET.get("n") or PREVIEW_ROWS), xlview.MAX_ROWS))
     except ValueError:
@@ -1017,7 +1018,7 @@ def batch_pair_preview(request, batch_id):
     k, r = request.GET.get("k", ""), request.GET.get("r", "")
     loc = batch.sheet(k)
     if loc is None or loc["role"] != "local":
-        raise Http404("Лист топилмади")
+        raise Http404(_("Лист топилмади"))
     base = None
     if r == BASE_RES:
         period = base_period_of(batch.owner_id)
@@ -1026,7 +1027,7 @@ def batch_pair_preview(request, batch_id):
     else:
         res = batch.sheet(r) if r else None
         if r and (res is None or res["role"] != "resource"):
-            raise Http404("Лист топилмади")
+            raise Http404(_("Лист топилмади"))
         tag = ""
     try:
         return JsonResponse(pair_preview.cached(batch, k, r, base, tag))
@@ -1040,7 +1041,7 @@ def _sheets_js(batch):
     return [{"k": s["key"], "file": s["file"], "file_name": s["file_name"], "sheet": s["sheet"], "role": s["role"],
              "title": sheet_title(s),
              "tag": loc_tag.get(s["key"]) or res_tag.get(s["key"], ""), "dup": bool(s.get("duplicate_of")),
-             "kind": KIND_LABELS.get(s.get("kind", ""), ""), "hidden": bool(s.get("hidden"))} for s in batch.sheets]
+             "kind": ui(KIND_LABELS.get(s.get("kind", ""), "")), "hidden": bool(s.get("hidden"))} for s in batch.sheets]
 
 
 def manual_left(batch) -> int:
@@ -1061,7 +1062,7 @@ def _skipped_files(batch) -> list:
             continue
         parent = str(PurePosixPath(e["path"]).parent)
         if ("" if parent == "." else parent) == folder:
-            out.append({"name": PurePosixPath(e["path"]).name, "reason": e["skip"]})
+            out.append({"name": PurePosixPath(e["path"]).name, "reason": ui(e["skip"])})
     return out
 
 
@@ -1091,8 +1092,8 @@ def _picker_ctx(batch, embed=False) -> dict:
                          "show": s["role"] if (auto or picked or s.get("duplicate_of")) else "none", "picked": picked,
                          "pending": bool(s.get("pending")),
                          "hidden": bool(s.get("hidden")), "tag": loc_tag.get(s["key"]) or res_tag.get(s["key"], ""),
-                         "sub": sub, "verdict": v, "reason": s.get("reason", ""),
-                         "kind": KIND_LABELS.get(s.get("kind", ""), "")})
+                         "sub": sub, "verdict": v, "reason": ui(s.get("reason", "")),
+                         "kind": ui(KIND_LABELS.get(s.get("kind", ""), ""))})
         files.append({"i": fi, "name": f["name"], "sheets": rows,
                       "locals": sum(1 for r in rows if r["role"] == "local" and not r["dup"]),
                       "resources": sum(1 for r in rows if r["role"] == "resource" and not r["dup"])})
@@ -1165,7 +1166,7 @@ def batch_detail(request, batch_id):
     jobs = list(batch.jobs.order_by("batch_order"))
     by_key = {s["key"]: s for s in sheets}
     # ишлатилмаган ресурсни бириктириш учун: ҳар бир локал (белгиси, номи, файли)
-    loc_titles = [{"n": n, "tag": f"Л{n + 1}", "file": by_key[p["local"]]["file"], "has_res": bool(p.get("res")),
+    loc_titles = [{"n": n, "tag": _("Л{0}").format(n + 1), "file": by_key[p["local"]]["file"], "has_res": bool(p.get("res")),
                    "title": readable(p.get("label")) or sheet_title(by_key[p["local"]])} for n, p in enumerate(batch.pairs)]
     ctx = {
         "batch": batch,
@@ -1186,7 +1187,7 @@ def batch_detail(request, batch_id):
         "sheet_groups": _sheet_groups(batch),
         "row_hints": ROW_HINTS,
         "role_counts": {r: sum(1 for s in sheets if s["role"] == r and not s.get("duplicate_of")) for r in ROLE_LABELS},
-        "kind_labels": KIND_LABELS,
+        "kind_labels": {k: _(v) for k, v in KIND_LABELS.items()},
         "sheets_js": _sheets_js(batch),
         "role_labels": ROLE_LABELS.items(),
         "ready": sum(1 for p in batch.pairs if pair_ready(p)),
@@ -1219,9 +1220,9 @@ def batch_pick(request, batch_id):
     жуфтланади; ``pair`` — локал учун қайси ресурс ва нархлансинми. Смета­чи танлови кейин ҳам эслаб қолинади."""
     batch = _get_work(request, Batch, id=batch_id)
     if batch.owner_id != request.user.pk:
-        return JsonResponse({"ok": False, "error": "Бу иш сизники эмас — ўзгартириб бўлмайди"}, status=403)
+        return JsonResponse({"ok": False, "error": _("Бу иш сизники эмас — ўзгартириб бўлмайди")}, status=403)
     if batch.project_id and batch.stage in (Batch.Stage.QUEUED, Batch.Stage.CONVERTING, Batch.Stage.PRICING):
-        return JsonResponse({"ok": False, "error": "Бу қисм ҳозир ишланяпти — тугагач ўзгартиринг"}, status=409)
+        return JsonResponse({"ok": False, "error": _("Бу қисм ҳозир ишланяпти — тугагач ўзгартиринг")}, status=409)
     what = request.POST.get("what")
     remembered = 0
     if what in ("role", "auto", "undo"):
@@ -1230,12 +1231,12 @@ def batch_pick(request, batch_id):
             keys = [k for k in dict.fromkeys(request.POST.getlist("key")) if k]
             role = request.POST.get("role", "")
             if not keys or (role and role not in ROLE_LABELS) or any(batch.sheet(k) is None for k in keys):
-                return JsonResponse({"ok": False, "error": "нотўғри лист"}, status=400)
+                return JsonResponse({"ok": False, "error": _("нотўғри лист")}, status=400)
             roles = dict(batch.roles or {})
             if all((roles.get(k) or "") == role for k in keys):
-                return JsonResponse({"ok": False, "error": "Ўзгариш йўқ"}, status=400)
-            push_pick_undo(batch, f'{len(keys)} та лист — {ROLE_LABELS.get(role, "белги олинди")}' if len(keys) > 1
-                           else f'«{batch.sheet(keys[0])["sheet"]}» — {ROLE_LABELS.get(role, "белги олинди")}')
+                return JsonResponse({"ok": False, "error": _("Ўзгариш йўқ")}, status=400)
+            push_pick_undo(batch, _("{0} та лист — {1}").format(len(keys), ROLE_LABELS.get(role, _("белги олинди"))) if len(keys) > 1
+                           else f'«{batch.sheet(keys[0])["sheet"]}» — {ROLE_LABELS.get(role, _("белги олинди"))}')
             for k in keys:
                 if role:
                     roles[k] = role
@@ -1246,12 +1247,12 @@ def batch_pick(request, batch_id):
                 remembered = remember_sheets(batch, keys)
         elif what == "auto":
             # «Автоматик ажратиш»: тизим белгиланмаган листларни ўзи ажратади (смета­чи танлаганига тегмайди)
-            push_pick_undo(batch, "автоматик ажратиш")
+            push_pick_undo(batch, _("автоматик ажратиш"))
             analyze_batch(batch, lazy=False, adopt=True)
         else:
             last = pop_pick_undo(batch)
             if last is None:
-                return JsonResponse({"ok": False, "error": "Қайтариладиган ўзгариш йўқ"}, status=400)
+                return JsonResponse({"ok": False, "error": _("Қайтариладиган ўзгариш йўқ")}, status=400)
             analyze_batch(batch, dict(last.get("roles") or {}), dict(last["columns"] if "columns" in last else batch.columns or {}))
         if not batch.jobs.exists():
             batch.status = Batch.Status.REVIEW
@@ -1266,7 +1267,7 @@ def batch_pick(request, batch_id):
         except ValueError:
             n = -1
         if not 0 <= n < len(batch.pairs):
-            return JsonResponse({"ok": False, "error": "нотўғри жуфтлик"}, status=400)
+            return JsonResponse({"ok": False, "error": _("нотўғри жуфтлик")}, status=400)
         d = {"include": request.POST.get("include") == "1", "picked": True}
         if "res" in request.POST:
             d["res"] = request.POST["res"]
@@ -1279,7 +1280,7 @@ def batch_pick(request, batch_id):
             batch.save(update_fields=["stage", "message"])
             settle(batch.project)
     else:
-        return JsonResponse({"ok": False, "error": "номаълум амал"}, status=400)
+        return JsonResponse({"ok": False, "error": _("номаълум амал")}, status=400)
     state = PART_STATES.get(batch.stage) if batch.project_id else None
     return JsonResponse({"ok": True, "ready": sum(1 for p in batch.pairs if pair_ready(p)),
                          "remembered": MEMO_SAVED if what == "role" and remembered else "",
@@ -1334,7 +1335,7 @@ def batch_replan(request, batch_id):
         try:
             convert_files(batch, only_missing=True)  # аввал очилмай қолган файллар (таҳлил узилган бўлса)
         except Exception as e:  # noqa: BLE001 — файл барибир очилмаса: қолганлари билан давом, сабаби саҳифада
-            messages.error(request, f"Баъзи файллар очилмади: {e}")
+            messages.error(request, _("Баъзи файллар очилмади: {0}").format(e))
     before = (dict(batch.roles or {}), dict(batch.columns or {}))
     analyze_batch(batch, roles, columns)
     # шу сафар ўзгартирилган листлар — эслаб қолинади (шундай тузилмали лист кейин келса, ўзи қўлланади)
@@ -1378,17 +1379,17 @@ def batch_mark(request, batch_id):
     key = request.POST.get("key") or request.GET.get("k", "")
     s = batch.sheet(key)
     if s is None:
-        raise Http404("Лист топилмади")
+        raise Http404(_("Лист топилмади"))
     if request.method == "POST":
         if batch.owner_id != request.user.pk:
-            messages.error(request, "Бу иш сизники эмас — ўзгартириб бўлмайди")
+            messages.error(request, _("Бу иш сизники эмас — ўзгартириб бўлмайди"))
             return redirect("batch", batch_id=batch.id)
         if batch.project_id and batch.stage in (Batch.Stage.QUEUED, Batch.Stage.CONVERTING, Batch.Stage.PRICING):
-            messages.error(request, "Бу қисм ҳозир ишланяпти — тугагач ўзгартиринг")
+            messages.error(request, _("Бу қисм ҳозир ишланяпти — тугагач ўзгартиринг"))
             return redirect("batch", batch_id=batch.id)
         role = request.POST.get("role", "")
         if role not in ROLE_LABELS:
-            messages.error(request, "Лист турини танланг")
+            messages.error(request, _("Лист турини танланг"))
             return redirect(_mark_url(batch, key, _safe_next(request)))
         cols = {}
         for k, need in MARK_COLS.get(role, []):
@@ -1406,7 +1407,7 @@ def batch_mark(request, batch_id):
             cols.pop("end")
         missing = [dict(COLUMN_ROLES_BY_KEY)[k] for k, need in MARK_COLS.get(role, []) if need and not cols.get(k)]
         if role != "unknown" and (missing or not cols.get("start")):
-            messages.error(request, "Кўрсатилмади: " + ", ".join(missing + ([] if cols.get("start") else ["биринчи қатор"])))
+            messages.error(request, _("Кўрсатилмади: ") + ", ".join(str(m) for m in missing + ([] if cols.get("start") else [_("биринчи қатор")])))
             return redirect(_mark_url(batch, key, _safe_next(request)))
         roles, columns = dict(batch.roles or {}), dict(batch.columns or {})
         push_pick_undo(batch, f'«{s["sheet"]}» — {ROLE_LABELS.get(role, role)}')
@@ -1424,8 +1425,8 @@ def batch_mark(request, batch_id):
             batch.save(update_fields=["stage", "message"])
             settle(batch.project)
         done = batch.sheet(key) or s
-        text = f'«{s["sheet"]}» листи сиз кўрсатгандек ўқилди' + (
-            f' — {done.get("rows") or 0} та қатор.' if role != "unknown" else " — ўтказилади.")
+        text = _("«{0}» листи сиз кўрсатгандек ўқилди").format(s["sheet"]) + (
+            _(" — {0} та қатор.").format(done.get("rows") or 0) if role != "unknown" else _(" — ўтказилади."))
         messages.success(request, text + (" " + MEMO_SAVED if remembered else ""))
         return redirect(_safe_next(request) or reverse("batch", args=[batch.id]))
     manual = (batch.columns or {}).get(key)
@@ -1456,8 +1457,8 @@ def _safe_next(request) -> str:
 COLUMN_ROLES_BY_KEY = [(k, label) for k, label, *_r in COLUMN_ROLES]
 
 
-MEMO_SAVED = ("Созлашингиз эслаб қолинди: шундай тузилишдаги лист кейин келса, тизим уни ўзи шундай ўқийди — "
-              "қайта кўрсатишингиз шарт эмас.")
+MEMO_SAVED = (_l("Созлашингиз эслаб қолинди: шундай тузилишдаги лист кейин келса, тизим уни ўзи шундай ўқийди — "
+              "қайта кўрсатишингиз шарт эмас."))
 
 
 @require_POST
@@ -1467,7 +1468,7 @@ def batch_forget(request, batch_id):
     if batch.owner_id != request.user.pk:
         return redirect("batch", batch_id=batch.id)
     if batch.project_id and batch.stage in (Batch.Stage.QUEUED, Batch.Stage.CONVERTING, Batch.Stage.PRICING):
-        messages.error(request, "Бу қисм ҳозир ишланяпти — тугагач ўзгартиринг")
+        messages.error(request, _("Бу қисм ҳозир ишланяпти — тугагач ўзгартиринг"))
         return redirect("batch", batch_id=batch.id)
     if forget_sheet(batch, request.POST.get("key", "")):
         analyze_batch(batch, fresh=True)  # эслатма ўчди — кешдаги (эслатма қўлланган) таҳлил ҳам эскирди
@@ -1476,7 +1477,7 @@ def batch_forget(request, batch_id):
             batch.stage, batch.message = ready_stage(batch)
             batch.save(update_fields=["stage", "message"])
             settle(batch.project)
-        messages.success(request, "Аввалги созлама унутилди — лист автомат ўқилди. Керак бўлса, қайта кўрсатинг.")
+        messages.success(request, _("Аввалги созлама унутилди — лист автомат ўқилди. Керак бўлса, қайта кўрсатинг."))
     return redirect("batch", batch_id=batch.id)
 
 
@@ -1484,14 +1485,14 @@ def batch_file(request, batch_id, i):
     """Объектдаги ``i``-файлнинг асл нусхасини юклаб олиш (тузатиб, қайта юклаш учун)."""
     batch = _get_work(request, Batch, id=batch_id)
     if not 0 <= i < len(batch.files):
-        raise Http404("Файл топилмади")
+        raise Http404(_("Файл топилмади"))
     path = batch_original(batch, i)
     if path is None:
-        raise Http404("Файл ҳали очилмаган")
+        raise Http404(_("Файл ҳали очилмаган"))
     name = batch.files[i].get("name") or path.name
     if Path(name).suffix.lower() != path.suffix.lower():
         name = Path(name).stem + path.suffix
-    _audit_download(request, batch, "object", name, what="асл файл")
+    _audit_download(request, batch, "object", name, what="асл файл")  # i18n: ok
     return FileResponse(open(path, "rb"), as_attachment=True, filename=name)
 
 
@@ -1502,13 +1503,13 @@ def batch_file_replace(request, batch_id, i):
     f = request.FILES.get("file")
     try:
         if not f:
-            raise UploadError("Файлни танланг")
+            raise UploadError(_("Файлни танланг"))
         if batch.project_id and batch.stage in (Batch.Stage.QUEUED, Batch.Stage.CONVERTING, Batch.Stage.PRICING):
-            raise UploadError("Бу қисм ҳозир ишланяпти — тугагач алмаштиринг")
+            raise UploadError(_("Бу қисм ҳозир ишланяпти — тугагач алмаштиринг"))
         old = batch.files[i]["name"] if 0 <= i < len(batch.files) else ""
         replace_batch_file(batch, i, f)
-        audit(request, Event.Kind.UPLOAD, work=batch, work_kind="object", detail=f"файл алмаштирилди: {old} → {f.name}")
-        msg = f"«{f.name}» юкланди ва листлари қайта ўқилди." + _after_swap(batch, i)
+        audit(request, Event.Kind.UPLOAD, work=batch, work_kind="object", detail=f"файл алмаштирилди: {old} → {f.name}")  # i18n: ok
+        msg = _("«{0}» юкланди ва листлари қайта ўқилди.").format(f.name) + _after_swap(batch, i)
         messages.success(request, msg)
     except UploadError as e:
         messages.error(request, str(e))
@@ -1522,11 +1523,11 @@ def batch_file_undo(request, batch_id, i):
     batch = _get_work(request, Batch, id=batch_id)
     try:
         if batch.project_id and batch.stage in (Batch.Stage.QUEUED, Batch.Stage.CONVERTING, Batch.Stage.PRICING):
-            raise UploadError("Бу қисм ҳозир ишланяпти — тугагач қайтаринг")
+            raise UploadError(_("Бу қисм ҳозир ишланяпти — тугагач қайтаринг"))
         cur = batch.files[i]["name"] if 0 <= i < len(batch.files) else ""
         name = undo_batch_file(batch, i)
-        audit(request, Event.Kind.UPLOAD, work=batch, work_kind="object", detail=f"файл қайтарилди: {cur} → {name}")
-        msg = f"«{name}» — олдинги нусха қайтарилди." + _after_swap(batch, i)
+        audit(request, Event.Kind.UPLOAD, work=batch, work_kind="object", detail=f"файл қайтарилди: {cur} → {name}")  # i18n: ok
+        msg = _("«{0}» — олдинги нусха қайтарилди.").format(name) + _after_swap(batch, i)
         messages.success(request, msg)
     except UploadError as e:
         messages.error(request, str(e))
@@ -1552,10 +1553,9 @@ def _after_swap(batch, i) -> str:
             settle(batch.project)
         return ""
     done, missing = refresh_file_jobs(batch, i)
-    out = f" {len(done)} та смета шу файл билан қайта ҳисобланяпти (қўлда ўзгаришлар сақланди)." if done else ""
+    out = _(" {0} та смета шу файл билан қайта ҳисобланяпти (қўлда ўзгаришлар сақланди).").format(len(done)) if done else ""
     if missing:
-        out += (f" {len(missing)} та сметанинг листи янги файлда йўқ — уларни қисмни очиб, жуфтликни тўғирлаб"
-                " қайта нархланг.")
+        out += (_(" {0} та сметанинг листи янги файлда йўқ — уларни қисмни очиб, жуфтликни тўғирлаб қайта нархланг.").format(len(missing)))
     return out
 
 
@@ -1586,7 +1586,7 @@ def batch_confirm(request, batch_id):
     xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     left = 0 if batch_auto(batch) else manual_left(batch)
     if left:  # «Қўлда»: ҳамма листни смета­чи ўзи белгилаши керак
-        msg = f"«Қўлда» усули: яна {left} та листнинг турини белгиланг (Локал / Ресурс / Ўтказиш)."
+        msg = _("«Қўлда» усули: яна {0} та листнинг турини белгиланг (Локал / Ресурс / Ўтказиш).").format(left)
         if xhr:
             return JsonResponse({"ok": False, "error": msg}, status=400)
         messages.error(request, msg)
@@ -1674,7 +1674,7 @@ def job_detail(request, job_id):
             res_groups=res_groups,
             result_mode=mode,
             # «N та қатор нархланмади» — ён панелда ва сводкада бор, бу ерда такрорламаймиз
-            warnings=[w for w in res.get("warnings", []) if "нархланмади" not in w and not w.startswith("Текширувдан")],
+            warnings=[w for w in res.get("warnings", []) if "нархланмади" not in w and not w.startswith("Текширувдан")],  # i18n: ok
             checks=res.get("checks", []),
             check_groups=check_groups(res.get("checks", []), res["rows"]),
             columns=res.get("columns", {}),
@@ -1757,11 +1757,11 @@ def job_grid(request, job_id):
     """Жадвалнинг кейинги бўлаги (JSON ``{html, next, total}``): ``?view=…&from=N``."""
     job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE:
-        return JsonResponse({"error": "смета тайёр эмас"}, status=400)
+        return JsonResponse({"error": _("смета тайёр эмас")}, status=400)
     try:
         start = max(0, int(request.GET.get("from") or 0))
     except ValueError:
-        return JsonResponse({"error": "нотўғри сўров"}, status=400)
+        return JsonResponse({"error": _("нотўғри сўров")}, status=400)
     res = job.result
     mode = res.get("mode", "compat")
     labels = column_labels(job) if mode == "smart" else dict(CATEGORY_LABELS)
@@ -1782,7 +1782,7 @@ def _sugg_marks(rows):
         to = r.get("lm_target") or r.get("suggested_category")
         if to and to != r.get("category") and _is_resource(r):
             out.append({"row": r["row"], "to": to, "from": r.get("category") or "", "name": r.get("name") or "",
-                        "why": r.get("suggest_reason") or ("ресурс файлида шу бўлимда" if r.get("lm_target") else ""),
+                        "why": ui(r.get("suggest_reason")) or (_("ресурс файлида шу бўлимда") if r.get("lm_target") else ""),
                         "h": r["h"] if isinstance(r.get("h"), (int, float)) and not isinstance(r["h"], bool) else None})
     return out
 
@@ -1828,11 +1828,11 @@ def _res_groups(res, labels=None):
     labels = labels or CATEGORY_LABELS
     groups = [{"title": s["title"], "column": s["column"], "label": labels[s["column"]], "rows": []}
               for s in sections]
-    missing = {"title": "Ресурс файлида топилмаганлар", "column": None, "label": "", "rows": [],
-               "hint": "аниқ мос ресурс йўқ — нархни қўлда киритинг"}
-    other = {"title": "RES бўлимидан ташқари", "column": None, "label": "", "rows": [], "hint": ""}
-    zero = {"title": "Иш сарлавҳалари ва машинистлар", "column": None, "label": "", "rows": [],
-            "hint": "суммага кирмайди (0)"}
+    missing = {"title": _("Ресурс файлида топилмаганлар"), "column": None, "label": "", "rows": [],
+               "hint": _("аниқ мос ресурс йўқ — нархни қўлда киритинг")}
+    other = {"title": _("RES бўлимидан ташқари"), "column": None, "label": "", "rows": [], "hint": ""}
+    zero = {"title": _("Иш сарлавҳалари ва машинистлар"), "column": None, "label": "", "rows": [],
+            "hint": _("суммага кирмайди (0)")}
     for r in res["rows"]:
         if not _is_resource(r):
             continue
@@ -1869,7 +1869,7 @@ def _category_suggestions(rows):
             g = groups.setdefault(cat, {"cat": cat, "label": CATEGORY_LABELS[cat], "count": 0, "reasons": []})
             g["count"] += 1
             if r["suggest_reason"] not in g["reasons"] and len(g["reasons"]) < 3:
-                g["reasons"].append(r["suggest_reason"])
+                g["reasons"].append(ui(r["suggest_reason"]))
     return [groups[c] for c in CATEGORY_LABELS if c in groups]
 
 
@@ -1878,19 +1878,19 @@ def job_categories(request, job_id):
     """JSON: ``{"rows": [183, 281], "category": "M"}``; ``category: ""`` — asl holiga qaytarish."""
     job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE or job.mode != "smart":
-        return JsonResponse({"ok": False, "error": "Устунни фақат Smart режимдаги натижада ўзгартириш мумкин"}, status=400)
+        return JsonResponse({"ok": False, "error": _("Устунни фақат Smart режимдаги натижада ўзгартириш мумкин")}, status=400)
     try:
         data = json.loads(request.body or b"{}")
         rows = [int(r) for r in data["rows"]]
         category = data.get("category") or ""
     except (ValueError, TypeError, KeyError):
-        return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров")}, status=400)
     if category and category not in column_labels(job):
-        return JsonResponse({"ok": False, "error": f"нотўғри устун: {category}"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри устун: {0}").format(category)}, status=400)
     known = {r["row"]: r for r in job.result.get("rows", []) if _is_resource(r)}
     unknown = [r for r in rows if r not in known]
     if not rows or unknown:
-        return JsonResponse({"ok": False, "error": f"бундай қатор йўқ: {unknown[:5]}"}, status=400)
+        return JsonResponse({"ok": False, "error": _("бундай қатор йўқ: {0}").format(unknown[:5])}, status=400)
 
     from resbase.lm import accepted_rows
     categories, accepted = dict(job.categories or {}), accepted_rows(job)
@@ -1932,24 +1932,24 @@ def job_prices(request, job_id):
     accept — taklif narxini qabul qilish; set — bitta narxni hammasiga; clear — qo'lda narxni bekor qilish."""
     job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE or job.mode != "smart":
-        return JsonResponse({"ok": False, "error": "Нархни фақат Smart режимдаги натижада ўзгартириш мумкин"}, status=400)
+        return JsonResponse({"ok": False, "error": _("Нархни фақат Smart режимдаги натижада ўзгартириш мумкин")}, status=400)
     try:
         data = json.loads(request.body or b"{}")
         rows = [int(r) for r in data["rows"]]
         action = data["action"]
     except (ValueError, TypeError, KeyError):
-        return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров")}, status=400)
     known = {r["row"]: r for r in job.result.get("rows", []) if _is_resource(r)}
     unknown = [r for r in rows if r not in known]
     if not rows or unknown or action not in ("accept", "set", "clear"):
-        return JsonResponse({"ok": False, "error": f"нотўғри сўров: {unknown[:5] or action}"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров: {0}").format(unknown[:5] or action)}, status=400)
 
     prices = dict(job.prices or {})
     skipped = []
     if action == "set":
         price = _as_price(data.get("price"))
         if price is None or price < 0:
-            return JsonResponse({"ok": False, "error": "нарх рақам бўлиши керак (масалан 4 600 000)"}, status=400)
+            return JsonResponse({"ok": False, "error": _("нарх рақам бўлиши керак (масалан 4 600 000)")}, status=400)
         for r in rows:
             prices[str(r)] = price
     elif action == "accept":
@@ -2038,7 +2038,7 @@ def _add_memo_suggestions(rows, owner_id):
         if r.get("status") in UNPRICED_STATUSES and not r.get("cleared") and not r.get("near") and r.get("suggested_price") is None:
             p = memo_price(memo, r)
             if p is not None:
-                r["near"] = {"name": "аввал ўзингиз ёзган нарх", "unit": r.get("unit") or "", "price": p,
+                r["near"] = {"name": _("аввал ўзингиз ёзган нарх"), "unit": r.get("unit") or "", "price": p,
                              "score": 100, "same_unit": True, "memo": True}
 
 
@@ -2113,17 +2113,17 @@ def job_not_found(request, job_id):
     («кўриб чиқилди», нарх кейин). restore — қайтариш."""
     job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE or job.mode != "smart":
-        return JsonResponse({"ok": False, "error": "Фақат Smart режимдаги натижада"}, status=400)
+        return JsonResponse({"ok": False, "error": _("Фақат Smart режимдаги натижада")}, status=400)
     try:
         data = json.loads(request.body or b"{}")
         rows = {int(r) for r in data["rows"]}
         action = data["action"]
     except (ValueError, TypeError, KeyError):
-        return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров")}, status=400)
     by_row = {r["row"]: r for r in job.result.get("rows", [])}
     allowed = {r for r, x in by_row.items() if x.get("status") in UNPRICED_STATUSES or x.get("cleared")}
     if not rows or action not in ("clear", "mark", "restore") or not rows <= allowed:
-        return JsonResponse({"ok": False, "error": f"нотўғри сўров: {sorted(rows - allowed)[:5] or action}"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров: {0}").format(sorted(rows - allowed)[:5] or action)}, status=400)
     cleared, marked = set(job.cleared or []), set(job.marked or [])
     if action == "clear":  # сўз олинади: бирлиги борида G қизил, йўғида G ва H бўш
         cleared, marked = cleared | rows, marked - rows
@@ -2191,14 +2191,14 @@ def _stages(job, nf, lm):
     s1 = not nf["pending"]
     s2 = s1 and job.table_checked
     return [
-        {"n": 1, "anchor": "stage-nf", "title": "Топилмаганлар", "state": "done" if s1 else "current",
-         "note": "тайёр" if s1 else f"{nf['pending']} та нархланмаган"},
-        {"n": 2, "anchor": "stage-table", "title": "Жадвал",
+        {"n": 1, "anchor": "stage-nf", "title": _("Топилмаганлар"), "state": "done" if s1 else "current",
+         "note": _("тайёр") if s1 else _("{0} та нархланмаган").format(nf['pending'])},
+        {"n": 2, "anchor": "stage-table", "title": _("Жадвал"),
          "state": "done" if s2 else ("current" if s1 else "locked"),
-         "note": "текширилди" if s2 else (f"{lm['pending']} та кабель/ускуна таклифи" if lm["pending"]
-                                          else "жадвални кўриш")},
-        {"n": 3, "anchor": "svodka", "title": "Сводка ва фоизлар", "state": "current" if s2 else "locked",
-         "note": "фоизлар, юклаб олиш"},
+         "note": _("текширилди") if s2 else (_("{0} та кабель/ускуна таклифи").format(lm['pending']) if lm["pending"]
+                                          else _("жадвални кўриш"))},
+        {"n": 3, "anchor": "svodka", "title": _("Сводка ва фоизлар"), "state": "current" if s2 else "locked",
+         "note": _("фоизлар, юклаб олиш")},
     ]
 
 
@@ -2220,7 +2220,7 @@ def _svodka_rows(res, mode):
     for i, (key, text, pct) in enumerate(svodka_layout(extra)):
         p = used.get(key, pct) if pct is not None else None
         if key == "s_nds" and mode == "smart":
-            text = f"Всего с НДС      {percent_text(p)} %"
+            text = f"Всего с НДС      {percent_text(p)} %"  # i18n: ok
         rows.append({"row": res["svodka_start"] + i, "key": key, "text": text, "pct": p,
                      "default": pct, "value": res["totals"].get(key)})
     return rows
@@ -2233,32 +2233,32 @@ def job_columns(request, job_id):
     ``{"action": "remove", "col": "N"}`` — қўшилган устун, ундаги қаторлар асл устунига қайтади."""
     job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE or job.mode != "smart":
-        return JsonResponse({"ok": False, "error": "Устунлар фақат Smart режимда"}, status=400)
+        return JsonResponse({"ok": False, "error": _("Устунлар фақат Smart режимда")}, status=400)
     try:
         data = json.loads(request.body or b"{}")
         action = data["action"]
         col = str(data.get("col") or "").strip().upper()
         name = " ".join(str(data.get("name") or "").split())[:60]
     except (ValueError, TypeError, KeyError):
-        return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров")}, status=400)
     labels = column_labels(job)
     names = dict(job.column_names or {})
     categories = None
     if action == "add":
         col = _next_column(labels)
         if not col:
-            return JsonResponse({"ok": False, "error": f"{LAST_EXTRA_COLUMN} устунидан кейин қўшиб бўлмайди"}, status=400)
-        names[col] = name or f"Устун {col}"
+            return JsonResponse({"ok": False, "error": _("{0} устунидан кейин қўшиб бўлмайди").format(LAST_EXTRA_COLUMN)}, status=400)
+        names[col] = name or f"Устун {col}"  # i18n: ok
     elif action == "rename" and col in labels:
         if col in CATEGORY_LABELS and not name:
             names.pop(col, None)
         else:
-            names[col] = name or f"Устун {col}"
+            names[col] = name or f"Устун {col}"  # i18n: ok
     elif action == "remove" and col in labels and col not in CATEGORY_LABELS:
         names.pop(col)
         categories = {r: c for r, c in (job.categories or {}).items() if c != col}
     else:
-        return JsonResponse({"ok": False, "error": f"нотўғри амал ёки устун: {action} {col}"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри амал ёки устун: {0} {1}").format(action, col)}, status=400)
     job.column_names = names
     recalc.request(job, categories=categories)
     return JsonResponse({"ok": True, "queued": True, "col": col})
@@ -2298,12 +2298,12 @@ def job_reprice(request, job_id):
     усулда таклифлар ва L/M яна ўзи қўйилади. Фоизлар, листлар ва устунлар сақланади. Саҳифада икки марта сўралади."""
     job = _get_work(request, Job, id=job_id)
     if request.POST.get("confirm") != "1":
-        messages.error(request, "Қайта нархлаш тасдиқланмади")
+        messages.error(request, _("Қайта нархлаш тасдиқланмади"))
         return redirect("job", job_id=job.id)
     job.auto_cleared, job.table_checked, job.lm_accepted = False, False, []
     job.save(update_fields=["auto_cleared", "table_checked", "lm_accepted"])
     recalc.request(job, categories={}, prices={}, cleared=[], marked=[])
-    messages.success(request, f"«{job.batch_label or job.local_name}» — қўлда ўзгаришлар бекор қилинди, смета бошидан нархланяпти")
+    messages.success(request, _("«{0}» — қўлда ўзгаришлар бекор қилинди, смета бошидан нархланяпти").format(job.batch_label or job.local_name))
     return _back(request, reverse("job", args=[job.id]))
 
 
@@ -2314,11 +2314,11 @@ def job_percents(request, job_id):
     шу фоизлар билан бошланади. Жавобда янги сводка (саҳифа қайта юкланмайди)."""
     job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE or job.mode != "smart":
-        return JsonResponse({"ok": False, "error": "Фоизлар фақат Smart режимда"}, status=400)
+        return JsonResponse({"ok": False, "error": _("Фоизлар фақат Smart режимда")}, status=400)
     try:
         data = json.loads(request.body or b"{}")
     except ValueError:
-        return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров")}, status=400)
     if data.get("reset"):
         percents = dict(DEFAULT_PERCENTS)
     elif data.get("remembered"):
@@ -2327,7 +2327,7 @@ def job_percents(request, job_id):
         # бўш катак — 0 (смета­чи ўчириб қўйди): «стандарт» эмас, акс ҳолда саҳифада бўш, Excel'да 2% бўлиб қолади
         percents = parse_percents({f"pct_{k}": str(v).strip() or "0" for k, v in data["pct"].items()}, job.percents)
     else:
-        return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров")}, status=400)
     patched = _apply(job, percents=percents)
     remember_percents(job.owner_id, job.percents)
     return JsonResponse({"ok": True, "queued": not patched, "patched": patched})
@@ -2350,7 +2350,7 @@ def job_state(request, job_id):
     job = _get_work(request, Job, id=job_id)
     if job.recalc_pending:
         recalc.resume(Job.objects.filter(pk=job.pk))
-    data = {"pending": job.recalc_pending, "status": job.status, "error": job.error if job.status == Job.Status.FAILED else "",
+    data = {"pending": job.recalc_pending, "status": job.status, "error": ui(job.error) if job.status == Job.Status.FAILED else "",
             "running": bool(job.recalc_worker), "duration": job.duration,
             "elapsed": round((timezone.now() - job.recalc_requested).total_seconds()) if job.recalc_requested else None}
     if not job.recalc_pending and job.status == Job.Status.DONE and job.result.get("mode") == "smart":
@@ -2360,31 +2360,31 @@ def job_state(request, job_id):
 
 # Нархлашдан кейинги текширув: тури -> (сарлавҳа, нима бўлди, нима қилиш керак) — смета­чига оддий тилда
 CHECK_KINDS = {
-    "no_qty": ("Миқдори йўқ — сумма 0 бўлиб қолди",
-               "Бу қаторларда нарх топилди, лекин миқдор («Кол-во») катаги бўш ёки унда сон эмас, матн турибди. "
-               "Сумма = миқдор × нарх бўлгани учун 0 чиқди ва смета жамига кирмади.",
-               "Локал файлда шу қаторнинг миқдорини текширинг (одатда F — «по проектным данным»). Миқдор бошқа устунда "
+    "no_qty": (_l("Миқдори йўқ — сумма 0 бўлиб қолди"),
+               _l("Бу қаторларда нарх топилди, лекин миқдор («Кол-во») катаги бўш ёки унда сон эмас, матн турибди. "
+               "Сумма = миқдор × нарх бўлгани учун 0 чиқди ва смета жамига кирмади."),
+               _l("Локал файлда шу қаторнинг миқдорини текширинг (одатда F — «по проектным данным»). Миқдор бошқа устунда "
                "бўлса — объект саҳифасида «Листлар тури» → «тузатиш» орқали устунларни кўрсатинг ва қайта нархланг. "
-               "Қатор изоҳ ёки ортиқча бўлса — эътибор бермасангиз ҳам бўлади."),
-    "amount": ("Сумма нотўғри ҳисобланди",
-               "Сумма (H) миқдор × нархга тенг чиқмади.",
-               "Одатда миқдор устуни нотўғри аниқланганда бўлади: объект саҳифасида устунларни текширинг ва қайта нархланг."),
-    "column": ("Сумма I–M устунига тушмади",
-               "Сумма иш ҳақи, машина, материал… устунларидан бирига ўтмади — жамида кўринмайди.",
-               "Қаторни белгиланг ва пастки панелдан тўғри устунни танланг."),
-    "overwrite": ("Смета маълумоти устидан ёзилди",
-                  "Нарх ёки сумма локалнинг номи, бирлиги ёки миқдори турган устунга ёзилиб қолди.",
-                  "Локал устунлари нотўғри аниқланган: объект саҳифасида устунларни кўрсатинг ва қайта нархланг."),
-    "zero_prices": ("RES'даги нархлар 0",
-                    "Ресурс файлида топилган нархларнинг деярли ҳаммаси 0 — RES нархланмаган бўлса керак.",
-                    "Нархланган RES файлини юкланг ёки RES'нинг нарх устунини текширинг."),
-    "zero_total": ("Жами сумма 0",
-                   "Нархлар топилди, лекин смета жами 0 чиқди.",
-                   "Миқдор ёки сумма устуни нотўғри аниқланган — объект саҳифасида устунларни текширинг."),
-    "other": ("Бошқа муаммолар", "Натижа текширувидан ўтмади.", "Қаторни очиб текширинг."),
+               "Қатор изоҳ ёки ортиқча бўлса — эътибор бермасангиз ҳам бўлади.")),
+    "amount": (_l("Сумма нотўғри ҳисобланди"),
+               _l("Сумма (H) миқдор × нархга тенг чиқмади."),
+               _l("Одатда миқдор устуни нотўғри аниқланганда бўлади: объект саҳифасида устунларни текширинг ва қайта нархланг.")),
+    "column": (_l("Сумма I–M устунига тушмади"),
+               _l("Сумма иш ҳақи, машина, материал… устунларидан бирига ўтмади — жамида кўринмайди."),
+               _l("Қаторни белгиланг ва пастки панелдан тўғри устунни танланг.")),
+    "overwrite": (_l("Смета маълумоти устидан ёзилди"),
+                  _l("Нарх ёки сумма локалнинг номи, бирлиги ёки миқдори турган устунга ёзилиб қолди."),
+                  _l("Локал устунлари нотўғри аниқланган: объект саҳифасида устунларни кўрсатинг ва қайта нархланг.")),
+    "zero_prices": (_l("RES'даги нархлар 0"),
+                    _l("Ресурс файлида топилган нархларнинг деярли ҳаммаси 0 — RES нархланмаган бўлса керак."),
+                    _l("Нархланган RES файлини юкланг ёки RES'нинг нарх устунини текширинг.")),
+    "zero_total": (_l("Жами сумма 0"),
+                   _l("Нархлар топилди, лекин смета жами 0 чиқди."),
+                   _l("Миқдор ёки сумма устуни нотўғри аниқланган — объект саҳифасида устунларни текширинг.")),
+    "other": (_l("Бошқа муаммолар"), _l("Натижа текширувидан ўтмади."), _l("Қаторни очиб текширинг.")),
 }
-_CHECK_TEXT = [("миқдори йўқ", "no_qty"), ("кутилгани", "amount"), ("устунига тушмади", "column"),
-               ("манба устуни", "overwrite"), ("нархи 0", "zero_prices"), ("жами сумма 0", "zero_total")]
+_CHECK_TEXT = [("миқдори йўқ", "no_qty"), ("кутилгани", "amount"), ("устунига тушмади", "column"),  # i18n: ok
+               ("манба устуни", "overwrite"), ("нархи 0", "zero_prices"), ("жами сумма 0", "zero_total")]  # i18n: ok
 
 
 def check_groups(checks, rows) -> list:
@@ -2407,9 +2407,9 @@ def check_groups(checks, rows) -> list:
 
 # Жадвалнинг «файл кўриниши»: ?view=… -> (файл, тугма номи)
 XL_FILES = {
-    "xl_out": ("out", "Нархланган смета"),
-    "xl_local": ("local", "Юкланган локал"),
-    "xl_res": ("res", "Ресурс файли"),
+    "xl_out": ("out", _l("Нархланган смета")),
+    "xl_local": ("local", _l("Юкланган локал")),
+    "xl_res": ("res", _l("Ресурс файли")),
 }
 
 
@@ -2430,10 +2430,10 @@ def job_sheet(request, job_id):
 def job_download(request, job_id):
     job = _get_work(request, Job, id=job_id)
     if job.status != Job.Status.DONE or not job.output_path:
-        raise Http404("Натижа ҳали тайёр эмас")
+        raise Http404(_("Натижа ҳали тайёр эмас"))
     path = job.abs(job.output_path)
     if not path.is_file():
-        raise Http404("Файл топилмади")
+        raise Http404(_("Файл топилмади"))
     _audit_download(request, job, "smeta", job.download_name)
     return FileResponse(open(path, "rb"), as_attachment=True, filename=job.download_name)
 
@@ -2449,7 +2449,7 @@ def help_page(request):
     """Йўриқнома: иш тартиби қадамма-қадам ва ҳар бир ҳолат / огоҳлантириш нимани билдиради."""
     from .guide import VIDEO_PAGES, videos
     labels = dict(VIDEO_PAGES)
-    vids = [{**v, "label": labels.get(v["page"], "") if v["page"] else ""} for v in videos()]
+    vids = [{**v, "label": ui(labels.get(v["page"], "")) if v["page"] else ""} for v in videos()]
     return render(request, "jobs/help.html", {"nav": "help", "groups": help_groups(), "flow": FLOW, "videos": vids})
 
 
@@ -2502,7 +2502,7 @@ def user_settings(request):
             if "region" in request.POST or "year" in request.POST:
                 remember_base_period(user, parse_period(request.POST))
         request.track_detail = ",".join(changed) or "—"  # панел «Фойдаланувчи йўли»: нима кўп ўзгартирилади
-        messages.success(request, "Созламалар сақланди.")
+        messages.success(request, _("Созламалар сақланди."))
         return redirect("user_settings")
     return render(request, "jobs/settings.html", {
         "nav": "settings", "nf_auto": nf_auto_of(user), "lm_auto": lm_auto_of(user), "price_source": price_source_of(user),

@@ -21,6 +21,7 @@ from .warn_help import explain
 from .models import Act, SiteObject
 from .services import TexnazorError
 from .views import _obj, audit
+from django.utils.translation import gettext as _
 
 
 def _to(o, view=None):
@@ -45,7 +46,7 @@ def choose_sheet(request, obj_id):
     o = _obj(request, obj_id)
     name = request.POST.get("sheet", "")
     if o.status != SiteObject.Status.CHOOSE or not any(s["name"] == name for s in o.sheets):
-        messages.error(request, "Листни танланг")
+        messages.error(request, _("Листни танланг"))
         return _to(o)
     header = next(s["header"] for s in o.sheets if s["name"] == name)
     if o.sheet != name and (o.layout or {}).get("manual"):  # boshqa list — oldingi listda belgilangani unga to'g'ri kelmaydi
@@ -54,9 +55,9 @@ def choose_sheet(request, obj_id):
     # sarlavhasi topilmagan list — o'qishga urinmay, darhol foydalanuvchi belgilaydi
     o.status = SiteObject.Status.PARSING if header else SiteObject.Status.MARK
     o.error = "" if header else sa.NO_HEADER
-    o.progress = {"step": "Офёрта ўқилмоқда"}
+    o.progress = {"step": "Офёрта ўқилмоқда"}  # i18n: ok
     o.save(update_fields=["sheet", "status", "error", "progress", "layout"])
-    audit(request, o, f"офёрта листи танланди: «{name}»")
+    audit(request, o, f"офёрта листи танланди: «{name}»")  # i18n: ok
     if header:
         tasks.start(o.pk)
     return _to(o)
@@ -67,7 +68,7 @@ def change_sheet(request, obj_id):
     """Boshqa listni tanlash — faqat hali hajm yozilmagan bo'lsa."""
     o = _obj(request, obj_id)
     if sa.ActQty.objects.filter(act__obj=o).exists():
-        messages.error(request, "Далолатномаларда ҳажм ёзилган — листни алмаштириб бўлмайди")
+        messages.error(request, _("Далолатномаларда ҳажм ёзилган — листни алмаштириб бўлмайди"))
         return _to(o)
     if not o.sheets:
         o.sheet, o.status = "", SiteObject.Status.PARSING
@@ -109,10 +110,10 @@ def detail(request, o: SiteObject):
 def _fix_ctx(o: SiteObject) -> dict:
     """Tuzatish oynasi: ustunlar ro'yxati, hozirgi tanlov (tizim topgani yoki qo'lda ko'rsatilgan)."""
     lay = o.layout or {}
-    fields = [("qty", "Ҳажм (иш миқдори)", "иш қаторидаги сон: 0,08 / 12"),
-              ("total", "Ресурс жами («по проектным данным»)", "ҳажм устуни ўзи бўлса — шуни танланг"),
-              ("price", "Нарх (бир бирлик)", "сўм / бирлик"),
-              ("amount", "Сумма (ҳажм × нарх)", "иш / ресурс қаторининг пули")]
+    fields = [("qty", _("Ҳажм (иш миқдори)"), _("иш қаторидаги сон: 0,08 / 12")),
+              ("total", _("Ресурс жами («по проектным данным»)"), _("ҳажм устуни ўзи бўлса — шуни танланг")),
+              ("price", _("Нарх (бир бирлик)"), _("сўм / бирлик")),
+              ("amount", _("Сумма (ҳажм × нарх)"), _("иш / ресурс қаторининг пули"))]
     return {"cols": sa.columns(o), "fields": [{"key": k, "title": t, "hint": h, "cur": lay.get(k, 0)} for k, t, h in fields],
             "final": lay.get("final", 0), "memo": lay.get("memo"),
             "manual": {k: v for k, v in (lay.get("manual") or {}).items() if k not in sa.KEEP_KEYS}}  # yig'ilgan / сводка — «qo'lda belgilangan» emas
@@ -148,7 +149,7 @@ def layout_save(request, obj_id):
     else:  # belgilash sahifasida ko'rsatilgan sarlavha / ishlar chegarasi shu oyna bilan o'chib ketmasin
         manual = {k: v for k, v in old.items() if k not in ("qty", "total", "price", "amount", "final")} | manual
     sa.set_manual(o, manual)
-    audit(request, o, "устунлар автоматик аниқлашга қайтарилди" if reset else "устунлар қўлда белгиланди")
+    audit(request, o, "устунлар автоматик аниқлашга қайтарилди" if reset else "устунлар қўлда белгиланди")  # i18n: ok
     return _to(o)
 
 
@@ -195,12 +196,12 @@ def set_qty(request, obj_id):
         act = get_object_or_404(Act, obj=o, number=int(d["act"]))
         qty = sa.parse_qty(d.get("qty"), sa.book(o).contract_qty(int(d["row"])))
         if qty is None:
-            raise TexnazorError("Ҳажм сон ёки фоиз бўлиши керак (масалан: 0,08 ёки 60%)")
+            raise TexnazorError(_("Ҳажм сон ёки фоиз бўлиши керак (масалан: 0,08 ёки 60%)"))
         sa.set_qty(act, int(d["row"]), qty)
     except TexnazorError as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
     except (ValueError, KeyError, TypeError):
-        return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров")}, status=400)
     res = sa.change_set(o, act, int(d["row"]))
     res["v"], res["rest"] = _rounded(res["v"]), _rounded(res["rest"])
     return JsonResponse({"ok": True, **res})
@@ -215,16 +216,16 @@ def act_fill(request, obj_id):
         act = get_object_or_404(Act, obj=o, number=int(d["act"]))
         rows = [int(x) for x in d.get("rows") or []][:20000]
         if not rows:
-            raise TexnazorError("Аввал ишларни белгиланг")
+            raise TexnazorError(_("Аввал ишларни белгиланг"))
         pct = float(str(d.get("pct", "100")).replace(",", ".").replace("%", ""))
         if not 0 <= pct <= 100:
-            raise TexnazorError("0 дан 100 гача фоиз ёзинг")
+            raise TexnazorError(_("0 дан 100 гача фоиз ёзинг"))
         n = sa.fill(act, rows, pct)
     except TexnazorError as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
     except (ValueError, KeyError, TypeError):
-        return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
-    audit(request, o, f"{act.title}: {n} та иш жами {pct:g}% бажарилди деб белгиланди")
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров")}, status=400)
+    audit(request, o, f"{act.title}: {n} та иш жами {pct:g}% бажарилди деб белгиланди")  # i18n: ok
     return JsonResponse({"ok": True, "changed": n})
 
 
@@ -232,7 +233,7 @@ def _date(text):
     try:
         return dt.datetime.strptime(text, "%Y-%m-%d").date() if text else None
     except ValueError:
-        raise TexnazorError("Сана нотўғри")
+        raise TexnazorError(_("Сана нотўғри"))
 
 
 @require_POST
@@ -243,7 +244,7 @@ def act_add(request, obj_id):
     except TexnazorError as e:
         messages.error(request, str(e))
         return _to(o)
-    audit(request, o, f"далолатнома {a.title} очилди")
+    audit(request, o, f"далолатнома {a.title} очилди")  # i18n: ok
     return _to(o, request.POST.get("view") if request.POST.get("view") in ("act", "report") else "act")
 
 
@@ -257,19 +258,19 @@ def act_edit(request, obj_id, number):
         if what == "close":
             a.closed = not a.closed
             a.save(update_fields=["closed"])
-            audit(request, o, f"{a.title} " + ("ёпилди" if a.closed else "қайта очилди"))
+            audit(request, o, f"{a.title} " + ("ёпилди" if a.closed else "қайта очилди"))  # i18n: ok
         elif what == "date":
             a.date = _date(request.POST.get("date"))
             a.save(update_fields=["date"])
         elif what == "delete":
             title = a.label
             sa.delete_act(a)
-            audit(request, o, f"далолатнома {title} ўчирилди")
-            messages.success(request, f"Далолатнома {title} ўчирилди")
+            audit(request, o, f"далолатнома {title} ўчирилди")  # i18n: ok
+            messages.success(request, _("Далолатнома {0} ўчирилди").format(title))
         elif what == "name":
             old = a.label
             sa.rename_act(a, request.POST.get("name", ""))
-            audit(request, o, f"далолатнома {old} номи: «{a.name}»")
+            audit(request, o, f"далолатнома {old} номи: «{a.name}»")  # i18n: ok
     except TexnazorError as e:
         messages.error(request, str(e))
     return _to(o, request.POST.get("view"))
@@ -346,14 +347,14 @@ def report_download(request, obj_id):
     o = _obj(request, obj_id)
     coll = {k for k in request.GET.get("coll", "").split(",") if k}  # saytda yig'ilgan bloklar
     data = _built(o, "report:" + ",".join(sorted(coll)), lambda: hisobot.build_report(o, coll))
-    return _xlsx(data, f"Офёрта (нархланган) — {o.name}"[:150] + ".xlsx")
+    return _xlsx(data, f"Офёрта (нархланган) — {o.name}"[:150] + ".xlsx")  # i18n: ok
 
 
 def f2_download(request, obj_id, number):
     from . import hisobot
     o = _obj(request, obj_id)
     a = get_object_or_404(Act, obj=o, number=number)
-    return _xlsx(_built(o, f"f2:{a.pk}", lambda: hisobot.build_f2(o, a)), f"Ф-2 {a.title} — {o.name}"[:150] + ".xlsx")
+    return _xlsx(_built(o, f"f2:{a.pk}", lambda: hisobot.build_f2(o, a)), f"Ф-2 {a.title} — {o.name}"[:150] + ".xlsx")  # i18n: ok
 
 
 # ===================== qo'lda belgilash =====================
@@ -399,27 +400,27 @@ def mark_rows(request, obj_id):
     """JSON: birinchi so'rov — bosh, oxir, tizim taklifi; ``from`` bilan — keyingi 50 qator."""
     o = _obj(request, obj_id)
     if not _can_mark(o):
-        return JsonResponse({"error": "Белгилаб бўлмайди"}, status=400)
+        return JsonResponse({"error": _("Белгилаб бўлмайди")}, status=400)
     try:
         if request.GET.get("from"):
             return JsonResponse({"rows": sa.mark_rows(o, int(request.GET["from"]))})
         return JsonResponse(sa.mark_data(o))
     except (ValueError, TexnazorError, sa.SheetError) as e:
-        return JsonResponse({"error": str(e) or "Листни очиб бўлмади"}, status=400)
+        return JsonResponse({"error": str(e) or _("Листни очиб бўлмади")}, status=400)
 
 
 @require_POST
 def mark_save(request, obj_id):
     o = _obj(request, obj_id)
     if not _can_mark(o):
-        return JsonResponse({"error": "Белгилаб бўлмайди"}, status=400)
+        return JsonResponse({"error": _("Белгилаб бўлмайди")}, status=400)
     try:
         marks = sa.parse_marks(request.POST, o)
     except TexnazorError as e:
         return JsonResponse({"error": str(e)}, status=400)
     sa.set_marks(o, marks)
-    audit(request, o, f"жадвал қўлда белгиланди: сарлавҳа {marks['header']}-қатор, ишлар {marks['start']}"
-                      f"–{marks.get('end') or 'охиригача'}")
+    audit(request, o, f"жадвал қўлда белгиланди: сарлавҳа {marks['header']}-қатор, ишлар {marks['start']}"  # i18n: ok
+                      f"–{marks.get('end') or 'охиригача'}")  # i18n: ok
     return JsonResponse({"ok": True, "url": redirect("texnazor:object", obj_id=o.pk).url})
 
 
@@ -428,7 +429,7 @@ def retry(request, obj_id):
     o = _obj(request, obj_id)
     if o.status == SiteObject.Status.FAILED:
         sa.retry(o)
-        audit(request, o, "офёртани ўқиш қайта уринилди")
+        audit(request, o, "офёртани ўқиш қайта уринилди")  # i18n: ok
     return _to(o)
 
 
@@ -437,20 +438,20 @@ def hide_rows(request, obj_id):
     """«Keraksiz» qatorlarni yig'ish (``from``–``to``) yoki qaytarish (``remove`` — oraliq boshi): fayl qayta o'qiladi."""
     o = _obj(request, obj_id)
     if o.status != SiteObject.Status.READY:
-        return JsonResponse({"error": "Офёрта ҳали тайёр эмас"}, status=400)
+        return JsonResponse({"error": _("Офёрта ҳали тайёр эмас")}, status=400)
     key = "svod" if request.POST.get("kind") == "svod" else "hide"
-    what = "сводка" if key == "svod" else "кераксиз"
+    what = "сводка" if key == "svod" else "кераксиз"  # i18n: ok
     try:
         if request.POST.get("remove"):
             r = int(request.POST["remove"])
             sa.set_hide(o, remove=r, key=key)
-            audit(request, o, f"{what} белгиси олинди ({r}-қатор)")
+            audit(request, o, f"{what} белгиси олинди ({r}-қатор)")  # i18n: ok
         else:
             a, b = int(request.POST.get("from", "")), int(request.POST.get("to", ""))
             sa.set_hide(o, add=[a, b], key=key)
-            audit(request, o, f"{what} деб белгиланди: {min(a, b)}–{max(a, b)}-қаторлар")
+            audit(request, o, f"{what} деб белгиланди: {min(a, b)}–{max(a, b)}-қаторлар")  # i18n: ok
     except ValueError:
-        return JsonResponse({"error": "Қаторлар нотўғри"}, status=400)
+        return JsonResponse({"error": _("Қаторлар нотўғри")}, status=400)
     except TexnazorError as e:
         return JsonResponse({"error": str(e)}, status=400)
     return JsonResponse({"ok": True})
@@ -461,11 +462,11 @@ def hide_col(request, obj_id):
     """Keraksiz ustunni yig'ish (``on=1``) yoki ochish — faqat ko'rinish, fayl qayta o'qilmaydi (JSON)."""
     o = _obj(request, obj_id)
     if o.status != SiteObject.Status.READY:
-        return JsonResponse({"error": "Офёрта ҳали тайёр эмас"}, status=400)
+        return JsonResponse({"error": _("Офёрта ҳали тайёр эмас")}, status=400)
     try:
         cols = sa.set_hide_col(o, int(request.POST.get("col", "")), request.POST.get("on") == "1")
     except ValueError:
-        return JsonResponse({"error": "Устун нотўғри"}, status=400)
+        return JsonResponse({"error": _("Устун нотўғри")}, status=400)
     except TexnazorError as e:
         return JsonResponse({"error": str(e)}, status=400)
     return JsonResponse({"ok": True, "cols": cols})
@@ -478,8 +479,8 @@ def prop_res(request, obj_id):
     on = request.POST.get("on") == "1"
     key = "relink" if request.POST.get("mode") == "relink" else "prop_res"
     sa.set_prop_res(o, on, key)
-    audit(request, o, ("ресурслар формуласи ўз иши ҳажмига уланди" if key == "relink" else
-                       "ресурслар ўз иши ҳажмига мутаносиб қилинди") if on else "ресурслар тузатиши бекор қилинди — файлдагидек")
+    audit(request, o, ("ресурслар формуласи ўз иши ҳажмига уланди" if key == "relink" else  # i18n: ok
+                       "ресурслар ўз иши ҳажмига мутаносиб қилинди") if on else "ресурслар тузатиши бекор қилинди — файлдагидек")  # i18n: ok
     return _to(o)
 
 
@@ -489,6 +490,6 @@ def drop_const(request, obj_id):
     o = _obj(request, obj_id)
     on = request.POST.get("on") == "1"
     sa.set_drop_const(o, on)
-    audit(request, o, "сводкадаги қўлда қўшилган сон далолатномаларда олинмайди" if on else
-                      "сводкадаги қўлда қўшилган сон қайтарилди — файлдагидек")
+    audit(request, o, "сводкадаги қўлда қўшилган сон далолатномаларда олинмайди" if on else  # i18n: ok
+                      "сводкадаги қўлда қўшилган сон қайтарилди — файлдагидек")  # i18n: ok
     return _to(o)

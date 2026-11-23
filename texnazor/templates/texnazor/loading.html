@@ -7,7 +7,7 @@
   {% if o.status == "failed" %}
   <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
     <div class="font-semibold">Офёртани ўқиб бўлмади</div>
-    <div class="mt-1">{{ o.error }}</div>
+    <div class="mt-1">{{ o.error|msg }}</div>
     <p class="mt-2 text-rose-700">Қуйидагилардан бирини қилиб кўринг: тизим жадвални тушунмаган бўлса — уни ўзингиз белгиланг,
       нотўғри лист танланган бўлса — бошқасини танланг.</p>
   </div>

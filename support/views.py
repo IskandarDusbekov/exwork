@@ -8,6 +8,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from . import services
 from .models import Message
+from django.utils.translation import gettext as _
 
 
 def attach_url(m: Message) -> str:
@@ -57,7 +58,7 @@ def send(request):
     _no_inspect(request)
     wait = services.rate_wait(request.user)
     if wait:
-        return JsonResponse({"error": f"Жуда тез ёзяпсиз. {wait} сониядан кейин яна юборинг."}, status=429)
+        return JsonResponse({"error": _("Жуда тез ёзяпсиз. {0} сониядан кейин яна юборинг.").format(wait)}, status=429)
     conv = services.chat_of(request.user)
     try:
         m = services.post(conv, request.user, request.POST.get("text", ""), request.FILES.get("file"),
@@ -81,7 +82,7 @@ def attachment(request, pk):
         from panel.audit import log as audit
         from panel.models import Event
         audit(request, Event.Kind.ADMIN_DOWNLOAD, target=m.conversation.user,
-              detail=f"ёрдам хизмати: файл «{m.attachment_name}»")
+              detail=f"ёрдам хизмати: файл «{m.attachment_name}»")  # i18n: ok
     try:
         fh = m.attachment.open("rb")
     except (FileNotFoundError, OSError):

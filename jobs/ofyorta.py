@@ -33,6 +33,7 @@ from core.svodka import OLD_SVODKA_TEXTS, SVODKA_ROWS, make_evaluator, svodka_fo
 from core.writer import write_cached_values
 
 from .models import Job, Project, ProjectOfyorta
+from django.utils.translation import gettext as _, gettext_noop as _noop
 
 YELLOW = PatternFill("solid", fgColor="FFFFFF00")
 GREY = PatternFill("solid", fgColor="FFD9D9D9")
@@ -44,7 +45,7 @@ MAX_COLS = 30  # асл варақда ўнгда тасодифий форма�
 MIN_COLS = 16  # A..P (нарх, сумма ва турлар)
 FILE = "ofyorta/ofyorta.xlsx"
 NUM_FMT = "#,##0.00"
-_LEAD = re.compile(r"^\s*на\b[\s:,]*", re.I)
+_LEAD = re.compile(r"^\s*на\b[\s:,]*", re.I)  # i18n: ok
 _SPACES = re.compile(r"\s+")
 
 
@@ -103,12 +104,12 @@ def _named_above(lines: List[str], marker: str) -> str:
 def work_title(job: Job, lines: Optional[List[str]] = None) -> str:
     """Сариқ сарлавҳа: сметадаги «на ФЭС» → «ФЭС»; топилмаса — қисм ёки файл номи."""
     lines = _top_lines(job) if lines is None else lines
-    name = _LEAD.sub("", _named_above(lines, "наименование работ")).strip(" ,.;")
+    name = _LEAD.sub("", _named_above(lines, "наименование работ")).strip(" ,.;")  # i18n: ok
     return (name or job.batch_label or Path(job.local_name).stem).strip()[:300]
 
 
 def stroyka_name(lines: List[str]) -> str:
-    for marker in ("наименование стройки", "наименование (объекта) стройки"):
+    for marker in ("наименование стройки", "наименование (объекта) стройки"):  # i18n: ok
         name = _named_above(lines, marker)
         if name:
             return name[:500]
@@ -116,7 +117,7 @@ def stroyka_name(lines: List[str]) -> str:
 
 
 # сметалар одатда «…/АР/СМЕТА/bv74800.xls» да: «СМЕТА» папкаси ҳеч нима демайди — номга қўшилмайди
-_GENERIC = {"смета", "сметы", "сметалар", "smeta", "smety", "локальная смета", "локальные сметы", "лрв"}
+_GENERIC = {"смета", "сметы", "сметалар", "smeta", "smety", "локальная смета", "локальные сметы", "лрв"}  # i18n: ok
 
 
 def _segs(folder: str) -> List[str]:
@@ -273,7 +274,7 @@ def header_top(ws, num_row: int) -> int:
     """Жадвал сарлавҳасининг биринчи қатори («N п.п.», «№ п/п»)."""
     for r in range(num_row - 1, max(0, num_row - 6), -1):
         a = str(ws.cell(r, 1).value or "").lower()
-        if "п.п" in a or "п/п" in a or a.startswith(("n ", "№")):
+        if "п.п" in a or "п/п" in a or a.startswith(("n ", "№")):  # i18n: ok
             return r
     return num_row
 
@@ -422,13 +423,13 @@ def _block(w: _Writer, n: int, title: str, src, job: Job, cached) -> dict:
     res = job.result or {}
     start, sum_row, svod = res.get("start_row"), res.get("sum_row"), res.get("svodka_start")
     if not (start and sum_row and svod):
-        raise OfyortaError(f"«{title}»: нархлаш натижаси эски — сметани қайта нархланг")
+        raise OfyortaError(_("«{0}»: нархлаш натижаси эски — сметани қайта нархланг").format(title))
     smart = (res.get("mode") or job.mode) == "smart"
     extra = [tuple(x) for x in (res.get("extra_columns") or [])] if smart else []
     layout = svodka_layout(extra or None)
     norm = lambda t: _SPACES.sub(" ", str(t or "")).strip().upper()  # noqa: E731
     if norm(src.cell(svod, 3).value) not in {norm(layout[0][1])} | {norm(t) for t in OLD_SVODKA_TEXTS[layout[0][0]]}:
-        raise OfyortaError(f"«{title}»: сводка жойи ўзгарган — сметани қайта нархланг")
+        raise OfyortaError(_("«{0}»: сводка жойи ўзгарган — сметани қайта нархланг").format(title))
     num = numbering_row(src, start)
     first = num + 1 if num else start
     cols = max(MIN_COLS, min(src.max_column, MAX_COLS))
@@ -474,7 +475,7 @@ def _grand(w: _Writer, blocks: List[dict]):
     extra = [c for b in blocks for k, c in b["cells"].items() if k.startswith("extra_")]
     if extra:  # сметачи қўшган устунлар — битта қатор, «Всего прямых затрат» дан олдин
         i = next(k for k, (key, _t, _p) in enumerate(rows) if key == "pryamye")
-        rows.insert(i, ("extra", "Қўшимча устунлар", None))
+        rows.insert(i, ("extra", "Қўшимча устунлар", None))  # i18n: ok
     for key, text, _pct in rows:
         like = last.get(key) or last.get("pryamye")
         src_row = int(like[1:])
@@ -497,19 +498,19 @@ def _grand(w: _Writer, blocks: List[dict]):
 def write(doc: ProjectOfyorta, parts: List[dict], jobs: Dict[str, Job], step=None) -> dict:
     wb = Workbook()
     ws = wb.active
-    ws.title = "Офёрта"
+    ws.title = "Офёрта"  # i18n: ok
     w = _Writer(ws)
     blocks, notes = [], []
     for i, p in enumerate(parts, 1):
         job = jobs.get(p["job"])
         if job is None:
-            notes.append(f"«{p['title']}» — смета ўчирилган ёки нархи йўқ, олинмади")
+            notes.append(_noop("«{0}» — смета ўчирилган ёки нархи йўқ, олинмади").format(p['title']))
             continue
         if step:
-            step(f"Смета қўшилмоқда: {p['title']}", i - 1, len(parts), p["job"])
+            step(_noop("Смета қўшилмоқда: {0}").format(p['title']), i - 1, len(parts), p["job"])
         path = job.abs(job.output_path)
         if not path.is_file():
-            raise OfyortaError(f"«{p['title']}»: нархланган файл топилмади — сметани қайта нархланг")
+            raise OfyortaError(_("«{0}»: нархланган файл топилмади — сметани қайта нархланг").format(p['title']))
         src_wb = load_workbook(path)
         cached, close = _cached(path, job)
         try:
@@ -521,9 +522,9 @@ def write(doc: ProjectOfyorta, parts: List[dict], jobs: Dict[str, Job], step=Non
             close()
             src_wb.close()
     if not blocks:
-        raise OfyortaError("Битта ҳам смета олинмади")
+        raise OfyortaError(_("Битта ҳам смета олинмади"))
     if step:
-        step("Умумий сводка ва Excel файл ёзилмоқда…", len(parts), len(parts))
+        step(_noop("Умумий сводка ва Excel файл ёзилмоқда…"), len(parts), len(parts))
     end = w.r - 1  # охирги смета сводкаси тугади — умумий сводка фильтрга кирмайди
     if w.filter_row and end > w.filter_row:
         ws.auto_filter.ref = f"A{w.filter_row}:{get_column_letter(w.width)}{end}"
@@ -588,7 +589,7 @@ def make(doc: ProjectOfyorta, progress=None) -> ProjectOfyorta:
     try:
         parts = [p for p in doc.parts if p.get("include", True)]
         if not parts:
-            raise OfyortaError("Битта ҳам смета танланмаган")
+            raise OfyortaError(_("Битта ҳам смета танланмаган"))
         jobs = {str(j.pk): j for j in Job.objects.filter(
             pk__in=[p["job"] for p in parts], status=Job.Status.DONE, **_of(doc.work)).exclude(output_path="")
             .select_related("batch")}
@@ -596,7 +597,7 @@ def make(doc: ProjectOfyorta, progress=None) -> ProjectOfyorta:
         doc.file = FILE
         doc.total = sum(jobs[p["job"]].sum_total or 0 for p in parts if p["job"] in jobs)
         doc.status, doc.error, doc.built = ProjectOfyorta.Status.READY, "\n".join(out["notes"]), timezone.now()
-        doc.progress = {"step": "Тайёр", "done": len(parts), "total": len(parts)}
+        doc.progress = {"step": _noop("Тайёр"), "done": len(parts), "total": len(parts)}
         doc.save()
     except Exception as e:  # noqa: BLE001 — сабаб саҳифада кўринади
         doc.status = ProjectOfyorta.Status.FAILED

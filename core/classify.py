@@ -1,3 +1,4 @@
+# i18n: ok-file — смета матнини таниш учун калит сўзлар
 """Qator turlarini aniqlash: ishchilar / mashinalar / boshqa (reja §2.5–2.6)."""
 import re
 from typing import List, Optional, Tuple

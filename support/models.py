@@ -5,6 +5,7 @@ from pathlib import Path
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _l
 
 
 class Conversation(models.Model):
@@ -12,8 +13,8 @@ class Conversation(models.Model):
     ёзса, ўзи қайта очилади."""
 
     class Status(models.TextChoices):
-        OPEN = "open", "Очиқ"
-        CLOSED = "closed", "Ҳал қилинди"
+        OPEN = "open", _l("Очиқ")
+        CLOSED = "closed", _l("Ҳал қилинди")
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="support_chat")
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN, db_index=True)
@@ -25,8 +26,8 @@ class Conversation(models.Model):
 
     class Meta:
         ordering = ["-updated"]
-        verbose_name = "Ёрдам суҳбати"
-        verbose_name_plural = "Ёрдам суҳбатлари"
+        verbose_name = "Ёрдам суҳбати"  # i18n: ok
+        verbose_name_plural = "Ёрдам суҳбатлари"  # i18n: ok
 
     def __str__(self):
         return f"{self.user} ({self.get_status_display()})"

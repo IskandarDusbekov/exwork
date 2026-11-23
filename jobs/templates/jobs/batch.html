@@ -245,7 +245,7 @@
           {% for value, label in role_labels %}<option value="{{ value }}" {% if value == s.role %}selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
       </td>
-      <td class="px-3 py-2 align-top" title="{{ s.reason }}">
+      <td class="px-3 py-2 align-top" title="{{ s.reason|msg }}">
         <span class="text-xs font-semibold {% if v.tone == 'ok' %}text-emerald-700{% elif v.tone == 'res' %}text-sky-700{% elif v.tone == 'warn' or v.tone == 'ask' %}text-amber-700{% else %}text-slate-500{% endif %}">{{ v.text }}</span>
         {% if v.hint %}<span class="block text-[11px] {% if v.tone == 'warn' or v.tone == 'ask' %}text-amber-700{% else %}text-slate-400{% endif %}">{{ v.hint }}</span>{% endif %}
         <a href="{% url 'batch_mark' batch.id %}?k={{ s.key|urlencode }}" class="mt-1 inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold {% if v.tone == 'warn' or v.tone == 'ask' %}bg-amber-500 text-white hover:bg-amber-600{% else %}border border-slate-300 bg-white text-slate-600 hover:bg-slate-100{% endif %}" title="Файлнинг ўзида кўрсатиш: лист тури, биринчи қатор ва устунлар. Эслаб қолинади.">{% icon "pencil" "h-3 w-3" %} Белгилаш</a>

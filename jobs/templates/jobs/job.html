@@ -11,7 +11,7 @@
 {% if job.status == "failed" %}
 <div class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">
   <div class="font-medium">Нархлашда хато</div>
-  <div class="mt-1 font-mono text-sm">{{ job.error }}</div>
+  <div class="mt-1 font-mono text-sm">{{ job.error|msg }}</div>
 </div>
 {% endif %}
 
@@ -759,7 +759,7 @@
     <div class="flex flex-wrap items-center gap-3 rounded-lg bg-white/80 px-3 py-2">
       <span class="rounded-md px-2 py-0.5 text-sm font-semibold {{ s.cat|cat_class }}">{{ s.cat }}</span>
       <span class="inline-flex items-center gap-1.5"><b>{{ s.count }} та қатор</b> {% icon "arrow-right" "h-3.5 w-3.5 text-slate-400" %} {{ s.label }} бўлиши мумкин</span>
-      <span class="text-xs text-slate-500">{{ s.reasons|join:" · " }}</span>
+      <span class="text-xs text-slate-500">{{ s.reasons|join:" · "|msg }}</span>
       <button type="button" data-review="{{ s.cat }}" data-label="Таклиф: {{ s.cat }} · {{ s.label }}"
               class="rounded-lg bg-fuchsia-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-fuchsia-800">Кўриб чиқиш</button>
       <button type="button" class="sugg-xl rounded-lg border border-fuchsia-300 bg-white px-3 py-1.5 text-sm font-medium text-fuchsia-800 hover:bg-fuchsia-50" data-to="{{ s.cat }}"
@@ -816,7 +816,7 @@
       <div class="lm-head">
         <span class="lm-col {{ c.col|cat_class }}">{{ c.col }}</span>
         <span class="min-w-0">
-          <b class="block text-sm text-slate-900">{% if c.col == 'L' %}Кабель{% else %}Ускуна{% endif %} — тизим таклифи{% if c.label != "Кабель" and c.label != "Ускуна" and c.label != "Оборудование" %} <span class="font-normal text-slate-500">· {{ c.label }}</span>{% endif %}</b>
+          <b class="block text-sm text-slate-900">{% if c.col == 'L' %}Кабель{% else %}Ускуна{% endif %} — тизим таклифи{% if c.label != "Кабель" and c.label != "Ускуна" and c.label != "Оборудование" %}{# i18n: ok — файлдаги устун номи #} <span class="font-normal text-slate-500">· {{ c.label }}</span>{% endif %}</b>
           <span class="block text-xs text-slate-600"><b class="num text-fuchsia-800">{{ c.rows|length }}</b> та қатор · жами <b class="num text-slate-900">{{ c.sum|som }}</b> · {% if job_auto %}ишончсиз бўлгани учун ўзи ўтказилмади{% else %}«Қўлда» усули: ўзи ўтказилмайди, сиз ҳал қиласиз{% endif %}{% if c.done %} · {{ c.col }} устунида аллақачон <b class="num">{{ c.done }}</b> та{% endif %}</span>
         </span>
       </div>
@@ -969,7 +969,7 @@
     var LOADING = '<div class="p-6 text-sm text-slate-500">Файл очиляпти…</div>';
     var cache = {}, cur = {kind: null, sheet: null, ready: false}, cells = [], rowByNum = {}, hits = [], hitIdx = -1, target = null;
 
-    function norm(t) { return (t || "").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, ""); }
+    function norm(t) { return (t || "").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, ""); }  // i18n: ok — қидирувда ё = е
 
     // ---- кўриниш: жадвал ёки файл (саҳифани қайта юкламасдан) ----
     function setView(view) {
@@ -2043,7 +2043,7 @@
     };
 
     var search = document.getElementById("row-search"), visibleOut = document.getElementById("row-visible");
-    function norm(t) { return (t || "").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " "); }
+    function norm(t) { return (t || "").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " "); }  // i18n: ok — қидирувда ё = е
     rows.forEach(function (tr) { var n = tr.querySelector(".xl-name"); tr._text = norm(n ? n.textContent : ""); });
 
     function applyFilter(key, label) {

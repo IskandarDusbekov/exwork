@@ -104,7 +104,7 @@
       {% endif %}
       {% if pk_skipped_files %}
       <ul class="pk-sfiles">
-        {% for f in pk_skipped_files %}<li>{% icon "file" "h-4 w-4 shrink-0" "1.75" %}<span class="pk-sf-n" title="{{ f.name }}">{{ f.name }}</span><i>{{ f.reason }}</i></li>{% endfor %}
+        {% for f in pk_skipped_files %}<li>{% icon "file" "h-4 w-4 shrink-0" "1.75" %}<span class="pk-sf-n" title="{{ f.name }}">{{ f.name }}</span><i>{{ f.reason|msg }}</i></li>{% endfor %}
       </ul>
       {% endif %}
     </details>

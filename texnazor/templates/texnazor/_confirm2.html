@@ -29,7 +29,7 @@
   // window.tnConfirm2({title, msg, list: [...], warn, word, ok}) -> Promise: тасдиқланса ёзилган сўз, йўқса null
   (function () {
     var box = document.getElementById("tn-c2"), $ = function (id) { return document.getElementById(id); }, done = null, want = "";
-    var norm = function (s) { return String(s || "").toUpperCase().replace(/Ё/g, "Е").split(/\s+/).filter(Boolean).join(" "); };
+    var norm = function (s) { return String(s || "").toUpperCase().replace(/Ё/g, "Е").split(/\s+/).filter(Boolean).join(" "); };  // i18n: ok — Ё = Е
     function step(n) {
       $("tn-c2-step").textContent = n;
       $("tn-c2-s1").classList.toggle("hidden", n !== 1); $("tn-c2-next").classList.toggle("hidden", n !== 1);

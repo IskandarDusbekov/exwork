@@ -8,6 +8,7 @@ from . import tender
 from .models import Batch, Job, Project
 from .ofyorta import priced_jobs
 from .views import _get_work, crumbs_for
+from django.utils.translation import gettext as _
 
 
 def _allowed(request):
@@ -24,7 +25,7 @@ def _page(request, jobs, title, crumbs, back):
     if crumbs and not crumbs[-1]["url"]:
         crumbs[-1]["url"] = back
     return render(request, "jobs/tender.html", {
-        "crumbs": crumbs + [{"label": "Объект таҳлили", "url": "", "icon": "chart", "color": "text-indigo-500"}],
+        "crumbs": crumbs + [{"label": _("Объект таҳлили"), "url": "", "icon": "chart", "color": "text-indigo-500"}],
         "title": title, "r": report, "enabled": on, "back": back,
     })
 

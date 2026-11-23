@@ -1,3 +1,4 @@
+# i18n: ok-file — Excel ичидаги матн / маълумот (таржима қилинмайди)
 """Ф-2 — bajarilgan ishlar dalolatnomasi (oy bo'yicha), texnazor Excel'dagi «Ф-2 за <oy>» varag'i bilan bir xil.
 
 Faqat shu oyda hajmi yozilgan ishlar: ish qatorida E — shu oydagi hajm, resurslarida E — me'yor, F = E × ish hajmi,
@@ -8,6 +9,7 @@ Telegram ko'rinishi kabi hisoblamaydigan dasturlarda ham summalar ko'rinadi, Exc
 Ko'rinishi uning faylidagidek: Times New Roman 10, oq katak, ingichka chiziq; чел-ч resurslari binafsha, маш-ч —
 to'q yashil, summa (I) — binafsha; blok sarlavhasi qizil, bo'lim sarlavhasi pushti fonda. Bo'sh sarlavhalar yozilmaydi.
 """
+from web.i18n import excel
 import math
 from io import BytesIO
 
@@ -48,6 +50,7 @@ def file_name(period: Period) -> str:
     return f"Ф-2 {period.title} — {period.obj.name}"[:150] + ".xlsx"
 
 
+@excel
 def build(period: Period) -> bytes:
     obj: SiteObject = period.obj
     rates = obj.rates or {}

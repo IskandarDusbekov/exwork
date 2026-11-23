@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _l
 
 
 class Announcement(models.Model):
@@ -8,9 +9,9 @@ class Announcement(models.Model):
     чиқади, кейин сарлавҳадаги қўнғироқчада (билдиришномалар) туради."""
 
     class Style(models.TextChoices):
-        NEWS = "news", "Янгилик"          # кўк — янги имконият, ўзгариш
-        SERIOUS = "serious", "Жиддий"     # тўқ — муҳим огоҳлантириш, техник иш, қоида
-        CELEBRATE = "celebrate", "Табрик"  # байрамона — байрам, табрик, ютуқ
+        NEWS = "news", _l("Янгилик")          # кўк — янги имконият, ўзгариш
+        SERIOUS = "serious", _l("Жиддий")     # тўқ — муҳим огоҳлантириш, техник иш, қоида
+        CELEBRATE = "celebrate", _l("Табрик")  # байрамона — байрам, табрик, ютуқ
 
     title = models.CharField(max_length=160)
     body = models.TextField(blank=True)  # оддий матн; бўш қатор — янги хатбоши, «- » билан бошланса — рўйхат

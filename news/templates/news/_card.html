@@ -10,7 +10,7 @@
     <div class="nw-body" data-nw-body>{% for kind, val in a.blocks %}{% if kind == "ul" %}<ul>{% for x in val %}<li>{{ x }}</li>{% endfor %}</ul>{% else %}<p>{{ val|linebreaksbr }}</p>{% endif %}{% endfor %}</div>
   </div>
   <div class="nw-acts">
-    <a href="{{ a.link_url|default:'#' }}" class="nw-link" data-nw-link{% if not a.link_url %} hidden{% endif %}>{{ a.link_text|default:"Батафсил" }} {% icon "arrow-right" "h-4 w-4" %}</a>
+    <a href="{{ a.link_url|default:'#' }}" class="nw-link" data-nw-link{% if not a.link_url %} hidden{% endif %}>{{ a.link_text|default:_("Батафсил") }} {% icon "arrow-right" "h-4 w-4" %}</a>
     <button type="button" class="nw-ok" data-nw-close>{% if a.style == "celebrate" %}Раҳмат!{% else %}Тушунарли{% endif %}</button>
   </div>
 </article>

@@ -1,3 +1,4 @@
+# i18n: ok-file — Excel ичидаги матн / маълумот (таржима қилинмайди)
 """Ф-3 — справка-счёт-фактура (oy bo'yicha), texnazor Excel'dagi «Ф-3 №N за <oy>» varag'i bilan bir xil.
 
 Bitta varaq: rekvizitlar, hujjat raqami / sanasi / davri, keyin jadval — shartnoma qiymati (jami va joriy yilga),
@@ -5,6 +6,7 @@ boshidan, yil boshidan va shu oyda bajarilgan (pudratchi qismi QQSsiz, QQS, QQS 
 imzolar. Summalar ming so'mda (uning faylidagidek). Formulalar va qiymati birga yoziladi: Excel'da qayta hisoblanadi,
 hisoblamaydigan dasturlarda ham ko'rinadi. Uning faylidan farqi: yig'ma summa qo'lda emas — yopilgan oylardan.
 """
+from web.i18n import excel
 from datetime import date
 from io import BytesIO
 
@@ -29,6 +31,7 @@ def file_name(period: Period) -> str:
     return f"Ф-3 №{n} {period.title} — {period.obj.name}"[:150] + ".xlsx"
 
 
+@excel
 def build(period: Period) -> bytes:
     obj = period.obj
     d = services.f3_data(period)

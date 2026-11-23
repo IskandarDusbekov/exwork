@@ -93,7 +93,7 @@ def try_apply(job: Job, prices=None, categories=None, cleared=None, marked=None,
         apply_settings(job, None, None, job.fuzzy, None, percents, categories, prices, cleared, marked)
         ok = _patch(job)
     except Exception:  # noqa: BLE001 — yamab bo'lmadi: to'liq hisob (asl fayl buzilmagan)
-        log.exception("Excel'ни ямаб бўлмади: %s", job.pk)
+        log.exception("Excel'ни ямаб бўлмади: %s", job.pk)  # i18n: ok
     finally:
         if not ok:
             for f, v in before.items():
@@ -226,7 +226,7 @@ def _patch(job: Job) -> bool:
         r = int(kit["svodka"][key][1:])
         want = {f"D{r}": percents[key]}
         if key == "s_nds":
-            want[f"C{r}"] = f"Всего с НДС      {percent_text(percents[key])} %"
+            want[f"C{r}"] = f"Всего с НДС      {percent_text(percents[key])} %"  # i18n: ok
         for addr, v in want.items():
             if written.get(addr) != v:
                 cells[addr] = v
@@ -240,7 +240,7 @@ def _patch(job: Job) -> bool:
         done = apply_cells(tmp, kit, cells, drop, log=log_rows, cf=cf)
     except NotPatchable as e:
         tmp.unlink(missing_ok=True)
-        log.info("ямалмади (%s): %s", job.pk, e)
+        log.info("ямалмади (%s): %s", job.pk, e)  # i18n: ok
         return False
     except BaseException:
         tmp.unlink(missing_ok=True)
