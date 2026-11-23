@@ -1,3 +1,4 @@
+# i18n: ok-file — admin / тизим текшируви
 """``manage.py check --deploy``: production uchun yaroqsiz sozlamalar haqida ogohlantirish."""
 from django.conf import settings
 from django.core.checks import Warning, register

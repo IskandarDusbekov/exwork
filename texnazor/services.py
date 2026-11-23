@@ -18,6 +18,7 @@ from core.convert import check_xlsx
 from . import calc
 from .models import COST_FIELDS, Correction, Done, Item, Period, Section, SiteObject
 from .ofyorta import CATEGORY_LABELS, Ofyorta, OfyortaError, parse
+from django.utils.translation import gettext as _, gettext_lazy as _l, gettext_noop as _noop
 
 ALLOWED_EXT = (".xls", ".xlsx", ".xlsm")
 ITEM_KINDS = (Item.Kind.WORK, Item.Kind.FREE, Item.Kind.EXTRA)  # texnazor hajmini belgilaydiganlar
@@ -31,11 +32,11 @@ class TexnazorError(Exception):
 def create_object(owner, upload, **fields) -> SiteObject:
     ext = Path(upload.name).suffix.lower()
     if ext not in ALLOWED_EXT:
-        raise TexnazorError("Офёрта .xls, .xlsx ёки .xlsm бўлиши керак")
+        raise TexnazorError(_("Офёрта .xls, .xlsx ёки .xlsm бўлиши керак"))
     from panel import conf
     limit = conf.get("texnazor_max_upload_mb")
     if upload.size > limit:
-        raise TexnazorError(f"Файл жуда катта ({upload.size // 2**20} МБ) — кўпи билан {limit // 2**20} МБ")
+        raise TexnazorError(_("Файл жуда катта ({0} МБ) — кўпи билан {1} МБ").format(upload.size // 2**20, limit // 2**20))
     obj = SiteObject(owner=owner, source_name=Path(upload.name).name[:255], source_path=f"src/ofyorta{ext}",
                      name=(fields.get("name") or Path(upload.name).stem)[:300],
                      **{k: (fields.get(k) or "")[:300] for k in ("address", "customer", "contractor", "contract")})
@@ -52,7 +53,7 @@ def create_from_my(owner, doc, **fields) -> SiteObject:
     """«Менинг офёрталарим» dan obyekt: tizimda yasalgan ofyorta fayli nusxalanadi, o'qilganda bloklar
     ``doc.structure`` dan olinadi (rangga / nomga qarab taxmin qilinmaydi)."""
     if doc.status != doc.Status.READY or not doc.file.exists():
-        raise TexnazorError("Офёрта ҳали тайёр эмас")
+        raise TexnazorError(_("Офёрта ҳали тайёр эмас"))
     obj = SiteObject(owner=owner, source_name=f"{doc.name[:240]}.xlsx", source_path="src/ofyorta.xlsx", made_from=doc,
                      name=(fields.get("name") or doc.name)[:300],
                      **{k: (fields.get(k) or "")[:300] for k in ("address", "customer", "contractor", "contract")})
@@ -72,8 +73,8 @@ def apply_structure(of: Ofyorta, structure: list) -> bool:
     if [norm(t) for t in of.sections] == [norm(s["title"]) for s in structure]:
         of.blocks = {i for i, s in enumerate(structure) if s.get("block")}
         return True
-    of.warnings.append({"row": 0, "title": "Блоклар офёрта сарлавҳаларига қараб аниқланди",
-                        "text": "Файлдаги сарлавҳалар тизимда тузилгандагидан фарқ қилади — блокларни текширинг."})
+    of.warnings.append({"row": 0, "title": _("Блоклар офёрта сарлавҳаларига қараб аниқланди"),
+                        "text": _("Файлдаги сарлавҳалар тизимда тузилгандагидан фарқ қилади — блокларни текширинг.")})
     return False
 
 
@@ -87,16 +88,16 @@ def import_ofyorta(obj: SiteObject, progress=None):
 
     try:
         src = obj.abs(obj.source_path)
-        step("Файл очилмоқда")
+        step("Файл очилмоқда")  # i18n: ok
         xlsx = convert.ensure_xlsx(src, obj.abs("conv"))
         check_xlsx(xlsx)
-        step("Офёрта ўқилмоқда")
-        of = parse(xlsx, progress=lambda d, t: step("Офёрта ўқилмоқда", d, t))
+        step("Офёрта ўқилмоқда")  # i18n: ok
+        of = parse(xlsx, progress=lambda d, t: step("Офёрта ўқилмоқда", d, t))  # i18n: ok
         if not of.items:
-            raise OfyortaError("Офёртада иш топилмади (А устунида тартиб рақами, C да номи бўлган қаторлар)")
+            raise OfyortaError(_noop("Офёртада иш топилмади (А устунида тартиб рақами, C да номи бўлган қаторлар)"))
         if obj.made_from_id:
             apply_structure(of, obj.made_from.structure)
-        step("Базага ёзилмоқда", 0, len(of.rows))
+        step("Базага ёзилмоқда", 0, len(of.rows))  # i18n: ok
         _store(obj, of)
     except Exception as e:  # noqa: BLE001 — sabab sahifada ko'rinadi
         obj.status, obj.error = SiteObject.Status.FAILED, f"{type(e).__name__}: {e}" if not isinstance(e, OfyortaError) else str(e)
@@ -113,7 +114,7 @@ def _store(obj: SiteObject, of: Ofyorta):
                                             for i, t in enumerate(of.sections)])
     extra_section = None
     if any(r.kind == "extra" for r in of.rows):
-        extra_section = Section.objects.create(obj=obj, order=len(sections), title="Сводкадаги қўшимча қаторлар")
+        extra_section = Section.objects.create(obj=obj, order=len(sections), title="Сводкадаги қўшимча қаторлар")  # i18n: ok
     tops, children = [], []
     by_index = {}
     for i, r in enumerate(of.rows):
@@ -145,7 +146,7 @@ def _store(obj: SiteObject, of: Ofyorta):
     obj.object_type = of.object_type[:200]
     obj.contract_totals = _contract([it for _i, it in tops], obj.rates)
     obj.status, obj.error = SiteObject.Status.READY, ""
-    obj.progress = {"step": "Тайёр", "done": len(of.rows), "total": len(of.rows)}
+    obj.progress = {"step": "Тайёр", "done": len(of.rows), "total": len(of.rows)}  # i18n: ok
     obj.save()
 
 
@@ -159,7 +160,7 @@ def _contract(items, rates) -> Dict[str, float]:
 
 
 def search_key(text: str) -> str:
-    return " ".join(str(text).upper().replace("Ё", "Е").split())
+    return " ".join(str(text).upper().replace("Ё", "Е").split())  # i18n: ok
 
 
 def delete_object(obj: SiteObject):
@@ -238,10 +239,10 @@ def periods(obj: SiteObject):
 
 def add_period(obj: SiteObject, year: int, month: int) -> Period:
     if not (1 <= month <= 12 and 2000 <= year <= 2100):
-        raise TexnazorError("Ой нотўғри")
+        raise TexnazorError(_("Ой нотўғри"))
     last = obj.periods.order_by("-year", "-month").first()
     if last and (year, month) <= (last.year, last.month):
-        raise TexnazorError(f"Янги ой охиргисидан ({last.title}) кейин бўлиши керак")
+        raise TexnazorError(_("Янги ой охиргисидан ({0}) кейин бўлиши керак").format(last.title))
     return Period.objects.create(obj=obj, year=year, month=month)
 
 
@@ -272,7 +273,7 @@ def parse_value(text, contract_qty: float) -> Optional[float]:
     try:
         return float(s.replace(" ", "").replace("\xa0", "").replace(",", "."))
     except ValueError:
-        raise TexnazorError(f"Сон ёки фоиз ёзинг (масалан «35» ёки «60%»): «{s}»")
+        raise TexnazorError(_("Сон ёки фоиз ёзинг (масалан «35» ёки «60%»): «{0}»").format(s))
 
 
 def done_before(period: Period, items) -> Dict[int, float]:
@@ -284,9 +285,9 @@ def done_before(period: Period, items) -> Dict[int, float]:
 def set_done(period: Period, item: Item, text) -> Optional[float]:
     """Shu oyda bajarilgan hajm. Qoldiqdan oshib ketmasin (qolgan oylarni ham hisobga olib)."""
     if period.closed:
-        raise TexnazorError(f"{period.title} ёпилган — ўзгартириб бўлмайди")
+        raise TexnazorError(_("{0} ёпилган — ўзгартириб бўлмайди").format(period.title))
     if item.kind not in ITEM_KINDS or item.obj_id != period.obj_id:
-        raise TexnazorError("Бу қаторнинг ҳажми белгиланмайди (ресурс иш ҳажмига эргашади)")
+        raise TexnazorError(_("Бу қаторнинг ҳажми белгиланмайди (ресурс иш ҳажмига эргашади)"))
     qty = parse_value(text, item.qty)
     if qty is None or abs(qty) < 1e-12:
         Done.objects.filter(period=period, item=item).delete()
@@ -294,12 +295,11 @@ def set_done(period: Period, item: Item, text) -> Optional[float]:
     if item.qty < 0 and qty > 0:
         qty = -qty  # айириш қатори (офёртада манфий ҳажм): «0,364» ёзилса ҳам −0,364 бўлиб сақланади
     if qty * _sign(item) < 0:
-        raise TexnazorError("Ҳажм манфий бўлмайди")
+        raise TexnazorError(_("Ҳажм манфий бўлмайди"))
     others = Done.objects.filter(item=item).exclude(period=period).aggregate(q=Sum("qty"))["q"] or 0.0
     left = item.qty - others
     if abs(qty) > abs(left) * (left * qty > 0) + max(1e-9, abs(item.qty) * 1e-9):
-        raise TexnazorError(f"Қолдиқ {fmt_qty(left)} {item.unit} — {fmt_qty(qty)} ёзиб бўлмайди"
-                            f" (шартнома {fmt_qty(item.qty)}, бошқа ойларда {fmt_qty(others)})")
+        raise TexnazorError(_("Қолдиқ {0} {1} — {2} ёзиб бўлмайди (шартнома {3}, бошқа ойларда {4})").format(fmt_qty(left), item.unit, fmt_qty(qty), fmt_qty(item.qty), fmt_qty(others)))
     Done.objects.update_or_create(period=period, item=item, defaults={"qty": qty})
     return qty
 
@@ -318,7 +318,7 @@ def fill_items(period: Period, items, pct: float) -> int:
     """Tanlangan ishlar jami ``pct`` % bajarilgan bo'lsin: yetmagan qismi shu oyga yoziladi (avvalgi oylar o'zgarmaydi,
     keyingi oylar bilan birga shartnomadan oshmaydi). Nechta qator ko'rib chiqildi."""
     if period.closed:
-        raise TexnazorError(f"{period.title} ёпилган — ўзгартириб бўлмайди")
+        raise TexnazorError(_("{0} ёпилган — ўзгартириб бўлмайди").format(period.title))
     pct = max(0.0, min(100.0, float(pct)))
     items = [it for it in items if it.kind in ITEM_KINDS and it.obj_id == period.obj_id]
     before = done_before(period, items)
@@ -345,18 +345,18 @@ def correct_item(user, item: Item, period: Optional[Period], text, basis: str, n
     Bajarilgan hajmlar o'zgarmaydi, shuning uchun yopilgan oylar summasi ham o'zgarmaydi — o'zgaradigani shartnoma
     va qoldiq. Ofyortada hajmi 0 bo'lgan ishning 1 birlik narxi resurslarining me'yoridan tiklanadi (narx × me'yor)."""
     if item.kind not in ITEM_KINDS:
-        raise TexnazorError("Ресурс ҳажми алоҳида тузатилмайди — ишнинг ҳажмини тузатинг")
+        raise TexnazorError(_("Ресурс ҳажми алоҳида тузатилмайди — ишнинг ҳажмини тузатинг"))
     if period is not None and period.closed:
-        raise TexnazorError(f"{period.title} ёпилган — тузатиш очиқ ойдан кучга киради")
+        raise TexnazorError(_("{0} ёпилган — тузатиш очиқ ойдан кучга киради").format(period.title))
     basis = " ".join(str(basis or "").split())
     if len(basis) < 3:
-        raise TexnazorError("Асос ҳужжатини ёзинг (масалан: «Қўшимча келишув №2, 12.11.2026»)")
+        raise TexnazorError(_("Асос ҳужжатини ёзинг (масалан: «Қўшимча келишув №2, 12.11.2026»)"))
     new = parse_value(text, item.qty)
     if new is None:
-        raise TexnazorError("Янги ҳажмни ёзинг")
+        raise TexnazorError(_("Янги ҳажмни ёзинг"))
     done = Done.objects.filter(item=item).aggregate(q=Sum("qty"))["q"] or 0.0
     if not _covers(new, done):
-        raise TexnazorError(f"Бажарилган {fmt_qty(done)} {item.unit} — шартнома ҳажмини ундан кам қилиб бўлмайди")
+        raise TexnazorError(_("Бажарилган {0} {1} — шартнома ҳажмини ундан кам қилиб бўлмайди").format(fmt_qty(done), item.unit))
     with transaction.atomic():
         c = Correction.objects.create(obj_id=item.obj_id, item=item, period=period, author=user, old_qty=item.qty,
                                       new_qty=new, basis=basis[:300], note=str(note or "").strip())
@@ -395,28 +395,31 @@ def _covers(contract: float, done: float) -> bool:
     return contract * done > 0 and abs(contract) >= abs(done) - max(1e-9, abs(done) * 1e-9)
 
 
-REVERT_WORD = "БЕКОР"
-DELETE_WORD = "ЎЧИРИШ"
+REVERT_WORD = _l("БЕКОР")
+DELETE_WORD = _l("ЎЧИРИШ")
+
+
+_APOS = str.maketrans("", "", "ʻʼ'`‘’")
 
 
 def _confirmed(text, word: str) -> bool:
-    return search_key(text or "") == search_key(word)
+    """Тасдиқ сўзи: ҳарф катта-кичиклиги ва лотиндаги тутуқ белгилари (ʻ ʼ ' `) фарқ қилмайди."""
+    return search_key(text or "").translate(_APOS) == search_key(word).translate(_APOS)
 
 
 def revert_correction(user, c: Correction, confirm: str) -> Correction:
     """Tuzatishni bekor qilish (ikkinchi bosqich — «БЕКОР» deb yozish): hajm eskisiga qaytadi, yozuv tarixda qoladi.
     Faqat shu ishning oxirgi amaldagi tuzatishi bekor qilinadi (zanjir buzilmasin)."""
     if not _confirmed(confirm, REVERT_WORD):
-        raise TexnazorError(f"Тасдиқлаш учун «{REVERT_WORD}» деб ёзинг")
+        raise TexnazorError(_("Тасдиқлаш учун «{0}» деб ёзинг").format(REVERT_WORD))
     if c.reverted:
-        raise TexnazorError("Бу тузатиш аллақачон бекор қилинган")
+        raise TexnazorError(_("Бу тузатиш аллақачон бекор қилинган"))
     last = c.item.corrections.filter(reverted__isnull=True).first()
     if last is None or last.pk != c.pk:
-        raise TexnazorError("Аввал шу ишнинг кейинги тузатишини бекор қилинг (энг охиргиси биринчи)")
+        raise TexnazorError(_("Аввал шу ишнинг кейинги тузатишини бекор қилинг (энг охиргиси биринчи)"))
     done = Done.objects.filter(item=c.item).aggregate(q=Sum("qty"))["q"] or 0.0
     if not _covers(c.old_qty, done):
-        raise TexnazorError(f"Бажарилган {fmt_qty(done)} {c.item.unit} — ҳажмни {fmt_qty(c.old_qty)} га қайтариб бўлмайди. "
-                            "Аввал ортиқча бажарилган ҳажмни ўчиринг.")
+        raise TexnazorError(_("Бажарилган {0} {1} — ҳажмни {2} га қайтариб бўлмайди. Аввал ортиқча бажарилган ҳажмни ўчиринг.").format(fmt_qty(done), c.item.unit, fmt_qty(c.old_qty)))
     with transaction.atomic():
         c.reverted, c.reverted_by = timezone.now(), user
         c.save(update_fields=["reverted", "reverted_by"])
@@ -427,9 +430,9 @@ def revert_correction(user, c: Correction, confirm: str) -> Correction:
 def delete_period(period: Period, confirm: str):
     """Oyni o'chirish (ikkinchi bosqich — oy nomini yozish): ichidagi hajmlar ham o'chadi. Yopilgan oy o'chmaydi."""
     if period.closed:
-        raise TexnazorError(f"{period.title} ёпилган (тўлов шу бўйича) — ўчириш учун аввал «Қайта очиш»")
+        raise TexnazorError(_("{0} ёпилган (тўлов шу бўйича) — ўчириш учун аввал «Қайта очиш»").format(period.title))
     if not _confirmed(confirm, period.title):
-        raise TexnazorError(f"Тасдиқлаш учун ой номини ёзинг: «{period.title}»")
+        raise TexnazorError(_("Тасдиқлаш учун ой номини ёзинг: «{0}»").format(period.title))
     period.delete()
 
 
@@ -521,7 +524,7 @@ def item_rows(period: Period, items) -> list:
                     "cat": CATEGORY_LABELS.get(it.category, "") if it.kind == Item.Kind.FREE else "",
                     "pct": 100 * cum / it.qty if it.qty else 0.0, "this_amount": (t or 0.0) * uc, "unit_cost": uc,
                     "before_pct": 100 * b / it.qty if it.qty else 0.0,
-                    "prev": Period(year=last[it.pk][0], month=last[it.pk][1]).title if prev and it.pk in last else ("олдинги ой" if prev else "")})
+                    "prev": Period(year=last[it.pk][0], month=last[it.pk][1]).title if prev and it.pk in last else (_("олдинги ой") if prev else "")})
     return out
 
 
@@ -552,7 +555,7 @@ def month_f2(period: Period) -> dict:
     """Ф-2 охиридаги «JAMI» каби: шу ойнинг турлар бўйича суммаси ва иш ҳақи / машина соатлари (чел-ч, маш-ч)."""
     money = _cats(Done.objects.filter(period=period))
     hours = {}
-    for key, word in (("J", "ЧЕЛ"), ("K", "МАШ")):
+    for key, word in (("J", "ЧЕЛ"), ("K", "МАШ")):  # i18n: ok
         hours[key] = (Item.objects.filter(kind=Item.Kind.RES, unit__contains=word, parent__done__period=period)
                       .aggregate(h=Sum(F("qty") * F("parent__done__qty")))["h"] or 0.0)
     return {"money": money, "hours": hours, "rows": Done.objects.filter(period=period).count()}
@@ -561,7 +564,7 @@ def month_f2(period: Period) -> dict:
 def _tone(r: Item) -> str:
     """Resurs qatorining rangi: чел-ч — иш ҳақи, маш-ч — машина, қолгани — материал/ускуна (бирлик бўйича)."""
     u = r.unit.upper()
-    return "j" if "ЧЕЛ" in u else "k" if "МАШ" in u else "m"
+    return "j" if "ЧЕЛ" in u else "k" if "МАШ" in u else "m"  # i18n: ok
 
 
 def _base(it: Item) -> Optional[Item]:
@@ -589,7 +592,7 @@ def section_tree(obj: SiteObject, stats: Dict[int, dict]) -> list:
     return [{**b, **section_pct(b)} for b in blocks if b["items"] or b["s"]]
 
 
-_NA = re.compile(r"^\s*НА\s+", re.I)
+_NA = re.compile(r"^\s*НА\s+", re.I)  # i18n: ok
 
 
 def block_label(title: str) -> str:
@@ -607,7 +610,7 @@ def section_paths(obj: SiteObject) -> Dict[int, tuple]:
     return out
 
 
-_ROW = re.compile(r"^(\d+)-қатор[:\s]*(.*)$", re.S)
+_ROW = re.compile(r"^(\d+)-қатор[:\s]*(.*)$", re.S)  # i18n: ok
 
 
 def warnings(obj: SiteObject) -> list:
@@ -655,23 +658,23 @@ def section_pct(st: dict) -> dict:
 # Obyekt va pudratchi ma'lumotlari — obyektga bir marta yoziladi (SiteObject.f3), hamma oylardagi Ф-3 ga tushadi.
 # (kalit, nomi, guruh); buyurtmachi / pudratchi nomi va obyekt manzili — SiteObject maydonlarida
 F3_FIELDS = [
-    ("customer_address", "Манзил", "customer"), ("customer_phone", "Телефон", "customer"),
-    ("customer_bank", "Банк", "customer"), ("customer_inn", "СТИР", "customer"), ("customer_mfo", "МФО", "customer"),
-    ("customer_account", "Ҳисоб рақами (ШХР)", "customer"),
-    ("contractor_address", "Манзил", "contractor"), ("contractor_account", "Ҳисоб рақами (х/р)", "contractor"),
-    ("contractor_bank", "Банк", "contractor"), ("contractor_inn", "СТИР", "contractor"), ("contractor_mfo", "МФО", "contractor"),
-    ("contractor_okonh", "ОКОНХ", "contractor"),
-    ("contract_no", "Шартнома рақами", "contract"), ("contract_date", "Шартнома санаси", "contract"),
-    ("contract_id", "ИД", "contract"), ("contract_lot", "Лот", "contract"),
-    ("sign_title", "Буюртмачи томони сарлавҳаси", "sign"), ("customer_head", "Буюртмачи раҳбари", "sign"),
-    ("customer_accountant", "Буюртмачи бош ҳисобчиси", "sign"), ("consultant", "Консультант вакили (ILF)", "sign"),
-    ("contractor_head", "Пудратчи раҳбари", "sign"), ("contractor_accountant", "Пудратчи бош ҳисобчиси", "sign"),
-    ("texnazor", "Техник назорат", "sign"),
+    ("customer_address", _l("Манзил"), "customer"), ("customer_phone", _l("Телефон"), "customer"),
+    ("customer_bank", _l("Банк"), "customer"), ("customer_inn", _l("СТИР"), "customer"), ("customer_mfo", _l("МФО"), "customer"),
+    ("customer_account", _l("Ҳисоб рақами (ШХР)"), "customer"),
+    ("contractor_address", _l("Манзил"), "contractor"), ("contractor_account", _l("Ҳисоб рақами (х/р)"), "contractor"),
+    ("contractor_bank", _l("Банк"), "contractor"), ("contractor_inn", _l("СТИР"), "contractor"), ("contractor_mfo", _l("МФО"), "contractor"),
+    ("contractor_okonh", _l("ОКОНХ"), "contractor"),
+    ("contract_no", _l("Шартнома рақами"), "contract"), ("contract_date", _l("Шартнома санаси"), "contract"),
+    ("contract_id", _l("ИД"), "contract"), ("contract_lot", _l("Лот"), "contract"),
+    ("sign_title", _l("Буюртмачи томони сарлавҳаси"), "sign"), ("customer_head", _l("Буюртмачи раҳбари"), "sign"),
+    ("customer_accountant", _l("Буюртмачи бош ҳисобчиси"), "sign"), ("consultant", _l("Консультант вакили (ILF)"), "sign"),
+    ("contractor_head", _l("Пудратчи раҳбари"), "sign"), ("contractor_accountant", _l("Пудратчи бош ҳисобчиси"), "sign"),
+    ("texnazor", _l("Техник назорат"), "sign"),
 ]
-F3_KEYS = [k for k, _, _ in F3_FIELDS]
-F3_DEFAULTS = {"sign_title": "ЗАКАЗЧИК:"}
-MONTHS_RU_GEN = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября",
-                 "ноября", "декабря"]
+F3_KEYS = [k for k, _x, _y in F3_FIELDS]
+F3_DEFAULTS = {"sign_title": "ЗАКАЗЧИК:"}  # i18n: ok
+MONTHS_RU_GEN = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября",  # i18n: ok
+                 "ноября", "декабря"]  # i18n: ok
 LINE = "______________"
 
 
@@ -695,9 +698,9 @@ def f3_settings(obj: SiteObject) -> dict:
 def f3_missing(obj: SiteObject) -> list:
     """Ф-3 uchun muhimlari to'ldirilmagan bo'lsa — ularning nomi (sahifada eslatma)."""
     s = f3_settings(obj)
-    need = [("Буюртмачи", obj.customer), ("Пудратчи", obj.contractor), ("Шартнома рақами", s["contract_no"]),
-            ("Шартнома санаси", s["contract_date"]), ("Пудратчи СТИР", s["contractor_inn"]),
-            ("Пудратчи ҳисоб рақами", s["contractor_account"])]
+    need = [(_("Буюртмачи"), obj.customer), (_("Пудратчи"), obj.contractor), (_("Шартнома рақами"), s["contract_no"]),
+            (_("Шартнома санаси"), s["contract_date"]), (_("Пудратчи СТИР"), s["contractor_inn"]),
+            (_("Пудратчи ҳисоб рақами"), s["contractor_account"])]
     return [name for name, v in need if not str(v or "").strip()]
 
 
@@ -708,23 +711,23 @@ def f3_lines(obj: SiteObject) -> dict:
     def put(label, key):
         return f"{label}{s[key]}" if s[key].strip() else None
 
-    left = [f"Заказчик: {obj.customer}", put("Адрес: ", "customer_address"), put("Тел: ", "customer_phone"),
-            put("", "customer_bank"), put("СТИР  ", "customer_inn"), put("МФО: ", "customer_mfo"), put("ШХР ", "customer_account")]
-    right = [f"Подрядчик:  {obj.contractor}", put("Адрес: ", "contractor_address"), put("Х/р:  ", "contractor_account"),
-             put("", "contractor_bank"), put("СТИР:  ", "contractor_inn"), put("МФО: ", "contractor_mfo"), put("ОКОНХ: ", "contractor_okonh")]
-    d = _date(s["contract_date"])
-    head = "Договор"
-    if d:
-        head += f" от {d.day} {MONTHS_RU_GEN[d.month - 1]} {d.year} г."
-    if s["contract_no"].strip():
-        head += f" № {s['contract_no'].strip()}"
-    contract = [head if head != "Договор" else obj.contract, put("ИД ", "contract_id"), put("Лот ", "contract_lot")]
-    sign_left = [s["sign_title"] or "ЗАКАЗЧИК:", f"Руководитель заказчика:  {LINE}  {s['customer_head']}", "", "",
-                 f"Главный бухгалтер заказчика:  {LINE}  {s['customer_accountant']}"]
-    if s["consultant"].strip():
-        sign_left += ["", "", f"Представитель консультанта заказчика (ILF)  {LINE}  {s['consultant']}"]
-    sign_right = ["ИСПОЛНИТЕЛЬ:", f"Руководитель подрядчика  {LINE}  {s['contractor_head']}", "", "",
-                  f"Гл.Бухгалтер подрядчика:  {LINE}  {s['contractor_accountant']}"]
+    left = [f"Заказчик: {obj.customer}", put("Адрес: ", "customer_address"), put("Тел: ", "customer_phone"),  # i18n: ok
+            put("", "customer_bank"), put("СТИР  ", "customer_inn"), put("МФО: ", "customer_mfo"), put("ШХР ", "customer_account")]  # i18n: ok
+    right = [f"Подрядчик:  {obj.contractor}", put("Адрес: ", "contractor_address"), put("Х/р:  ", "contractor_account"),  # i18n: ok
+             put("", "contractor_bank"), put("СТИР:  ", "contractor_inn"), put("МФО: ", "contractor_mfo"), put("ОКОНХ: ", "contractor_okonh")]  # i18n: ok
+    d = _date(s["contract_date"])  # i18n: ok
+    head = "Договор"  # i18n: ok
+    if d:  # i18n: ok
+        head += f" от {d.day} {MONTHS_RU_GEN[d.month - 1]} {d.year} г."  # i18n: ok
+    if s["contract_no"].strip():  # i18n: ok
+        head += f" № {s['contract_no'].strip()}"  # i18n: ok
+    contract = [head if head != "Договор" else obj.contract, put("ИД ", "contract_id"), put("Лот ", "contract_lot")]  # i18n: ok
+    sign_left = [s["sign_title"] or "ЗАКАЗЧИК:", f"Руководитель заказчика:  {LINE}  {s['customer_head']}", "", "",  # i18n: ok
+                 f"Главный бухгалтер заказчика:  {LINE}  {s['customer_accountant']}"]  # i18n: ok
+    if s["consultant"].strip():  # i18n: ok
+        sign_left += ["", "", f"Представитель консультанта заказчика (ILF)  {LINE}  {s['consultant']}"]  # i18n: ok
+    sign_right = ["ИСПОЛНИТЕЛЬ:", f"Руководитель подрядчика  {LINE}  {s['contractor_head']}", "", "",  # i18n: ok
+                  f"Гл.Бухгалтер подрядчика:  {LINE}  {s['contractor_accountant']}"]  # i18n: ok
     return {"left": [x for x in left if x is not None], "right": [x for x in right if x is not None],
             "contract": "\n".join(x for x in contract if x), "sign_left": sign_left, "sign_right": sign_right,
             "texnazor": s["texnazor"]}
@@ -770,12 +773,12 @@ def f3_data(period: Period) -> dict:
     return d
 
 
-_ONES = ["", "один", "два", "три", "четыре", "пять", "шесть", "семь", "восемь", "девять", "десять", "одиннадцать",
-         "двенадцать", "тринадцать", "четырнадцать", "пятнадцать", "шестнадцать", "семнадцать", "восемнадцать", "девятнадцать"]
-_TENS = ["", "", "двадцать", "тридцать", "сорок", "пятьдесят", "шестьдесят", "семьдесят", "восемьдесят", "девяносто"]
-_HUNDREDS = ["", "сто", "двести", "триста", "четыреста", "пятьсот", "шестьсот", "семьсот", "восемьсот", "девятьсот"]
-_SCALES = [(("тысяча", "тысячи", "тысяч"), True), (("миллион", "миллиона", "миллионов"), False),
-           (("миллиард", "миллиарда", "миллиардов"), False), (("триллион", "триллиона", "триллионов"), False)]
+_ONES = ["", "один", "два", "три", "четыре", "пять", "шесть", "семь", "восемь", "девять", "десять", "одиннадцать",  # i18n: ok
+         "двенадцать", "тринадцать", "четырнадцать", "пятнадцать", "шестнадцать", "семнадцать", "восемнадцать", "девятнадцать"]  # i18n: ok
+_TENS = ["", "", "двадцать", "тридцать", "сорок", "пятьдесят", "шестьдесят", "семьдесят", "восемьдесят", "девяносто"]  # i18n: ok
+_HUNDREDS = ["", "сто", "двести", "триста", "четыреста", "пятьсот", "шестьсот", "семьсот", "восемьсот", "девятьсот"]  # i18n: ok
+_SCALES = [(("тысяча", "тысячи", "тысяч"), True), (("миллион", "миллиона", "миллионов"), False),  # i18n: ok
+           (("миллиард", "миллиарда", "миллиардов"), False), (("триллион", "триллиона", "триллионов"), False)]  # i18n: ok
 
 
 def _plural(n: int, forms) -> str:
@@ -793,8 +796,8 @@ def _triad(n: int, female: bool) -> list:
     else:
         out.append(_TENS[n // 10])
         w = _ONES[n % 10]
-    if female and w in ("один", "два"):
-        w = {"один": "одна", "два": "две"}[w]
+    if female and w in ("один", "два"):  # i18n: ok
+        w = {"один": "одна", "два": "две"}[w]  # i18n: ok
     return [x for x in out + [w] if x]
 
 
@@ -802,7 +805,7 @@ def money_words(v: float) -> str:
     """5 526 179 267,29 -> «Пять миллиардов пятьсот двадцать шесть миллионов ... двести шестьдесят семь сум» (Ф-3 «Всего к оплате»)."""
     n = int(round(v))
     if n == 0:
-        return "Ноль сум"
+        return "Ноль сум"  # i18n: ok
     words, neg, n = [], n < 0, abs(n)
     groups = []
     while n:
@@ -817,5 +820,5 @@ def money_words(v: float) -> str:
         else:
             forms, female = _SCALES[i - 1]
             words += _triad(g, female) + [_plural(g, forms)]
-    text = ("минус " if neg else "") + " ".join(words) + " сум"
+    text = ("минус " if neg else "") + " ".join(words) + " сум"  # i18n: ok
     return text[0].upper() + text[1:]

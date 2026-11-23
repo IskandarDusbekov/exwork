@@ -38,7 +38,7 @@
   var modal = document.getElementById("xv"), box = document.getElementById("xv-panes");
   var cache = {}, FIRST = 80, ALL = 3000;
   function esc(t) { var d = document.createElement("div"); d.textContent = t == null ? "" : t; return d.innerHTML; }
-  function norm(t) { return (t || "").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, ""); }
+  function norm(t) { return (t || "").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, ""); }  // i18n: ok — қидирувда ё = е
   function tone(v) { return v >= 0.7 ? "bg-emerald-100 text-emerald-800" : v >= 0.4 ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"; }
   function tagHtml(s) {
     if (!s) return "";

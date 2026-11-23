@@ -8,6 +8,7 @@ funksiya — xato qiymati (``Err``), hisob to'xtamaydi: katakda «#REF!» kabi k
 import math
 import re
 from typing import Callable, Dict, List, Optional, Tuple
+from django.utils.translation import gettext_noop as _noop
 
 
 class Err(str):
@@ -36,7 +37,7 @@ def col_letter(i: int) -> str:
 
 _CELL = r"\$?[A-Za-z]{1,3}\$?\d+"
 _TOKEN = re.compile(
-    r"(?P<ws>\s+)"
+    r"(?P<ws>\s+)"  # i18n: ok
     r"|(?P<str>\"(?:[^\"]|\"\")*\")"
     r"|(?P<err>#(?:REF!|DIV/0!|N/A|NAME\?|VALUE!|NUM!|NULL!))"
     rf"|(?P<xref>(?:'(?:[^']|'')+'|[A-Za-z_Ѐ-ӿ][\w.Ѐ-ӿ]*)!{_CELL}(?::{_CELL})?)"
@@ -56,7 +57,7 @@ def tokens(formula: str) -> List[Tuple[str, str, int, int]]:
     while i < len(formula):
         m = _TOKEN.match(formula, i)
         if not m:
-            raise ValueError(f"формула ўқилмади: {formula!r}")
+            raise ValueError(_noop("формула ўқилмади: {0!r}").format(formula))
         if m.lastgroup != "ws":
             out.append((m.lastgroup, m.group(), m.start(), m.end()))
         i = m.end()
@@ -319,14 +320,14 @@ class _Parser:
     def take(self, text=None):
         tok = self.peek()
         if text is not None and tok[1] != text:
-            raise ValueError(f"«{text}» кутилган")
+            raise ValueError(_noop("«{0}» кутилган").format(text))
         self.i += 1
         return tok
 
     def parse(self):
         f = self.compare()
         if self.i != len(self.t):
-            raise ValueError("ортиқча белги")
+            raise ValueError(_noop("ортиқча белги"))
         return f
 
     def compare(self):
@@ -421,7 +422,7 @@ class _Parser:
             f = self.compare()
             self.take(")")
             return f
-        raise ValueError(f"кутилмаган белги: {text!r}")
+        raise ValueError(_noop("кутилмаган белги: {0!r}").format(text))
 
 
 def _join(a, b):

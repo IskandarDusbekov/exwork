@@ -21,6 +21,7 @@ from typing import Dict, List, Optional, Tuple
 from openpyxl.cell.cell import MergedCell
 
 from .detect import Layout, _total_row, cell_value, detect_layout, header_texts, override_layout
+from django.utils.translation import gettext_noop as _noop
 
 QTY_UNIT_COL, QTY_TOTAL_COL, PRICE_COL, AMOUNT_COL = 5, 6, 7, 8  # E, F, G, H
 SCAN_COLS = 14  # birlikdan keyin nechta ustun ko'riladi
@@ -73,17 +74,17 @@ def _text(v) -> str:
 
 def _hnorm(t: str) -> str:
     """Sarlavha matni: kichik harf, «ё»→«е», «обьем»→«объем», tinish belgilari bo'shliq."""
-    t = (t or "").lower().replace("ё", "е").replace("ъ", "ь").replace("­", "")
+    t = (t or "").lower().replace("ё", "е").replace("ъ", "ь").replace("­", "")  # i18n: ok
     t = re.sub(r"[._\-–—/\\:;,()\"'«»]+", " ", t)
     return re.sub(r"\s+", " ", t).strip()
 
 
-_MONEY = re.compile(r"стоим|цен|сумм|руб|\bсум\b|расценк|затраты всего|итого затрат")
-_PER_UNIT = re.compile(r"\bна\s?(?:1\s)?ед|\bна един|\bединиц[ыу]\b(?! изм)|\bнорм|\bрасход на\b|\bна измерит")
-_TOTAL = re.compile(r"проект|\bвсего\b|\bобщ|\bитог|\bпотреб|\bна объ?ем|\bфакт|\bнеобход")
-_QTY = re.compile(r"кол|\bобьем|\bобъем|\bрасход|\bпотреб|\bнорм|\bвыход|\bмиқдор|\bмикдор|\bсони\b")
+_MONEY = re.compile(r"стоим|цен|сумм|руб|\bсум\b|расценк|затраты всего|итого затрат")  # i18n: ok
+_PER_UNIT = re.compile(r"\bна\s?(?:1\s)?ед|\bна един|\bединиц[ыу]\b(?! изм)|\bнорм|\bрасход на\b|\bна измерит")  # i18n: ok
+_TOTAL = re.compile(r"проект|\bвсего\b|\bобщ|\bитог|\bпотреб|\bна объ?ем|\bфакт|\bнеобход")  # i18n: ok
+_QTY = re.compile(r"кол|\bобьем|\bобъем|\bрасход|\bпотреб|\bнорм|\bвыход|\bмиқдор|\bмикдор|\bсони\b")  # i18n: ok
 _UNIT_WORD = re.compile(
-    r"^(?:\d+\s?)?(?:чел|маш|м\d?|m\d?|т|кг|г|шт|компл|комплект|км|л|п\s?м|пог|га|кв|квт|квт ч|мвт|ч|час|"
+    r"^(?:\d+\s?)?(?:чел|маш|м\d?|m\d?|т|кг|г|шт|компл|комплект|км|л|п\s?м|пог|га|кв|квт|квт ч|мвт|ч|час|"  # i18n: ok
     r"смен|сут|мес|ед|точк|узел|прибор|кан|набор|рулон|лист|тн|тонн|литр|место|ступ|проем|отв|%)\b")
 
 
@@ -93,13 +94,13 @@ def header_role(text: str) -> Optional[str]:
     if not t:
         return None
     if _MONEY.search(t):
-        if re.search(r"сумм|\bобщ|\bвсего|\bитог", t) and not re.search(r"\bцен", t):
+        if re.search(r"сумм|\bобщ|\bвсего|\bитог", t) and not re.search(r"\bцен", t):  # i18n: ok
             return "amount"
-        return "price" if (_PER_UNIT.search(t) or re.search(r"\bцен", t)) else "amount"
+        return "price" if (_PER_UNIT.search(t) or re.search(r"\bцен", t)) else "amount"  # i18n: ok
     if _PER_UNIT.search(t):
         return "qty_unit"
     if _TOTAL.search(t):
-        return "qty_total" if (_QTY.search(t) or "проект" in t or "потреб" in t or "всего" in t) else None
+        return "qty_total" if (_QTY.search(t) or "проект" in t or "потреб" in t or "всего" in t) else None  # i18n: ok
     if _QTY.search(t):
         return "qty"
     return None
@@ -202,7 +203,7 @@ def detect_local_columns(ws, override: Optional[dict] = None) -> Optional[LocalC
         name, unit, start = g
         stop = _total_row(ws, start, max(4, name))
         cols = LocalColumns(name, unit, None, None, start, stop, source="content",
-                            notes=["Жадвал сарлавҳаси топилмади — устунлар мазмунидан аниқланди"])
+                            notes=[_noop("Жадвал сарлавҳаси топилмади — устунлар мазмунидан аниқланди")])
         texts = {}
 
     rows = _resource_rows(ws, cols.data_start, cols.data_stop, cols.name, cols.unit)
@@ -233,7 +234,7 @@ def detect_local_columns(ws, override: Optional[dict] = None) -> Optional[LocalC
                     best = ((score, n), a, b)
         if best:
             if (cols.qty_unit, cols.qty_total) != (best[1], best[2]) and cols.qty_total is not None:
-                cols.notes.append("Сарлавҳа бўйича миқдор устунлари мазмунга тўғри келмади — мазмун бўйича олинди")
+                cols.notes.append(_noop("Сарлавҳа бўйича миқдор устунлари мазмунга тўғри келмади — мазмун бўйича олинди"))
             cols.qty_unit, cols.qty_total = best[1], best[2]
     # 3) битта миқдор устуни (жами)
     if cols.qty_total is None:
@@ -247,8 +248,8 @@ def detect_local_columns(ws, override: Optional[dict] = None) -> Optional[LocalC
     if cols.qty_total is None:
         return None
     if cols.source == "content":
-        cols.notes.append(f"Миқдор: жами — {_letter(cols.qty_total)}" +
-                          (f", бирликка — {_letter(cols.qty_unit)}" if cols.qty_unit else ""))
+        cols.notes.append(_noop("Миқдор: жами — {0}, бирликка — {1}").format(_letter(cols.qty_total), _letter(cols.qty_unit))
+                          if cols.qty_unit else _noop("Миқдор: жами — {0}").format(_letter(cols.qty_total)))
     cols.money = [c for c in cands if roles[c] in ("price", "amount")]
     return cols
 
@@ -264,8 +265,7 @@ def prepare_local(ws, ws_vals, cols: LocalColumns) -> List[str]:
     ``ws_vals`` (qiymatlar) ikkalasi bir xil o'zgaradi. Qaytaradi: smetachi uchun izohlar."""
     notes = list(cols.notes)
     if cols.name >= QTY_UNIT_COL or cols.unit >= QTY_UNIT_COL:
-        raise LayoutError(f"Номи {_letter(cols.name)}, бирлиги {_letter(cols.unit)} устунида — E/F/G/H га миқдор ва нарх "
-                          "жойлаб бўлмайди. Жадвални стандарт кўринишга келтириб юкланг (C — номи, D — бирлиги)")
+        raise LayoutError(_noop("Номи {0}, бирлиги {1} устунида — E/F/G/H га миқдор ва нарх жойлаб бўлмайди. Жадвални стандарт кўринишга келтириб юкланг (C — номи, D — бирлиги)").format(_letter(cols.name), _letter(cols.unit)))
     src = {QTY_UNIT_COL: cols.qty_unit, QTY_TOTAL_COL: cols.qty_total}
     top = cols.header_row or cols.data_start
     merged_qty = [m for m in _qty_merges(ws, top, cols) if cols.spans.get(m.min_col) == m.max_col]
@@ -281,8 +281,7 @@ def prepare_local(ws, ws_vals, cols: LocalColumns) -> List[str]:
             continue
         busy = sum(1 for r in rr if cell_value(ws_vals, r, c) not in (None, ""))
         if busy > max(2, len(rr) // 10):
-            raise LayoutError(f"{_letter(c)} устунида миқдор ҳам, нарх ҳам бўлмаган маълумот бор — устидан ёзилмаслиги учун "
-                              "нархланмади. Устунларни текширинг")
+            raise LayoutError(_noop("{0} устунида миқдор ҳам, нарх ҳам бўлмаган маълумот бор — устидан ёзилмаслиги учун нархланмади. Устунларни текширинг").format(_letter(c)))
 
     parents = []
     for sheet in (ws, ws_vals):
@@ -321,11 +320,11 @@ def prepare_local(ws, ws_vals, cols: LocalColumns) -> List[str]:
     for a, b in parents:
         ws.merge_cells(start_row=a, start_column=QTY_UNIT_COL, end_row=b, end_column=QTY_TOTAL_COL)
 
-    what = [f"бирликка — {_letter(cols.qty_unit)}→E" if cols.qty_unit and cols.qty_unit != QTY_UNIT_COL else "",
-            f"жами — {_letter(cols.qty_total)}→F" if cols.qty_total != QTY_TOTAL_COL else ""]
-    what = ", ".join(w for w in what if w)
-    notes.append("Миқдор устунлари стандарт жойга келтирилди" + (f" ({what})" if what else " (бирлашган катаклар ажратилди)") +
-                 ": G — нарх, H — сумма")
+    what = [_noop("бирликка — {0}→E").format(_letter(cols.qty_unit)) if cols.qty_unit and cols.qty_unit != QTY_UNIT_COL else "",
+            _noop("жами — {0}→F").format(_letter(cols.qty_total)) if cols.qty_total != QTY_TOTAL_COL else ""]
+    what = "; ".join(w for w in what if w)
+    notes.append(_noop("Миқдор устунлари стандарт жойга келтирилди ({0}): G — нарх, H — сумма").format(what) if what else
+                 _noop("Миқдор устунлари стандарт жойга келтирилди (бирлашган катаклар ажратилди): G — нарх, H — сумма"))
     return notes
 
 

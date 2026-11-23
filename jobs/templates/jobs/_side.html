@@ -15,20 +15,20 @@
   <nav class="side-nav flex flex-1 flex-col gap-0.5 overflow-y-auto p-2.5 text-sm">
     {# бандларни панел → «Илова менюси» яширади (side.off); бўлим сарлавҳаси ичи бўш бўлса чиқмайди #}
     {% if not side or side.ish %}<div class="side-cap">Иш</div>{% endif %}
-    {% if "dashboard" not in side.off %}{% include "jobs/_side_link.html" with key="dashboard" url="dashboard" ic="chart" label="Иш столи" %}{% endif %}
-    {% if "upload" not in side.off %}{% include "jobs/_side_link.html" with key="upload" url="index" ic="upload" label="Смета нархлаш" %}{% endif %}
-    {% if "texnazor" not in side.off %}{% include "jobs/_side_link.html" with key="texnazor" url="texnazor:index" ic="building" label="Офёрта ва далолатнома" %}{% endif %}
-    {% if "calc" not in side.off %}{% include "jobs/_side_link.html" with key="calc" url="calc" ic="calculator" label="Калькулятор" %}{% endif %}
-    {% if "settings" not in side.off %}{% include "jobs/_side_link.html" with key="settings" url="user_settings" ic="sliders" label="Созламалар" %}{% endif %}
+    {% if "dashboard" not in side.off %}{% include "jobs/_side_link.html" with key="dashboard" url="dashboard" ic="chart" label=_("Иш столи") %}{% endif %}
+    {% if "upload" not in side.off %}{% include "jobs/_side_link.html" with key="upload" url="index" ic="upload" label=_("Смета нархлаш") %}{% endif %}
+    {% if "texnazor" not in side.off %}{% include "jobs/_side_link.html" with key="texnazor" url="texnazor:index" ic="building" label=_("Офёрта ва далолатнома") %}{% endif %}
+    {% if "calc" not in side.off %}{% include "jobs/_side_link.html" with key="calc" url="calc" ic="calculator" label=_("Калькулятор") %}{% endif %}
+    {% if "settings" not in side.off %}{% include "jobs/_side_link.html" with key="settings" url="user_settings" ic="sliders" label=_("Созламалар") %}{% endif %}
     {% if not side or side.yordam %}<div class="side-cap">Ёрдам</div>{% endif %}
-    {% if "help" not in side.off %}{% include "jobs/_side_link.html" with key="help" url="help" ic="help" label="Йўриқнома" %}{% endif %}
-    {% if "guide" not in side.off %}{% include "jobs/_side_link.html" with key="guide" url="guide" ic="play" label="Видео қўлланма" %}{% endif %}
+    {% if "help" not in side.off %}{% include "jobs/_side_link.html" with key="help" url="help" ic="help" label=_("Йўриқнома") %}{% endif %}
+    {% if "guide" not in side.off %}{% include "jobs/_side_link.html" with key="guide" url="guide" ic="play" label=_("Видео қўлланма") %}{% endif %}
     {% if not request.viewing_owner and "support" not in side.off %}{# саҳифа эмас — бурчакдаги суҳбат ойнасини очади (support/_widget.html) #}
     <button type="button" data-support-open class="side-link w-full" title="Ёрдам хизмати">{% icon "message" "h-5 w-5 shrink-0" %}<span class="side-label">Ёрдам хизмати</span><span id="sup-side-badge" class="side-badge{% if not support_unread %} hidden{% endif %}" title="Янги жавоблар">{{ support_unread|default:"" }}</span></button>
     {% endif %}
-    {% if "landing" not in side.off %}{% include "jobs/_side_link.html" with key="landing" url="landing" ic="monitor" label="Тизим ҳақида" %}{% endif %}
-    {% if "about_us" not in side.off %}{% include "jobs/_side_link.html" with key="about_us" url="about_us" ic="users" label="Биз ҳақимизда" %}{% endif %}
-    {% if user.is_staff %}{% include "jobs/_side_link.html" with key="panel" url="panel:overview" ic="shield" label="Панел" %}{% endif %}
+    {% if "landing" not in side.off %}{% include "jobs/_side_link.html" with key="landing" url="landing" ic="monitor" label=_("Тизим ҳақида") %}{% endif %}
+    {% if "about_us" not in side.off %}{% include "jobs/_side_link.html" with key="about_us" url="about_us" ic="users" label=_("Биз ҳақимизда") %}{% endif %}
+    {% if user.is_staff %}{% include "jobs/_side_link.html" with key="panel" url="panel:overview" ic="shield" label=_("Панел") %}{% endif %}
   </nav>
   <div class="side-nav shrink-0 border-t border-slate-200 p-2.5">
     <div class="side-user">

@@ -3,13 +3,14 @@ from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
 
 from .models import User, normalize_email
+from django.utils.translation import gettext as _, gettext_lazy as _l
 
 # Django валидаторлари хабарлари инглизча (USE_I18N = False) — смета­чига тушунарли тилда
 PASSWORD_MESSAGES = {
-    "password_too_short": "Пароль камида {min} белгидан иборат бўлсин.",
-    "password_too_common": "Бу пароль жуда кенг тарқалган — бошқасини танланг.",
-    "password_entirely_numeric": "Пароль фақат рақамлардан иборат бўлмасин.",
-    "password_too_similar": "Пароль исм, фамилия ёки email'га жуда ўхшаш.",
+    "password_too_short": _l("Пароль камида {min} белгидан иборат бўлсин."),
+    "password_too_common": _l("Бу пароль жуда кенг тарқалган — бошқасини танланг."),
+    "password_entirely_numeric": _l("Пароль фақат рақамлардан иборат бўлмасин."),
+    "password_too_similar": _l("Пароль исм, фамилия ёки email'га жуда ўхшаш."),
 }
 
 INPUT = "fld"  # кўриниши accounts/_auth.html да
@@ -52,7 +53,7 @@ class LoginForm(forms.Form):
     email = forms.EmailField(label="Email", max_length=254,
                              widget=forms.EmailInput(attrs=_attrs(autocomplete="email", autofocus=True,
                                                                   placeholder="name@mail.uz")))
-    password = forms.CharField(label="Пароль", max_length=128, strip=False,
+    password = forms.CharField(label=_l("Пароль"), max_length=128, strip=False,
                                widget=forms.PasswordInput(attrs=_attrs(autocomplete="current-password")))
 
 
@@ -63,26 +64,26 @@ class ResetRequestForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["email"].error_messages.update(required="Email'ни киритинг.", invalid="Email нотўғри ёзилган.")
+        self.fields["email"].error_messages.update(required=_("Email'ни киритинг."), invalid=_("Email нотўғри ёзилган."))
 
 
 class SetPasswordForm(forms.Form):
-    password1 = forms.CharField(label="Янги пароль", max_length=128, strip=False,
+    password1 = forms.CharField(label=_l("Янги пароль"), max_length=128, strip=False,
                                 widget=forms.PasswordInput(attrs=_new_pw(autofocus=True)))
-    password2 = forms.CharField(label="Паролни такрорланг", max_length=128, strip=False,
+    password2 = forms.CharField(label=_l("Паролни такрорланг"), max_length=128, strip=False,
                                 widget=forms.PasswordInput(attrs=_repeat_pw()))
 
     def __init__(self, user, *args, **kwargs):
         self.user = user
         super().__init__(*args, **kwargs)
         for f in self.fields.values():
-            f.error_messages["required"] = "Тўлдиринг."
+            f.error_messages["required"] = _("Тўлдиринг.")
 
     def clean(self):
         data = super().clean()
         p1, p2 = data.get("password1"), data.get("password2")
         if p1 and p2 and p1 != p2:
-            self.add_error("password2", "Пароллар бир хил эмас.")
+            self.add_error("password2", _("Пароллар бир хил эмас."))
         elif p1:
             for msg in password_errors(p1, self.user):
                 self.add_error("password1", msg)
@@ -90,42 +91,42 @@ class SetPasswordForm(forms.Form):
 
 
 class RegisterForm(forms.Form):
-    first_name = forms.CharField(label="Исм", max_length=150,
+    first_name = forms.CharField(label=_l("Исм"), max_length=150,
                                  widget=forms.TextInput(attrs=_attrs(autocomplete="given-name", autofocus=True)))
-    last_name = forms.CharField(label="Фамилия", max_length=150,
+    last_name = forms.CharField(label=_l("Фамилия"), max_length=150,
                                 widget=forms.TextInput(attrs=_attrs(autocomplete="family-name")))
     email = forms.EmailField(label="Email", max_length=254,
                              widget=forms.EmailInput(attrs=_attrs(autocomplete="email", placeholder="name@mail.uz")))
-    password1 = forms.CharField(label="Пароль", max_length=128, strip=False,
+    password1 = forms.CharField(label=_l("Пароль"), max_length=128, strip=False,
                                 widget=forms.PasswordInput(attrs=_new_pw()))
-    password2 = forms.CharField(label="Паролни такрорланг", max_length=128, strip=False,
+    password2 = forms.CharField(label=_l("Паролни такрорланг"), max_length=128, strip=False,
                                 widget=forms.PasswordInput(attrs=_repeat_pw()))
-    agree = forms.BooleanField(label="Фойдаланиш шартларига розиман", required=False)
+    agree = forms.BooleanField(label=_l("Фойдаланиш шартларига розиман"), required=False)
 
     def __init__(self, *args, **kwargs):
         from jobs.pages import terms
         self.terms = terms()
         super().__init__(*args, **kwargs)
         for f in self.fields.values():
-            f.error_messages["required"] = "Тўлдиринг."
+            f.error_messages["required"] = _("Тўлдиринг.")
         if self.terms["mode"] == "checkbox":
             self.fields["agree"].required = True
-            self.fields["agree"].error_messages["required"] = "Рўйхатдан ўтиш учун шартларга рози бўлинг."
+            self.fields["agree"].error_messages["required"] = _("Рўйхатдан ўтиш учун шартларга рози бўлинг.")
         else:
             del self.fields["agree"]
-        self.fields["email"].error_messages["invalid"] = "Email нотўғри ёзилган."
+        self.fields["email"].error_messages["invalid"] = _("Email нотўғри ёзилган.")
 
     def clean_email(self):
         email = normalize_email(self.cleaned_data["email"])
         if User.objects.filter(email=email).exists():
-            raise ValidationError("Бу email билан ҳисоб бор — «Кириш»ни босинг.")
+            raise ValidationError(_("Бу email билан ҳисоб бор — «Кириш»ни босинг."))
         return email
 
     def clean(self):
         data = super().clean()
         p1, p2 = data.get("password1"), data.get("password2")
         if p1 and p2 and p1 != p2:
-            self.add_error("password2", "Пароллар бир хил эмас.")
+            self.add_error("password2", _("Пароллар бир хил эмас."))
         elif p1:
             user = User(email=data.get("email", ""), first_name=data.get("first_name", ""),
                         last_name=data.get("last_name", ""))

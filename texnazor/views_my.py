@@ -14,12 +14,14 @@ from panel.models import Event
 
 from . import build, services, tasks
 from .models import MyOfyorta
+from web.i18n import ui, ui_progress
+from django.utils.translation import gettext as _
 
 MAX_SHOWN_PROBLEMS = 300
 
 
 def audit(request, doc, text: str):
-    _log(request, Event.Kind.TEXNAZOR, work=doc, work_kind="tn_my", detail=f"Менинг офёртам «{doc.name[:200]}»: {text}")
+    _log(request, Event.Kind.TEXNAZOR, work=doc, work_kind="tn_my", detail=f"Менинг офёртам «{doc.name[:200]}»: {text}")  # i18n: ok
 
 
 def _doc(request, doc_id) -> MyOfyorta:
@@ -36,9 +38,9 @@ def _pct(text) -> float:
     try:
         v = float(str(text).replace(",", ".").replace("%", "").strip() or 0)
     except ValueError:
-        raise ValueError(f"«{text}» — фоиз сон бўлиши керак")
+        raise ValueError(_("«{0}» — фоиз сон бўлиши керак").format(text))
     if not 0 <= v <= 100:
-        raise ValueError(f"«{text}» — фоиз 0 дан 100 гача бўлиши керак")
+        raise ValueError(_("«{0}» — фоиз 0 дан 100 гача бўлиши керак").format(text))
     return round(v / 100, 6)
 
 
@@ -50,30 +52,30 @@ def _save(request, doc: MyOfyorta, setup: dict) -> MyOfyorta:
         title = " ".join(post.get(f"title_{p['job']}", p["title"]).split())[:300] or p["title"]
         parts.append({"job": p["job"], "title": title, "include": post.get(f"include_{p['job']}") == "1"})
     if not any(p["include"] for p in parts):
-        raise ValueError("Камида битта локал танланг")
+        raise ValueError(_("Камида битта локал танланг"))
     from jobs.services import UploadError, check_quota
     try:
         check_quota(request.user)
     except UploadError as e:
         raise ValueError(str(e))
     keys = {e["key"] for e in setup["equipment"]}
-    doc.name = (post.get("name") or "").strip()[:300] or doc.name or "Офёрта"
+    doc.name = (post.get("name") or "").strip()[:300] or doc.name or "Офёрта"  # i18n: ok
     doc.object_type = (post.get("object_type") or "").strip()[:200]
     doc.parts = parts
     doc.customer = [k for k in post.getlist("customer") if k in keys]
     doc.rates = {k: _pct(post.get(f"rate_{k}", "")) for k in build.RATE_LABELS}
-    doc.status, doc.error, doc.progress = MyOfyorta.Status.BUILDING, "", {"step": "Навбатда"}
+    doc.status, doc.error, doc.progress = MyOfyorta.Status.BUILDING, "", {"step": "Навбатда"}  # i18n: ok
     new = doc._state.adding
     doc.save()
     tasks.start(doc.pk)
-    audit(request, doc, "тузилмоқда" if new else "қайта тузилмоқда")
+    audit(request, doc, "тузилмоқда" if new else "қайта тузилмоқда")  # i18n: ok
     return doc
 
 
 def _setup_page(request, project, doc=None, error=None):
     data = build.setup(project, doc)
     if not data["parts"]:
-        raise Http404("Лойиҳада нархланган смета йўқ")
+        raise Http404(_("Лойиҳада нархланган смета йўқ"))
     return render(request, "texnazor/my_setup.html", {"nav": "texnazor", "project": project, "doc": doc, "s": data,
                                                       "error": error, "name": doc.name if doc else project.name,
                                                       "object_type": doc.object_type if doc else ""})
@@ -96,7 +98,7 @@ def my_new(request):
 def my_edit(request, doc_id):
     doc = _doc(request, doc_id)
     if doc.project is None:
-        messages.error(request, "Нархлаш лойиҳаси ўчирилган — офёртани қайта тузиб бўлмайди")
+        messages.error(request, _("Нархлаш лойиҳаси ўчирилган — офёртани қайта тузиб бўлмайди"))
         return redirect("texnazor:my_detail", doc_id=doc.pk)
     if request.method == "POST":
         try:
@@ -126,24 +128,24 @@ def my_detail(request, doc_id):
 
 def my_state(request, doc_id):
     doc = _doc(request, doc_id)
-    return JsonResponse({"status": doc.status, "error": doc.error, "progress": doc.progress})
+    return JsonResponse({"status": doc.status, "error": ui(doc.error), "progress": ui_progress(doc.progress)})
 
 
 def my_file(request, doc_id):
     doc = _doc(request, doc_id)
     if doc.status != MyOfyorta.Status.READY or not doc.file.exists():
-        raise Http404("Офёрта ҳали тайёр эмас")
-    audit(request, doc, "Excel юклаб олинди")
+        raise Http404(_("Офёрта ҳали тайёр эмас"))
+    audit(request, doc, "Excel юклаб олинди")  # i18n: ok
     resp = FileResponse(open(doc.file, "rb"), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    resp["Content-Disposition"] = content_disposition_header(True, f"Офёрта {doc.name[:150]}.xlsx")
+    resp["Content-Disposition"] = content_disposition_header(True, f"Офёрта {doc.name[:150]}.xlsx")  # i18n: ok
     return resp
 
 
 @require_POST
 def my_delete(request, doc_id):
     doc = _doc(request, doc_id)
-    audit(request, doc, "ўчирилди")
+    audit(request, doc, "ўчирилди")  # i18n: ok
     shutil.rmtree(doc.dir, ignore_errors=True)
     doc.delete()  # undan ochilgan obyektlar qoladi (made_from = NULL)
-    messages.success(request, "Офёрта ўчирилди")
+    messages.success(request, _("Офёрта ўчирилди"))
     return redirect("texnazor:my_list")

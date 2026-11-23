@@ -16,6 +16,7 @@ from django.conf import settings
 from django.db import close_old_connections
 from django.db.models import F, Q
 from django.utils import timezone
+from django.utils.translation import gettext_noop as _noop
 
 from .models import Job
 from .services import RESULT_FIELDS, SETTING_FIELDS, apply_settings, recompute
@@ -85,7 +86,7 @@ def run(job_id, worker: str):
         recompute(job)
     except Exception:  # noqa: BLE001 — recompute o'zi xatoni job.error ga yozadi; bu — kutilmagan holat
         log.exception("qayta hisoblash: %s", job_id)
-        job.status, job.error = Job.Status.FAILED, "қайта ҳисоблашда кутилмаган хато"
+        job.status, job.error = Job.Status.FAILED, _noop("қайта ҳисоблашда кутилмаган хато")
     finally:
         stop.set()
     mine = Job.objects.filter(pk=job_id, recalc_worker=worker)

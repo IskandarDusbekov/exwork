@@ -1,6 +1,8 @@
 /* Кириш саҳифалари: паролни кўрсатиш / яшириш тугмаси ва янги пароль учун узунлик кўрсаткичи.
    input[type=password] — кўз тугмаси; data-meter="10" — «7 / 10 белги» ва ранг; data-match="id_password1" — мослиги. */
 (function () {
+  var gettext = window.gettext || function (s) { return s; };  // таржима (/jsi18n/)
+  function fmt(s, args) { var i = 0; return s.replace(/%s/g, function () { return args[i++]; }); }
   var EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
   var EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.6 10.6 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.5 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.7-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
 
@@ -12,7 +14,7 @@
     var btn = document.createElement("button");
     btn.type = "button";
     btn.className = "pw-eye";
-    btn.setAttribute("aria-label", "Паролни кўрсатиш");
+    btn.setAttribute("aria-label", gettext("Паролни кўрсатиш"));
     btn.setAttribute("aria-pressed", "false");
     btn.innerHTML = EYE;
     btn.addEventListener("click", function () {
@@ -20,7 +22,7 @@
       input.type = show ? "text" : "password";
       btn.innerHTML = show ? EYE_OFF : EYE;
       btn.setAttribute("aria-pressed", show ? "true" : "false");
-      btn.setAttribute("aria-label", show ? "Паролни яшириш" : "Паролни кўрсатиш");
+      btn.setAttribute("aria-label", show ? gettext("Паролни яшириш") : gettext("Паролни кўрсатиш"));
       input.focus();
     });
     wrap.appendChild(btn);
@@ -28,9 +30,9 @@
 
   function strength(v) {
     var kinds = [/[a-zа-яёўқғҳ]/, /[A-ZА-ЯЁЎҚҒҲ]/, /\d/, /[^\wа-яёўқғҳА-ЯЁЎҚҒҲ]/].filter(function (r) { return r.test(v); }).length;
-    if (/^\d+$/.test(v)) return [1, "Фақат рақам бўлмасин"];
+    if (/^\d+$/.test(v)) return [1, gettext("Фақат рақам бўлмасин")];
     var score = kinds + (v.length >= 14 ? 1 : 0) + (v.length >= 18 ? 1 : 0);
-    return score >= 4 ? [3, "Кучли"] : score >= 3 ? [2, "Яхши"] : [1, "Ўртача — ҳарф, рақам ва белги аралаштиринг"];
+    return score >= 4 ? [3, gettext("Кучли")] : score >= 3 ? [2, gettext("Яхши")] : [1, gettext("Ўртача — ҳарф, рақам ва белги аралаштиринг")];
   }
 
   function meter(input) {
@@ -49,13 +51,13 @@
       if (n < min) {
         box.dataset.level = n ? "0" : "";
         bar.style.width = Math.round(n * 100 / min) + "%";
-        count.textContent = n + " / " + min + " белги";
-        note.textContent = n ? "яна " + (min - n) + " та" : "";
+        count.textContent = fmt(gettext("%s / %s белги"), [n, min]);
+        note.textContent = n ? fmt(gettext("яна %s та"), [min - n]) : "";
       } else {
         var s = strength(input.value);
         box.dataset.level = String(s[0]);
         bar.style.width = "100%";
-        count.textContent = n + " белги ✓";
+        count.textContent = fmt(gettext("%s белги ✓"), [n]);
         note.textContent = s[1];
       }
     }
@@ -74,7 +76,7 @@
       if (!input.value) { out.textContent = ""; out.dataset.ok = ""; return; }
       var ok = input.value === other.value;
       out.dataset.ok = ok ? "1" : "0";
-      out.textContent = ok ? "Пароллар мос ✓" : "Пароллар ҳали мос эмас";
+      out.textContent = ok ? gettext("Пароллар мос ✓") : gettext("Пароллар ҳали мос эмас");
     }
     input.addEventListener("input", upd);
     other.addEventListener("input", upd);

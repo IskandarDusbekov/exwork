@@ -35,7 +35,7 @@
   {% elif doc.status == "failed" %}
   <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
     <div class="font-semibold">Офёртани тузиб бўлмади</div>
-    <div class="mt-1">{{ doc.error }}</div>
+    <div class="mt-1">{{ doc.error|msg }}</div>
   </div>
   {% else %}
   <div class="mt-4 flex flex-wrap gap-2">
@@ -80,7 +80,7 @@
       {% for part, items in problems %}
       <div>
         <div class="font-semibold">{{ part|default:"—" }} <span class="font-normal text-amber-700">({{ items|length }})</span></div>
-        <ul class="mt-1 space-y-0.5 text-xs">{% for p in items|slice:":50" %}<li>{% if p.row %}<span class="num text-amber-700">{{ p.row }}-қатор</span> · {% endif %}{% if p.name %}{{ p.name|truncatechars:90 }} — {% endif %}{{ p.text }}</li>{% endfor %}
+        <ul class="mt-1 space-y-0.5 text-xs">{% for p in items|slice:":50" %}<li>{% if p.row %}<span class="num text-amber-700">{{ p.row }}-қатор</span> · {% endif %}{% if p.name %}{{ p.name|truncatechars:90 }} — {% endif %}{{ p.text|msg }}</li>{% endfor %}
           {% if items|length > 50 %}<li class="text-amber-700">… яна {{ items|length|add:"-50" }} та</li>{% endif %}</ul>
       </div>
       {% endfor %}
@@ -91,7 +91,7 @@
   <details class="mt-4 rounded-xl border border-slate-200 bg-white text-sm shadow-sm">
     <summary class="cursor-pointer select-none px-4 py-3"><b class="font-semibold text-slate-900">ℹ {{ notes|length }} та ресурсда жами миқдор локалда қўлда ёзилган</b>
       <span class="text-slate-500">— офёртага локалдагидек олинди (сумма ўзгармайди), формула (меъёр × ҳажм) қўйилмади</span></summary>
-    <ul class="space-y-0.5 border-t border-slate-100 px-4 py-3 text-xs text-slate-700">{% for p in notes|slice:":200" %}<li><b>{{ p.part }}</b> · <span class="num">{{ p.row }}-қатор</span> · {{ p.name|truncatechars:80 }} — {{ p.text }}</li>{% endfor %}
+    <ul class="space-y-0.5 border-t border-slate-100 px-4 py-3 text-xs text-slate-700">{% for p in notes|slice:":200" %}<li><b>{{ p.part }}</b> · <span class="num">{{ p.row }}-қатор</span> · {{ p.name|truncatechars:80 }} — {{ p.text|msg }}</li>{% endfor %}
       {% if notes|length > 200 %}<li class="text-slate-500">… яна {{ notes|length|add:"-200" }} та</li>{% endif %}</ul>
   </details>
   {% endif %}

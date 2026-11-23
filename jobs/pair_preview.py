@@ -9,7 +9,7 @@ from openpyxl import load_workbook
 from core.normalize import norm_code, norm_name, norm_unit
 
 SAMPLE = 6  # картада кўрсатиладиган қаторлар сони
-_WORK = re.compile(r"^[ЕEЦ]\d", re.I)  # иш нормаси шифри: «Е0101-195-37», «Ц…»
+_WORK = re.compile(r"^[ЕEЦ]\d", re.I)  # i18n: ok · иш нормаси шифри: «Е0101-195-37», «Ц…»
 
 
 def _rows(batch, key: str):

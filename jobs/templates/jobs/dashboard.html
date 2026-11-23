@@ -25,7 +25,6 @@
 <div class="mb-5 flex flex-wrap items-end gap-x-4 gap-y-3">
   <div class="min-w-0">
     <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Иш столи</h1>
-    <p class="mt-0.5 text-sm text-slate-500">Бўлимни танланг — пастда унинг охирги ишлари чиқади</p>
   </div>
   {% if any_working %}<span class="ml-auto inline-flex items-center gap-2 rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-800 ring-1 ring-inset ring-sky-200">
     <span class="h-2 w-2 rounded-full bg-sky-500"></span>Фонда иш бор — саҳифа ўзи янгиланади</span>{% endif %}
@@ -42,9 +41,10 @@
       </div>
     </div>
     <div class="grid grid-cols-3 gap-2">
-      <div class="ds-stat"><b class="num">{{ count_smetas }}</b><span>смета</span></div>
-      <div class="ds-stat"><b class="num" style="color:rgb(var(--ok-600))">{{ count_done }}</b><span>тайёр</span></div>
-      <div class="ds-stat"><b class="num"{% if attention_total %} style="color:rgb(var(--bad-700))"{% endif %}>{{ attention_total }}</b><span>эътибор керак</span></div>
+      {# сметалар сони ва «тайёр» пастдаги кўрсаткичларда бор — бу ерда такрорламаймиз #}
+      <div class="ds-stat"><b class="num">{{ kinds.folder }}</b><span>папка</span></div>
+      <div class="ds-stat"><b class="num">{{ kinds.object|add:kinds.smeta }}</b><span>объект / смета</span></div>
+      <div class="ds-stat"><b class="num"{% if attention_total %} style="color:rgb(var(--bad-700))"{% endif %}>{{ attention_total }}</b><span>иш эътибор кутяпти</span></div>
     </div>
     <div class="flex flex-wrap items-center gap-1">
       <a href="{% url 'index' %}" class="ds-go">{% icon "upload" "h-4 w-4" %}Смета юклаш</a>
@@ -143,8 +143,11 @@
         {% if count_warn %}<div class="h-full bg-rose-500" style="width: {{ warn_pct }}%"></div>{% endif %}
         {% if count_pending %}<div class="h-full bg-violet-500" style="width: {{ wait_pct }}%"></div>{% endif %}
       </div>
-      <div class="mt-2 text-xs leading-relaxed text-slate-500">
-        {{ kinds.folder }} та папка{% if kinds.object %}, {{ kinds.object }} та объект{% endif %}{% if kinds.smeta %} ва {{ kinds.smeta }} та алоҳида смета{% endif %} ичида</div>
+      {# чизиқ изоҳи: сонлар ёндаги карталарда, бу ерда фақат ранг маъноси #}
+      <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+        <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>тайёр</span>
+        <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-rose-500"></span>нархсиз қатор бор</span>
+        <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-violet-500"></span>сизни кутяпти</span></div>
     </div>
 
     {# 2 — тайёр #}
@@ -154,8 +157,8 @@
       <div class="mt-2 flex items-baseline gap-1.5"><span class="num text-3xl font-semibold text-emerald-700">{{ count_done }}</span><span class="text-sm text-slate-400">та смета</span>
         <span class="num ml-auto rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">{{ done_pct }}%</span></div>
       <div class="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width: {{ done_pct }}%"></div></div>
-      <div class="mt-2 flex items-center justify-between text-xs text-slate-500"><span>ҳамма қатори нархланган</span>
-        {% if by_state.done %}<span class="font-medium text-emerald-700 group-hover:underline">{{ by_state.done }} та иш →</span>{% endif %}</div>
+      <div class="mt-2 flex items-center justify-between gap-2 text-xs text-slate-500"><span>ҳамма қатори нархланган</span>
+        {% if by_state.done %}<span class="shrink-0 whitespace-nowrap rounded-md bg-emerald-50 px-2 py-0.5 text-sm font-semibold text-emerald-700 group-hover:underline">{{ by_state.done }} та иш →</span>{% endif %}</div>
     </button>
 
     {# 3 — нархсиз қатор бор #}
@@ -165,8 +168,8 @@
       <div class="mt-2 flex items-baseline gap-1.5"><span class="num text-3xl font-semibold {% if count_warn %}text-rose-700{% else %}text-slate-900{% endif %}">{{ count_warn }}</span><span class="text-sm text-slate-400">та смета</span></div>
       {% if count_warn %}
       <div class="mt-2.5 rounded-md bg-rose-50 px-2.5 py-1.5 text-xs text-rose-800">жами <b class="num">{{ not_priced_rows }}</b> та қаторнинг нархи топилмади</div>
-      <div class="mt-2 flex items-center justify-between text-xs text-slate-500"><span>сметани очиб, нархини қўйинг</span>
-        <span class="font-medium text-rose-700 group-hover:underline">{{ by_state.warn }} та иш →</span></div>
+      <div class="mt-2 flex items-center justify-between gap-2 text-xs text-slate-500"><span>сметани очиб, нархини қўйинг</span>
+        <span class="shrink-0 whitespace-nowrap rounded-md bg-rose-50 px-2 py-0.5 text-sm font-semibold text-rose-700 group-hover:underline">{{ by_state.warn }} та иш →</span></div>
       {% else %}<div class="mt-2.5 text-xs text-emerald-700">Ҳамма қатор нархланган</div>{% endif %}
     </button>
 
@@ -188,7 +191,7 @@
 <section data-guide="latest" class="mt-4 min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
   <div class="flex items-baseline justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
     <h2 class="font-semibold text-slate-900">Эътибор керак <span class="num ml-1 text-sm font-normal text-slate-400">{{ attention_total }}</span></h2>
-    {% if attention_total > attention|length %}<a href="#all" class="text-xs font-medium text-slate-500 hover:text-slate-900">Ҳаммаси пастда →</a>{% endif %}
+    {% if attention_total > attention|length %}<a href="#all" class="text-sm font-medium text-slate-600 hover:text-slate-900 hover:underline">Ҳаммаси пастда →</a>{% endif %}
   </div>
   {% if attention %}
   <ul class="divide-y divide-slate-100">
@@ -198,7 +201,7 @@
         {% if it.kind == "folder" %}{% icon "folder" "h-5 w-5" "1.75" %}{% elif it.kind == "object" %}{% icon "layers" "h-5 w-5" "1.75" %}{% else %}{% icon "sheet" "h-5 w-5" "1.75" %}{% endif %}</span>
       <span class="min-w-0 flex-1">
         <span class="block truncate text-sm font-medium text-slate-800" title="{{ it.name }}">{{ it.name }}</span>
-        <span class="block truncate text-xs text-slate-400">{% if it.kind == "folder" %}Папка{% elif it.kind == "object" %}Объект{% else %}Смета{% endif %}{% if it.meta %} · {{ it.meta }}{% endif %} · {{ it.created|date:"d.m.Y" }}</span>
+        <span class="block truncate text-xs text-slate-400">{% if it.kind == "folder" %}Папка{% elif it.kind == "object" %}Объект{% else %}Смета{% endif %}{% if it.meta %} · {{ it.meta }}{% endif %} · {{ it.created|date:"d.m.Y H:i" }}</span>
         <span class="mt-0.5 block truncate text-xs font-medium sm:hidden {% if it.state == 'warn' or it.state == 'failed' %}text-rose-700{% elif it.state == 'review' %}text-amber-700{% elif it.state == 'awaiting' %}text-violet-700{% else %}text-slate-600{% endif %}">{{ it.todo }}</span>
       </span>
       <span class="hidden shrink-0 text-right text-sm font-medium sm:block {% if it.state == 'warn' or it.state == 'failed' %}text-rose-700{% elif it.state == 'review' %}text-amber-700{% elif it.state == 'awaiting' %}text-violet-700{% else %}text-slate-600{% endif %}">{{ it.todo }}</span>
@@ -234,6 +237,11 @@
     {% endif %}{% endfor %}
   </div>
   {% include "jobs/_work_list.html" %}
+  <div id="work-more-wrap" class="mt-3 hidden flex-wrap items-center justify-center gap-3 text-sm">
+    <span id="work-more-info" class="text-slate-500"></span>
+    <button type="button" id="work-more" class="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50"></button>
+    <button type="button" id="work-all" class="rounded-lg px-3 py-2 font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900">Ҳаммасини кўрсатиш</button>
+  </div>
   <p id="work-empty" class="hidden rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">Танланган шартга мос иш йўқ</p>
 </section>
 {% endif %}
@@ -267,9 +275,14 @@
     if (!chips) return;
     var search = document.getElementById("work-search"), kind = document.getElementById("work-kind");
     var state = "";
+    // «Яна кўрсатиш»: бир марта PAGE та қатор; фильтр ўзгарса — яна бошидан
+    var PAGE = 20, limit = PAGE;
+    var moreWrap = document.getElementById("work-more-wrap"), moreBtn = document.getElementById("work-more"),
+        allBtn = document.getElementById("work-all"), moreInfo = document.getElementById("work-more-info");
     try { var saved = JSON.parse(sessionStorage.getItem("narx-dash") || "{}"); state = saved.state || ""; kind.value = saved.kind || ""; search.value = saved.q || ""; } catch (e) {}
-    function apply() {
-      var q = search.value.trim().toLowerCase(), shown = 0;
+    function apply(keepLimit) {
+      if (keepLimit !== true) limit = PAGE;
+      var q = search.value.trim().toLowerCase(), shown = 0, matched = 0;
       chips.querySelectorAll(".state-chip").forEach(function (c) {
         var on = c.dataset.state === state;
         c.classList.toggle("bg-slate-900", on); c.classList.toggle("text-white", on); c.classList.toggle("border-slate-900", on);
@@ -278,10 +291,18 @@
       document.querySelectorAll("#recent-list > li").forEach(function (li) {
         var ok = (!state || li.dataset.state === state) && (!kind.value || li.dataset.kind === kind.value) &&
                  (!q || li.dataset.name.indexOf(q) >= 0);
-        li.style.display = ok ? "" : "none";
-        if (ok) shown++;
+        if (ok) matched++;
+        var vis = ok && matched <= limit;
+        li.style.display = vis ? "" : "none";
+        if (vis) shown++;
       });
-      document.getElementById("work-empty").classList.toggle("hidden", shown > 0);
+      document.getElementById("work-empty").classList.toggle("hidden", matched > 0);
+      var left = matched - shown;
+      moreWrap.classList.toggle("hidden", left <= 0); moreWrap.classList.toggle("flex", left > 0);
+      if (left > 0) {
+        moreBtn.textContent = "Яна " + Math.min(PAGE, left) + " та кўрсатиш";
+        moreInfo.textContent = shown + " / " + matched + " кўрсатилди";
+      }
       try { sessionStorage.setItem("narx-dash", JSON.stringify({state: state, kind: kind.value, q: search.value})); } catch (e) {}
     }
     chips.addEventListener("click", function (e) {
@@ -295,9 +316,12 @@
       apply();
       document.getElementById("all").scrollIntoView({behavior: "smooth", block: "start"});
     });
-    search.addEventListener("input", apply);
-    kind.addEventListener("change", apply);
-    document.getElementById("recent-list").addEventListener("work-removed", apply);
+    moreBtn.addEventListener("click", function () { limit += PAGE; apply(true); });
+    allBtn.addEventListener("click", function () { limit = Infinity; apply(true); });
+    search.addEventListener("input", function () { apply(); });
+    kind.addEventListener("change", function () { apply(); });
+    // ўчирилганда — очилган қаторлар сони сақланади (пастдан бир қатор чиқади)
+    document.getElementById("recent-list").addEventListener("work-removed", function () { apply(true); });
     if (state && !chips.querySelector('[data-state="' + state + '"]')) state = "";
     apply();
   })();

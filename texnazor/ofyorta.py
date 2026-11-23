@@ -19,26 +19,27 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 from openpyxl import load_workbook
+from django.utils.translation import gettext_lazy as _l, gettext_noop as _noop
 
 CATEGORIES = ("J", "K", "L", "M", "N", "O")
-CATEGORY_LABELS = {"J": "Иш ҳақи", "K": "Машина", "L": "Материал", "M": "Ускуна (пудратчи)",
-                   "N": "Ускуна (буюртмачи)", "O": "Кабель"}
+CATEGORY_LABELS = {"J": _l("Иш ҳақи"), "K": _l("Машина"), "L": _l("Материал"), "M": _l("Ускуна (пудратчи)"),
+                   "N": _l("Ускуна (буюртмачи)"), "O": _l("Кабель")}
 # svodka foizlari: faylda topilmasa — shu standart (40-maktab ofyortasidagidek)
 DEFAULT_RATES = {"tr_material": 0.03, "tr_cable": 0.015, "overhead": 0.17, "tr_eq_customer": 0.02,
                  "tr_eq_contractor": 0.02, "insurance": 0.0032, "vat": 0.12}
 
 # sarlavha matni -> ustun ma'nosi (kichik harfda, birinchi mos keladigan)
 _HEADERS = [
-    ("code", ("шифр",)), ("name", ("наименование",)), ("unit", ("единица",)),
-    ("qty", ("на единицу", "на. ед", "на ед.")), ("total", ("по проектным",)), ("price", ("цена подр",)),
-    ("price_customer", ("цена заказ",)), ("amount", ("сумма",)),
-    ("J", ("чел-ч",)), ("K", ("маш-ч",)), ("L", ("матриал", "материал")),
-    ("M", ("жихоз подр", "оборудование подр")), ("N", ("жихоз заказ", "оборудование заказ")), ("O", ("кабель",)),
+    ("code", ("шифр",)), ("name", ("наименование",)), ("unit", ("единица",)),  # i18n: ok
+    ("qty", ("на единицу", "на. ед", "на ед.")), ("total", ("по проектным",)), ("price", ("цена подр",)),  # i18n: ok
+    ("price_customer", ("цена заказ",)), ("amount", ("сумма",)),  # i18n: ok
+    ("J", ("чел-ч",)), ("K", ("маш-ч",)), ("L", ("матриал", "материал")),  # i18n: ok
+    ("M", ("жихоз подр", "оборудование подр")), ("N", ("жихоз заказ", "оборудование заказ")), ("O", ("кабель",)),  # i18n: ok
 ]
 _FALLBACK = {"num": 1, "code": 2, "name": 3, "unit": 4, "qty": 5, "total": 6, "price": 7, "price_customer": 8,
              "amount": 9, "J": 10, "K": 11, "L": 12, "M": 13, "N": 14, "O": 15}
 _NUM_TOP = re.compile(r"^\d+$")
-NO_SECTION = "Бўлим номи кўрсатилмаган"
+NO_SECTION = _noop("Бўлим номи кўрсатилмаган")
 _NUM_SUB = re.compile(r"^(\d+)\.\d+$")
 
 
@@ -114,8 +115,8 @@ def _numtext(v) -> str:
 
 
 def _is_ofyorta_name(name: str) -> bool:
-    low = name.lower().replace("ё", "е")
-    return any(w in low for w in ("офер", "oferta", "ofyorta", "оферт"))
+    low = name.lower().replace("ё", "е")  # i18n: ok
+    return any(w in low for w in ("офер", "oferta", "ofyorta", "оферт"))  # i18n: ok
 
 
 def pick_sheet(wb) -> str:
@@ -129,8 +130,8 @@ def _is_header_row(r) -> bool:
     """Jadval sarlavhasi: «Наименование работ…» va yonida «Шифр» / «Единица» / «№ п/п». Tepadagi «(наименование
     стройки)» kabi izoh sarlavha emas."""
     texts = [_text(v).lower() for v in r if isinstance(v, str)]
-    return any("наименование" in t and "стройки" not in t and "объекта" not in t for t in texts) and \
-        any(("шифр" in t or "единиц" in t or "п/п" in t or "п.п" in t) for t in texts)
+    return (any("наименование" in t and "стройки" not in t and "объекта" not in t for t in texts)  # i18n: ok
+            and any(("шифр" in t or "единиц" in t or "п/п" in t or "п.п" in t) for t in texts))  # i18n: ok
 
 
 def _find_header(rows: List[tuple]) -> Optional[int]:
@@ -138,7 +139,7 @@ def _find_header(rows: List[tuple]) -> Optional[int]:
         if _is_header_row(r):
             return i
     for i, r in enumerate(rows[:60]):
-        if any("наименование" in _text(v).lower() for v in r):
+        if any("наименование" in _text(v).lower() for v in r):  # i18n: ok
             return i
     return None
 
@@ -187,7 +188,7 @@ def _split_columns(rows: List[tuple], start: int, end: int, cols: Dict[str, int]
         if not amount:
             continue
         unit = _text(r[cols["unit"]]).upper() if cols["unit"] < len(r) else ""
-        kind = "J" if "ЧЕЛ" in unit else "K" if "МАШ" in unit else "L"
+        kind = "J" if "ЧЕЛ" in unit else "K" if "МАШ" in unit else "L"  # i18n: ok
         for j in range(a + 1, min(len(r), a + 9)):
             v = _num(r[j])
             if v and abs(v - amount) <= max(0.01, abs(amount) * 1e-9):
@@ -197,7 +198,7 @@ def _split_columns(rows: List[tuple], start: int, end: int, cols: Dict[str, int]
     return {j: max(k, key=k.get) for j, k in sorted(hits.items())}
 
 
-_SVODKA_START = re.compile(r"ISH\s*HAQQI|ИШ\s*ҲАҚИ|ЗАРАБОТНАЯ\s+ПЛАТА", re.I)
+_SVODKA_START = re.compile(r"ISH\s*HAQQI|ИШ\s*ҲАҚИ|ЗАРАБОТНАЯ\s+ПЛАТА", re.I)  # i18n: ok
 _PCT = re.compile(r"(\d+(?:[.,]\d+)?)\s*%")
 
 
@@ -218,15 +219,15 @@ def parse(path: Path, sheet: Optional[str] = None, progress: Callable[[int, int]
     of = Ofyorta(sheet=name)
     h = _find_header(rows)
     if h is None:
-        raise OfyortaError("Офёрта жадвали топилмади: «Наименование работ…» сарлавҳали устун йўқ")
+        raise OfyortaError(_noop("Офёрта жадвали топилмади: «Наименование работ…» сарлавҳали устун йўқ"))
     cols = _columns(rows, h)
     # obyekt nomi va turi — sarlavhadan yuqoridagi matnlar («obyekt nomi» / «obyekt turi» ostida)
     texts = [_text(v) for r in rows[:h] for v in r if _text(v)]
     for i, t in enumerate(texts):
         low = t.lower()
-        if low in ("obyekt nomi", "объект номи") and i > 0:
+        if low in ("obyekt nomi", "объект номи") and i > 0:  # i18n: ok
             of.title = texts[i - 1]
-        if low in ("obyekt turi", "объект тури") and i > 0:
+        if low in ("obyekt turi", "объект тури") and i > 0:  # i18n: ok
             of.object_type = texts[i - 1]
     if not of.title:
         of.title = next((t for t in texts if len(t) > 10 and t.upper() == t and "OFYORTA" not in t.upper()), "")
@@ -282,9 +283,8 @@ def parse(path: Path, sheet: Optional[str] = None, progress: Callable[[int, int]
             of.sections.append(NO_SECTION)
             section = len(of.sections) - 1
             of.rows.append(Row(excel_row=i + 1, kind="section", name=NO_SECTION, section=section))
-            of.warnings.append({"row": i + 1, "title": "Бўлим сарлавҳаси йўқ ишлар бор",
-                                "text": f"{i + 1}-қатордан бошлаб ишлар тепасида бўлим номи (А устуни бўш, C да ном) йўқ. "
-                                        f"Тизим уларни «{NO_SECTION}» бўлимига олди — ишлар ва пул ҳисоби тўлиқ."})
+            of.warnings.append({"row": i + 1, "title": _noop("Бўлим сарлавҳаси йўқ ишлар бор"),
+                                "text": _noop("{0}-қатордан бошлаб ишлар тепасида бўлим номи (А устуни бўш, C да ном) йўқ. Тизим уларни «{1}» бўлимига олди — ишлар ва пул ҳисоби тўлиқ.").format(i + 1, NO_SECTION)})
         qty = _num(get(r, "qty")) or 0.0
         g, hc = _num(get(r, "price")) or 0.0, _num(get(r, "price_customer")) or 0.0
         # buyurtmachi uskunasida narx H da (G bo'sh): I = H × E
@@ -301,9 +301,8 @@ def parse(path: Path, sheet: Optional[str] = None, progress: Callable[[int, int]
         if row.kind == "res":
             parent = last_work if last_work is not None and _NUM_SUB.match(num).group(1) == of.rows[last_work].num else None
             if parent is None:
-                of.warnings.append({"row": i + 1, "title": f"«{num}» ресурсининг иши топилмади",
-                                    "text": f"Рақами «{num}», лекин тепасида {num.split('.')[0]}-иш йўқ. Тизим уни алоҳида "
-                                            "материал деб олди: ҳажмини ўзингиз белгилайсиз."})
+                of.warnings.append({"row": i + 1, "title": _noop("«{0}» ресурсининг иши топилмади").format(num),
+                                    "text": _noop("Рақами «{0}», лекин тепасида {1}-иш йўқ. Тизим уни алоҳида материал деб олди: ҳажмини ўзингиз белгилайсиз.").format(num, num.split('.')[0])})
                 row.kind = "top"
             else:
                 row.parent = parent
@@ -326,7 +325,7 @@ def parse(path: Path, sheet: Optional[str] = None, progress: Callable[[int, int]
     return of
 
 
-BLOCK_RE = re.compile(r"^\s*НА\s+|\bБЛОК[\s№-]*\d", re.I)  # «НА АС БЛОК-1», «НА ЭО», «АС БЛОК-2»
+BLOCK_RE = re.compile(r"^\s*НА\s+|\bБЛОК[\s№-]*\d", re.I)  # «НА АС БЛОК-1», «НА ЭО», «АС БЛОК-2» · i18n: ok
 
 
 def _red(cell) -> bool:
@@ -364,17 +363,12 @@ def _check_amounts(of: Ofyorta):
     for key, rows in by_work.items():
         head = of.rows[key]
         diff = sum(r.file_amount - r.amount for r in rows)
-        name = f"{head.num}-иш «{head.name[:70].strip()}»" if head.kind == "work" else f"«{head.name[:70].strip()}»"
+        name = _noop("{0}-иш «{1}»").format(head.num, head.name[:70].strip()) if head.kind == "work" else f"«{head.name[:70].strip()}»"
         if head.kind == "work" and not head.qty:
-            text = (f"Шартномада бу ишнинг ҳажми 0, лекин Excel'да унинг {len(rows)} та ресурсига жами {money(diff)} сўм пул "
-                    "ёзилган. Сабаби — формула хатоси: ресурс суммаси «нарх × жами ҳажм» ўрнига «нарх × меъёр» бўлиб "
-                    "ҳисобланган. Ҳажми 0 бўлган иш учун пул бўлмаслиги керак, шунинг учун тизим бу суммани ҳисобга олмайди. "
-                    "Шу сабаб тизимдаги акт Excel'дагидан шунча (устамалари билан бироз кўпроқ) кам чиқади. "
-                    "Пудратчи ёки смета тузувчи билан аниқлаштиринг.")
+            text = (_noop("Шартномада бу ишнинг ҳажми 0, лекин Excel'да унинг {0} та ресурсига жами {1} сўм пул ёзилган. Сабаби — формула хатоси: ресурс суммаси «нарх × жами ҳажм» ўрнига «нарх × меъёр» бўлиб ҳисобланган. Ҳажми 0 бўлган иш учун пул бўлмаслиги керак, шунинг учун тизим бу суммани ҳисобга олмайди. Шу сабаб тизимдаги акт Excel'дагидан шунча (устамалари билан бироз кўпроқ) кам чиқади. Пудратчи ёки смета тузувчи билан аниқлаштиринг.").format(len(rows), money(diff)))
         else:
-            text = (f"Excel'да {len(rows)} та қатор суммаси «нарх × миқдор»га тўғри келмайди, фарқ {money(diff)} сўм. "
-                    "Тизим тўғри формула билан ҳисоблайди. Excel'даги формулани текширинг.")
-        of.warnings.append({"row": head.excel_row, "title": f"{name}: Excel'да ортиқча {money(diff)} сўм", "text": text})
+            text = (_noop("Excel'да {0} та қатор суммаси «нарх × миқдор»га тўғри келмайди, фарқ {1} сўм. Тизим тўғри формула билан ҳисоблайди. Excel'даги формулани текширинг.").format(len(rows), money(diff)))
+        of.warnings.append({"row": head.excel_row, "title": _noop("{0}: Excel'да ортиқча {1} сўм").format(name, money(diff)), "text": text})
     of.amount_diff = sum(r.file_amount - r.amount for rows in by_work.values() for r in rows)
 
 
@@ -384,9 +378,9 @@ def money(v: float) -> str:
 
 def _guess_category(unit: str) -> str:
     u = unit.upper()
-    if "ЧЕЛ" in u:
+    if "ЧЕЛ" in u:  # i18n: ok
         return "J"
-    if "МАШ" in u:
+    if "МАШ" in u:  # i18n: ok
         return "K"
     return "L"
 
@@ -404,8 +398,8 @@ def _unit_costs(of: Ofyorta):
             if work.qty:
                 work.unit_cost[row.category] = work.unit_cost.get(row.category, 0.0) + row.amount / work.qty
             else:
-                of.warnings.append({"row": work.excel_row, "title": f"{work.num}-ишнинг ҳажми 0",
-                                    "text": f"Ресурсларида {money(row.amount)} сўм бор, лекин иш ҳажми 0 — бу пул ҳисобга олинмади."})
+                of.warnings.append({"row": work.excel_row, "title": _noop("{0}-ишнинг ҳажми 0").format(work.num),
+                                    "text": _noop("Ресурсларида {0} сўм бор, лекин иш ҳажми 0 — бу пул ҳисобга олинмади.").format(money(row.amount))})
     for row in of.rows:
         if row.kind == "work":
             row.amount = sum(v * row.qty for v in row.unit_cost.values())
@@ -443,7 +437,7 @@ def _svodka(of: Ofyorta, rows: List[tuple], cols: Dict[str, int], offset: int):
                 of.rates[key] = pct
         elif "BOSHQA XARAJAT" in up and pct is not None:
             of.rates["overhead"] = pct
-        elif ("SUG'URTA" in up or "СУҒУРТА" in up) and pct is not None and not after_insurance:
+        elif ("SUG'URTA" in up or "СУҒУРТА" in up) and pct is not None and not after_insurance:  # i18n: ok
             of.rates["insurance"] = pct
             after_insurance = True
         elif "QQS" in up and pct is not None and "BILAN" not in up and "SIZ" not in up and not of.file_totals.get("_vat_seen"):

@@ -4,23 +4,25 @@ from decimal import Decimal
 
 from django import template
 from django.conf import settings
+from web.i18n import ui
+from django.utils.translation import gettext as _, gettext_lazy as _l
 
 register = template.Library()
 
 # Rus Excel'da xatolar shunday ko'rinadi
 _EXCEL_ERRORS_RU = {
-    "#VALUE!": "#ЗНАЧ!",
-    "#DIV/0!": "#ДЕЛ/0!",
-    "#REF!": "#ССЫЛКА!",
-    "#NAME?": "#ИМЯ?",
-    "#NUM!": "#ЧИСЛО!",
-    "#N/A": "#Н/Д",
-    "#NULL!": "#ПУСТО!",
+    "#VALUE!": "#ЗНАЧ!",  # i18n: ok
+    "#DIV/0!": "#ДЕЛ/0!",  # i18n: ok
+    "#REF!": "#ССЫЛКА!",  # i18n: ok
+    "#NAME?": "#ИМЯ?",  # i18n: ok
+    "#NUM!": "#ЧИСЛО!",  # i18n: ok
+    "#N/A": "#Н/Д",  # i18n: ok
+    "#NULL!": "#ПУСТО!",  # i18n: ok
 }
 
 
-_CAPS_WORD = re.compile(r"[A-ZА-ЯЁЎҚҒҲ]{4,}")
-_CAPS_SHORT = re.compile(r"\b(?:НА|В|И|ПО|С|К|ОТ|ДО|ИЗ|ЗА|ДЛЯ|ПРИ|БЕЗ)\b")
+_CAPS_WORD = re.compile(r"[A-ZА-ЯЁЎҚҒҲ]{4,}")  # i18n: ok
+_CAPS_SHORT = re.compile(r"\b(?:НА|В|И|ПО|С|К|ОТ|ДО|ИЗ|ЗА|ДЛЯ|ПРИ|БЕЗ)\b")  # i18n: ok
 
 
 @register.filter
@@ -86,12 +88,12 @@ def row_bg(status) -> str:
 
 
 _STATUS_LABELS = {
-    "FUZZY": "ўхшаш",
-    "AMBIGUOUS": "ШАБҲАЛИ",
-    "UNIT_MISMATCH": "бирлик бошқа",
-    "NOT_FOUND": "ТОПИЛМАДИ",
-    "NO_PRICE": "нархсиз",
-    "BASE": "БАЗА",
+    "FUZZY": _l("ўхшаш"),
+    "AMBIGUOUS": _l("ШАБҲАЛИ"),
+    "UNIT_MISMATCH": _l("бирлик бошқа"),
+    "NOT_FOUND": _l("ТОПИЛМАДИ"),
+    "NO_PRICE": _l("нархсиз"),
+    "BASE": _l("БАЗА"),
 }
 
 
@@ -100,15 +102,15 @@ def zero_reason(row) -> dict:
     """Нарх 0 бўлган қатор нега 0: {"tag": қисқа ёрлиқ, "why": тушунтириш}; 0 бўлмаса — {}."""
     st, g = row.get("status"), row.get("g")
     if st == "WORK_HEADER":
-        return {"tag": "иш сарлавҳаси", "why": "Иш қатори: унинг нархи остидаги ресурслар (1.1, 1.2…) суммаси, ўзи 0 туради."}
+        return {"tag": _("иш сарлавҳаси"), "why": _("Иш қатори: унинг нархи остидаги ресурслар (1.1, 1.2…) суммаси, ўзи 0 туради.")}
     zero = is_number(g) and float(g) == 0
-    if st == "MACHINIST" or (zero and "МАШИНИСТ" in str(row.get("name") or "").upper()):
-        return {"tag": "машинист · 0", "why": "Машинист иш ҳақи машина-соат нархи ичида бор — алоҳида қўшилса, "
-                                              "икки марта ҳисобланади. Шунинг учун 0 (RES'да ҳам 0)."}
+    if st == "MACHINIST" or (zero and "МАШИНИСТ" in str(row.get("name") or "").upper()):  # i18n: ok
+        return {"tag": _("машинист · 0"), "why": _("Машинист иш ҳақи машина-соат нархи ичида бор — алоҳида қўшилса, "
+                                              "икки марта ҳисобланади. Шунинг учун 0 (RES'да ҳам 0).")}
     if zero and st == "EXACT":
-        return {"tag": "RES'да 0", "why": "RES файлида бу ресурснинг нархи 0 — шу олинди. Нотўғри бўлса, нархни қўлда ёзинг."}
+        return {"tag": _("RES'да 0"), "why": _("RES файлида бу ресурснинг нархи 0 — шу олинди. Нотўғри бўлса, нархни қўлда ёзинг.")}
     if row.get("zero"):
-        return {"tag": "нол қоидаси", "why": "Эски дастур қоидаси бўйича 0."}
+        return {"tag": _("нол қоидаси"), "why": _("Эски дастур қоидаси бўйича 0.")}
     return {}
 
 
@@ -142,7 +144,7 @@ _CAT_CLASS = {
     "L": "bg-cyan-100 text-cyan-800",
     "M": "bg-fuchsia-100 text-fuchsia-800",
 }
-_CAT_LABEL = {"I": "Иш ҳақи", "J": "Машина", "K": "Материал", "L": "Кабель", "M": "Ускуна"}
+_CAT_LABEL = {"I": _l("Иш ҳақи"), "J": _l("Машина"), "K": _l("Материал"), "L": _l("Кабель"), "M": _l("Ускуна")}
 
 
 @register.filter
@@ -194,6 +196,7 @@ _ICONS = {
     "swap": '<path d="m8 3-4 4 4 4M4 7h16M16 21l4-4-4-4M20 17H4"/>',
     "x": '<path d="M18 6 6 18M6 6l12 12"/>',
     "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+    "globe": '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
     "tree": '<rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M5 16v-3h14v3M12 8v5"/>',
     "layers": '<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/>',
     "building": '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
@@ -266,9 +269,9 @@ def hsize(n):
     if n is None or n == "":
         return "—"
     n = float(n)
-    for unit in ("Б", "КБ", "МБ", "ГБ"):
-        if n < 1024 or unit == "ГБ":
-            return (f"{n:.0f} {unit}" if unit == "Б" or n >= 100 else f"{n:.1f} {unit}").replace(".", ",")
+    for unit in ("Б", "КБ", "МБ", "ГБ"):  # i18n: ok
+        if n < 1024 or unit == "ГБ":  # i18n: ok
+            return (f"{n:.0f} {_(unit)}" if unit == "Б" or n >= 100 else f"{n:.1f} {_(unit)}").replace(".", ",")  # i18n: ok
         n /= 1024
 
 
@@ -278,15 +281,15 @@ def dur(sec):
     if sec is None or sec == "":
         return "—"
     if float(sec) < 10:  # қисқа вақт — ўндан бир аниқликда («0,4 с»)
-        return f"{float(sec):.1f} с".replace(".", ",")
+        return _("{0:.1f} с").format(float(sec)).replace(".", ",")
     sec = int(round(float(sec)))
     if sec < 60:
-        return f"{sec} с"
+        return _("{0} с").format(sec)
     m, s = divmod(sec, 60)
     if m < 60:
-        return f"{m} дақ {s} с" if s and m < 10 else f"{m} дақ"
+        return _("{0} дақ {1} с").format(m, s) if s and m < 10 else _("{0} дақ").format(m)
     h, m = divmod(m, 60)
-    return f"{h} соат {m} дақ" if m else f"{h} соат"
+    return _("{0} соат {1} дақ").format(h, m) if m else _("{0} соат").format(h)
 
 
 @register.simple_tag
@@ -300,8 +303,8 @@ def help(key, cls=""):
     if key not in HELP:
         return ""
     # матнлар саҳифада бир марта (help_data) — жадвалнинг ҳар бир қаторида такрорланмайди
-    return format_html('<button type="button" class="help-q {}" data-help="{}" title="{}: бу нима дегани?" '
-                       'aria-label="{}: бу нима дегани?">?</button>', cls, key, HELP[key][0], HELP[key][0])
+    return format_html(_('<button type="button" class="help-q {}" data-help="{}" title="{}: бу нима дегани?" '
+                       'aria-label="{}: бу нима дегани?">?</button>'), cls, key, HELP[key][0], HELP[key][0])
 
 
 @register.inclusion_tag("jobs/_video_btn.html", takes_context=True)
@@ -323,10 +326,10 @@ def help_data():
 
 
 FLOW_STEPS = [
-    (1, "Юклаш", "Папка, архив ёки файлларни юклаш"),
-    (2, "Текшириш", "Қайси локал қайси ресурс билан ҳисобланишини кўриш"),
-    (3, "Тўғирлаш", "Ҳисоблангач: нархланмаган қаторлар, кабель/ускуна, сводка фоизлари"),
-    (4, "Юклаб олиш", "Тайёр Excel ёки ZIP"),
+    (1, _l("Юклаш"), _l("Папка, архив ёки файлларни юклаш")),
+    (2, _l("Текшириш"), _l("Қайси локал қайси ресурс билан ҳисобланишини кўриш")),
+    (3, _l("Тўғирлаш"), _l("Ҳисоблангач: нархланмаган қаторлар, кабель/ускуна, сводка фоизлари")),
+    (4, _l("Юклаб олиш"), _l("Тайёр Excel ёки ZIP")),
 ]
 
 
@@ -412,39 +415,35 @@ def _xl_row(row: dict, group, smart: bool, grid_columns) -> str:
     out.append(f' data-flags="{flags}" class="{cls}">')
     out.append(f'<td class="xl-gutter">{_out(row, "row")}</td><td class="xl-name">{e(name)}')
     if st in ("FUZZY", "AMBIGUOUS"):
-        out.append(f'<div class="xl-sub">ресурсда: {_out(row, "picked_name")} ({e(score(row.get("score", "")))})</div>')
+        out.append(_("<div class=\"xl-sub\">ресурсда: {0} ({1})</div>").format(_out(row, "picked_name"), e(score(row.get("score", "")))))
     if note:
-        out.append(f'<div class="xl-sub text-amber-700">{_out(row, "note")}</div>')
+        out.append(f'<div class="xl-sub text-amber-700">{_esc(ui(row["note"]))}</div>')  # ядродан — асосий тилда сақланган
     else:
         zr = zero_reason(row)
-        if zr.get("tag") == "RES'да 0":
+        if zr.get("tag") == _("RES'да 0"):
             out.append(f'<div class="xl-sub text-slate-500">{e(zr["why"])}</div>')
     out.append(f'</td><td class="text-center">{e(row.get("unit"))}</td>'
                f'<td class="num text-right">{e(qty(row.get("qty")))}</td>')
     g_cls = "num text-right xl-g" + (" xl-red-text" if g and not g_num else "") + (" xl-manual" if row.get("manual") else "")
     out.append(f'<td class="{g_cls}">')
     if smart and name and not g_num and st != "CLEARED":
-        ph = e(som(sugg)) if sugg is not None else "нарх"
-        out.append(f'<div class="flex items-center justify-end gap-1"><input type="text" inputmode="decimal" class="g-input" '
-                   f'data-row="{_out(row, "row")}" autocomplete="off" placeholder="{ph}" '
-                   f'title="Нарх ёзинг ва Enter · Ctrl+Enter — белгиланган ҳамма қаторларга">')
+        ph = e(som(sugg)) if sugg is not None else _("нарх")
+        out.append(_("<div class=\"flex items-center justify-end gap-1\"><input type=\"text\" inputmode=\"decimal\" class=\"g-input\" data-row=\"{0}\" autocomplete=\"off\" placeholder=\"{1}\" title=\"Нарх ёзинг ва Enter · Ctrl+Enter — белгиланган ҳамма қаторларга\">").format(_out(row, "row"), ph))
         if sugg is not None:
-            out.append(f'<button type="button" class="g-accept" data-row="{_out(row, "row")}" '
-                       f'title="Таклифни қабул қилиш: {e(som(sugg))}">{icon("check", "h-3 w-3", "3")}</button>')
+            out.append(_("<button type=\"button\" class=\"g-accept\" data-row=\"{0}\" title=\"Таклифни қабул қилиш: {1}\">{2}</button>").format(_out(row, "row"), e(som(sugg)), icon("check", "h-3 w-3", "3")))
         out.append(f'</div><div class="xl-sub xl-red-text">{e(g)}')
         if sugg is not None:
-            out.append(f" · таклиф {e(som(sugg))}")
+            out.append(_(" · таклиф {0}").format(e(som(sugg))))
         out.append("</div>")
     elif row.get("manual"):
-        out.append(f'<span>{e(som(g))}</span><button type="button" class="g-clear" data-row="{_out(row, "row")}" '
-                   f'title="Қўлда нархни бекор қилиш">×</button><div class="xl-sub text-sky-700">қўлда')
+        out.append(_("<span>{0}</span><button type=\"button\" class=\"g-clear\" data-row=\"{1}\" title=\"Қўлда нархни бекор қилиш\">×</button><div class=\"xl-sub text-sky-700\">қўлда").format(e(som(g)), _out(row, "row")))
         if sugg is not None:
-            out.append(f" · таклиф {e(som(sugg))}")
+            out.append(_(" · таклиф {0}").format(e(som(sugg))))
         out.append("</div>")
     else:
         out.append(e(som(g)))
         if sugg is not None:
-            out.append(f'<div class="xl-sub">таклиф {e(som(sugg))}</div>')
+            out.append(_("<div class=\"xl-sub\">таклиф {0}</div>").format(e(som(sugg))))
     h = row.get("h")
     out.append(f'</td><td class="num text-right font-medium{" xl-red-text" if is_error(h) else ""}">{e(som(h))}</td>')
     h_som = e(som(h))
@@ -454,38 +453,37 @@ def _xl_row(row: dict, group, smart: bool, grid_columns) -> str:
         if on:
             out.append(h_som)
             if row.get("override"):
-                out.append(f'<span class="xl-mark" title="Қўлда ўзгартирилган (асли {_out(row, "default_category")})">'
-                           f'{icon("swap", "inline h-3 w-3")}</span>')
+                out.append(_("<span class=\"xl-mark\" title=\"Қўлда ўзгартирилган (асли {0})\">{1}</span>").format(_out(row, "default_category"), icon("swap", "inline h-3 w-3")))
         if sugg_cat == c or lm == c:
-            reason = row.get("suggest_reason") or "ресурс файлида шу бўлимда"
-            out.append(f'<span class="xl-sugg" title="Таклиф: {e(reason)}">{e(c)}?</span>')
+            reason = ui(row.get("suggest_reason")) or _("ресурс файлида шу бўлимда")
+            out.append(_("<span class=\"xl-sugg\" title=\"Таклиф: {0}\">{1}?</span>").format(e(reason), e(c)))
         out.append("</td>")
     out.append('<td class="xl-extra">')
     zr = zero_reason(row)
     if st == "MANUAL":
-        out.append(_tag("bg-sky-600 text-white", "қўлда", f"асли: {status_label(row.get('orig_status'))}"))
+        out.append(_tag("bg-sky-600 text-white", _("қўлда"), _("асли: {0}").format(status_label(row.get('orig_status')))))
     elif st == "BASE":
-        out.append(_tag("bg-violet-100 text-violet-800", "БАЗА", localize_out(note) if "note" in row else ""))
+        out.append(_tag("bg-violet-100 text-violet-800", _("БАЗА"), localize_out(note) if "note" in row else ""))
     elif st == "WORK_HEADER":
-        out.append(_tag("bg-slate-200 text-slate-700", "иш сарлавҳаси", zr.get("why")))
+        out.append(_tag("bg-slate-200 text-slate-700", _("иш сарлавҳаси"), zr.get("why")))
     elif st == "CLEARED":
-        out.append(_tag("bg-slate-100 text-slate-600", "тозаланди"))
+        out.append(_tag("bg-slate-100 text-slate-600", _("тозаланди")))
     elif zr:
         out.append(_tag("bg-slate-200 text-slate-700", zr["tag"], zr["why"]))
     elif st == "NO_PRICE":
-        out.append(_tag("bg-rose-200 text-rose-800", "нархсиз"))
+        out.append(_tag("bg-rose-200 text-rose-800", _("нархсиз")))
     elif row.get("zero"):
-        out.append(_tag("bg-slate-100 text-slate-600", "нол қоидаси"))
+        out.append(_tag("bg-slate-100 text-slate-600", _("нол қоидаси")))
     elif name and not g_num:
-        out.append(_tag("bg-rose-600 text-white", f"{status_label(st)} · қўлда"))
+        out.append(_tag("bg-rose-600 text-white", _("{0} · қўлда").format(status_label(st))))
     elif st == "EXACT":
-        out.append(_tag("bg-emerald-100 text-emerald-800", "аниқ"))
+        out.append(_tag("bg-emerald-100 text-emerald-800", _("аниқ")))
     elif st == "FUZZY":
         out.append(_tag("bg-amber-300 text-amber-900", "FUZZY"))
     elif st == "AMBIGUOUS":
-        out.append(_tag("bg-orange-300 text-orange-900", "ШАБҲАЛИ"))
+        out.append(_tag("bg-orange-300 text-orange-900", _("ШАБҲАЛИ")))
     elif st == "NOT_FOUND":
-        out.append(_tag("bg-rose-300 text-rose-900", "ТОПИЛМАДИ"))
+        out.append(_tag("bg-rose-300 text-rose-900", _("ТОПИЛМАДИ")))
     out.append("</td></tr>")
     return "".join(out)
 

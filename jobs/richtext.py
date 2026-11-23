@@ -13,6 +13,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
 ALLOWED = {
     "p", "br", "h2", "h3", "h4", "strong", "b", "em", "i", "u", "s", "strike", "del", "sub", "sup", "ul", "ol", "li",
@@ -275,12 +276,12 @@ def save_image(f) -> str:
     """Юкланган расм → ``/img/<ойи>/<тасодифий>.<тури>``. Тури файл бошидан аниқланади (номидан эмас); SVG олинмайди.
     Хато бўлса — ``ValueError`` (матни фойдаланувчига)."""
     if f.size > IMG_MAX:
-        raise ValueError(f"расм {IMG_MAX // 1024 // 1024} МБ дан катта")
+        raise ValueError(_("расм {0} МБ дан катта").format(IMG_MAX // 1024 // 1024))
     head = f.read(16)
     f.seek(0)
     ext = image_kind(head)
     if not ext:
-        raise ValueError("фақат PNG, JPG, GIF ёки WEBP расм")
+        raise ValueError(_("фақат PNG, JPG, GIF ёки WEBP расм"))
     name = f"{timezone.localdate():%Y%m}/{secrets.token_hex(16)}.{ext}"
     path = Path(settings.MEDIA_ROOT) / IMG_DIR / name
     path.parent.mkdir(parents=True, exist_ok=True)

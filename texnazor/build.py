@@ -31,17 +31,18 @@ from jobs.models import Job, Project
 from . import calc
 from .f2 import CAT_COL, GREEN_T, LINE, PINK, PURPLE, RED, WIDTHS, _height, _num, svodka
 from .models import MyOfyorta
+from django.utils.translation import gettext as _, gettext_lazy as _l, gettext_noop as _noop
 
 LOCAL_TO_OF = {"I": "J", "J": "K", "K": "L", "L": "O", "M": "M"}
 # narxlash svodkasi foizlari -> ofyorta (calc.chain) foizlari
 RATES_FROM = {"tr_material": "transport_mat", "tr_cable": "transport_kabel", "tr_eq_customer": "transport_obor",
               "tr_eq_contractor": "transport_obor", "overhead": "prochie", "insurance": "strahovanie", "vat": "s_nds"}
-RATE_LABELS = {"tr_material": "Транспорт (материал)", "tr_cable": "Транспорт (кабель)",
-               "tr_eq_customer": "Транспорт (ускуна, буюртмачи)", "tr_eq_contractor": "Транспорт (ускуна, пудратчи)",
-               "overhead": "Пудратчи бошқа харажатлари", "insurance": "Суғурта", "vat": "ҚҚС"}
+RATE_LABELS = {"tr_material": _l("Транспорт (материал)"), "tr_cable": _l("Транспорт (кабель)"),
+               "tr_eq_customer": _l("Транспорт (ускуна, буюртмачи)"), "tr_eq_contractor": _l("Транспорт (ускуна, пудратчи)"),
+               "overhead": _l("Пудратчи бошқа харажатлари"), "insurance": _l("Суғурта"), "vat": _l("ҚҚС")}
 _NUM_TOP = re.compile(r"^\d+$")
 _NUM_SUB = re.compile(r"^(\d+)\.\d+$")
-_SKIP = re.compile(r"^\s*(ИТОГО|ВСЕГО|ЖАМИ|JAMI)\b", re.I)
+_SKIP = re.compile(r"^\s*(ИТОГО|ВСЕГО|ЖАМИ|JAMI)\b", re.I)  # i18n: ok
 _LEAD = re.compile(r"^\s*\d+(\.\d+)*[.)]?\s*")
 ZERO_OK = ("WORK_HEADER", "MACHINIST")  # narxi 0 bo'lishi to'g'ri: ish sarlavhasi, mashinist mehnati
 
@@ -88,7 +89,7 @@ def read_local(job: Job) -> dict:
     start, end = res.get("start_row") or 0, res.get("end_row") or 0
     path = job.abs(job.output_path)
     if not path.exists():
-        raise BuildError(f"«{job.local_name}»: нархланган файл топилмади — смета қайта нархлансин")
+        raise BuildError(_noop("«{0}»: нархланган файл топилмади — смета қайта нархлансин").format(job.local_name))
     wb = load_workbook(path, read_only=True, data_only=True, keep_links=False)
     try:
         ws = wb[job.local_sheet] if job.local_sheet in wb.sheetnames else wb.worksheets[0]
@@ -117,7 +118,7 @@ def read_local(job: Job) -> dict:
                 if text and not _SKIP.match(text):
                     items.append({"kind": "section", "name": text, "row": r})
                 continue
-            problems.append({"row": r, "name": text, "text": f"тартиб рақами йўқ («{num}») — офёртага олинмади, локалда рақам қўйилсин"})
+            problems.append({"row": r, "name": text, "text": _noop("тартиб рақами йўқ («{0}») — офёртага олинмади, локалда рақам қўйилсин").format(num)})
             continue
         status = info.get("status") or ""
         g = info.get("g")
@@ -125,10 +126,10 @@ def read_local(job: Job) -> dict:
         if not isinstance(g, (int, float)) or isinstance(g, bool):
             if status not in ZERO_OK:
                 problems.append({"row": r, "name": info.get("name") or _text(cell(2)),
-                                 "text": "нархи топилмаган" + (f" («{_text(g)}»)" if _text(g) else "")})
+                                 "text": _noop("нархи топилмаган («{0}»)").format(_text(g)) if _text(g) else _noop("нархи топилмаган")})
         cat = info.get("category") or "K"
         if cat in extra_cols or cat not in LOCAL_TO_OF:
-            problems.append({"row": r, "name": info.get("name") or "", "text": f"{cat} устуни офёртада йўқ — материал деб олинди"})
+            problems.append({"row": r, "name": info.get("name") or "", "text": _noop("{0} устуни офёртада йўқ — материал деб олинди").format(cat)})
             cat = "K"
         kind = "res" if _NUM_SUB.match(num) else "top"
         e = _num_value(cell(4))
@@ -147,7 +148,7 @@ def read_local(job: Job) -> dict:
 
 def _table_head(row) -> bool:
     cells = [_text(v).lower() for v in row[:4]] + [""] * (4 - len(row[:4]))
-    return cells == ["1", "2", "3", "4"] or cells[2].startswith("наименование") or cells[0] in ("n п.п.", "№ п/п", "n п/п", "№ п.п.")
+    return cells == ["1", "2", "3", "4"] or cells[2].startswith("наименование") or cells[0] in ("n п.п.", "№ п/п", "n п/п", "№ п.п.")  # i18n: ok
 
 
 def _num_value(v) -> Optional[float]:
@@ -188,7 +189,7 @@ def write(doc: MyOfyorta, blocks: List[dict], rates: Dict[str, float], customer:
     """``blocks`` — [{"title", "job", "items"}]. Fayl ``doc.file`` ga yoziladi; qaytadi: structure, sums, rows."""
     buf = BytesIO()
     wb = xlsxwriter.Workbook(buf, {"in_memory": True})
-    ws = wb.add_worksheet("ОФЁРТА")
+    ws = wb.add_worksheet("ОФЁРТА")  # i18n: ok
     cache = {}
 
     def fmt(bold=False, color=None, bg="#FFFFFF", box=True, align="center", money=False):
@@ -215,14 +216,14 @@ def write(doc: MyOfyorta, blocks: List[dict], rates: Dict[str, float], customer:
     ws.write_string("C5", doc.object_type or "", fmt(bold=True, box=False))
     ws.write("C6", "obyekt turi", fmt(box=False))
     head = fmt(bold=True, bg=PINK)
-    for col, text in (("A", "№ п/п"), ("B", "Шифр номера нормативов и  коды ресурсов"),
-                      ("C", "Наименование работ и затрат, характеристика оборудования и его масса, расход ресурсов на единицу измерения"),
-                      ("D", "Единица измерения")):
-        ws.merge_range(f"{col}9:{col}10", text, head)
-    ws.merge_range("E9:I9", "Количество", head)
-    for col, text in zip("EFGHI", ("на единицу\nизмерения", "по проектным данным", "Цена подрятчик", "Цена заказчик", "Сумма")):
-        ws.write(f"{col}10", text, head)
-    for col, text in zip("JKLMNO", ("ЧЕЛ-Ч.", "МАШ-Ч.", "МАТРИАЛ", "ЖИХОЗ ПОДРЯТЧИК", "ЖИХОЗ ЗАКАЗЧИК", "КАБЕЛЬ")):
+    for col, text in (("A", "№ п/п"), ("B", "Шифр номера нормативов и  коды ресурсов"),  # i18n: ok
+                      ("C", "Наименование работ и затрат, характеристика оборудования и его масса, расход ресурсов на единицу измерения"),  # i18n: ok
+                      ("D", "Единица измерения")):  # i18n: ok
+        ws.merge_range(f"{col}9:{col}10", text, head)  # i18n: ok
+    ws.merge_range("E9:I9", "Количество", head)  # i18n: ok
+    for col, text in zip("EFGHI", ("на единицу\nизмерения", "по проектным данным", "Цена подрятчик", "Цена заказчик", "Сумма")):  # i18n: ok
+        ws.write(f"{col}10", text, head)  # i18n: ok
+    for col, text in zip("JKLMNO", ("ЧЕЛ-Ч.", "МАШ-Ч.", "МАТРИАЛ", "ЖИХОЗ ПОДРЯТЧИК", "ЖИХОЗ ЗАКАЗЧИК", "КАБЕЛЬ")):  # i18n: ok
         ws.write(f"{col}10", text, head)
     ws.set_row(9, 38.25)
     for col, n in zip("ABCDEFGHI", (1, 2, 3, 4, 5, 6, None, None, 8)):
@@ -266,7 +267,7 @@ def write(doc: MyOfyorta, blocks: List[dict], rates: Dict[str, float], customer:
             rows += 1
             cat = "N" if it["cat"] == "M" and f"{b['job']}:{it['row']}" in customer else it["cat"]
             u = it["unit"].upper()
-            color = PURPLE if "ЧЕЛ" in u else GREEN_T if "МАШ" in u else None
+            color = PURPLE if "ЧЕЛ" in u else GREEN_T if "МАШ" in u else None  # i18n: ok
             bold = it["kind"] != "res"
             f, fl = fmt(bold=bold, color=None if bold else color), fmt(bold=bold, color=None if bold else color, align="left")
             num, code = _num(it["num"]), _num(it["code"])
@@ -292,7 +293,7 @@ def write(doc: MyOfyorta, blocks: List[dict], rates: Dict[str, float], customer:
                     ws.write(f"F{r}", qty, f)
                     if work_row:
                         notes.append({"part": b["title"], "row": it["row"], "name": it["name"], "kind": "note",
-                                      "text": f"жами миқдор (F) локалда қўлда ёзилган: {qty:g}, меъёр × ҳажм = {(it['e'] or 0) * work_qty:g}"})
+                                      "text": _noop("жами миқдор (F) локалда қўлда ёзилган: {0:g}, меъёр × ҳажм = {1:g}").format(qty, (it['e'] or 0) * work_qty)})
                 ws.write_blank(f"H{r}" if cat != "N" else f"G{r}", None, f)
                 priced(r, cat, it["price"], "F", qty, color)
             else:  # mustaqil resurs: hajm × narx
@@ -325,21 +326,21 @@ def make(doc: MyOfyorta, progress=None):
     try:
         parts = [p for p in doc.parts if p.get("include", True)]
         if not parts:
-            raise BuildError("Битта ҳам локал танланмаган")
+            raise BuildError(_noop("Битта ҳам локал танланмаган"))
         jobs = {str(j.pk): j for j in Job.objects.filter(pk__in=[p["job"] for p in parts]).select_related("batch")}
         blocks, problems, locals_ = [], [], []
         for i, p in enumerate(parts, 1):
             job = jobs.get(p["job"])
             if job is None:
-                problems.append({"part": p["title"], "row": 0, "name": "", "text": "смета ўчирилган — блок олинмади"})
+                problems.append({"part": p["title"], "row": 0, "name": "", "text": _noop("смета ўчирилган — блок олинмади")})
                 continue
-            step(f"Локал ўқилмоқда: {p['title']}", i - 1, len(parts))
+            step(_noop("Локал ўқилмоқда: {0}").format(p['title']), i - 1, len(parts))
             lc = read_local(job)
             locals_.append(lc)
             problems += [{"part": p["title"], **x} for x in lc["problems"]]
             blocks.append({"title": p["title"], "job": job.pk, "local_title": job.batch_label or p["title"], "items": lc["items"]})
         rates = doc.rates or default_rates(locals_)
-        step("Excel ёзилмоқда", len(parts), len(parts))
+        step(_noop("Excel ёзилмоқда"), len(parts), len(parts))
         out = write(doc, blocks, rates, set(doc.customer or []))
         doc.rates = rates
         doc.structure = out["structure"]
@@ -347,7 +348,7 @@ def make(doc: MyOfyorta, progress=None):
         doc.totals = calc.chain(out["sums"], rates)
         doc.problems = (problems + out["notes"])[:500]
         doc.status, doc.error = MyOfyorta.Status.READY, ""
-        doc.progress = {"step": "Тайёр", "done": len(parts), "total": len(parts)}
+        doc.progress = {"step": _noop("Тайёр"), "done": len(parts), "total": len(parts)}
         doc.save()
     except Exception as e:  # noqa: BLE001 — sabab sahifada ko'rinadi
         doc.status = MyOfyorta.Status.FAILED
@@ -392,7 +393,7 @@ def setup(project: Project, doc: Optional[MyOfyorta] = None) -> dict:
     if doc and doc.rates:
         rates = {k: float(doc.rates.get(k, v)) for k, v in rates.items()}
     common = dict(sets.most_common(1)[0][0]) if sets else {}
-    differ = [{"title": p["title"], "text": ", ".join(f"{RATE_LABELS[k]} {round(v * 100, 4):g}% (кўпчиликда {round(common[k] * 100, 4):g}%)"
+    differ = [{"title": p["title"], "text": ", ".join(_("{0} {1:g}% (кўпчиликда {2:g}%)").format(RATE_LABELS[k], round(v * 100, 4), round(common[k] * 100, 4))
                                                       for k, v in p["rates"].items() if v != common.get(k))}
               for p in parts if p["rates"] != common]
     for p in parts:

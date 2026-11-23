@@ -1,3 +1,4 @@
+# i18n: ok-file — модел майдонлари номи (фақат Django admin)
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
@@ -49,6 +50,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     # рўйхатдан ўтишда «Фойдаланиш шартлари»га рози бўлган вақт ва шартлар таҳрири (``jobs.pages.terms``)
     terms_accepted_at = models.DateTimeField("Шартларга рози бўлган", null=True, blank=True)
     terms_version = models.PositiveIntegerField("Шартлар таҳрири", null=True, blank=True)
+    # тизим тили (web/i18n.py): uz-cyrl / uz-latn / ru; бўш — cookie ёки асосий (кирилл)
+    language = models.CharField("Тил", max_length=8, blank=True, default="")
 
     objects = UserManager()
 

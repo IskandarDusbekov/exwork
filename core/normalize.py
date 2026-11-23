@@ -1,3 +1,4 @@
+# i18n: ok-file — Excel ичидаги матн / маълумот (таржима қилинмайди)
 """Nom va birlikni normallashtirish (reja §2.2). Eski dasturdan o'zgarishsiz ko'chirilgan."""
 import re
 

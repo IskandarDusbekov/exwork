@@ -20,6 +20,7 @@ from .models import Act, ActQty, Done, LayoutMemo, RawRow, SiteObject
 from .sheet import COL_KEYS, READER, ROW_KEYS, Book, SheetError, hide_ranges, list_sheets, mark_guess, read, sheet_values
 from .sheetstyle import VERSION as STYLE_VERSION, read_style
 from .services import TexnazorError
+from django.utils.translation import gettext as _, gettext_noop as _noop
 
 
 def _step(obj: SiteObject, text: str, done=0, total=0, beat=None):
@@ -49,13 +50,13 @@ def _xlsx(obj: SiteObject):
 def prepare(obj: SiteObject, progress=None):
     """Fonda: list hali tanlanmagan bo'lsa — listlarni ko'rib, tanlashga qo'yadi; tanlangan bo'lsa — o'qiydi."""
     try:
-        _step(obj, "Файл очилмоқда", beat=progress)
+        _step(obj, _noop("Файл очилмоқда"), beat=progress)
         xlsx = _xlsx(obj)
         if not obj.sheet:
-            _step(obj, "Листлар кўрилмоқда", beat=progress)
+            _step(obj, _noop("Листлар кўрилмоқда"), beat=progress)
             obj.sheets = list_sheets(xlsx)
             if not obj.sheets:
-                raise SheetError("Файлда бирорта ҳам лист йўқ")
+                raise SheetError(_noop("Файлда бирорта ҳам лист йўқ"))
             if len(obj.sheets) == 1 and not obj.sheets[0]["header"]:  # tanlash yo'q — darhol belgilashga
                 obj.sheet = obj.sheets[0]["name"][:255]
                 obj.status, obj.error = SiteObject.Status.MARK, NO_HEADER
@@ -76,11 +77,11 @@ def prepare(obj: SiteObject, progress=None):
     return obj
 
 
-NO_HEADER = "Тизим бу листда офёрта жадвалининг сарлавҳасини («Наименование работ…») топа олмади"
+NO_HEADER = _noop("Тизим бу листда офёрта жадвалининг сарлавҳасини («Наименование работ…») топа олмади")
 
 
 def import_raw(obj: SiteObject, xlsx, progress=None):
-    _step(obj, "Офёрта ўқилмоқда", beat=progress)
+    _step(obj, _noop("Офёрта ўқилмоқда"), beat=progress)
     manual = (obj.layout or {}).get("manual")  # foydalanuvchi tuzatish oynasida ko'rsatgani (qayta o'qishda saqlanadi)
     memo_used = []
 
@@ -89,14 +90,14 @@ def import_raw(obj: SiteObject, xlsx, progress=None):
         m = {k: v for k, v in (m or {}).items() if k in COL_KEYS}  # eski yozuvdagi «final» — boshqa faylning qatori
         memo_used.append(bool(m))
         return m or None
-    grid = read(xlsx, obj.sheet, progress=lambda d, t: _step(obj, "Офёрта ўқилмоқда", d, t, progress),
+    grid = read(xlsx, obj.sheet, progress=lambda d, t: _step(obj, _noop("Офёрта ўқилмоқда"), d, t, progress),
                 manual=manual, memo=memo)
     if manual and manual.get("header") and grid.signature:  # belgilash sahifasidan: ustunlar shu shablonga eslab qolinadi
         cols = {k: manual[k] for k in COL_KEYS if k in manual}
         LayoutMemo.objects.update_or_create(owner=obj.owner, signature=grid.signature, defaults={"mapping": cols})
-    _step(obj, "Кўриниши (ранглар, кенгликлар) ўқилмоқда", beat=progress)
+    _step(obj, _noop("Кўриниши (ранглар, кенгликлар) ўқилмоқда"), beat=progress)
     look = read_style(xlsx, obj.sheet, max(grid.layout.width, grid.layout.block_end + 1), len(grid.rows))
-    _step(obj, "Базага ёзилмоқда", 0, len(grid.rows), progress)
+    _step(obj, _noop("Базага ёзилмоқда"), 0, len(grid.rows), progress)
     with transaction.atomic():
         old_acts = obj.acts.exists()
         obj.raw_rows.all().delete()
@@ -104,7 +105,7 @@ def import_raw(obj: SiteObject, xlsx, progress=None):
                                            vals=r["vals"], fmls={str(k): v for k, v in r["fmls"].items()})
                                     for r in grid.rows], batch_size=1000)
         bk = Book(grid.layout.as_dict(), grid.rows)
-        _step(obj, "Ҳисоб текширилмоқда", beat=progress)
+        _step(obj, _noop("Ҳисоб текширилмоқда"), beat=progress)
         check = bk.self_check()  # bo'sh ≈ 0, yarim ≈ 50%, to'liq ≈ fayldagi jami
         accepted = (obj.layout or {}).get("accepted")  # «Шундай давом этиш» — qayta o'qilganda ham eslab qolinadi
         obj.layout = dict(grid.layout.as_dict(), stamp=time.time(), reader=READER, signature=grid.signature,
@@ -120,7 +121,7 @@ def import_raw(obj: SiteObject, xlsx, progress=None):
         if grid.title and obj.name == obj.source_name.rsplit(".", 1)[0][:300]:
             obj.name = grid.title[:300]
         obj.status, obj.error = SiteObject.Status.READY, ""
-        obj.progress = {"step": "Тайёр", "done": len(grid.rows), "total": len(grid.rows)}
+        obj.progress = {"step": _noop("Тайёр"), "done": len(grid.rows), "total": len(grid.rows)}
         obj.save()
     _save_style(obj, look)
     return obj
@@ -165,7 +166,7 @@ def reread(obj: SiteObject):
     """Fonda qayta o'qish: dalolatnomalar va yozilgan hajmlar saqlanadi (Excel qatori bo'yicha)."""
     from . import tasks
     obj.status, obj.error = SiteObject.Status.PARSING, ""
-    obj.progress = {"step": "Офёрта янги қоидалар билан қайта ўқилмоқда"}
+    obj.progress = {"step": _noop("Офёрта янги қоидалар билан қайта ўқилмоқда")}
     obj.save(update_fields=["status", "error", "progress"])
     tasks.start(obj.pk)
 
@@ -186,11 +187,11 @@ def _from_months(obj: SiteObject, grid) -> List[dict]:
                 lost += 1
         ActQty.objects.bulk_create(qs)
     if lost:
-        warn.append({"row": 0, "title": f"{lost} та ёзилган ҳажм далолатномага ўтмади",
-                     "text": "Улар офёртада иш қатори эмас (масалан, сводкадаги қўшимча қатор). Керак бўлса, қайта киритинг."})
+        warn.append({"row": 0, "title": _noop("{0} та ёзилган ҳажм далолатномага ўтмади").format(lost),
+                     "text": _noop("Улар офёртада иш қатори эмас (масалан, сводкадаги қўшимча қатор). Керак бўлса, қайта киритинг.")})
     if obj.corrections.filter(reverted__isnull=True).exists():
-        warn.append({"row": 0, "title": "Эски тузатишлар ҳисобга олинмади",
-                     "text": "Офёрта энди файлдагидек ўқилади — шартнома ҳажмлари файлдаги қийматлар."})
+        warn.append({"row": 0, "title": _noop("Эски тузатишлар ҳисобга олинмади"),
+                     "text": _noop("Офёрта энди файлдагидек ўқилади — шартнома ҳажмлари файлдаги қийматлар.")})
     return warn
 
 
@@ -303,11 +304,10 @@ def delete_act(act: Act):
     """Ochiq dalolatnoma o'chadi; keyingilari bittaga suriladi (№4 → №3), raqamlar ketma-ket qoladi.
     Keyingisi yopilgan bo'lsa — o'chmaydi (yopilganning raqami o'zgarmasin)."""
     if act.closed:
-        raise TexnazorError("Ёпилган далолатномани ўчириб бўлмайди — аввал қайта очинг")
+        raise TexnazorError(_("Ёпилган далолатномани ўчириб бўлмайди — аввал қайта очинг"))
     later = list(act.obj.acts.filter(number__gt=act.number).order_by("number"))
     if any(a.closed for a in later):
-        raise TexnazorError(f"{act.title} дан кейинги ёпилган далолатнома бор — унинг рақами ўзгармаслиги учун "
-                            "аввал уни очинг ёки охиридан бошлаб ўчиринг")
+        raise TexnazorError(_("{0} дан кейинги ёпилган далолатнома бор — унинг рақами ўзгармаслиги учун аввал уни очинг ёки охиридан бошлаб ўчиринг").format(act.title))
     with transaction.atomic():
         act.delete()
         for a in later:  # o'sishi tartibida: pastdagi raqam allaqachon bo'sh
@@ -337,16 +337,16 @@ def parse_qty(text, base: float = 0.0) -> Optional[float]:
 
 def set_qty(act: Act, row: int, qty: float):
     if act.closed:
-        raise TexnazorError(f"{act.title} ёпилган — ҳажмни ўзгартириш учун уни қайта очинг")
+        raise TexnazorError(_("{0} ёпилган — ҳажмни ўзгартириш учун уни қайта очинг").format(act.title))
     b = book(act.obj)
     if row not in b.by_row or b.by_row[row]["kind"] not in ("work", "free"):
-        raise TexnazorError("Бу қатор иш эмас — ҳажм фақат иш ва алоҳида ресурс қаторига ёзилади")
+        raise TexnazorError(_("Бу қатор иш эмас — ҳажм фақат иш ва алоҳида ресурс қаторига ёзилади"))
     if qty:
         base = b.contract_qty(row)
         others = sum(ActQty.objects.filter(act__obj=act.obj, row=row).exclude(act=act).values_list("qty", flat=True))
         left = base - others
         if base and (qty * base < 0 or abs(qty) > abs(left) + max(1e-9, abs(base) * 1e-9)):
-            raise TexnazorError(f"Қолдиқ {_q(left)} — {_q(qty)} ёзиб бўлмайди (офёртада {_q(base)}, бошқа далолатномаларда {_q(others)})")
+            raise TexnazorError(_("Қолдиқ {0} — {1} ёзиб бўлмайди (офёртада {2}, бошқа далолатномаларда {3})").format(_q(left), _q(qty), _q(base), _q(others)))
         ActQty.objects.update_or_create(act=act, row=row, defaults={"qty": qty})
     else:
         ActQty.objects.filter(act=act, row=row).delete()
@@ -360,7 +360,7 @@ def fill(act: Act, rows: List[int], pct: float) -> int:
     """Belgilangan ishlar jami ``pct`` % bajarilgan bo'lsin: yetmagan qismi shu dalolatnomaga yoziladi (oldingi
     dalolatnomalar o'zgarmaydi, keyingilari bilan birga ofyortadagi hajmdan oshmaydi). Nechta qator ko'rib chiqildi."""
     if act.closed:
-        raise TexnazorError(f"{act.title} ёпилган — ҳажмни ўзгартириш учун уни қайта очинг")
+        raise TexnazorError(_("{0} ёпилган — ҳажмни ўзгартириш учун уни қайта очинг").format(act.title))
     pct = max(0.0, min(100.0, float(pct)))
     b = book(act.obj)
     rows = [r for r in dict.fromkeys(rows) if r in b.by_row and b.by_row[r]["kind"] in ("work", "free")]
@@ -427,18 +427,18 @@ def parse_manual(data, obj: SiteObject) -> dict:
         try:
             v = int(raw)
         except ValueError:
-            raise TexnazorError("Устун ёки қатор нотўғри")
+            raise TexnazorError(_("Устун ёки қатор нотўғри"))
         if k == "final":
             if v and v not in b.by_row:
-                raise TexnazorError(f"{v}-қатор листда йўқ")
+                raise TexnazorError(_("{0}-қатор листда йўқ").format(v))
             if v:
                 out[k] = v
         elif 0 <= v < width:
             out[k] = v
         else:
-            raise TexnazorError("Устун нотўғри")
+            raise TexnazorError(_("Устун нотўғри"))
     if "qty" in out and "amount" in out and out["qty"] == out["amount"]:
-        raise TexnazorError("Ҳажм ва сумма бир устун бўлолмайди")
+        raise TexnazorError(_("Ҳажм ва сумма бир устун бўлолмайди"))
     return out
 
 
@@ -543,38 +543,38 @@ def parse_marks(data, obj: SiteObject) -> dict:
         try:
             return int(raw)
         except ValueError:
-            raise TexnazorError("Қатор ёки устун нотўғри")
+            raise TexnazorError(_("Қатор ёки устун нотўғри"))
     out = {}
     for k in ROW_KEYS:
         v = num(k)
         if v:
             if not 1 <= v <= n:
-                raise TexnazorError(f"{v}-қатор листда йўқ (листда {n} та қатор)")
+                raise TexnazorError(_("{0}-қатор листда йўқ (листда {1} та қатор)").format(v, n))
             out[k] = v
     for k in COL_KEYS:
         v = num(k)
         if v is not None and v >= 0:
             if v >= max(w, 1):
-                raise TexnazorError("Устун нотўғри")
+                raise TexnazorError(_("Устун нотўғри"))
             out[k] = v
-    need = [("header", "сарлавҳа қаторини"), ("start", "биринчи иш қаторини"), ("name", "«Номи» устунини"),
-            ("qty", "«Ҳажм» устунини"), ("amount", "«Сумма» устунини")]
+    need = [("header", _("сарлавҳа қаторини")), ("start", _("биринчи иш қаторини")), ("name", _("«Номи» устунини")),
+            ("qty", _("«Ҳажм» устунини")), ("amount", _("«Сумма» устунини"))]
     miss = [t for k, t in need if k not in out]
     if miss:
-        raise TexnazorError("Белгиланг: " + ", ".join(miss))
+        raise TexnazorError(_("Белгиланг: ") + ", ".join(miss))
     out.setdefault("num", 0)
     out["header_end"] = max(out.get("header_end", out["header"]), out["header"])
     if out["header_end"] - out["header"] > 6:
-        raise TexnazorError("Сарлавҳа 7 қатордан узун бўлмайди — сарлавҳанинг биринчи ва охирги қаторини босинг")
+        raise TexnazorError(_("Сарлавҳа 7 қатордан узун бўлмайди — сарлавҳанинг биринчи ва охирги қаторини босинг"))
     if out["start"] <= out["header_end"]:
-        raise TexnazorError("Биринчи иш сарлавҳадан пастда бўлиши керак")
+        raise TexnazorError(_("Биринчи иш сарлавҳадан пастда бўлиши керак"))
     if out.get("end") and out["end"] < out["start"]:
-        raise TexnazorError("Охирги иш биринчи ишдан юқорида бўлолмайди")
+        raise TexnazorError(_("Охирги иш биринчи ишдан юқорида бўлолмайди"))
     if out.get("final") and out["final"] < out["start"]:
-        raise TexnazorError("Жами қатори ишлардан пастда бўлиши керак")
+        raise TexnazorError(_("Жами қатори ишлардан пастда бўлиши керак"))
     used = [out[k] for k in ("num", "name", "qty", "amount")]
     if len(set(used)) < len(used):
-        raise TexnazorError("№, Номи, Ҳажм ва Сумма — тўрт хил устун бўлиши керак")
+        raise TexnazorError(_("№, Номи, Ҳажм ва Сумма — тўрт хил устун бўлиши керак"))
     old = (obj.layout or {}).get("manual") or {}
     for k in ("hide", "svod"):  # yig'ilganlar va «сводка» deganlar saqlanadi
         v = hide_ranges(old.get(k) or (obj.layout or {}).get(k), out["header_end"])
@@ -591,7 +591,7 @@ def set_marks(obj: SiteObject, marks: dict):
     from . import tasks
     obj.layout = dict(obj.layout or {}, manual=marks)
     obj.status, obj.error = SiteObject.Status.PARSING, ""
-    obj.progress = {"step": "Офёрта белгиланганидек ўқилмоқда"}
+    obj.progress = {"step": _noop("Офёрта белгиланганидек ўқилмоқда")}
     obj.save(update_fields=["layout", "status", "error", "progress"])
     tasks.start(obj.pk)
 
@@ -618,7 +618,7 @@ def retry(obj: SiteObject):
     """Xatodan keyin qayta urinish: list tanlangan bo'lsa — o'qish, bo'lmasa — listlarni qaytadan ko'rish."""
     from . import tasks
     obj.status, obj.error = SiteObject.Status.PARSING, ""
-    obj.progress = {"step": "Қайта уринилмоқда"}
+    obj.progress = {"step": _noop("Қайта уринилмоқда")}
     obj.save(update_fields=["status", "error", "progress"])
     tasks.start(obj.pk)
 
@@ -639,12 +639,12 @@ def set_hide(obj: SiteObject, add: Optional[List[int]] = None, remove: Optional[
         a, b = min(add), max(add)
         last = obj.raw_rows.aggregate(m=Max("row"))["m"] or 0
         if a <= lay.get("header_end", 0):
-            raise TexnazorError("Сарлавҳа қаторларини йиғиб бўлмайди" if key == "hide" else "Сарлавҳа қатори сводка бўлолмайди")
+            raise TexnazorError(_("Сарлавҳа қаторларини йиғиб бўлмайди") if key == "hide" else _("Сарлавҳа қатори сводка бўлолмайди"))
         if b > last:
-            raise TexnazorError(f"Листда {last} та қатор бор")
+            raise TexnazorError(_("Листда {0} та қатор бор").format(last))
         done = ActQty.objects.filter(act__obj=obj, row__gte=a, row__lte=b).exclude(qty=0).values_list("row", flat=True).first()
         if done:
-            raise TexnazorError(f"{done}-қаторга далолатномада ҳажм ёзилган — аввал уни ўчиринг")
+            raise TexnazorError(_("{0}-қаторга далолатномада ҳажм ёзилган — аввал уни ўчиринг").format(done))
         cur.append([a, b])
     if remove:
         cur = [x for x in cur if not x[0] <= remove <= x[1]]
@@ -657,9 +657,9 @@ def set_hide_col(obj: SiteObject, col: int, on: bool) -> List[int]:
     """Keraksiz ustunni yig'ish / ochish — faqat ko'rinish (saytda va Excel hisobotda); fayl qayta o'qilmaydi."""
     lay = dict(obj.layout or {})
     if not 0 <= col < max(lay.get("width", 0), lay.get("block_end", 0) + 1):
-        raise TexnazorError("Устун нотўғри")
+        raise TexnazorError(_("Устун нотўғри"))
     if on and col == lay.get("qty"):
-        raise TexnazorError("Ҳажм устунини йиғиб бўлмайди — далолатнома шунга ёзилади")
+        raise TexnazorError(_("Ҳажм устунини йиғиб бўлмайди — далолатнома шунга ёзилади"))
     manual = dict(lay.get("manual") or {})
     cols = set(manual.get("hide_cols") or lay.get("hide_cols") or [])
     cols = sorted(cols | {col} if on else cols - {col})
@@ -675,7 +675,7 @@ def set_prop_res(obj: SiteObject, on: bool, key: str = "prop_res"):
     «prop_res» — dalolatnomada o'z ishi hajmiga mutanosib, ofyorta jami fayldagidek; «relink» — formulaning o'zi
     tuzatiladi (ofyorta jami ham o'zgaradi). Fayl qayta o'qiladi (hajmlar saqlanadi)."""
     if key not in ("prop_res", "relink"):
-        raise TexnazorError("Тузатиш тури нотўғри")
+        raise TexnazorError(_("Тузатиш тури нотўғри"))
     manual = dict((obj.layout or {}).get("manual") or {})
     manual.pop("prop_res", None)
     manual.pop("relink", None)

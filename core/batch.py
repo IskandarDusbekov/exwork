@@ -24,6 +24,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from .columns import detect_local_columns
 from .detect import cell_value, detect_layout, header_texts, override_layout
 from .normalize import norm_name, norm_unit
+from django.utils.translation import gettext_noop as _noop
 
 LOCAL = "local"
 RESOURCE = "resource"
@@ -31,8 +32,8 @@ UNKNOWN = "unknown"
 ROLES = (LOCAL, RESOURCE, UNKNOWN)
 
 TITLE_SCAN_ROWS = 14
-_PRICE_WORDS = ("цена", "стоимост", "базис", "нарх", "баҳо", "бахо", "narx", "baho")
-_QTY_WORDS = ("колич", "кол-во", "кол.", "объем", "объём", "потреб", "миқдор", "микдор")
+_PRICE_WORDS = ("цена", "стоимост", "базис", "нарх", "баҳо", "бахо", "narx", "baho")  # i18n: ok
+_QTY_WORDS = ("колич", "кол-во", "кол.", "объем", "объём", "потреб", "миқдор", "микдор")  # i18n: ok
 DOTTED_SHARE = 0.3  # 1-ustunda «1.1, 2.3» ulushi shundan ko'p — ish + resurslari (ЛРВ), resurs ro'yxati emas
 DOTTED_SCAN = 300
 
@@ -43,15 +44,15 @@ KIND_ACT = "act"
 KIND_SUMMARY = "summary"
 KIND_EMPTY = "empty"
 KIND_LABELS = {
-    KIND_CATALOG: "нарх каталоги",
-    KIND_PRICED: "нархланган смета",
-    KIND_ACT: "дефект акти",
-    KIND_SUMMARY: "сводка / умумий ҳисоб",
-    KIND_EMPTY: "бўш лист",
+    KIND_CATALOG: _noop("нарх каталоги"),
+    KIND_PRICED: _noop("нархланган смета"),
+    KIND_ACT: _noop("дефект акти"),
+    KIND_SUMMARY: _noop("сводка / умумий ҳисоб"),
+    KIND_EMPTY: _noop("бўш лист"),
 }
-_SUMMARY_WORDS = ("свод", "объектн", "рекомендуем", "стартов", "общий расчет", "общий расчёт", "якуний", "ҳаражат",
-                  "харажат", "обложк", "титул", "пояснительн", "расчет стоимости", "итоговый")
-_NUMBER_RE = re.compile(r"№\s*([0-9A-Za-zА-Яа-яЁё][\w\-./]*)")
+_SUMMARY_WORDS = ("свод", "объектн", "рекомендуем", "стартов", "общий расчет", "общий расчёт", "якуний", "ҳаражат",  # i18n: ok
+                  "харажат", "обложк", "титул", "пояснительн", "расчет стоимости", "итоговый")  # i18n: ok
+_NUMBER_RE = re.compile(r"№\s*([0-9A-Za-zА-Яа-яЁё][\w\-./]*)")  # i18n: ok
 MIN_OVERLAP = 0.3     # bundan kam bo'lsa — juft taklif qilinmaydi
 MIN_SCORE = 3.0       # umumiy ball (raqam zid bo'lsa jarima bilan)
 SHARED_OVERLAP = 0.5  # bitta resursni ikkinchi lokal bilan bo'lishish uchun
@@ -126,12 +127,12 @@ def _row_text(ws, r: int) -> str:
 
 
 def _low(s: str) -> str:
-    return re.sub(r"\s+", " ", s.lower().replace("ё", "е")).strip()
+    return re.sub(r"\s+", " ", s.lower().replace("ё", "е")).strip()  # i18n: ok
 
 
 def _clean(s: str) -> str:
     """«на , МОСТ НА ПК 75+34» -> «МОСТ НА ПК 75+34»."""
-    s = re.sub(r"^\s*(на|по)\b[\s,.:]*", "", s.strip(), flags=re.I)
+    s = re.sub(r"^\s*(на|по)\b[\s,.:]*", "", s.strip(), flags=re.I)  # i18n: ok
     return s.strip(" ,.;:")
 
 
@@ -142,7 +143,7 @@ def _labelled(head: Dict[int, str], low: Dict[int, str], prefix: str, label: str
             return _clean(head[r].split(":", 1)[1] if ":" in head[r] else "")
     for r, t in low.items():
         if t.startswith("(") and label in t:
-            prev = [p for p in range(r - 1, 0, -1) if head.get(p) and not low[p].startswith(("(", "форма"))]
+            prev = [p for p in range(r - 1, 0, -1) if head.get(p) and not low[p].startswith(("(", "форма"))]  # i18n: ok
             if prev:
                 return _clean(head[prev[0]])
     return ""
@@ -204,24 +205,24 @@ def inspect_sheet(ws, file: int = 0, file_name: str = "", role: Optional[str] = 
     if layout is None:
         if forced:
             return SheetInfo(file, file_name, ws.title, forced,
-                             "қўлда белгиланди — «Наименование» ва «Ед. изм.» устунлари топилмади, уларни кўрсатинг",
+                             _noop("қўлда белгиланди — «Наименование» ва «Ед. изм.» устунлари топилмади, уларни кўрсатинг"),
                              hidden=hidden, manual=bool(cols), headers=headers)
         if not head:
-            return _skipped(file, file_name, ws, KIND_EMPTY, "бўш лист", hidden, headers)
+            return _skipped(file, file_name, ws, KIND_EMPTY, _noop("бўш лист"), hidden, headers)
         if any(w in joined or w in _low(ws.title) for w in _SUMMARY_WORDS):
-            return _skipped(file, file_name, ws, KIND_SUMMARY, "сводка / умумий ҳисоб — смета эмас, нархланмайди", hidden, headers)
+            return _skipped(file, file_name, ws, KIND_SUMMARY, _noop("сводка / умумий ҳисоб — смета эмас, нархланмайди"), hidden, headers)
         return SheetInfo(file, file_name, ws.title, UNKNOWN,
-                         "«Наименование» ва «Ед. изм.» сарлавҳали жадвал топилмади", hidden=hidden, headers=headers)
+                         _noop("«Наименование» ва «Ед. изм.» сарлавҳали жадвал топилмади"), hidden=hidden, headers=headers)
 
     header = ""
     if layout.header_row:
         bottom = (layout.numbering_row - 1) if layout.numbering_row else layout.header_row
         header = " | ".join(header_texts(ws, layout.header_row, bottom).values())
-    form6 = "форма n 6" in joined or "ресурсный сметный расчет" in joined
+    form6 = "форма n 6" in joined or "ресурсный сметный расчет" in joined  # i18n: ok
     has_price = any(w in header for w in _PRICE_WORDS) or (form6 and layout.price_col is not None)
     if forced is None:
-        if "дефектн" in joined or "дефектн" in _low(ws.title):
-            return _skipped(file, file_name, ws, KIND_ACT, "дефект акти — ишлар рўйхати, ресурслар эмас", hidden, headers)
+        if "дефектн" in joined or "дефектн" in _low(ws.title):  # i18n: ok
+            return _skipped(file, file_name, ws, KIND_ACT, _noop("дефект акти — ишлар рўйхати, ресурслар эмас"), hidden, headers)
         if has_price:
             # миқдор устуни йўқ — нарх каталоги бўлиши мумкин. Лекин баъзи дастурларнинг RES'ида (ABC «vr_…»)
             # миқдор сарлавҳаси бошқача: лист ресурс сифатида ўқилади ва «каталог» белгиси билан қолади —
@@ -229,24 +230,24 @@ def inspect_sheet(ws, file: int = 0, file_name: str = "", role: Optional[str] = 
             catalog = not any(w in header for w in _QTY_WORDS)
             if not catalog and _dotted_share(ws, 1, layout.data_start, layout.data_stop) >= DOTTED_SHARE:
                 return _skipped(file, file_name, ws, KIND_PRICED,
-                                "нархланган локал смета (иш ва унинг ресурслари «1.1, 1.2…», нарх ёзилган) — тайёр. "
-                                "Қайта нархлаш керак бўлса — турини «Локал» қилинг", hidden, headers)
+                                _noop("нархланган локал смета (иш ва унинг ресурслари «1.1, 1.2…», нарх ёзилган) — тайёр. "
+                                "Қайта нархлаш керак бўлса — турини «Локал» қилинг"), hidden, headers)
     catalog = forced is None and has_price and not any(w in header for w in _QTY_WORDS)
     role = forced or (RESOURCE if has_price else LOCAL)
     found = {"header": layout.header_row}
     if role == RESOURCE:
-        reason = "нарх устуни бор («цена / стоимость»)"
-        if "форма n 6" in joined or "сметный расчет" in joined or "ресурсная смета" in joined:
-            reason += " · Форма 6а"
+        reason = _noop("нарх устуни бор («цена / стоимость»)")
+        if "форма n 6" in joined or "сметный расчет" in joined or "ресурсная смета" in joined:  # i18n: ok
+            reason += _noop(" · Форма 6а")
         if layout.price_col is None:
-            reason += " · нарх устуни топилмади — кўрсатинг"
+            reason += _noop(" · нарх устуни топилмади — кўрсатинг")
         name_col, unit_col, price_col = layout.name_col, layout.unit_col, layout.price_col
         start, stop = layout.data_start, layout.data_stop
         found["price"] = price_col
     else:
-        reason = "ресурслар рўйхати, нарх устуни йўқ"
-        if "форма n 5" in joined or "ведомост" in joined:
-            reason += " · Форма 5"
+        reason = _noop("ресурслар рўйхати, нарх устуни йўқ")
+        if "форма n 5" in joined or "ведомост" in joined:  # i18n: ok
+            reason += _noop(" · Форма 5")
         loc = detect_local_columns(ws, cols)
         if loc is not None:
             name_col, unit_col, start, stop = loc.name, loc.unit, loc.data_start, loc.data_stop
@@ -254,18 +255,18 @@ def inspect_sheet(ws, file: int = 0, file_name: str = "", role: Optional[str] = 
         else:
             loc = override_layout(ws, detect_layout(ws) or layout, cols)
             name_col, unit_col, start, stop = loc.name_col, loc.unit_col, loc.data_start, loc.data_stop
-            reason += " · миқдор устуни топилмади — кўрсатинг"
+            reason += _noop(" · миқдор устуни топилмади — кўрсатинг")
         price_col = None
     found.update(name=name_col, unit=unit_col, start=start, end=stop - 1)
     if forced:
-        reason = "қўлда белгиланди · " + reason
+        reason = _noop("қўлда белгиланди · ") + reason
     if cols:
-        reason += " · устунлар қўлда кўрсатилган"
+        reason += _noop(" · устунлар қўлда кўрсатилган")
     if hidden:
-        reason += " · яширин лист"
+        reason += _noop(" · яширин лист")
 
     title_row = next((r for r, t in low.items()
-                      if "ведомост" in t or "сметный расчет" in t or "ресурсная смета" in t), None)
+                      if "ведомост" in t or "сметный расчет" in t or "ресурсная смета" in t), None)  # i18n: ok
     title = head.get(title_row, "") if title_row else ""
     number = ""
     if title:
@@ -286,12 +287,12 @@ def inspect_sheet(ws, file: int = 0, file_name: str = "", role: Optional[str] = 
         rows_for_sig.append((name, unit) + tuple(str(x) for x in extra))
     signature = hashlib.sha1(repr((role, rows_for_sig)).encode("utf-8")).hexdigest()[:16]
     if catalog:
-        role, reason = UNKNOWN, "нарх каталоги — миқдор устуни йўқ, смета эмас (жуфтлашга олинмайди)"
+        role, reason = UNKNOWN, _noop("нарх каталоги — миқдор устуни йўқ, смета эмас (жуфтлашга олинмайди)")
 
     return SheetInfo(
         file, file_name, ws.title, role, reason, title=title, number=number, kind=KIND_CATALOG if catalog else "",
-        stroyka=_labelled(head, low, "наименование стройки", "наименование стройки"),
-        obj=_labelled(head, low, "наименование объекта", "наименование объекта"),
+        stroyka=_labelled(head, low, "наименование стройки", "наименование стройки"),  # i18n: ok
+        obj=_labelled(head, low, "наименование объекта", "наименование объекта"),  # i18n: ok
         part=part, rows=len(rows_for_sig), signature=signature, hidden=hidden, names=frozenset(names),
         columns=found, manual=bool(cols), headers=headers,
     )
@@ -390,10 +391,10 @@ def _recalled(ws, file: int, file_name: str, memo: dict, anchor: int) -> SheetIn
     role = memo.get("role") or None
     if role == UNKNOWN:
         info = inspect_sheet(ws, file, file_name)
-        info.role, info.reason = UNKNOWN, "ўтказилди — аввалги созламангиз бўйича"
+        info.role, info.reason = UNKNOWN, _noop("ўтказилди — аввалги созламангиз бўйича")
         return info
     info = inspect_sheet(ws, file, file_name, role, cols or None)
-    info.reason = info.reason.replace("қўлда белгиланди · ", "") + " · аввалги созламангиз қўлланди"
+    info.reason = info.reason.replace(_noop("қўлда белгиланди · "), "") + _noop(" · аввалги созламангиз қўлланди")
     info.recall = cols
     info.manual = False  # смета­чи бу листда ўзи кўрсатмаган — «қўлда» эмас, «эслаб қолинган»
     return info
@@ -425,22 +426,22 @@ def _same(a: str, b: str) -> bool:
 def pair_score(loc: SheetInfo, res: SheetInfo) -> Tuple[float, float, List[str]]:
     overlap = len(loc.names & res.names) / max(1, len(loc.names))
     score = overlap * 10
-    reasons = [f"ресурслар мослиги {overlap:.0%}"]
+    reasons = [_noop("ресурслар мослиги {0:.0%}").format(overlap)]
     if loc.number and loc.number == res.number:
         score += 2
-        reasons.append(f"смета № {loc.number}")
+        reasons.append(_noop("смета № {0}").format(loc.number))
     elif loc.number and res.number:
         score -= 4  # иккаласида ҳам рақам бор ва улар бошқа — кучли қарши белги
-        reasons.append(f"смета рақами бошқа: № {loc.number} / № {res.number}")
+        reasons.append(_noop("смета рақами бошқа: № {0} / № {1}").format(loc.number, res.number))
     if _prefix(loc.sheet) and _prefix(loc.sheet) == _prefix(res.sheet):
         score += 3
-        reasons.append(f"лист номи «{_prefix(loc.sheet)}…»")
+        reasons.append(_noop("лист номи «{0}…»").format(_prefix(loc.sheet)))
     if _same(loc.obj, res.obj):
         score += 1.5
-        reasons.append("объект номи бир хил")
+        reasons.append(_noop("объект номи бир хил"))
     if _same(loc.part, res.part):
         score += 1
-        reasons.append("қисм номи бир хил")
+        reasons.append(_noop("қисм номи бир хил"))
     if loc.file == res.file:
         score += 0.3
     if res.hidden and not loc.hidden:
@@ -478,7 +479,7 @@ def plan_pairs(infos: List[SheetInfo]) -> Tuple[List[Pair], List[SheetInfo]]:
                 # ресурс номлари кам мос (смета­чи RES'да номни ўзгартирган: «инвертор 4 квт» → «20 квт»), лекин
                 # тузилма аниқ кўрсатади: битта файл, лист номи ва смета рақами бир хил — номга боғланмаймиз
                 cands.append((score, li, res, overlap,
-                              reasons + ["номлар кам мос — файл, лист ва смета рақами бўйича жуфтланди, текширинг"],
+                              reasons + [_noop("номлар кам мос — файл, лист ва смета рақами бўйича жуфтланди, текширинг")],
                               conflict))
     cands.sort(key=lambda c: -c[0])
 
@@ -493,11 +494,11 @@ def plan_pairs(infos: List[SheetInfo]) -> Tuple[List[Pair], List[SheetInfo]]:
     for score, li, res, overlap, reasons, conflict in cands:
         if li not in chosen and overlap >= SHARED_OVERLAP and not conflict:
             chosen[li] = Pair(locals_[li].key, res.key, round(score, 2), round(overlap, 4),
-                              reasons + ["бу ресурс бошқа локал билан умумий"], shared=True)
+                              reasons + [_noop("бу ресурс бошқа локал билан умумий")], shared=True)
 
     pairs = []
     for li, loc in enumerate(locals_):
-        p = chosen.get(li) or Pair(loc.key, None, reasons=["мос ресурс листи топилмади"])
+        p = chosen.get(li) or Pair(loc.key, None, reasons=[_noop("мос ресурс листи топилмади")])
         alone = sum(1 for x in locals_ if x.file == loc.file) == 1
         p.label = pair_label(loc, re.sub(r"\.(xlsx|xlsm|xls)$", "", loc.file_name, flags=re.I).strip() if alone else "")
         p.options = pair_options(loc, resources)
@@ -534,8 +535,7 @@ def promote_catalogs(infos: List[SheetInfo], roles: Optional[Dict[str, str]] = N
         best = max((len(loc.names & info.names) / max(1, len(loc.names)) for loc in locals_), default=0.0)
         if best >= PROMOTE_OVERLAP:
             info.role, info.kind = RESOURCE, ""
-            info.reason = (f"нарх устуни бор, миқдор сарлавҳаси топилмади — лекин локал ресурсларининг {best:.0%} "
-                           "шу ерда, ресурс деб олинди")
+            info.reason = (_noop("нарх устуни бор, миқдор сарлавҳаси топилмади — лекин локал ресурсларининг {0:.0%} шу ерда, ресурс деб олинди").format(best))
     return infos
 
 
@@ -545,5 +545,5 @@ def apply_roles(infos: List[SheetInfo], roles: Dict[str, str]) -> List[SheetInfo
         role = roles.get(info.key)
         if role in ROLES and role != info.role:
             info.role = role
-            info.reason = "қўлда белгиланди"
+            info.reason = _noop("қўлда белгиланди")
     return infos

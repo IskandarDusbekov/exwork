@@ -1,6 +1,6 @@
 {% extends "jobs/_public.html" %}
 {% load seo %}
-{% block seo %}{% url 'terms' as here %}{% seo_head title="Фойдаланиш шартлари — mhisobot" canonical=here description=description %}{% endblock %}
+{% block seo %}{% url 'terms' as here %}{% seo_head title=_("Фойдаланиш шартлари — mhisobot") canonical=here description=description %}{% endblock %}
 {% block css %}{% include "jobs/_blog_css.html" %}
   .toc { display: grid; gap: 2px; }
   .toc a { padding: 7px 0 7px 12px; border-left: 1px solid var(--line-2); font-size: 14px; color: var(--ink-2); text-decoration: none; }

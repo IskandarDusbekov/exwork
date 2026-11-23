@@ -1,7 +1,7 @@
 {% extends "jobs/_public.html" %}
 {% load narx seo %}
 {% comment %} Блог (/blog/): фақат мақолалар — бўлим тугмалари (?c=слаг) ва карточкалар. Видео қўлланма — /qollanma/. {% endcomment %}
-{% block seo %}{% url 'blog' as here %}{% seo_head title="Блог: мақолалар — mhisobot" canonical=here description=description %}{% endblock %}
+{% block seo %}{% url 'blog' as here %}{% seo_head title=_("Блог: мақолалар — mhisobot") canonical=here description=description %}{% endblock %}
 {% block css %}{% include "jobs/_blog_css.html" %}{% endblock %}
 {% block content %}
 <header class="ghead">

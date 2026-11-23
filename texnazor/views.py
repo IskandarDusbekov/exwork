@@ -25,6 +25,8 @@ from jobs.templatetags.narx import readable
 from panel import conf
 from panel.audit import log as _log
 from panel.models import Event
+from web.i18n import ui, ui_progress
+from django.utils.translation import gettext as _
 
 SEARCH_LIMIT = 200
 
@@ -45,7 +47,7 @@ def _period(obj, request, data=None) -> Period:
         return get_object_or_404(qs, pk=pid)
     p = qs.filter(closed=False).order_by("-year", "-month").first() or qs.order_by("-year", "-month").first()
     if p is None:
-        raise Http404("Ой йўқ")
+        raise Http404(_("Ой йўқ"))
     return p
 
 
@@ -79,16 +81,16 @@ def create(request):
             if on and request.POST.get("source") == "my":  # «Менинг офёрталарим» dan — bloklar tuzilishidan aniq
                 doc = next((d for d in mine if str(d.pk) == request.POST.get("my")), None)
                 if doc is None:
-                    raise services.TexnazorError("Офёртани танланг")
+                    raise services.TexnazorError(_("Офёртани танланг"))
                 obj = services.create_from_my(request.user, doc, **fields)
             else:
                 if not f:
-                    raise services.TexnazorError("Офёрта файлини танланг")
+                    raise services.TexnazorError(_("Офёрта файлини танланг"))
                 obj = services.create_object(request.user, f, **fields)
             tasks.start(obj.pk)
             _log(request, Event.Kind.UPLOAD, work=obj, work_kind="texnazor",
-                 detail=f"{obj.name[:200]}: техназор объекти (" + ("«Менинг офёрталарим» дан" if obj.made_from_id
-                                                                   else f"файл: {obj.source_name}") + ")")
+                 detail=f"{obj.name[:200]}: техназор объекти (" + ("«Менинг офёрталарим» дан" if obj.made_from_id  # i18n: ok
+                                                                   else f"файл: {obj.source_name}") + ")")  # i18n: ok
             return redirect("texnazor:object", obj_id=obj.pk)
         except services.TexnazorError as e:
             error = str(e)
@@ -102,7 +104,7 @@ def state(request, obj_id):
     """O'qish jarayoni (sahifa so'rab turadi)."""
     o = _obj(request, obj_id)
     _kick(o)
-    return JsonResponse({"status": o.status, "error": o.error, "progress": o.progress})
+    return JsonResponse({"status": o.status, "error": ui(o.error), "progress": ui_progress(o.progress)})
 
 
 def _kick(o):
@@ -305,9 +307,9 @@ def _month_blocks(periods, period, show_all: bool, fit: int = MONTHS_SHOWN):
     for g in groups:
         sel = period in g and len(g) == 1
         if len(g) == 1:
-            heads.append((g[0].title, "ёпилган" if g[0].closed else "очиқ", sel))
+            heads.append((g[0].title, _("ёпилган") if g[0].closed else _("очиқ"), sel))
         else:
-            name = "Олдинги ойлар" if g[-1].key < period.key else "Кейинги ойлар"
+            name = _("Олдинги ойлар") if g[-1].key < period.key else _("Кейинги ойлар")
             heads.append((name, f"{g[0].title} — {g[-1].title}" if len(g) > 1 else g[0].title, False))
         blocks.append(([p.pk for p in g], sel))
     return heads, blocks
@@ -329,7 +331,7 @@ def search(request, obj_id):
     q = request.GET.get("q", "").strip()
     ctx = {"o": o, "period": period, "search": q}
     if len(q) < 2:
-        return render(request, "texnazor/_panel.html", {**ctx, "rows": [], "hint": "Камида 2 та ҳарф ёзинг"})
+        return render(request, "texnazor/_panel.html", {**ctx, "rows": [], "hint": _("Камида 2 та ҳарф ёзинг")})
     cond = Q(search__contains=services.search_key(q)) | Q(num=q)
     if q.isdigit():  # Excel qatori bo'yicha ham (resurs qatori bo'lsa — uning ishi)
         hit = o.items.filter(excel_row=int(q)).values_list("pk", "parent_id").first()
@@ -364,12 +366,12 @@ def set_done(request, obj_id):
     except services.TexnazorError as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
     except (ValueError, KeyError, TypeError):
-        return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров")}, status=400)
     row = services.item_rows(period, Item.objects.filter(pk=item.pk).prefetch_related("resources"))[0]
     extra = {}
     if data.get("view") == "months":  # «Ҳамма ойлар»da yozildi — shu ko'rinishdagi qator va oxiridagi svodka
         periods = list(o.periods.all())
-        _, blocks = _month_blocks(periods, period, bool(data.get("all")), _int(data.get("fit")) or MONTHS_SHOWN)
+        _x, blocks = _month_blocks(periods, period, bool(data.get("all")), _int(data.get("fit")) or MONTHS_SHOWN)
         vals = services.done_by_period(o).get(item.pk, {})
         html = tn.item_row_months(row, blocks, vals, period)
         extra["svodka"] = _months_svodka(o, blocks, 5 + 4 + 2 * (len(blocks) + 1))
@@ -388,12 +390,12 @@ def correct(request, obj_id, item_id):
         data = json.loads(request.body or b"{}")
         period = o.periods.filter(pk=data.get("period") or 0).first()
         c = services.correct_item(request.user, item, period, data.get("value"), data.get("basis"), data.get("note", ""))
-        audit(request, o, f"офёртага тузатиш: {item.num} {item.name[:60]} — {services.fmt_qty(c.old_qty)} → "
+        audit(request, o, f"офёртага тузатиш: {item.num} {item.name[:60]} — {services.fmt_qty(c.old_qty)} → "  # i18n: ok
                           f"{services.fmt_qty(c.new_qty)} {item.unit} ({c.basis[:80]})")
     except services.TexnazorError as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
     except (ValueError, TypeError):
-        return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров")}, status=400)
     return JsonResponse({"ok": True, "id": c.pk})
 
 
@@ -406,10 +408,10 @@ def set_paid(request, obj_id, period_id):
     try:
         p.paid = float(text) if text else None
     except ValueError:
-        messages.error(request, f"Тўланган сумма нотўғри: «{request.POST.get('paid')}»")
+        messages.error(request, _("Тўланган сумма нотўғри: «{0}»").format(request.POST.get('paid')))
         return _to(o, p)
     p.save(update_fields=["paid"])
-    audit(request, o, f"{p.title}: тўланган сумма " + (f"{p.paid:,.2f}".replace(",", " ") if p.paid is not None else "ўчирилди"))
+    audit(request, o, f"{p.title}: тўланган сумма " + (f"{p.paid:,.2f}".replace(",", " ") if p.paid is not None else "ўчирилди"))  # i18n: ok
     return _to(o, p)
 
 
@@ -422,15 +424,15 @@ def fill_items(request, obj_id):
         period = _period(o, request, data)
         ids = [int(x) for x in data.get("items") or []][:5000]
         if not ids:
-            raise services.TexnazorError("Аввал ишларни белгиланг")
+            raise services.TexnazorError(_("Аввал ишларни белгиланг"))
         items = list(o.items.filter(pk__in=ids, kind__in=services.ITEM_KINDS))
         pct = float(str(data.get("pct", "100")).replace(",", ".").replace("%", ""))
         n = services.fill_items(period, items, pct)
-        audit(request, o, f"{period.title}: {len(items)} та иш жами {pct:g}% бажарилди деб белгиланди")
+        audit(request, o, f"{period.title}: {len(items)} та иш жами {pct:g}% бажарилди деб белгиланди")  # i18n: ok
     except services.TexnazorError as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
     except (ValueError, TypeError):
-        return JsonResponse({"ok": False, "error": "фоиз нотўғри"}, status=400)
+        return JsonResponse({"ok": False, "error": _("фоиз нотўғри")}, status=400)
     stats = services.section_stats(period)
     secs = [services.section_pct(stats.get(sid) or {"contract": 0.0, "before": 0.0, "this": 0.0}) | {"id": sid}
             for sid in {it.section_id for it in items if it.section_id}]
@@ -446,11 +448,11 @@ def fill_section(request, obj_id, section_id):
         period = _period(o, request, data)
         pct = float(str(data.get("pct", "100")).replace(",", "."))
         n = services.fill_section(period, section, pct)
-        audit(request, o, f"{period.title}: «{section.title[:80]}» бўлими {pct:g}% бажарилди деб белгиланди")
+        audit(request, o, f"{period.title}: «{section.title[:80]}» бўлими {pct:g}% бажарилди деб белгиланди")  # i18n: ok
     except services.TexnazorError as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
     except (ValueError, TypeError):
-        return JsonResponse({"ok": False, "error": "фоиз нотўғри"}, status=400)
+        return JsonResponse({"ok": False, "error": _("фоиз нотўғри")}, status=400)
     return JsonResponse({"ok": True, "changed": n, "section": _section_stats(period, section),
                          "summary": _summary(period)})
 
@@ -465,7 +467,7 @@ def f2_download(request, obj_id, period_id):
     o = _obj(request, obj_id)
     p = get_object_or_404(Period, pk=period_id, obj=o)
     resp = HttpResponse(f2.build(p), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    audit(request, o, f"{p.title}: Ф-2 юклаб олинди")
+    audit(request, o, f"{p.title}: Ф-2 юклаб олинди")  # i18n: ok
     resp["Content-Disposition"] = content_disposition_header(True, f2.file_name(p))
     return resp
 
@@ -475,7 +477,7 @@ def f3_download(request, obj_id, period_id):
     o = _obj(request, obj_id)
     p = get_object_or_404(Period, pk=period_id, obj=o)
     resp = HttpResponse(f3.build(p), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    audit(request, o, f"{p.title}: Ф-3 юклаб олинди")
+    audit(request, o, f"{p.title}: Ф-3 юклаб олинди")  # i18n: ok
     resp["Content-Disposition"] = content_disposition_header(True, f3.file_name(p))
     return resp
 
@@ -499,19 +501,19 @@ def f3_period(request, obj_id, period_id):
     num = request.POST.get("num", "").strip()
     if num:
         if not num.isdigit():
-            messages.error(request, f"Ф-3 рақами нотўғри: «{num}»")
+            messages.error(request, _("Ф-3 рақами нотўғри: «{0}»").format(num))
             return _f3_back(o, p)
         m["num"] = int(num)
     for k in ("date", "start"):
         v = request.POST.get(k, "").strip()
         if v and services._date(v) is None:
-            messages.error(request, f"Сана нотўғри: «{v}»")
+            messages.error(request, _("Сана нотўғри: «{0}»").format(v))
             return _f3_back(o, p)
         if v:
             m[k] = v
     p.f3 = m
     p.save(update_fields=["f3"])
-    audit(request, o, f"{p.title}: Ф-3 рақами / санаси сақланди")
+    audit(request, o, f"{p.title}: Ф-3 рақами / санаси сақланди")  # i18n: ok
     return _f3_back(o, p)
 
 
@@ -526,10 +528,10 @@ def f3_settings(request, obj_id):
     try:
         plan = _money(P.get("year_plan"))
     except ValueError:
-        messages.error(request, f"Жорий йилга сумма нотўғри: «{P.get('year_plan')}»")
+        messages.error(request, _("Жорий йилга сумма нотўғри: «{0}»").format(P.get('year_plan')))
         return back
     if P.get("contract_date") and services._date(P["contract_date"]) is None:
-        messages.error(request, f"Шартнома санаси нотўғри: «{P['contract_date']}»")
+        messages.error(request, _("Шартнома санаси нотўғри: «{0}»").format(P['contract_date']))
         return back
     if P.get("name", "").strip():
         o.name = P["name"].strip()[:300]
@@ -543,8 +545,8 @@ def f3_settings(request, obj_id):
         d = services._date(s["contract_date"])
         o.contract = " ".join(x for x in (f"№ {s['contract_no']}" if s["contract_no"] else "", f"{d:%d.%m.%Y}" if d else "") if x)
     o.save(update_fields=["name", "address", "customer", "contractor", "contract", "f3"])
-    messages.success(request, "Объект маълумотлари сақланди")
-    audit(request, o, "объект ва пудратчи маълумотлари сақланди")
+    messages.success(request, _("Объект маълумотлари сақланди"))
+    audit(request, o, "объект ва пудратчи маълумотлари сақланди")  # i18n: ok
     return back
 
 
@@ -556,7 +558,7 @@ def add_period(request, obj_id):
     except (services.TexnazorError, ValueError) as e:
         messages.error(request, str(e))
         return _to(o)
-    audit(request, o, f"{p.title} ойи қўшилди")
+    audit(request, o, f"{p.title} ойи қўшилди")  # i18n: ok
     return _to(o, p)
 
 
@@ -566,7 +568,7 @@ def close_period(request, obj_id, period_id):
     p = get_object_or_404(Period, pk=period_id, obj=o)
     p.closed = request.POST.get("closed") == "1"
     p.save(update_fields=["closed"])
-    audit(request, o, f"{p.title} " + ("ёпилди" if p.closed else "қайта очилди"))
+    audit(request, o, f"{p.title} " + ("ёпилди" if p.closed else "қайта очилди"))  # i18n: ok
     return _to(o, p)
 
 
@@ -575,9 +577,9 @@ def delete(request, obj_id):
     """Obyektni o'chirish. Tayyor obyekt — ikkinchi bosqichda «ЎЧИРИШ» deb yozilgandagina (o'qilmagan — darhol)."""
     o = _obj(request, obj_id)
     if o.status == SiteObject.Status.READY and not services._confirmed(request.POST.get("confirm"), services.DELETE_WORD):
-        messages.error(request, f"Объект ўчирилмади: тасдиқлаш учун «{services.DELETE_WORD}» деб ёзинг")
+        messages.error(request, _("Объект ўчирилмади: тасдиқлаш учун «{0}» деб ёзинг").format(services.DELETE_WORD))
         return _to(o)
-    audit(request, o, "объект ўчирилди")
+    audit(request, o, "объект ўчирилди")  # i18n: ok
     services.delete_object(o)
     return redirect("texnazor:index")
 
@@ -592,7 +594,7 @@ def delete_period(request, obj_id, period_id):
     except services.TexnazorError as e:
         messages.error(request, str(e))
         return _to(o, p)
-    audit(request, o, f"{title} ойи ўчирилди")
+    audit(request, o, f"{title} ойи ўчирилди")  # i18n: ok
     return _to(o)
 
 
@@ -602,9 +604,9 @@ def revert_correction(request, obj_id, correction_id):
     c = get_object_or_404(Correction, pk=correction_id, obj=o)
     try:
         services.revert_correction(request.user, c, json.loads(request.body or b"{}").get("confirm"))
-        audit(request, o, f"тузатиш бекор қилинди: {c.item.num} {c.item.name[:60]}")
+        audit(request, o, f"тузатиш бекор қилинди: {c.item.num} {c.item.name[:60]}")  # i18n: ok
     except services.TexnazorError as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=400)
     except (ValueError, TypeError):
-        return JsonResponse({"ok": False, "error": "нотўғри сўров"}, status=400)
+        return JsonResponse({"ok": False, "error": _("нотўғри сўров")}, status=400)
     return JsonResponse({"ok": True, "item": c.item_id, "section": c.item.section_id})

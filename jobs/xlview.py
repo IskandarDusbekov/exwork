@@ -86,10 +86,10 @@ def _number(v, fmt: str) -> str:
 
     m = re.search(r"[#0?][#0?,. ]*", code)
     if m is None:
-        if re.search(r"general|основной", code, re.I) or not code.strip():
+        if re.search(r"general|основной", code, re.I) or not code.strip():  # i18n: ok
             text = str(int(v)) if float(v).is_integer() and abs(v) < 1e15 else f"{v:.10g}"
             text = text.replace(".", ",").replace("e+", "E+").replace("e-", "E-")
-            return lit(re.sub(r"general|основной", lambda _m: text, code, flags=re.I)) if code.strip() else text
+            return lit(re.sub(r"general|основной", lambda _m: text, code, flags=re.I)) if code.strip() else text  # i18n: ok
         return lit(code)
     prefix, spec, suffix = code[:m.start()], m.group(0).rstrip(" ,"), code[m.end():]
     if "%" in prefix + suffix:
@@ -114,7 +114,7 @@ def display(v, fmt: str = "General") -> str:
     if v is None:
         return ""
     if isinstance(v, bool):
-        return "ИСТИНА" if v else "ЛОЖЬ"
+        return "ИСТИНА" if v else "ЛОЖЬ"  # i18n: ok
     if isinstance(v, (int, float)):
         return _number(v, fmt)
     if isinstance(v, datetime.datetime):

@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from . import xlview
 from .models import Job
+from django.utils.translation import gettext as _
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ def sheet_data(job: Job, kind: str, sheet=None) -> dict:
     red, yellow, fallback, default = frozenset(), frozenset(), None, None
     if kind == "out":
         if job.status != Job.Status.DONE or not job.output_path:
-            raise NotAvailable("Натижа ҳали тайёр эмас")
+            raise NotAvailable(_("Натижа ҳали тайёр эмас"))
         path, name = job.abs(job.output_path), job.download_name
         # G даги нархланмаганлар Excel'да шартли формат билан қизил — шу ерда ҳам
         red = frozenset(f"G{r['row']}" for r in res.get("rows", [])
@@ -40,13 +41,13 @@ def sheet_data(job: Job, kind: str, sheet=None) -> dict:
     elif kind == "local":
         path, name, default = job.abs(job.local_path), job.local_name, job.local_sheet
     elif kind == "res" and not job.res_path:
-        raise NotAvailable("Бу смета RES'сиз — ресурс базасидан нархланган")
+        raise NotAvailable(_("Бу смета RES'сиз — ресурс базасидан нархланган"))
     elif kind == "res":
         path, name, default = job.abs(job.res_path), job.res_name, job.res_sheet
     else:
-        raise NotAvailable("Нотўғри файл")
+        raise NotAvailable(_("Нотўғри файл"))
     if not path.is_file():
-        raise NotAvailable("Файл топилмади")
+        raise NotAvailable(_("Файл топилмади"))
     key = f"{kind}|{sheet}|{default}|{','.join(sorted(red))}|{','.join(sorted(yellow))}"
     data = xlview.cached(job.dir / "preview", key, path, lambda: xlview.render(
         path, sheet, default, fallback=fallback, red=red, yellow=yellow))
@@ -74,7 +75,7 @@ def warm(job: Job):
     except NotAvailable:
         pass
     except Exception:  # noqa: BLE001 — ko'rinish buzilsa ham worker ishlayversin
-        log.exception("кўринишни тайёрлаб бўлмади: %s", job.pk)
+        log.exception("кўринишни тайёрлаб бўлмади: %s", job.pk)  # i18n: ok
     Job.objects.filter(pk=job.pk).update(preview_ready=True)
 
 

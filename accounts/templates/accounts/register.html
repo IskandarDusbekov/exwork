@@ -21,7 +21,7 @@
     {% include "accounts/_field.html" with field=form.last_name %}
   </div>
   {% include "accounts/_field.html" with field=form.email %}
-  {% include "accounts/_field.html" with field=form.password1 hint="Камида 10 белги; фақат рақам ва оддий сўз бўлмасин." %}
+  {% include "accounts/_field.html" with field=form.password1 hint=_("Камида 10 белги; фақат рақам ва оддий сўз бўлмасин.") %}
   {% include "accounts/_field.html" with field=form.password2 %}
   {% if form.terms.mode == "checkbox" %}
   <div class="f agree{% if form.agree.errors %} has-err{% endif %}">

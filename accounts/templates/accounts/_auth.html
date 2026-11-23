@@ -1,5 +1,5 @@
-{% load static seo %}<!doctype html>
-<html lang="uz">
+{% load static seo narx %}<!doctype html>
+<html lang="{{ LANG_HTML|default:'uz-Cyrl' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -91,12 +91,13 @@
     .auth-cap dl div + div { padding-left: 16px; border-left: 1px solid rgba(255, 255, 255, .14); }
     .auth-cap dt { font: 500 10.5px var(--fm); letter-spacing: .06em; text-transform: uppercase; color: #8d98a8; }
     .auth-cap dd { margin-top: 6px; font: 600 15px var(--fm); color: #fff; }
+    .auth-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   </style>
 </head>
-<body>
+<body>{% icon_sprite %}
 <div class="auth">
   <div class="auth-main">
-    <header>{% include "jobs/_brand.html" %}</header>
+    <header class="auth-head">{% include "jobs/_brand.html" %}{% include "jobs/_lang.html" %}</header>
     <main class="auth-body">
       <div class="auth-card">
         {% block content %}{% endblock %}
@@ -120,6 +121,7 @@
     </div>
   </aside>
 </div>
+<script src="{% url 'jsi18n' %}"></script>
 <script src="{% static 'js/build.js' %}"></script>
 <script src="{% static 'js/password.js' %}"></script>
 <script>

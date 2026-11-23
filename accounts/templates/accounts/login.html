@@ -11,7 +11,7 @@
   {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
   {% include "accounts/_field.html" with field=form.email %}
   {% url 'reset_request' as reset_url %}
-  {% include "accounts/_field.html" with field=form.password extra_url=reset_url extra_text="Паролни унутдингизми?" %}
+  {% include "accounts/_field.html" with field=form.password extra_url=reset_url extra_text=_("Паролни унутдингизми?") %}
   <button type="submit" class="btn btn-p">Кириш</button>
 </form>
 {% if signup_open %}

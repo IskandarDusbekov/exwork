@@ -7,6 +7,8 @@
    Папка саҳифасида фақат шу қисм янгиланади (window.narxProjectRefresh), бошқа саҳифаларда — саҳифа янгиланади. */
 (function () {
   if (window.narxFileOps) return;
+  var gettext = window.gettext || function (s) { return s; };  // таржима (/jsi18n/)
+  function fmt(s, args) { var i = 0; return s.replace(/%s/g, function () { return args[i++]; }); }
   function token() {
     var m = document.querySelector('meta[name="csrf-token"]');
     if (m) return m.content;
@@ -18,7 +20,7 @@
     return Promise.resolve(window.confirm((opts && opts.title ? opts.title + "\n\n" : "") + text));
   }
   function fail(msg) {
-    if (window.narxDialog) window.narxDialog.alert(msg, {title: "Бажарилмади", danger: true});
+    if (window.narxDialog) window.narxDialog.alert(msg, {title: gettext("Бажарилмади"), danger: true});
     else window.alert(msg);
   }
   // оддий форма (reprice — смета саҳифасига ўтади, у ерда ўзи кўрсатади)
@@ -57,19 +59,19 @@
     }
     xhr.onload = function () {
       var d = {};
-      try { d = JSON.parse(xhr.responseText); } catch (e) { d = {error: "Сервер хатоси (" + xhr.status + ")"}; }
-      if (!d.ok) return failed(d.error || "Хато");
+      try { d = JSON.parse(xhr.responseText); } catch (e) { d = {error: fmt(gettext("Сервер хатоси (%s)"), [xhr.status])}; }
+      if (!d.ok) return failed(d.error || gettext("Хато"));
       if (window.narxProjectRefresh) {
         if (np) np.step(progress.steps.length - 1);
         window.narxProjectRefresh().then(function () {
-          if (np) np.done(d.message || "Тайёр");
+          if (np) np.done(d.message || gettext("Тайёр"));
         }, function () { location.reload(); });
       } else {
-        if (np) np.done(d.message || "Тайёр");
+        if (np) np.done(d.message || gettext("Тайёр"));
         location.reload();
       }
     };
-    xhr.onerror = function () { failed("Интернет узилди — қайта уриниб кўринг"); };
+    xhr.onerror = function () { failed(gettext("Интернет узилди — қайта уриниб кўринг")); };
     xhr.send(fd);
   }
   function pick(then) {
@@ -79,28 +81,27 @@
     document.body.appendChild(inp);
     inp.click();
   }
-  var REPLACE_STEPS = {title: "Файл алмаштирилмоқда", steps: ["Файл юкланмоқда", "Листлар ўқилмоқда", "Сметалар янгиланмоқда", "Саҳифа янгиланмоқда"]};
+  var REPLACE_STEPS = {title: gettext("Файл алмаштирилмоқда"), steps: [gettext("Файл юкланмоқда"), gettext("Листлар ўқилмоқда"), gettext("Сметалар янгиланмоқда"), gettext("Саҳифа янгиланмоқда")]};
   var ops = {
     replace: function (b) {
       pick(function (file) { ops.replaceFile(b.dataset.url, b.dataset.name, file); });
     },
     // батч саҳифаси ҳам шуни ишлатади (objFile.replace)
     replaceFile: function (url, name, file, note) {
-      ask(note || "Фақат шу файл ўзгаради. Нархланган бўлса — фақат шу файлга боғлиқ сметалар қайта ҳисобланади, " +
-          "қўлда ўзгаришлар сақланади. Кейин «Ортга» билан қайтариш мумкин.",
-          {title: "«" + name + "» ўрнига «" + file.name + "» юклансинми?", ok: "Ҳа, юклаш", cancel: "Бекор қилиш"}).then(function (yes) {
+      ask(note || gettext("Фақат шу файл ўзгаради. Нархланган бўлса — фақат шу файлга боғлиқ сметалар қайта ҳисобланади, қўлда ўзгаришлар сақланади. Кейин «Ортга» билан қайтариш мумкин."),
+          {title: fmt(gettext("«%s» ўрнига «%s» юклансинми?"), [name, file.name]), ok: gettext("Ҳа, юклаш"), cancel: gettext("Бекор қилиш")}).then(function (yes) {
         if (yes) send(url, file, REPLACE_STEPS);
       });
     },
     undo: function (b) {
-      ask("Охирги алмаштириш бекор қилинади, олдинги нусха қайтади. Боғлиқ сметалар қайта ҳисобланади.",
-          {title: "«" + b.dataset.name + "» — олдинги нусха қайтарилсинми?", ok: "Ҳа, қайтариш", cancel: "Йўқ"}).then(function (yes) {
-        if (yes) send(b.dataset.url, null, {title: "Олдинги нусха қайтарилмоқда", steps: ["Файл тикланмоқда", "Сметалар янгиланмоқда", "Саҳифа янгиланмоқда"]});
+      ask(gettext("Охирги алмаштириш бекор қилинади, олдинги нусха қайтади. Боғлиқ сметалар қайта ҳисобланади."),
+          {title: fmt(gettext("«%s» — олдинги нусха қайтарилсинми?"), [b.dataset.name]), ok: gettext("Ҳа, қайтариш"), cancel: gettext("Йўқ")}).then(function (yes) {
+        if (yes) send(b.dataset.url, null, {title: gettext("Олдинги нусха қайтарилмоқда"), steps: [gettext("Файл тикланмоқда"), gettext("Сметалар янгиланмоқда"), gettext("Саҳифа янгиланмоқда")]});
       });
     },
     reprice: function (b) {
-      ask("Ҳамма қўлда ўзгаришлар (нарх, таклиф, L/M, белгилар) бекор қилинади. Смета бошидан нархланади. Фоизлар сақланади.",
-          {title: "«" + b.dataset.name + "» бошидан нархлансинми?", ok: "Ҳа, бошидан", cancel: "Йўқ", danger: true}).then(function (yes) {
+      ask(gettext("Ҳамма қўлда ўзгаришлар (нарх, таклиф, L/M, белгилар) бекор қилинади. Смета бошидан нархланади. Фоизлар сақланади."),
+          {title: fmt(gettext("«%s» бошидан нархлансинми?"), [b.dataset.name]), ok: gettext("Ҳа, бошидан"), cancel: gettext("Йўқ"), danger: true}).then(function (yes) {
         if (yes) post(b.dataset.url, {confirm: "1"});
       });
     },

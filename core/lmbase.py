@@ -11,6 +11,7 @@ from rapidfuzz import fuzz, process
 
 from .classify import CABLE, EQUIPMENT, OTHER, _tokenize_ru
 from .normalize import norm_code
+from django.utils.translation import gettext_noop as _noop
 
 FUZZY_MIN = 93  # ўхшаш ном: шундан паст бўлса — базада йўқ деб ҳисобланади
 KINDS = {"L": CABLE, "M": EQUIPMENT, "K": OTHER}
@@ -53,9 +54,9 @@ class LMBase:
 
     @staticmethod
     def _hit(e: dict, how: str, score: Optional[float] = None) -> Hit:
-        reason = e.get("reason") or "базада"
+        reason = e.get("reason") or _noop("базада")
         if how == "fuzzy":
-            reason = f"базадаги «{e.get('name') or e['key']}» ({round(score)}%) — {reason}"
+            reason = _noop("базадаги «{0}» ({1}%) — {2}").format(e.get('name') or e['key'], round(score), reason)
         return Hit(KINDS[e["category"]], reason, bool(e.get("strong")) and how != "fuzzy", how, bool(e.get("res_only")))
 
     def lookup(self, name, code=None) -> Optional[Hit]:

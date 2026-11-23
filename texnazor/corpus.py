@@ -1,3 +1,4 @@
+# i18n: ok-file — ички маълумот / тил номлари (ҳар бири ўз ёзувида)
 """Ofyortalar to'plamini tekshirish: har bir fayl tizimdagidek o'qiladi va ``Book.self_check`` dan o'tkaziladi.
 Yangi qoida qo'shilganda avval o'qiganlari buzilmaganini bitta buyruq bilan ko'rish uchun
 (``manage.py tn_check <papka>``, test: ``TEXNAZOR_CORPUS=<papka> manage.py test texnazor.tests_corpus``)."""

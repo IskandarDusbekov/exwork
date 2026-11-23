@@ -40,7 +40,7 @@
   (function () {
     var b = document.querySelector("[data-wait]");
     if (!b) return;
-    var n = parseInt(b.dataset.wait, 10), label = b.textContent.replace(/\s*\(\d+ с\)\s*$/, "").trim();
+    var n = parseInt(b.dataset.wait, 10), label = b.textContent.replace(/\s*\(\d+ \S+\)\s*$/, "").trim();  // «(59 с)» — ҳар тилда
     var t = setInterval(function () {
       n -= 1;
       if (n <= 0) { clearInterval(t); b.disabled = false; b.textContent = label; return; }

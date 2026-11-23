@@ -1,3 +1,4 @@
+# i18n: ok-file — Excel сарлавҳалари / таниш учун калит сўзлар
 """Smeta tuzilishini aniqlash (reja T1–T3).
 
 * ``pair_sheets`` — lokal (БВ) va resurs (БР) listlarini juftlash (faqat standart tanlov).

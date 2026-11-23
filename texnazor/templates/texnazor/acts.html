@@ -84,8 +84,8 @@
         <div class="tn-wm-h"><b>⚠ Офёрта файли бўйича огоҳлантиришлар</b><span>{{ warnings|length }} та</span>
           <button type="button" class="tn-wm-x" data-close-dd aria-label="Ёпиш">✕ Ёпиш</button></div>
         <div class="tn-wm-b">
-        {% for w in warnings %}<div class="tn-w"><div class="tn-w-t"><span class="tn-w-n">{{ forloop.counter }}</span>{{ w.title }}</div>
-          {% if w.text %}<div class="tn-w-s"><div class="tn-w-l">Нима бўлди</div><p>{{ w.text }}</p></div>{% endif %}
+        {% for w in warnings %}<div class="tn-w"><div class="tn-w-t"><span class="tn-w-n">{{ forloop.counter }}</span>{{ w.title|msg }}</div>
+          {% if w.text %}<div class="tn-w-s"><div class="tn-w-l">Нима бўлди</div><p>{{ w.text|msg }}</p></div>{% endif %}
           {% if w.why %}<div class="tn-w-s"><div class="tn-w-l">Нима учун муҳим</div><p>{{ w.why|safe }}</p></div>{% endif %}
           {% if w.todo %}<div class="tn-w-s tn-w-do"><div class="tn-w-l">Нима қилиш керак</div><ul>{% for t in w.todo %}<li>{{ t|safe }}</li>{% endfor %}</ul></div>{% endif %}
           {% if w.row %}<button type="button" class="tn-w-goto" data-goto="{{ w.row }}">→ Excel'да {{ w.row }}-қаторни жадвалда кўрсатиш</button>{% endif %}

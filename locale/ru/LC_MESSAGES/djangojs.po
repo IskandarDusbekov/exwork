@@ -1,0 +1,587 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: mhisobot\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+#: web/static/js/fileops.js:23
+msgid "Бажарилмади"
+msgstr "Не выполнено"
+
+#: web/static/js/fileops.js:62
+#, python-format
+msgid "Сервер хатоси (%s)"
+msgstr "Ошибка сервера (%s)"
+
+#: web/static/js/fileops.js:63
+msgid "Хато"
+msgstr "Ошибка"
+
+#: web/static/js/fileops.js:67 web/static/js/fileops.js:70
+msgid "Тайёр"
+msgstr "Готово"
+
+#: web/static/js/fileops.js:74
+msgid "Интернет узилди — қайта уриниб кўринг"
+msgstr "Интернет прервался — попробуйте снова"
+
+#: web/static/js/fileops.js:84
+msgid "Файл алмаштирилмоқда"
+msgstr "Файл заменяется"
+
+#: web/static/js/fileops.js:84
+msgid "Файл юкланмоқда"
+msgstr "Файл загружается"
+
+#: web/static/js/fileops.js:84
+msgid "Листлар ўқилмоқда"
+msgstr "Читаются листы"
+
+#: web/static/js/fileops.js:84 web/static/js/fileops.js:99
+msgid "Сметалар янгиланмоқда"
+msgstr "Обновляются сметы"
+
+#: web/static/js/fileops.js:84 web/static/js/fileops.js:99
+msgid "Саҳифа янгиланмоқда"
+msgstr "Обновляется страница"
+
+#: web/static/js/fileops.js:91
+msgid ""
+"Фақат шу файл ўзгаради. Нархланган бўлса — фақат шу файлга боғлиқ сметалар қайта ҳисобланади, қўлда ўзгаришлар сақланади. Кейин «Ортга» билан қайтариш мумкин."
+msgstr ""
+
+#: web/static/js/fileops.js:92
+#, python-format
+msgid "«%s» ўрнига «%s» юклансинми?"
+msgstr "Загрузить «%s» вместо «%s»?"
+
+#: web/static/js/fileops.js:92
+msgid "Ҳа, юклаш"
+msgstr "Да, загрузить"
+
+#: web/static/js/fileops.js:92 web/static/js/picker.js:634
+msgid "Бекор қилиш"
+msgstr "Отмена"
+
+#: web/static/js/fileops.js:97
+msgid ""
+"Охирги алмаштириш бекор қилинади, олдинги нусха қайтади. Боғлиқ сметалар қайта ҳисобланади."
+msgstr ""
+"Последняя замена будет отменена, вернётся предыдущая версия. Связанные сметы будут пересчитаны."
+
+#: web/static/js/fileops.js:98
+#, python-format
+msgid "«%s» — олдинги нусха қайтарилсинми?"
+msgstr "«%s» — вернуть предыдущую версию?"
+
+#: web/static/js/fileops.js:98
+msgid "Ҳа, қайтариш"
+msgstr "Да, вернуть"
+
+#: web/static/js/fileops.js:98 web/static/js/fileops.js:104
+msgid "Йўқ"
+msgstr "Нет"
+
+#: web/static/js/fileops.js:99
+msgid "Олдинги нусха қайтарилмоқда"
+msgstr "Возвращается предыдущая версия"
+
+#: web/static/js/fileops.js:99
+msgid "Файл тикланмоқда"
+msgstr "Файл восстанавливается"
+
+#: web/static/js/fileops.js:103
+msgid ""
+"Ҳамма қўлда ўзгаришлар (нарх, таклиф, L/M, белгилар) бекор қилинади. Смета бошидан нархланади. Фоизлар сақланади."
+msgstr ""
+"Все ручные изменения (цены, предложения, L/M, отметки) отменяются. Смета расценивается заново. Проценты сохраняются."
+
+#: web/static/js/fileops.js:104
+#, python-format
+msgid "«%s» бошидан нархлансинми?"
+msgstr "Расценить «%s» заново?"
+
+#: web/static/js/fileops.js:104
+msgid "Ҳа, бошидан"
+msgstr "Да, заново"
+
+#: web/static/js/password.js:17 web/static/js/password.js:25
+msgid "Паролни кўрсатиш"
+msgstr "Показать пароль"
+
+#: web/static/js/password.js:25
+msgid "Паролни яшириш"
+msgstr "Скрыть пароль"
+
+#: web/static/js/password.js:33
+msgid "Фақат рақам бўлмасин"
+msgstr "Не только цифры"
+
+#: web/static/js/password.js:35
+msgid "Кучли"
+msgstr "Надёжный"
+
+#: web/static/js/password.js:35
+msgid "Яхши"
+msgstr "Хороший"
+
+#: web/static/js/password.js:35
+msgid "Ўртача — ҳарф, рақам ва белги аралаштиринг"
+msgstr "Средний — смешайте буквы, цифры и символы"
+
+#: web/static/js/password.js:54
+#, python-format
+msgid "%s / %s белги"
+msgstr "%s / %s символов"
+
+#: web/static/js/password.js:55
+#, python-format
+msgid "яна %s та"
+msgstr "ещё %s"
+
+#: web/static/js/password.js:60
+#, python-format
+msgid "%s белги ✓"
+msgstr "%s символов ✓"
+
+#: web/static/js/password.js:79
+msgid "Пароллар мос ✓"
+msgstr "Пароли совпадают ✓"
+
+#: web/static/js/password.js:79
+msgid "Пароллар ҳали мос эмас"
+msgstr "Пароли пока не совпадают"
+
+#: web/static/js/picker.js:37 web/static/js/picker.js:535
+#, python-format
+msgid "сервер хатоси (%s)"
+msgstr "ошибка сервера (%s)"
+
+#: web/static/js/picker.js:38 web/static/js/picker.js:537
+msgid "хато"
+msgstr "ошибка"
+
+#: web/static/js/picker.js:59
+msgid "Бу локал нархланмайди. Нархлаш керак бўлса — чапдаги белгини қўйинг."
+msgstr ""
+"Эта локальная не расценивается. Если нужна расценка — поставьте отметку слева."
+
+#: web/static/js/picker.js:60
+msgid ""
+"Ресурс файли танланмаган — ўнгдаги рўйхатдан танланг ёки «Ресурсни танлаш»ни босиб ёнма-ён кўринг."
+msgstr ""
+"Файл ресурсов не выбран — выберите из списка справа или нажмите «Выбрать ресурс» и сравните рядом."
+
+#: web/static/js/picker.js:61
+msgid ""
+"Танланган ресурсда нарх йўқ — бошқа ресурс файлини танланг, акс ҳолда нархланмай қолади."
+msgstr ""
+"В выбранном ресурсе нет цен — выберите другой файл ресурсов, иначе смета останется нерасценённой."
+
+#: web/static/js/picker.js:62
+msgid "Нархлар ресурс базасидан олинади — тайёр, ҳеч нарса қилиш шарт эмас."
+msgstr "Цены берутся из базы ресурсов — готово, ничего делать не нужно."
+
+#: web/static/js/picker.js:65
+msgid ""
+"Номлар ресурсда бошқача ёзилган, лекин бу локалнинг ўзиники: битта файлда, лист номи ва смета рақами бир хил. Нархлар шифр бўйича таклиф қилинади — нархлангандан кейин «ТЕКШИРИНГ» қаторларини тасдиқланг."
+msgstr ""
+
+#: web/static/js/picker.js:68
+msgid "Тўғри жуфтланган — ҳеч нарса қилиш шарт эмас."
+msgstr "Пара подобрана верно — ничего делать не нужно."
+
+#: web/static/js/picker.js:69
+msgid ""
+"Мослик ўртача — «Ёнма-ён кўриш» билан текшириб кўринг; нотўғри бўлса бошқасини танланг."
+msgstr ""
+"Совпадение среднее — проверьте через «Сравнить рядом»; если неверно, выберите другой."
+
+#: web/static/js/picker.js:70
+msgid ""
+"Мослик паст — бу ресурс бошқа объектники бўлиши мумкин. «Ёнма-ён кўриш» билан текширинг."
+msgstr ""
+"Совпадение низкое — возможно, ресурс от другого объекта. Проверьте через «Сравнить рядом»."
+
+#: web/static/js/picker.js:84
+msgid "база"
+msgstr "база"
+
+#: web/static/js/picker.js:86
+msgid "№ мос"
+msgstr "№ совпадает"
+
+#: web/static/js/picker.js:89
+#, python-format
+msgid "Номлар мослиги %s% — лекин файл, лист номи ва смета рақами бир хил"
+msgstr "Совпадение названий %s% — но файл, название листа и номер сметы одинаковые"
+
+#: web/static/js/picker.js:90
+msgid "Локалдаги ресурсларнинг неча фоизи шу RES листида аниқ бор"
+msgstr "Какой процент ресурсов локальной сметы точно есть в этом листе RES"
+
+#: web/static/js/picker.js:99
+#, python-format
+msgid "нарх беради: %s"
+msgstr "даёт цены: %s"
+
+#: web/static/js/picker.js:99
+msgid "ҳеч қайси локалга танланмаган"
+msgstr "не выбран ни для одной локальной"
+
+#: web/static/js/picker.js:123
+#, python-format
+msgid ""
+"<b>1-қадам.</b> %s та лист белгиланмаган. Ҳар бирини <b>«Кўриш»</b> билан очинг ва турини босинг: <b class='t-loc'>Локал</b> — иш ҳажмлари, <b class='t-res'>Ресурс</b> — нархлар, <b>Ўтказиш</b> — керак эмас."
+msgstr ""
+
+#: web/static/js/picker.js:125
+msgid ""
+"Бир нечтасини чапдаги катакча билан танлаб, бирданига белгилаш мумкин; ёки тепадаги <b>«Автоматик ажратиш»</b>ни босинг — тизим ўзи ажратади."
+msgstr ""
+
+#: web/static/js/picker.js:126
+msgid "Бир нечтасини чапдаги катакча билан танлаб, бирданига белгилаш мумкин."
+msgstr "Можно выбрать несколько галочкой слева и отметить сразу."
+
+#: web/static/js/picker.js:127
+msgid "Биринчисига ўтиш ↓"
+msgstr "Перейти к первому ↓"
+
+#: web/static/js/picker.js:129
+msgid ""
+"<b>Нархланадиган смета йўқ.</b> Иш ҳажмлари турган листни <b>«Локал»</b>, нархлар листини <b>«Ресурс»</b> деб белгиланг — пастдаги «Керак эмас» ичида бўлиши мумкин."
+msgstr ""
+
+#: web/static/js/picker.js:130 web/static/js/picker.js:133
+msgid "Листларни очиш ↓"
+msgstr "Открыть листы ↓"
+
+#: web/static/js/picker.js:132
+msgid ""
+"<b>Ресурс йўқ.</b> Нархлар турган листни (RES) <b>«Ресурс»</b> деб белгиланг ёки RES файлни қўшиб юкланг."
+msgstr ""
+"<b>Ресурса нет.</b> Отметьте лист с ценами (RES) как <b>«Ресурс»</b> или загрузите файл RES дополнительно."
+
+#: web/static/js/picker.js:135
+#, python-format
+msgid ""
+"<b>%s та локал</b> учун тизим ресурсни топа олмади. Қизил қаторда <b>«Ресурсни танлаш»</b>ни босинг — локал ва ресурслар ёнма-ён очилади, тўғрисини кўриб <b>«Шуни танлаш»</b>ни босасиз."
+msgstr ""
+
+#: web/static/js/picker.js:136
+msgid "Ўша қаторга ўтиш ↓"
+msgstr "Перейти к этой строке ↓"
+
+#: web/static/js/picker.js:203
+msgid "Бу иш сизники эмас — фақат кўриш мумкин"
+msgstr "Это не ваша работа — только просмотр"
+
+#: web/static/js/picker.js:214
+msgid "↶ Ортга қайтариш"
+msgstr "↶ Вернуть назад"
+
+#: web/static/js/picker.js:225
+msgid "Локал"
+msgstr "Локальная"
+
+#: web/static/js/picker.js:225
+msgid "Ресурс"
+msgstr "Ресурс"
+
+#: web/static/js/picker.js:225
+msgid "Керак эмас"
+msgstr "Не нужен"
+
+#: web/static/js/picker.js:229
+#, python-format
+msgid "✓ %s та лист — «%s»"
+msgstr "✓ Листов: %s — «%s»"
+
+#: web/static/js/picker.js:229
+#, python-format
+msgid "✓ %s та лист — белгиси олинди"
+msgstr "✓ Листов: %s — отметка снята"
+
+#: web/static/js/picker.js:230
+msgid "✓ Сақланди — жуфтликлар янгиланди"
+msgstr "✓ Сохранено — пары обновлены"
+
+#: web/static/js/picker.js:230
+msgid "✓ Белги олинди"
+msgstr "✓ Отметка снята"
+
+#: web/static/js/picker.js:234
+msgid "✓ Охирги ўзгариш бекор қилинди"
+msgstr "✓ Последнее изменение отменено"
+
+#: web/static/js/picker.js:259
+msgid "Ажратилмоқда…"
+msgstr "Разделяется…"
+
+#: web/static/js/picker.js:261
+#, python-format
+msgid ""
+"✓ Тизим листларни ажратди — текширинг. Нотўғриси бўлса, турини босиб ўзгартиринг (%s та қолди)"
+msgstr ""
+"✓ Система разделила листы — проверьте. Если что-то неверно, нажмите на тип и измените (осталось: %s)"
+
+#: web/static/js/picker.js:262
+msgid ""
+"✓ Тизим листларни ажратди — текширинг. Нотўғриси бўлса, турини босиб ўзгартиринг"
+msgstr ""
+"✓ Система разделила листы — проверьте. Если что-то неверно, нажмите на тип и измените"
+
+#: web/static/js/picker.js:322
+msgid "✓ Сақланди"
+msgstr "✓ Сохранено"
+
+#: web/static/js/picker.js:331
+msgid "мослик номаълум"
+msgstr "совпадение неизвестно"
+
+#: web/static/js/picker.js:331
+msgid "жуда мос"
+msgstr "очень похож"
+
+#: web/static/js/picker.js:331
+msgid "ўртача мос"
+msgstr "средне похож"
+
+#: web/static/js/picker.js:331
+msgid "кам мос"
+msgstr "мало похож"
+
+#: web/static/js/picker.js:331
+msgid "мос эмас"
+msgstr "не подходит"
+
+#: web/static/js/picker.js:334
+msgid "★ энг мос"
+msgstr "★ лучший"
+
+#: web/static/js/picker.js:335
+msgid "локалнинг ўз файлида"
+msgstr "в файле локальной"
+
+#: web/static/js/picker.js:336
+msgid "лист номи ва № бир хил"
+msgstr "название листа и № совпадают"
+
+#: web/static/js/picker.js:337
+msgid "нархи йўқ — танламанг"
+msgstr "цены нет — не выбирайте"
+
+#: web/static/js/picker.js:338
+msgid "✓ ҳозир танланган"
+msgstr "✓ выбран сейчас"
+
+#: web/static/js/picker.js:341
+msgid "Б"
+msgstr "Б"
+
+#: web/static/js/picker.js:341
+msgid "Ресурс базасидан"
+msgstr "Из базы ресурсов"
+
+#: web/static/js/picker.js:341
+msgid "RES файлсиз — нархлар тизимдаги базадан олинади"
+msgstr "Без файла RES — цены берутся из базы системы"
+
+#: web/static/js/picker.js:347
+msgid "Р"
+msgstr "Р"
+
+#: web/static/js/picker.js:348
+#, python-format
+msgid "лист «%s»"
+msgstr "лист «%s»"
+
+#: web/static/js/picker.js:348
+#, python-format
+msgid "%s қатор"
+msgstr "%s строк"
+
+#: web/static/js/picker.js:362
+msgid "Ресурсни алмаштириш"
+msgstr "Заменить ресурс"
+
+#: web/static/js/picker.js:362
+msgid "Ресурс файлини танлаш"
+msgstr "Выбрать файл ресурсов"
+
+#: web/static/js/picker.js:362
+#, python-format
+msgid "%s та"
+msgstr "%s шт."
+
+#: web/static/js/picker.js:363
+msgid "Бу локал учун нархлар олинадиган файлни танлаш"
+msgstr "Выбрать файл, из которого берутся цены для этой локальной"
+
+#: web/static/js/picker.js:373
+msgid "Бу локалнинг нархлари қайси файлда?"
+msgstr "В каком файле цены этой локальной?"
+
+#: web/static/js/picker.js:374
+msgid ""
+"Фоиз — локалдаги ресурсларнинг неча фоизи шу файлда бор. Қанча юқори бўлса, шунча тўғри."
+msgstr ""
+"Процент — сколько ресурсов локальной сметы есть в этом файле. Чем выше, тем вернее."
+
+#: web/static/js/picker.js:375
+msgid "Файл ёки бўлим номи бўйича қидириш…"
+msgstr "Поиск по имени файла или раздела…"
+
+#: web/static/js/picker.js:377
+msgid "Тавсия этилади"
+msgstr "Рекомендуется"
+
+#: web/static/js/picker.js:378
+msgid "Бошқа ресурс файллари"
+msgstr "Другие файлы ресурсов"
+
+#: web/static/js/picker.js:379
+msgid "Файлсиз"
+msgstr "Без файла"
+
+#: web/static/js/picker.js:380
+msgid "Топилмади"
+msgstr "Не найдено"
+
+#: web/static/js/picker.js:406
+msgid ""
+"Бу ресурс листида нарх йўқ — бу локал нархланмай қолади. Барибир танлансинми?"
+msgstr ""
+"В этом листе ресурсов нет цен — локальная останется нерасценённой. Всё равно выбрать?"
+
+#: web/static/js/picker.js:434
+msgid "✓ Шу ресурс танланган"
+msgstr "✓ Этот ресурс выбран"
+
+#: web/static/js/picker.js:434
+msgid "Шу ресурсни танлаш"
+msgstr "Выбрать этот ресурс"
+
+#: web/static/js/picker.js:444
+#, python-format
+msgid "%s — локал ва ресурс ёнма-ён"
+msgstr "%s — локальная и ресурс рядом"
+
+#: web/static/js/picker.js:444
+#, python-format
+msgid "%s — ресурс танланмаган: ўнгдан кўриб танланг"
+msgstr "%s — ресурс не выбран: выберите справа"
+
+#: web/static/js/picker.js:450
+#, python-format
+msgid "Excel кўриниши — %s"
+msgstr "Вид Excel — %s"
+
+#: web/static/js/picker.js:460
+msgid "✓ Автоматик: листларни тизим ажратди"
+msgstr "✓ Автоматически: листы разделила система"
+
+#: web/static/js/picker.js:460
+msgid "✓ Қўлда: ҳар бир листни ўзингиз белгиланг"
+msgstr "✓ Вручную: отметьте каждый лист сами"
+
+#: web/static/js/picker.js:471
+#, python-format
+msgid "Фоизлар сақланмади: %s"
+msgstr "Проценты не сохранены: %s"
+
+#: web/static/js/picker.js:483
+msgid "Нархланяпти…"
+msgstr "Расценивается…"
+
+#: web/static/js/picker.js:487
+msgid "Навбатга қўйилмоқда…"
+msgstr "Ставится в очередь…"
+
+#: web/static/js/picker.js:487
+msgid "Танловингиз сақланмоқда…"
+msgstr "Сохраняется ваш выбор…"
+
+#: web/static/js/picker.js:502 web/static/js/picker.js:540
+msgid "Тайёр! Натижа очиляпти…"
+msgstr "Готово! Открывается результат…"
+
+#: web/static/js/picker.js:507
+#, python-format
+msgid "Навбатда: олдингизда %s та объект…"
+msgstr "В очереди: перед вами объектов — %s…"
+
+#: web/static/js/picker.js:507
+msgid "Навбатда — бошланяпти…"
+msgstr "В очереди — начинается…"
+
+#: web/static/js/picker.js:519
+#, python-format
+msgid "%s / %s смета: %s"
+msgstr "%s / %s смет: %s"
+
+#: web/static/js/picker.js:520
+msgid "Excel ўқилмоқда"
+msgstr "Читается Excel"
+
+#: web/static/js/picker.js:520
+msgid "қаторлар нархланмоқда"
+msgstr "расцениваются строки"
+
+#: web/static/js/picker.js:520
+msgid "Excel'га ёзилмоқда"
+msgstr "Запись в Excel"
+
+#: web/static/js/picker.js:521
+msgid "файл сақланмоқда"
+msgstr "сохраняется файл"
+
+#: web/static/js/picker.js:521
+msgid "таклифлар қўйилмоқда"
+msgstr "ставятся предложения"
+
+#: web/static/js/picker.js:524
+#, python-format
+msgid "%s / %s қатор, қолди %s"
+msgstr "%s / %s строк, осталось %s"
+
+#: web/static/js/picker.js:525
+#, python-format
+msgid "(%s қатор)"
+msgstr "(%s строк)"
+
+#: web/static/js/picker.js:540
+msgid "Навбатга қўйилди — папка саҳифаси очиляпти…"
+msgstr "Поставлено в очередь — открывается страница папки…"
+
+#: web/static/js/picker.js:548
+msgid "Қайта уриниш"
+msgstr "Повторить"
+
+#: web/static/js/picker.js:563
+#, python-format
+msgid "Янгилаб бўлмади (%s)"
+msgstr "Не удалось обновить (%s)"
+
+#: web/static/js/picker.js:615
+msgid "стандарт:"
+msgstr "стандарт:"
+
+#: web/static/js/picker.js:623
+msgid ""
+"Нархлашда сводка шу фоизлар билан ҳисобланади. Кейин смета саҳифасида ҳам ўзгартириш мумкин."
+msgstr ""
+"При расценке сводка считается с этими процентами. Потом их можно изменить и на странице сметы."
+
+#: web/static/js/picker.js:634
+msgid "Сводка фоизлари"
+msgstr "Проценты сводки"
+
+#: web/static/js/picker.js:634
+msgid "Тўғри, бошлаш"
+msgstr "Верно, начать"
+

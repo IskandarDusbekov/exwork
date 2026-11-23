@@ -23,6 +23,7 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, Iterator, List, Optional, Tuple
 
 from core.convert import tool_env  # begona fayl ochadigan dasturga saytning sirlari o'tmaydi
+from django.utils.translation import gettext as _
 
 log = logging.getLogger(__name__)
 
@@ -90,10 +91,10 @@ def rar_support() -> Optional[str]:
     RAR modulisiz yig'ilgan: 7z bor, lekin RAR ochilmaydi — ``unrar`` (yoki ``7zip-rar``) kerak."""
     tool = find_tool()
     if tool is None:
-        return "RAR/7z дастури топилмади"
+        return _("RAR/7z дастури топилмади")
     kind, exe = tool
     if kind == "7z" and b"rar" not in _run([exe, "i"], timeout=30).lower():
-        return f"{exe}: RAR модулисиз (Ubuntu/Debian'даги 7zip пакети)"
+        return _("{0}: RAR модулисиз (Ubuntu/Debian'даги 7zip пакети)").format(exe)
     return None
 
 
@@ -124,7 +125,7 @@ def _copy_capped(src, target: Path, limit: int) -> int:
                 return n
             n += len(chunk)
             if n > limit:
-                raise TooBig(f"очилганда {limit // 2**20} МБ дан катта")
+                raise TooBig(_("очилганда {0} МБ дан катта").format(limit // 2**20))
             out.write(chunk)
 
 
@@ -132,7 +133,7 @@ def _zip_members(path: Path) -> Iterator[Member]:
     try:
         zf = zipfile.ZipFile(path)
     except zipfile.BadZipFile as e:
-        raise ArchiveError(f"ZIP очилмади: {e}") from e
+        raise ArchiveError(_("ZIP очилмади: {0}").format(e)) from e
 
     def write(info, target, limit):
         with zf.open(info) as src:
@@ -149,10 +150,10 @@ def _run(cmd: List[str], timeout: int = 300, check: bool = False) -> bytes:
     try:
         r = subprocess.run(cmd, capture_output=True, timeout=timeout, env=tool_env())
     except (OSError, subprocess.TimeoutExpired) as e:
-        raise ArchiveError(f"архив дастури ишламади: {e}") from e
+        raise ArchiveError(_("архив дастури ишламади: {0}").format(e)) from e
     if check and r.returncode > 1:  # 1 — ikkala dasturda ham ogohlantirish (arxiv baribir o'qiladi)
         msg = (r.stderr or r.stdout).decode("utf-8", "replace").strip().splitlines()
-        raise ArchiveError(f"архив очилмади ({Path(cmd[0]).name}: {msg[-1] if msg else r.returncode})")
+        raise ArchiveError(_("архив очилмади ({0}: {1})").format(Path(cmd[0]).name, msg[-1] if msg else r.returncode))
     return r.stdout
 
 
@@ -161,7 +162,7 @@ def _stream(cmd: List[str], target: Path, limit: int, timeout: int = 300) -> int
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=tool_env())
     except OSError as e:
-        raise ArchiveError(f"архив дастури ишламади: {e}") from e
+        raise ArchiveError(_("архив дастури ишламади: {0}").format(e)) from e
     timer = threading.Timer(timeout, proc.kill)
     timer.start()
     try:
@@ -178,7 +179,7 @@ def _rar_members(path: Path) -> Iterator[Member]:
     """RAR (yoki 7z) — ``unrar lb`` / ``7z l -slt`` ro'yxati, har bir fayl stdout orqali."""
     tool = find_tool()
     if tool is None:
-        raise ArchiveError("RAR/7z очиш учун серверда WinRAR (UnRAR) ёки 7-Zip ўрнатилиши керак")
+        raise ArchiveError(_("RAR/7z очиш учун серверда WinRAR (UnRAR) ёки 7-Zip ўрнатилиши керак"))
     kind, exe = tool
     if kind == "unrar":
         names = _run([exe, "lb", "-scfr", "-p-", str(path)], check=True).decode("utf-8", "replace").splitlines()
@@ -189,7 +190,7 @@ def _rar_members(path: Path) -> Iterator[Member]:
         cmd = lambda n: [exe, "e", "-so", "-p", "-sccUTF-8", str(path), n]  # noqa: E731
     names = [n.strip() for n in names if n.strip()]
     if not names:  # unrar buzuq/RAR bo'lmagan faylda ham 0 qaytaradi — bo'sh ro'yxat «ochilmadi» deb olinadi
-        raise ArchiveError(f"архив бўш ёки очилмади ({Path(exe).name})")
+        raise ArchiveError(_("архив бўш ёки очилмади ({0})").format(Path(exe).name))
     for n in names[:MAX_MEMBERS]:
         yield n, None, (lambda t, lim, n=n: _stream(cmd(n), t, lim))
 
@@ -200,7 +201,7 @@ def members(path: Path) -> Iterator[Member]:
         return _zip_members(path)
     if ext in (".rar", ".7z"):
         return _rar_members(path)
-    raise ArchiveError(f"Архив тури қўллаб-қувватланмайди: {path.name}")
+    raise ArchiveError(_("Архив тури қўллаб-қувватланмайди: {0}").format(path.name))
 
 
 def _prefix(archive_name: str, rels: List[PurePosixPath]) -> PurePosixPath:
@@ -234,13 +235,13 @@ def extract_excel(archive: Path, staging: Path, base: PurePosixPath = PurePosixP
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
             if size is not None and size > limit:
-                raise TooBig(f"очилганда {size // 2**20} МБ")
+                raise TooBig(_("очилганда {0} МБ").format(size // 2**20))
             written = write(target, limit)
         except TooBig as e:
             target.unlink(missing_ok=True)
             if limit < per_file:  # umumiy chegara tugadi — butun yuklash to'xtaydi
-                raise TooBig(f"архив очилганда жуда катта ({MAX_TOTAL_BYTES // 2**30} ГБ дан ортиқ)") from e
-            log.warning("архивдаги файл жуда катта, олинмади: %s — %s", rel, e)
+                raise TooBig(_("архив очилганда жуда катта ({0} ГБ дан ортиқ)").format(MAX_TOTAL_BYTES // 2**30)) from e
+            log.warning("архивдаги файл жуда катта, олинмади: %s — %s", rel, e)  # i18n: ok
             continue
         if not written:
             target.unlink(missing_ok=True)
@@ -256,7 +257,7 @@ def extract_excel(archive: Path, staging: Path, base: PurePosixPath = PurePosixP
                 raise  # umumiy chegara tugadi — butun yuklash to'xtaydi
             except ArchiveError as e:
                 # ichki arxiv ochilmasa — qolganlari olinadi; sabab panelda (Хатолар) ko'rinadi
-                log.warning("ички архив очилмади: %s — %s", prefix / rel, e)
+                log.warning("ички архив очилмади: %s — %s", prefix / rel, e)  # i18n: ok
             target.unlink(missing_ok=True)
         else:
             out.append((prefix / rel, target))

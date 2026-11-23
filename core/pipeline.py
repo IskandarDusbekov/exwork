@@ -47,11 +47,12 @@ from .writer import (
     AMOUNT_COL, AMOUNT_HEADER, copy_sheet, PRICE_COL, PRICE_HEADER, SMART_NUM_FMT, SUM_COLS, SheetWriter, amount_formula, target_column, fit_number_columns, mark_unpriced, restore_header_footer, write_cached_values, restore_merged_styles, safe_amount_formula,
     write_priced_rows, write_sum_row,
 )
+from django.utils.translation import gettext_noop as _noop
 
-NOT_FOUND_TEXT = "ТОПИЛМАДИ"
-AMBIGUOUS_TEXT = "ШАБҲАЛИ"
-CHECK_TEXT = "ТЕКШИРИНГ"   # smart: aniq mos kelmadi, smetachi narxni o'zi kiritadi
-NO_PRICE_TEXT = "НАРХ ЙЎҚ"
+NOT_FOUND_TEXT = "ТОПИЛМАДИ"  # i18n: ok
+AMBIGUOUS_TEXT = "ШАБҲАЛИ"  # i18n: ok
+CHECK_TEXT = "ТЕКШИРИНГ"   # smart: aniq mos kelmadi, smetachi narxni o'zi kiritadi · i18n: ok
+NO_PRICE_TEXT = "НАРХ ЙЎҚ"  # i18n: ok
 
 # smart rejimdagi qo'shimcha statuslar
 NO_PRICE = "NO_PRICE"          # resursda bor, lekin narx raqam emas («--»)
@@ -196,7 +197,7 @@ def _check_priced(written: Dict[str, object], rows: List[dict], start: int, end:
     for addr in written:
         col, r = coordinate_from_string(addr)
         if start <= r <= end and column_index_from_string(col) in keep:
-            out.append({"row": r, "kind": "overwrite", "problem": f"{addr} — манба устуни (номи, бирлиги ёки миқдори) устидан ёзилди"})
+            out.append({"row": r, "kind": "overwrite", "problem": _noop("{0} — манба устуни (номи, бирлиги ёки миқдори) устидан ёзилди").format(addr)})
     for row in rows:
         r = row["row"]
         g = as_number(row["g"])
@@ -204,13 +205,13 @@ def _check_priced(written: Dict[str, object], rows: List[dict], start: int, end:
             continue
         q = as_number(row["qty"])
         if q is None:
-            out.append({"row": r, "kind": "no_qty", "problem": f"нарх бор ({row['g']}), лекин миқдори йўқ ёки сон эмас ({row['qty']!r}) — H = 0"})
+            out.append({"row": r, "kind": "no_qty", "problem": _noop("нарх бор ({0}), лекин миқдори йўқ ёки сон эмас ({1!r}) — H = 0").format(row['g'], row['qty'])})
             continue
         h, expected = as_number(row["h"]), q * g
         if h is None or abs(h - expected) > max(0.5, abs(expected) * 1e-6):
-            out.append({"row": r, "kind": "amount", "problem": f"H = {row['h']}, кутилгани {expected:,.2f} (миқдор {q:g} × нарх {g:g})"})
+            out.append({"row": r, "kind": "amount", "problem": _noop("H = {0}, кутилгани {1:,.2f} (миқдор {2:g} × нарх {3:g})").format(row['h'], expected, q, g)})
         elif written.get(f"{row['category']}{r}") != f"=H{r}":
-            out.append({"row": r, "kind": "column", "problem": f"сумма {row['category']} устунига тушмади"})
+            out.append({"row": r, "kind": "column", "problem": _noop("сумма {0} устунига тушмади").format(row['category'])})
     return out
 
 
@@ -232,7 +233,7 @@ def run(local_path, res_path, opts: Optional[Options] = None) -> Result:
     if opts.mode not in MODES:
         raise ValueError(f"Noma'lum rejim: {opts.mode}. Bor rejimlar: {', '.join(MODES)}")
     if res_path is None and opts.mode != "smart":
-        raise ValueError("Ресурс файлисиз фақат smart режимда нархлаш мумкин")
+        raise ValueError(_noop("Ресурс файлисиз фақат smart режимда нархлаш мумкин"))
     local_path = Path(local_path)
     res_path = Path(res_path) if res_path is not None else None
     out_path = Path(opts.output_path) if opts.output_path else default_output_path(local_path)
@@ -285,10 +286,8 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     elif smart and (res_layout is None or res_layout.price_col is None):
         # тахмин қилмаймиз (аввал D / E / G олинарди — тасодифан тўғри чиқарди): смета­чи ўзи кўрсатади,
         # кўрсатгани эслаб қолинади ва шундай RES кейин келса ўзи ўқилади
-        what = "сарлавҳаси («Наименование», «Ед. изм.»)" if res_layout is None else "нарх устуни"
-        raise LayoutError(f"«{ws_res.title}» RES листида {what} топилмади — тахмин билан нархланмади. Объект "
-                          "саҳифасида «Устунларни тузатиш» → шу листнинг «тузатиш» тугмаси: ном, бирлик ва нарх "
-                          "устунини кўрсатинг (Excel кўринишида босиб танлаш мумкин). Кўрсатганингиз эслаб қолинади.")
+        what = _noop("сарлавҳаси («Наименование», «Ед. изм.»)") if res_layout is None else _noop("нарх устуни")
+        raise LayoutError(_noop("«{0}» RES листида {1} топилмади — тахмин билан нархланмади. Объект саҳифасида «Устунларни тузатиш» → шу листнинг «тузатиш» тугмаси: ном, бирлик ва нарх устунини кўрсатинг (Excel кўринишида босиб танлаш мумкин). Кўрсатганингиз эслаб қолинади.").format(ws_res.title, what))
     if ws_res is None:
         pass
     elif res_layout:
@@ -606,18 +605,16 @@ def final_report(warnings: List[str], stats: Dict[str, int], problems: List[dict
     if smart:
         stats["NOT_PRICED"] = len(problems)
         if problems:
-            warnings.append(f"{len(problems)} та қатор нархланмади (Excel'да G қизил): нархни қўлда киритинг — "
-                            "H ва сводка ўзи қайта ҳисобланади. Ҳозирги сумма тўлиқ эмас.")
+            warnings.append(_noop("{0} та қатор нархланмади (Excel'да G қизил): нархни қўлда киритинг — H ва сводка ўзи қайта ҳисобланади. Ҳозирги сумма тўлиқ эмас.").format(len(problems)))
 
     exact = [r for r in rows if r["status"] == EXACT]
     zero = [r for r in exact if as_number(r["g"]) == 0]
     if len(exact) >= 3 and len(zero) >= 0.8 * len(exact):
-        checks.append({"row": None, "kind": "zero_prices", "problem": f"{len(zero)} / {len(exact)} та аниқ топилган ресурснинг нархи 0 — ресурс файли "
-                                                "нархланмаган ёки нарх устуни нотўғри"})
+        checks.append({"row": None, "kind": "zero_prices", "problem": _noop("{0} / {1} та аниқ топилган ресурснинг нархи 0 — ресурс файли нархланмаган ёки нарх устуни нотўғри").format(len(zero), len(exact))})
     elif stats.get(EXACT) and (as_number(totals.get("s_nds")) or 0) == 0 and any(as_number(r["g"]) for r in rows):
-        checks.append({"row": None, "kind": "zero_total", "problem": "аниқ топилган нархлар бор, лекин жами сумма 0 — миқдор ёки сумма устуни нотўғри"})
+        checks.append({"row": None, "kind": "zero_total", "problem": _noop("аниқ топилган нархлар бор, лекин жами сумма 0 — миқдор ёки сумма устуни нотўғри")})
     if checks:
-        warnings.insert(0, f"Текширувдан ўтмади: {len(checks)} та муаммо — натижага ишониб бўлмайди, «Текширув» рўйхатини кўринг")
+        warnings.insert(0, _noop("Текширувдан ўтмади: {0} та муаммо — натижага ишониб бўлмайди, «Текширув» рўйхатини кўринг").format(len(checks)))
 
     return warnings, checks
 
@@ -631,22 +628,22 @@ def row_outcome(value, st: str, note: str, orig: Optional[str], real_unit: bool,
     if clear and st in UNPRICED_STATUSES:
         applied = True
         if real_unit:
-            value, note = None, f"«{value}» олиб ташланди — нарх киритинг" + (f"; {note}" if note else "")
+            value, note = None, _noop("«{0}» олиб ташланди — нарх киритинг").format(value) + (f"; {note}" if note else "")
         else:
-            st, value, note = CLEARED, None, "бирлиги йўқ — тозаланди"
+            st, value, note = CLEARED, None, _noop("бирлиги йўқ — тозаланди")
     if manual is not None:
         # Smetachi narxni o'zi kiritgan yoki taklifni tasdiqlagan
         accepted = suggestion is not None and _as_price(suggestion) == manual
         orig = st
         st, value = MANUAL, manual
-        note = ("таклиф тасдиқланди" if accepted else "нарх қўлда киритилди") + (f" (асли: {note})" if note else "")
+        note = (_noop("таклиф тасдиқланди") if accepted else _noop("нарх қўлда киритилди")) + (f" (асли: {note})" if note else "")  # i18n: ok
     return value, st, note, orig, applied
 
 
 KIT_VERSION = 2  # ``calc_kit`` tuzilmasi o'zgarsa oshiriladi (eski to'plam bilan yamalmaydi — to'liq hisob)
 
 
-BASE_SECTION = "ресурс базаси"  # нарх ресурс базасидан — тури базадагидек (L/M ҳам), таклиф эмас
+BASE_SECTION = "ресурс базаси"  # нарх ресурс базасидан — тури базадагидек (L/M ҳам), таклиф эмас · i18n: ok
 
 
 def _category_hints(ws, priced: "_Priced", default_kinds: Dict[int, str], ln: int, lm_base=None,
@@ -664,11 +661,11 @@ def _category_hints(ws, priced: "_Priced", default_kinds: Dict[int, str], ln: in
         section = priced.sections.get(r)
         if section and section[1] == BASE_SECTION:
             if not base_lm_auto and section[0] in (CABLE, EQUIPMENT) and section[0] != kind:
-                hints[r] = (section[0], "ресурс базасида шу турда", True)
+                hints[r] = (section[0], _noop("ресурс базасида шу турда"), True)
                 continue
             section = None  # базадан нархланган: ускуна/кабель ҳақида маълумот йўқ
         if section and section[0] != kind:
-            hints[r] = (section[0], f"RES'да «{section[1]}» бўлимида", True)
+            hints[r] = (section[0], _noop("RES'да «{0}» бўлимида").format(section[1]), True)
             continue
         if kind != OTHER:
             continue
@@ -682,11 +679,11 @@ def _category_hints(ws, priced: "_Priced", default_kinds: Dict[int, str], ln: in
                 # алоҳида (транспорт 1,5%, материал 3%) — номи «кабель …/провод …» бўлса L таклиф қилинади
                 hint = name_hint(name)
                 if hint and hint[0] == CABLE:
-                    hints[r] = (CABLE, f"номида «{hint[1]}…» (RES'да материал бўлимида)", True)
+                    hints[r] = (CABLE, _noop("номида «{0}…» (RES'да материал бўлимида)").format(hint[1]), True)
             continue
         near = priced.near_sections.get(r)
         if near and near[0] in (CABLE, EQUIPMENT):
-            hints[r] = (near[0], f"RES'даги ўхшаш «{near[2]}» — «{near[1]}» бўлимида", True)
+            hints[r] = (near[0], _noop("RES'даги ўхшаш «{0}» — «{1}» бўлимида").format(near[2], near[1]), True)
             continue
         if hit:
             if hit.kind != OTHER:
@@ -694,7 +691,7 @@ def _category_hints(ws, priced: "_Priced", default_kinds: Dict[int, str], ln: in
             continue  # базада «ускуна эмас» — сўзга қараб таклиф қилинмайди
         hint = name_hint(name)
         if hint:
-            hints[r] = (hint[0], f"номида «{hint[1]}…»", True)
+            hints[r] = (hint[0], _noop("номида «{0}…»").format(hint[1]), True)
     return hints
 
 
@@ -744,7 +741,7 @@ def extra_columns_of(column_names: Optional[Dict[str, str]]) -> List[Tuple[str, 
     return sorted(out, key=lambda x: column_index_from_string(x[0]))
 
 
-_LOCAL_TOTAL = re.compile(r"(итого|всего)\s+по\s+локальн", re.I)
+_LOCAL_TOTAL = re.compile(r"(итого|всего)\s+по\s+локальн", re.I)  # i18n: ok
 
 
 def _local_total_row(ws, start: int) -> Optional[int]:
@@ -1002,7 +999,7 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
     (Excel'da qizil qoladi, narx kutadi), birligi yo'g'ida (bo'lim nomi va sh.k.) G va H bo'sh."""
     layout = layout or detect_layout(ws)
     if layout is None:
-        warnings.append("Lokal jadval sarlavhasi («Наименование…», «Ед. изм.») topilmadi — butun list ko'rildi")
+        warnings.append("Lokal jadval sarlavhasi («Наименование…», «Ед. изм.») topilmadi — butun list ko'rildi")  # i18n: ok
         ln, lu, start, stop = LOCAL_NAME_COL, LOCAL_NAME_COL + 1, 1, ws.max_row + 1
     else:
         warnings += layout.warnings
@@ -1104,37 +1101,34 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
             same = {_as_price(vp) for vp, vq, _vr in variants if _same_qty(vq, q)} - {None}
             if r in variant_pick:
                 price = variant_pick[r]
-                variant_note = (f"RES'да шу ном {len(variants)} марта ҳар хил нархда: {listed} — смета қаторлари "
-                                f"миқдори бўйича тақсимланди, бу қаторга {price}")
+                variant_note = (_noop("RES'да шу ном {0} марта ҳар хил нархда: {1} — смета қаторлари миқдори бўйича тақсимланди, бу қаторга {2}").format(len(variants), listed, price))
             elif len(same) == 1:  # гуруҳ тақсимланмади, лекин шу қатор миқдори битта RES қаторига айнан тенг
                 price = next(iter(same))
-                variant_note = (f"RES'да шу ном {len(variants)} марта ҳар хил нархда: {listed} — миқдори ({q}) "
-                                "тенги олинди")
+                variant_note = (_noop("RES'да шу ном {0} марта ҳар хил нархда: {1} — миқдори ({2}) тенги олинди").format(len(variants), listed, q))
             else:
                 variant_clash = variants
-                variant_note = (f"RES'да шу ном {len(variants)} марта ҳар хил нархда: {listed} — қайсиниси "
-                                "аниқланмади, текширинг")
+                variant_note = (_noop("RES'да шу ном {0} марта ҳар хил нархда: {1} — қайсиниси аниқланмади, текширинг").format(len(variants), listed))
         # Qat'iy qoida: narx faqat nom AYNAN mos kelsa va birlik bir xil bo'lsa yoziladi.
         # Qolgan hammasi G da matn (Excel'da qizil) — smetachi narxni o'zi kiritadi.
         if r in headers:
-            st, value, note = WORK_HEADER, 0, "иш сарлавҳаси: остидаги ресурслар нархланади"
+            st, value, note = WORK_HEADER, 0, _noop("иш сарлавҳаси: остидаги ресурслар нархланади")
         elif machinist and not (m.status == EXACT and price is not None):
-            st, value, note = MACHINIST, 0, "машинист меҳнати машина нархи ичида"
+            st, value, note = MACHINIST, 0, _noop("машинист меҳнати машина нархи ичида")
         elif m.status == EXACT and local_unit and m.unit != local_unit:
             st, value, suggestion = UNIT_MISMATCH, CHECK_TEXT, m.price
-            note = f"ном аниқ, лекин бирлик бошқа: локал «{unit_raw}», ресурс «{m.unit}» ({m.price})"
+            note = _noop("ном аниқ, лекин бирлик бошқа: локал «{0}», ресурс «{1}» ({2})").format(unit_raw, m.unit, m.price)
             unit_mismatch += 1
         elif variant_clash:
             st, value, suggestion, note = AMBIGUOUS, CHECK_TEXT, m.price, variant_note
         elif m.status == EXACT and price is None:
-            st, value, note = NO_PRICE, NO_PRICE_TEXT, f"ресурсда нарх рақам эмас: «{m.price}»"
+            st, value, note = NO_PRICE, NO_PRICE_TEXT, _noop("ресурсда нарх рақам эмас: «{0}»").format(m.price)
         elif m.status == EXACT and price <= 0 and is_workers_row(name_raw, unit_raw):
             # ишчилар меҳнати 0 сўм бўлмайди — RES'да 0 турса ҳам смета­чи соат нархини ўзи қўйсин
-            st, value, note = NO_PRICE, NO_PRICE_TEXT, "ресурсда иш ҳақи нархи 0 — соат нархини киритинг"
+            st, value, note = NO_PRICE, NO_PRICE_TEXT, _noop("ресурсда иш ҳақи нархи 0 — соат нархини киритинг")
         elif m.status == EXACT:
             st, value = EXACT, price
             if m.name != local_name:
-                note = f"ҳарфлари бошқача ёзилган (лотин/кирилл): ресурсда «{index.raw_of(m.unit, m.name)[0]}»"
+                note = _noop("ҳарфлари бошқача ёзилган (лотин/кирилл): ресурсда «{0}»").format(index.raw_of(m.unit, m.name)[0])
             if variant_note:
                 note = f"{note}; {variant_note}" if note else variant_note
             section = index.section_of(m.unit, m.name)
@@ -1142,18 +1136,16 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
                 sections[r] = section
         elif m.status == FUZZY:
             st, value, suggestion = FUZZY, CHECK_TEXT, m.price
-            note = f"таклиф (аниқ эмас): «{m.name}» {round(m.score, 3)} — {m.price}"
+            note = _noop("таклиф (аниқ эмас): «{0}» {1} — {2}").format(m.name, round(m.score, 3), m.price)
         elif m.status == AMBIGUOUS:
             st, value, suggestion = AMBIGUOUS, CHECK_TEXT, m.price
-            note = (f"2 та номзод: «{m.name}» ({m.price}) ва «{m.second_name}» ({m.second_price}), "
-                    f"ўхшашлик {round(m.score, 3)}")
+            note = (_noop("2 та номзод: «{0}» ({1}) ва «{2}» ({3}), ўхшашлик {4}").format(m.name, m.price, m.second_name, m.second_price, round(m.score, 3)))
         elif (code_name := _by_code(index, ws, r, ln, local_unit, real_unit)) is not None:
             # номи бошқача ёзилган (смета­чи RES'да тавсифни ўзгартирган), лекин шифр ва бирлик айнан бир хил —
             # ўша ресурс. Нарх ўзи ёзилмайди: «ТЕКШИРИНГ» + таклиф, смета­чи тасдиқлайди
             m = Match(FUZZY, local_unit, code_name, index.by_unit[local_unit][code_name], CODE_SCORE)
             st, value, suggestion = FUZZY, CHECK_TEXT, m.price
-            note = (f"шифр бир хил («{_peek(ws, r, CODE_COL)}»), номи бошқача: ресурсда "
-                    f"«{index.raw_of(m.unit, m.name)[0]}» — {m.price}, текширинг")
+            note = (_noop("шифр бир хил («{0}»), номи бошқача: ресурсда «{1}» — {2}, текширинг").format(_peek(ws, r, CODE_COL), index.raw_of(m.unit, m.name)[0], m.price))
         else:
             st, value = NOT_FOUND, NOT_FOUND_TEXT
             # aniq ham, o'xshash ham emas — lekin RES dagi eng yaqin resurs narxi taklif qilinadi
@@ -1163,8 +1155,8 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
                 raw_name, raw_unit = index.raw_of(m.near_unit, m.near_name)
                 near[r] = {"name": raw_name, "unit": raw_unit, "price": m.near_price,
                            "score": round(m.near_score, 3), "same_unit": m.near_unit == local_unit}
-                note = (f"яқин ресурс: «{raw_name}» ({raw_unit}) {round(m.near_score * 100)}% — {m.near_price}"
-                        + ("" if m.near_unit == local_unit else f"; бирлик бошқа (локал «{unit_raw}»)"))
+                note = (_noop("яқин ресурс: «{0}» ({1}) {2}% — {3}").format(raw_name, raw_unit, round(m.near_score * 100), m.near_price)
+                        + ("" if m.near_unit == local_unit else _noop("; бирлик бошқа (локал «{0}»)").format(unit_raw)))
 
         # RES narxlay olmadi — ресурс базасидан, kod va birlik mos kelsa (taklif emas, narx yoziladi)
         # (эски база — миллий код бўйича; янги нарх базаси — номи + бирлиги бўйича)
@@ -1179,13 +1171,13 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
         if entry and entry["unit_key"] == unit_key(unit_raw):
             orig_status[r] = st
             st, value, suggestion = BASE, entry["price"], None
-            note = (f"база: {base_label}, {entry.get('note') or str(entry['n']) + ' та смета медианаси'}"
+            note = (_noop("база: {0}, {1}").format(base_label, entry.get('note') or str(entry['n']) + ' та смета медианаси')  # i18n: ok
                     + (f"; {loose_note}" if loose_note else "") + (f" (RES: {note})" if note else ""))
             if entry.get("category") in COLUMN_KIND:
-                sections[r] = (COLUMN_KIND[entry["category"]], "ресурс базаси")
+                sections[r] = (COLUMN_KIND[entry["category"]], _noop("ресурс базаси"))
             near.pop(r, None)
         elif entry:
-            note = (f"{note}; " if note else "") + f"базада бор ({entry['price']}), лекин бирлик бошқа: «{entry['unit']}»"
+            note = (f"{note}; " if note else "") + _noop("базада бор ({0}), лекин бирлик бошқа: «{1}»").format(entry['price'], entry['unit'])
 
         # o'xshash / shubhali / birligi boshqa: taklif qilingan RES resursi (1-bosqich jadvali uchun, asl yozuvda)
         if st in (FUZZY, AMBIGUOUS, UNIT_MISMATCH) and m.name and _as_price(m.price) is not None:
@@ -1233,7 +1225,7 @@ def _price_smart(ws, index: ResourceIndex, threshold: float, delta: float, warni
                 suggestion = hit["price"]
                 near[r] = {"name": hit.get("name") or "", "unit": hit.get("unit") or "", "price": hit["price"],
                            "score": hit["score"], "same_unit": True, "res_row": None, "alts": [], "source": "base"}
-                near_note = f"базада яқин: «{hit.get('name') or ''}» {round(hit['score'] * 100)}% — {hit['price']}"
+                near_note = _noop("базада яқин: «{0}» {1}% — {2}").format(hit.get('name') or '', round(hit['score'] * 100), hit['price'])
                 note = f"{note}; {near_note}" if note else near_note
 
         # birligi ham, taklifi ham yo'q (bo'lim nomi, izoh) — narxi bo'lmaydi: «ТОПИЛМАДИ» o'zi olinadi
@@ -1287,9 +1279,9 @@ def _fmt(v) -> str:
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="python -m core.pipeline", description="Смета нархлаш")
-    p.add_argument("local", type=Path, help="Lokal (БВ) fayl: .xls/.xlsx/.xlsm")
-    p.add_argument("res", type=Path, help="Resurs (БР) fayl: .xls/.xlsx/.xlsm")
+    p = argparse.ArgumentParser(prog="python -m core.pipeline", description="Смета нархлаш")  # i18n: ok
+    p.add_argument("local", type=Path, help="Lokal (БВ) fayl: .xls/.xlsx/.xlsm")  # i18n: ok
+    p.add_argument("res", type=Path, help="Resurs (БР) fayl: .xls/.xlsx/.xlsm")  # i18n: ok
     p.add_argument("-o", "--output", type=Path, help="Chiqish fayli (standart: <lokal>_narxlandi.xlsx)")
     p.add_argument("--fuzzy", type=int, default=95, help="Fuzzy chegarasi, 80–100 (standart 95)")
     p.add_argument("--mode", choices=MODES, default="smart",

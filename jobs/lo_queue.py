@@ -20,6 +20,7 @@ from django.conf import settings
 from django.core.cache import cache
 
 from core.convert import ConversionError
+from django.utils.translation import gettext_noop as _noop
 
 log = logging.getLogger(__name__)
 PREFIX = "lo:slot:"
@@ -84,13 +85,12 @@ def slot(name: str = ""):
         max_wait = getattr(_local, "max_wait", None) or 900
         _count(+1)
         t0, said = time.monotonic(), -10.0
-        log.info("LibreOffice банд (%s та ўрин) — %s навбатда", slots(), name)
+        log.info("LibreOffice банд (%s та ўрин) — %s навбатда", slots(), name)  # i18n: ok
         try:
             while not got:
                 waited = time.monotonic() - t0
                 if waited > max_wait:
-                    raise ConversionError(f"Сервер жуда банд: {int(max_wait)} сония ичида .xls файлни очишга навбат "
-                                          "келмади. Бир оздан кейин қайта юкланг ёки файлни .xlsx қилиб сақланг.")
+                    raise ConversionError(_noop("Сервер жуда банд: {0} сония ичида .xls файлни очишга навбат келмади. Бир оздан кейин қайта юкланг ёки файлни .xlsx қилиб сақланг.").format(int(max_wait)))
                 if cb and time.monotonic() - said >= 2:
                     said = time.monotonic()
                     _call(cb, len(busy()), max(0, waiting() - 1), waited)
@@ -118,6 +118,5 @@ def _call(cb, *args):
 
 def wait_text(busy_n, ahead, waited) -> str:
     """Фойдаланувчига: нега кутяпти ва нима бўлади."""
-    extra = f", сиздан олдин яна {ahead} та" if ahead else ""
-    return (f"Сервер банд: ҳозир {busy_n} та .xls файл очилмоқда{extra}. Навбатингиз келиши билан ўзи давом этади "
-            f"(кутилди {int(waited)} с)")
+    extra = _noop(", сиздан олдин яна {0} та").format(ahead) if ahead else ""
+    return (_noop("Сервер банд: ҳозир {0} та .xls файл очилмоқда{1}. Навбатингиз келиши билан ўзи давом этади (кутилди {2} с)").format(busy_n, extra, int(waited)))

@@ -4,6 +4,10 @@
 (function () {
   "use strict";
 
+  // таржима (web/i18n.py, /jsi18n/): каталог юкланмаган бўлса — асл матн
+  var gettext = window.gettext || function (s) { return s; };
+  function fmt(s, args) { var i = 0; return s.replace(/%s/g, function () { return args[i++]; }); }
+
   function csrf(form) { return form.querySelector("[name=csrfmiddlewaretoken]").value; }
   // act — {text, fn}: хабар ичидаги тугма (масалан «Ортга қайтариш»); бундай хабар узоқроқ туради
   function toast(text, ok, act) {
@@ -30,8 +34,8 @@
     return fetch(url, {method: "POST", body: fd, credentials: "same-origin",
                        headers: {"X-CSRFToken": csrf(form), "X-Requested-With": "XMLHttpRequest"}})
       .then(function (r) {
-        return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; })
-          .then(function (d) { if (!r.ok || !d.ok) throw new Error(d.error || "хато"); return d; });
+        return r.json().catch(function () { return {ok: false, error: fmt(gettext("сервер хатоси (%s)"), [r.status])}; })
+          .then(function (d) { if (!r.ok || !d.ok) throw new Error(d.error || gettext("хато")); return d; });
       });
   }
   function tone(v) { return v == null ? "t-none" : v >= 0.7 ? "t-good" : v >= 0.4 ? "t-mid" : "t-low"; }
@@ -52,19 +56,18 @@
       var el = row.querySelector(".pk-say");
       if (!el) return;
       var t, c;
-      if (!on) { t = "Бу локал нархланмайди. Нархлаш керак бўлса — чапдаги белгини қўйинг."; c = "t-off"; }
-      else if (!val) { t = "Ресурс файли танланмаган — ўнгдаги рўйхатдан танланг ёки «Ресурсни танлаш»ни босиб ёнма-ён кўринг."; c = "t-bad"; }
-      else if (opt && opt.dataset.np) { t = "Танланган ресурсда нарх йўқ — бошқа ресурс файлини танланг, акс ҳолда нархланмай қолади."; c = "t-bad"; }
-      else if (opt && opt.dataset.base) { t = "Нархлар ресурс базасидан олинади — тайёр, ҳеч нарса қилиш шарт эмас."; c = "t-ok"; }
+      if (!on) { t = gettext("Бу локал нархланмайди. Нархлаш керак бўлса — чапдаги белгини қўйинг."); c = "t-off"; }
+      else if (!val) { t = gettext("Ресурс файли танланмаган — ўнгдаги рўйхатдан танланг ёки «Ресурсни танлаш»ни босиб ёнма-ён кўринг."); c = "t-bad"; }
+      else if (opt && opt.dataset.np) { t = gettext("Танланган ресурсда нарх йўқ — бошқа ресурс файлини танланг, акс ҳолда нархланмай қолади."); c = "t-bad"; }
+      else if (opt && opt.dataset.base) { t = gettext("Нархлар ресурс базасидан олинади — тайёр, ҳеч нарса қилиш шарт эмас."); c = "t-ok"; }
       else if (opt && opt.dataset.struct) {
         // номлар мос эмас (смета­чи RES'да тавсифни ўзгартирган), лекин битта файл, лист номи ва смета рақами бир хил
-        t = "Номлар ресурсда бошқача ёзилган, лекин бу локалнинг ўзиники: битта файлда, лист номи ва смета рақами бир хил. " +
-            "Нархлар шифр бўйича таклиф қилинади — нархлангандан кейин «ТЕКШИРИНГ» қаторларини тасдиқланг.";
+        t = gettext("Номлар ресурсда бошқача ёзилган, лекин бу локалнинг ўзиники: битта файлда, лист номи ва смета рақами бир хил. Нархлар шифр бўйича таклиф қилинади — нархлангандан кейин «ТЕКШИРИНГ» қаторларини тасдиқланг.");
         c = "t-mid";
       }
-      else if (v == null || v >= 0.7) { t = "Тўғри жуфтланган — ҳеч нарса қилиш шарт эмас."; c = "t-ok"; }
-      else if (v >= 0.4) { t = "Мослик ўртача — «Ёнма-ён кўриш» билан текшириб кўринг; нотўғри бўлса бошқасини танланг."; c = "t-mid"; }
-      else { t = "Мослик паст — бу ресурс бошқа объектники бўлиши мумкин. «Ёнма-ён кўриш» билан текширинг."; c = "t-low"; }
+      else if (v == null || v >= 0.7) { t = gettext("Тўғри жуфтланган — ҳеч нарса қилиш шарт эмас."); c = "t-ok"; }
+      else if (v >= 0.4) { t = gettext("Мослик ўртача — «Ёнма-ён кўриш» билан текшириб кўринг; нотўғри бўлса бошқасини танланг."); c = "t-mid"; }
+      else { t = gettext("Мослик паст — бу ресурс бошқа объектники бўлиши мумкин. «Ёнма-ён кўриш» билан текширинг."); c = "t-low"; }
       el.textContent = t;
       el.className = "pk-say " + c;
     }
@@ -78,13 +81,13 @@
         row.classList.toggle("is-off", !inc.checked);
         row.classList.toggle("is-ok", inc.checked && !!sel.value);
         row.classList.toggle("is-need", inc.checked && !sel.value && hasRes);
-        if (opt && opt.dataset.base) { ov.textContent = "база"; ov.className = "pk-ov t-none"; }
+        if (opt && opt.dataset.base) { ov.textContent = gettext("база"); ov.className = "pk-ov t-none"; }
         else if (!sel.value) { ov.textContent = "?"; ov.className = "pk-ov t-low"; }
-        else if (opt && opt.dataset.struct) { ov.textContent = "№ мос"; ov.className = "pk-ov t-mid"; }
+        else if (opt && opt.dataset.struct) { ov.textContent = gettext("№ мос"); ov.className = "pk-ov t-mid"; }
         else { ov.textContent = v == null ? "—" : Math.round(v * 100) + "%"; ov.className = "pk-ov " + tone(v); }
         ov.title = opt && opt.dataset.struct
-          ? "Номлар мослиги " + Math.round((v || 0) * 100) + "% — лекин файл, лист номи ва смета рақами бир хил"
-          : "Локалдаги ресурсларнинг неча фоизи шу RES листида аниқ бор";
+          ? fmt(gettext("Номлар мослиги %s% — лекин файл, лист номи ва смета рақами бир хил"), [Math.round((v || 0) * 100)])
+          : gettext("Локалдаги ресурсларнинг неча фоизи шу RES листида аниқ бор");
         say(row, inc.checked, sel.value, opt, v);
         if (inc.checked && sel.value) ready++;
         if (inc.checked && !sel.value) need++;
@@ -93,7 +96,7 @@
       // ресурс қаторида — қайси локаллар шу ердан нарх олади
       root.querySelectorAll(".pk-used").forEach(function (u) {
         var t = used[u.dataset.res];
-        u.textContent = t ? "нарх беради: " + t.join(", ") : "ҳеч қайси локалга танланмаган";
+        u.textContent = t ? fmt(gettext("нарх беради: %s"), [t.join(", ")]) : gettext("ҳеч қайси локалга танланмаган");
         u.classList.toggle("is-idle", !t);
       });
       var nb = root.querySelector('.pk-filters [data-f="need"]');
@@ -117,21 +120,20 @@
       if (!box) return;
       var t, go = null, tone = "todo";
       if (left) {
-        t = "<b>1-қадам.</b> " + left + " та лист белгиланмаган. Ҳар бирини <b>«Кўриш»</b> билан очинг ва турини босинг: " +
-            "<b class='t-loc'>Локал</b> — иш ҳажмлари, <b class='t-res'>Ресурс</b> — нархлар, <b>Ўтказиш</b> — керак эмас. " +
-            "Бир нечтасини чапдаги катакча билан танлаб, бирданига белгилаш мумкин" +
-            (root.querySelector(".pk-auto") ? "; ёки тепадаги <b>«Автоматик ажратиш»</b>ни босинг — тизим ўзи ажратади." : ".");
-        go = {text: "Биринчисига ўтиш ↓", el: root.querySelector(".pk-sheet.is-none")};
+        t = fmt(gettext("<b>1-қадам.</b> %s та лист белгиланмаган. Ҳар бирини <b>«Кўриш»</b> билан очинг ва турини босинг: <b class='t-loc'>Локал</b> — иш ҳажмлари, <b class='t-res'>Ресурс</b> — нархлар, <b>Ўтказиш</b> — керак эмас."), [left]) + " " +
+            (root.querySelector(".pk-auto")
+              ? gettext("Бир нечтасини чапдаги катакча билан танлаб, бирданига белгилаш мумкин; ёки тепадаги <b>«Автоматик ажратиш»</b>ни босинг — тизим ўзи ажратади.")
+              : gettext("Бир нечтасини чапдаги катакча билан танлаб, бирданига белгилаш мумкин."));
+        go = {text: gettext("Биринчисига ўтиш ↓"), el: root.querySelector(".pk-sheet.is-none")};
       } else if (!hasLocal) {
-        t = "<b>Нархланадиган смета йўқ.</b> Иш ҳажмлари турган листни <b>«Локал»</b>, нархлар листини <b>«Ресурс»</b> деб белгиланг — пастдаги «Керак эмас» ичида бўлиши мумкин.";
-        go = {text: "Листларни очиш ↓", el: root.querySelector(".pk-skip"), open: true};
+        t = gettext("<b>Нархланадиган смета йўқ.</b> Иш ҳажмлари турган листни <b>«Локал»</b>, нархлар листини <b>«Ресурс»</b> деб белгиланг — пастдаги «Керак эмас» ичида бўлиши мумкин.");
+        go = {text: gettext("Листларни очиш ↓"), el: root.querySelector(".pk-skip"), open: true};
       } else if (!hasRes) {
-        t = "<b>Ресурс йўқ.</b> Нархлар турган листни (RES) <b>«Ресурс»</b> деб белгиланг ёки RES файлни қўшиб юкланг.";
-        go = {text: "Листларни очиш ↓", el: root.querySelector(".pk-skip"), open: true};
+        t = gettext("<b>Ресурс йўқ.</b> Нархлар турган листни (RES) <b>«Ресурс»</b> деб белгиланг ёки RES файлни қўшиб юкланг.");
+        go = {text: gettext("Листларни очиш ↓"), el: root.querySelector(".pk-skip"), open: true};
       } else if (need) {
-        t = "<b>" + need + " та локал</b> учун тизим ресурсни топа олмади. Қизил қаторда <b>«Ресурсни танлаш»</b>ни босинг — " +
-            "локал ва ресурслар ёнма-ён очилади, тўғрисини кўриб <b>«Шуни танлаш»</b>ни босасиз.";
-        go = {text: "Ўша қаторга ўтиш ↓", el: root.querySelector(".pk-pair.is-need")};
+        t = fmt(gettext("<b>%s та локал</b> учун тизим ресурсни топа олмади. Қизил қаторда <b>«Ресурсни танлаш»</b>ни босинг — локал ва ресурслар ёнма-ён очилади, тўғрисини кўриб <b>«Шуни танлаш»</b>ни босасиз."), [need]);
+        go = {text: gettext("Ўша қаторга ўтиш ↓"), el: root.querySelector(".pk-pair.is-need")};
       } else {
         // ҳаммаси тайёр — ортиқча матн кўрсатмаймиз, пастдаги яшил «Бошлаш» тугмасининг ўзи кифоя
         box.hidden = true;
@@ -198,7 +200,7 @@
     var busy = false;
     // data — batch_pick'га (what: role | auto | undo); rows — кутиш белгиси қўйиладиган қаторлар
     function change(data, rows, done) {
-      if (!mine) { toast("Бу иш сизники эмас — фақат кўриш мумкин"); return; }
+      if (!mine) { toast(gettext("Бу иш сизники эмас — фақат кўриш мумкин")); return; }
       if (busy) return;
       busy = true;
       root.classList.add("is-working");
@@ -209,7 +211,7 @@
         .then(function () {
           busy = false;
           // ҳар бир ўзгаришдан кейин — бир босишда қайтариш (адашиб босилса)
-          toast(done(got), true, got.undo && data.what !== "undo" ? {text: "↶ Ортга қайтариш", fn: undo} : null);
+          toast(done(got), true, got.undo && data.what !== "undo" ? {text: gettext("↶ Ортга қайтариш"), fn: undo} : null);
         })
         .catch(function (e) {
           busy = false;
@@ -220,16 +222,16 @@
     }
     function setRoles(keys, role, rows) {
       if (!keys.length) return;
-      var name = {local: "Локал", resource: "Ресурс", unknown: "Керак эмас"}[role] || "";
+      var name = {local: gettext("Локал"), resource: gettext("Ресурс"), unknown: gettext("Керак эмас")}[role] || "";
       change({what: "role", key: keys, role: role}, rows, function (d) {
         // тизим шу листнинг тузилишини эслаб қолди — смета­чига айтамиз (кейин қайта кўрсатиши шарт эмас)
         if (d.remembered) return "✓ " + d.remembered;
-        if (keys.length > 1) return "✓ " + keys.length + " та лист — " + (name ? "«" + name + "»" : "белгиси олинди");
-        return role ? "✓ Сақланди — жуфтликлар янгиланди" : "✓ Белги олинди";
+        if (keys.length > 1) return name ? fmt(gettext("✓ %s та лист — «%s»"), [keys.length, name]) : fmt(gettext("✓ %s та лист — белгиси олинди"), [keys.length]);
+        return role ? gettext("✓ Сақланди — жуфтликлар янгиланди") : gettext("✓ Белги олинди");
       });
     }
     function undo() {
-      change({what: "undo"}, [], function () { return "✓ Охирги ўзгариш бекор қилинди"; });
+      change({what: "undo"}, [], function () { return gettext("✓ Охирги ўзгариш бекор қилинди"); });
     }
     root.querySelectorAll(".pk-seg button").forEach(function (b) {
       b.addEventListener("click", function () {
@@ -254,10 +256,10 @@
     if (undoBtn) undoBtn.addEventListener("click", undo);
     var autoBtn = root.querySelector(".pk-auto");
     if (autoBtn) autoBtn.addEventListener("click", function () {
-      autoBtn.querySelector("span").textContent = "Ажратилмоқда…";
+      autoBtn.querySelector("span").textContent = gettext("Ажратилмоқда…");
       change({what: "auto"}, [], function (d) {
-        return "✓ Тизим листларни ажратди — текширинг. Нотўғриси бўлса, турини босиб ўзгартиринг" +
-               (d.left ? " (" + d.left + " та қолди)" : "");
+        return d.left ? fmt(gettext("✓ Тизим листларни ажратди — текширинг. Нотўғриси бўлса, турини босиб ўзгартиринг (%s та қолди)"), [d.left])
+                      : gettext("✓ Тизим листларни ажратди — текширинг. Нотўғриси бўлса, турини босиб ўзгартиринг");
       });
     });
 
@@ -317,7 +319,7 @@
       post(D.pick, form, {what: "pair", n: row.dataset.n, res: sel.value, include: inc.checked ? "1" : ""})
         .then(function (d) {
           if (opts.onSaved) opts.onSaved(d);
-          toast("✓ Сақланди", true);
+          toast(gettext("✓ Сақланди"), true);
           if (redraw) return reload({flash: row.dataset.local});
         })
         .catch(function (e) { toast(e.message); });
@@ -326,24 +328,24 @@
     function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]; }); }
     var ICO_SHEET = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="h-5 w-5"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>';
     var ICO_DOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="h-4 w-4"><path d="M6 9l6 6 6-6"/></svg>';
-    function word(v) { return v == null ? "мослик номаълум" : v >= 0.7 ? "жуда мос" : v >= 0.4 ? "ўртача мос" : v > 0 ? "кам мос" : "мос эмас"; }
+    function word(v) { return v == null ? gettext("мослик номаълум") : v >= 0.7 ? gettext("жуда мос") : v >= 0.4 ? gettext("ўртача мос") : v > 0 ? gettext("кам мос") : gettext("мос эмас"); }
     function ddItem(o, chosen) {
       var v = ovOf(o), d = o.dataset, tags = [];
-      if (d.best) tags.push('<em class="is-best">★ энг мос</em>');
-      if (d.same) tags.push('<em>локалнинг ўз файлида</em>');
-      if (d.struct) tags.push('<em class="is-best">лист номи ва № бир хил</em>');
-      if (d.np) tags.push('<em class="is-np">нархи йўқ — танламанг</em>');
-      if (chosen) tags.push('<em class="is-on">✓ ҳозир танланган</em>');
+      if (d.best) tags.push('<em class="is-best">' + gettext("★ энг мос") + "</em>");
+      if (d.same) tags.push("<em>" + gettext("локалнинг ўз файлида") + "</em>");
+      if (d.struct) tags.push('<em class="is-best">' + gettext("лист номи ва № бир хил") + "</em>");
+      if (d.np) tags.push('<em class="is-np">' + gettext("нархи йўқ — танламанг") + "</em>");
+      if (chosen) tags.push('<em class="is-on">' + gettext("✓ ҳозир танланган") + "</em>");
       if (d.base) {
         return '<button type="button" class="pk-dd-i' + (chosen ? " is-on" : "") + '" data-v="' + esc(o.value) + '">' +
-          '<span class="pk-dd-ic is-base">Б</span><span class="pk-dd-t"><b>Ресурс базасидан</b><small>RES файлсиз — нархлар тизимдаги базадан олинади</small>' +
+          '<span class="pk-dd-ic is-base">' + gettext("Б") + '</span><span class="pk-dd-t"><b>' + gettext("Ресурс базасидан") + "</b><small>" + gettext("RES файлсиз — нархлар тизимдаги базадан олинади") + "</small>" +  // i18n: ok — gettext ичида
           (tags.length ? '<span class="pk-dd-tags">' + tags.join("") + "</span>" : "") + "</span><span></span></button>";
       }
       var pc = v == null ? "—" : Math.round(v * 100) + "%";
       return '<button type="button" class="pk-dd-i' + (chosen ? " is-on" : "") + (d.np ? " is-np" : "") + '" data-v="' + esc(o.value) + '" data-q="' +
           esc((d.file + " " + d.title + " " + d.sheet + " " + d.tag).toLowerCase()) + '">' +
-        '<span class="pk-dd-ic">' + ICO_SHEET + "<i>" + esc(d.tag || "Р") + "</i></span>" +
-        '<span class="pk-dd-t"><b>' + esc(d.file) + "</b><small>" + esc(d.title) + " · лист «" + esc(d.sheet) + "»" + (d.rows && d.rows !== "0" ? " · " + esc(d.rows) + " қатор" : "") + "</small>" +
+        '<span class="pk-dd-ic">' + ICO_SHEET + "<i>" + esc(d.tag || gettext("Р")) + "</i></span>" +
+        '<span class="pk-dd-t"><b>' + esc(d.file) + "</b><small>" + esc(d.title) + " · " + fmt(gettext("лист «%s»"), [esc(d.sheet)]) + (d.rows && d.rows !== "0" ? " · " + fmt(gettext("%s қатор"), [esc(d.rows)]) : "") + "</small>" +
           (tags.length ? '<span class="pk-dd-tags">' + tags.join("") + "</span>" : "") + "</span>" +
         '<span class="pk-dd-m ' + tone(v) + '"><b>' + pc + '</b><i><s style="width:' + (v == null ? 0 : Math.round(v * 100)) + '%"></s></i><small>' + word(v) + "</small></span></button>";
     }
@@ -357,8 +359,8 @@
       var wrap = document.createElement("div"), btn = document.createElement("button"), pop = document.createElement("div");
       wrap.className = "pk-dd";
       btn.type = "button"; btn.className = "pk-dd-btn" + (sel.value ? "" : " is-main");
-      btn.innerHTML = "<span>" + (sel.value ? "Ресурсни алмаштириш" : "Ресурс файлини танлаш") + '</span><i class="pk-dd-n">' + opts.length + " та</i>" + ICO_DOWN;
-      btn.title = "Бу локал учун нархлар олинадиган файлни танлаш";
+      btn.innerHTML = "<span>" + (sel.value ? gettext("Ресурсни алмаштириш") : gettext("Ресурс файлини танлаш")) + '</span><i class="pk-dd-n">' + fmt(gettext("%s та"), [opts.length]) + "</i>" + ICO_DOWN;
+      btn.title = gettext("Бу локал учун нархлар олинадиган файлни танлаш");
       pop.className = "pk-dd-pop"; pop.hidden = true;
       wrap.appendChild(btn); wrap.appendChild(pop);
       sel.parentNode.insertBefore(wrap, sel.nextSibling);
@@ -368,14 +370,14 @@
         var rest = real.filter(function (o) { return top.indexOf(o) < 0; }).sort(function (a, b) {
           return (!!a.dataset.np - !!b.dataset.np) || ((ovOf(b) || 0) - (ovOf(a) || 0));
         });
-        var h = '<div class="pk-dd-h"><b>Бу локалнинг нархлари қайси файлда?</b>' +
-                '<small>Фоиз — локалдаги ресурсларнинг неча фоизи шу файлда бор. Қанча юқори бўлса, шунча тўғри.</small></div>';
-        if (real.length > 6) h += '<input type="search" class="pk-dd-q" placeholder="Файл ёки бўлим номи бўйича қидириш…">';
+        var h = '<div class="pk-dd-h"><b>' + gettext("Бу локалнинг нархлари қайси файлда?") + "</b>" +
+                "<small>" + gettext("Фоиз — локалдаги ресурсларнинг неча фоизи шу файлда бор. Қанча юқори бўлса, шунча тўғри.") + "</small></div>";
+        if (real.length > 6) h += '<input type="search" class="pk-dd-q" placeholder="' + esc(gettext("Файл ёки бўлим номи бўйича қидириш…")) + '">';  // i18n: ok — gettext ичида
         h += '<div class="pk-dd-list">';
-        if (top.length) h += '<div class="pk-dd-g">Тавсия этилади</div>' + top.map(function (o) { return ddItem(o, o.value === sel.value); }).join("");
-        if (rest.length) h += '<div class="pk-dd-g">Бошқа ресурс файллари</div>' + rest.map(function (o) { return ddItem(o, o.value === sel.value); }).join("");
-        if (base.length) h += '<div class="pk-dd-g">Файлсиз</div>' + base.map(function (o) { return ddItem(o, o.value === sel.value); }).join("");
-        h += '<div class="pk-dd-none" hidden>Топилмади</div></div>';
+        if (top.length) h += '<div class="pk-dd-g">' + gettext("Тавсия этилади") + "</div>" + top.map(function (o) { return ddItem(o, o.value === sel.value); }).join("");
+        if (rest.length) h += '<div class="pk-dd-g">' + gettext("Бошқа ресурс файллари") + "</div>" + rest.map(function (o) { return ddItem(o, o.value === sel.value); }).join("");
+        if (base.length) h += '<div class="pk-dd-g">' + gettext("Файлсиз") + "</div>" + base.map(function (o) { return ddItem(o, o.value === sel.value); }).join("");
+        h += '<div class="pk-dd-none" hidden>' + gettext("Топилмади") + "</div></div>";
         pop.innerHTML = h;
         var q = pop.querySelector(".pk-dd-q");
         if (q) {
@@ -401,7 +403,7 @@
         if (!it) return;
         close();
         if (it.dataset.v === sel.value) return;
-        if (it.classList.contains("is-np") && !confirm("Бу ресурс листида нарх йўқ — бу локал нархланмай қолади. Барибир танлансинми?")) return;
+        if (it.classList.contains("is-np") && !confirm(gettext("Бу ресурс листида нарх йўқ — бу локал нархланмай қолади. Барибир танлансинми?"))) return;
         sel.value = it.dataset.v;
         sel.dispatchEvent(new Event("change"));
       });
@@ -429,7 +431,7 @@
       return {
         label: function (k, s) {
           if (!s || s.role !== "resource" || !Array.prototype.some.call(sel.options, function (o) { return o.value === k; })) return null;
-          return sel.value === k ? {text: "✓ Шу ресурс танланган", chosen: true} : {text: "Шу ресурсни танлаш"};
+          return sel.value === k ? {text: gettext("✓ Шу ресурс танланган"), chosen: true} : {text: gettext("Шу ресурсни танлаш")};
         },
         choose: function (k) { sel.value = k; sel.dispatchEvent(new Event("change")); },
       };
@@ -439,13 +441,13 @@
       var sel = row.querySelector(".pk-select"), c = cands(row), start = sel.value && !sel.options[sel.selectedIndex].dataset.base ? sel.value : (c[0] && c[0].k);
       var panes = [{url: D.sheet, k: row.dataset.local, tabs: V.fileTabs(SHEETS, row.dataset.local), markFor: window.narxMarkFor || null}];
       if (start) panes.push({url: D.sheet, k: start, tabs: V.candTabs(c, BY, row.dataset.local), pick: pickFor(row), markFor: window.narxMarkFor || null});
-      V.open(row.dataset.title + (sel.value ? " — локал ва ресурс ёнма-ён" : " — ресурс танланмаган: ўнгдан кўриб танланг"), panes);
+      V.open(fmt(sel.value ? gettext("%s — локал ва ресурс ёнма-ён") : gettext("%s — ресурс танланмаган: ўнгдан кўриб танланг"), [row.dataset.title]), panes);
     }
     root.querySelectorAll("[data-view]").forEach(function (b) {
       b.addEventListener("click", function () {
         if (!V) return;
         var k = b.dataset.view;
-        V.open("Excel кўриниши — " + (BY[k] ? BY[k].file_name : ""), [{url: D.sheet, k: k, tabs: V.fileTabs(SHEETS, k), markFor: window.narxMarkFor || null}]);
+        V.open(fmt(gettext("Excel кўриниши — %s"), [BY[k] ? BY[k].file_name : ""]), [{url: D.sheet, k: k, tabs: V.fileTabs(SHEETS, k), markFor: window.narxMarkFor || null}]);
       });
     });
 
@@ -455,7 +457,7 @@
         root.querySelectorAll(".pk-mode").forEach(function (m) { m.classList.toggle("is-on", m.querySelector("input").checked); });
         // усул листларни ким белгилашини ўзгартиради — блок қайта чизилади
         post(D.nf, form, {nf_mode: inp.value, batch: D.batch || ""}).then(function () { return reload(); })
-          .then(function () { toast(inp.value === "auto" ? "✓ Автоматик: листларни тизим ажратди" : "✓ Қўлда: ҳар бир листни ўзингиз белгиланг", true); })
+          .then(function () { toast(inp.value === "auto" ? gettext("✓ Автоматик: листларни тизим ажратди") : gettext("✓ Қўлда: ҳар бир листни ўзингиз белгиланг"), true); })
           .catch(function (e) { toast(e.message); });
       });
     });
@@ -466,7 +468,7 @@
         pctBox.querySelectorAll("input").forEach(function (x) { data[x.name] = x.value; });
         post(D.pct, form, data).then(function () {
           var s = pctBox.querySelector(".pk-saved"); s.hidden = false; setTimeout(function () { s.hidden = true; }, 1500);
-        }).catch(function (e) { toast("Фоизлар сақланмади: " + e.message); });
+        }).catch(function (e) { toast(fmt(gettext("Фоизлар сақланмади: %s"), [e.message])); });
       });
     });
 
@@ -478,11 +480,11 @@
       if (go.disabled) return;
       var old = root.querySelector(".pk-err"); if (old) old.remove();
       go.disabled = true;
-      go.querySelector(".pk-go-t").textContent = "Нархланяпти…";
+      go.querySelector(".pk-go-t").textContent = gettext("Нархланяпти…");
       prog.hidden = false;
       var bar = prog.querySelector(".pk-bar i"), txt = prog.querySelector(".pk-prog-t"), pc = prog.querySelector(".pk-prog-p");
       function show(p, t) { bar.style.width = p + "%"; pc.textContent = Math.round(p) + "%"; if (t) txt.textContent = t; }
-      show(3, D.project ? "Навбатга қўйилмоқда…" : "Танловингиз сақланмоқда…");
+      show(3, D.project ? gettext("Навбатга қўйилмоқда…") : gettext("Танловингиз сақланмоқда…"));
       prog.scrollIntoView({behavior: "smooth", block: "center"});
       var finished = false, queued = false;
       // смета ичидаги босқичлар (сервер айтади) ва уларнинг улуши: ўқиш, қаторлар (сони билан), ёзиш, сақлаш.
@@ -497,12 +499,12 @@
           if (queued && d.finished) {  // фондаги нархлаш тугади
             finished = true;
             if (d.error) return fail(new Error(d.error));
-            show(100, "Тайёр! Натижа очиляпти…");
+            show(100, gettext("Тайёр! Натижа очиляпти…"));
             bar.style.animation = "none";
             setTimeout(function () { location.href = d.url; }, 400);
             return;
           }
-          if (d.queued && !d.total) show(4, d.ahead ? "Навбатда: олдингизда " + d.ahead + " та объект…" : "Навбатда — бошланяпти…");
+          if (d.queued && !d.total) show(4, d.ahead ? fmt(gettext("Навбатда: олдингизда %s та объект…"), [d.ahead]) : gettext("Навбатда — бошланяпти…"));
           if (d.total) {
             var key = d.at + ":" + (d.phase || "");
             if (key !== phKey) { phKey = key; phSince = Date.now(); }
@@ -513,13 +515,14 @@
             var job = span[0] + (span[1] - span[0]) * inside;
             var p = 5 + 92 * (d.at - 1 + job) / d.total;
             lastAt = Math.max(lastAt, p);  // орқага қайтмайди
-            var t = d.at + " / " + d.total + " смета: " + d.text.replace(/^смета нархланяпти:\s*/, "");
-            var what = {read: "Excel ўқилмоқда", price: "қаторлар нархланмоқда", write: "Excel'га ёзилмоқда",
-                        save: "файл сақланмоқда", auto: "таклифлар қўйилмоқда"}[d.phase];
+            // d.text — сервердаги асл ёзув («смета нархланяпти: <номи>»); олди олиб ташланади, қолгани — смета номи
+            var t = fmt(gettext("%s / %s смета: %s"), [d.at, d.total, d.text.replace(/^смета нархланяпти:\s*/, "")]);  // i18n: ok
+            var what = {read: gettext("Excel ўқилмоқда"), price: gettext("қаторлар нархланмоқда"), write: gettext("Excel'га ёзилмоқда"),
+                        save: gettext("файл сақланмоқда"), auto: gettext("таклифлар қўйилмоқда")}[d.phase];
             if (what) {
               t += " — " + what;
-              if (counted) t += ": " + num(d.rows_done) + " / " + num(d.rows) + " қатор, қолди " + num(d.rows - d.rows_done);
-              else if (d.rows) t += " (" + num(d.rows) + " қатор)";
+              if (counted) t += ": " + fmt(gettext("%s / %s қатор, қолди %s"), [num(d.rows_done), num(d.rows), num(d.rows - d.rows_done)]);
+              else if (d.rows) t += " " + fmt(gettext("(%s қатор)"), [num(d.rows)]);
             }
             show(Math.min(99, lastAt), t);
           }
@@ -529,12 +532,12 @@
       setTimeout(poll, 600);
       var fd = new FormData(form);
       fetch(form.action, {method: "POST", body: fd, credentials: "same-origin", headers: {"X-Requested-With": "XMLHttpRequest"}})
-        .then(function (r) { return r.json().catch(function () { return {ok: false, error: "сервер хатоси (" + r.status + ")"}; }); })
+        .then(function (r) { return r.json().catch(function () { return {ok: false, error: fmt(gettext("сервер хатоси (%s)"), [r.status])}; }); })
         .then(function (d) {
-          if (!d.ok) throw new Error(d.error || "хато");
+          if (!d.ok) throw new Error(d.error || gettext("хато"));
           if (d.queued) { queued = true; return; }  // фонда нархланяпти — poll тугашини кутади
           finished = true;
-          show(100, D.project ? "Навбатга қўйилди — папка саҳифаси очиляпти…" : "Тайёр! Натижа очиляпти…");
+          show(100, D.project ? gettext("Навбатга қўйилди — папка саҳифаси очиляпти…") : gettext("Тайёр! Натижа очиляпти…"));
           bar.style.animation = "none";
           setTimeout(function () { location.href = d.url; }, 500);
         })
@@ -542,7 +545,7 @@
       function fail(err) {
           finished = true;
           go.disabled = false;
-          go.querySelector(".pk-go-t").textContent = "Қайта уриниш";
+          go.querySelector(".pk-go-t").textContent = gettext("Қайта уриниш");
           prog.hidden = true;
           var box = document.createElement("div");
           box.className = "pk-err";
@@ -557,7 +560,7 @@
     // ---------- қайта чизиш (лист тури ўзгарганда) ----------
     function reload(o) {
       return fetch(D.partial, {cache: "no-store", credentials: "same-origin"}).then(function (r) {
-        if (!r.ok) throw new Error("Янгилаб бўлмади (" + r.status + ")");
+        if (!r.ok) throw new Error(fmt(gettext("Янгилаб бўлмади (%s)"), [r.status]));
         return r.text();
       }).then(function (html) {
         var y = window.scrollY, box = document.createElement("div");
@@ -589,6 +592,7 @@
 (function () {
   if (window.narxPctCheck) return;
   window.narxPctCheck = true;
+  var gettext = window.gettext || function (s) { return s; };
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function norm(v) { var n = parseFloat(String(v || "").replace("%", "").replace(/\s/g, "").replace(",", ".")); return isNaN(n) ? 0 : n; }
   // ойнадаги катаклар: ҳар бир фоиз — номи, катак, стандартдан фарқ қилса — сариқ ва «стандарт: …»
@@ -597,7 +601,7 @@
     Array.prototype.forEach.call(box.querySelectorAll("label"), function (l) {
       var name = l.querySelector("span[title]"), src = l.querySelector("input");
       if (!name || !src) return;
-      var def = (src.title || "").replace(/^Стандарт:\s*/, "");
+      var def = (src.title || "").replace(/^[^:]*:\s*/, "");  // «Стандарт: 3» (ҳар тилда) — қиймат
       var row = el("label", "pctd-row"), inp = el("input", "pctd-in num"), std = el("small", "pctd-std");
       row.appendChild(el("span", "pctd-n", name.textContent.trim()));
       var cell = el("span", "pctd-c");
@@ -608,7 +612,7 @@
       function mark() {
         var changed = def && norm(inp.value) !== norm(def);
         row.classList.toggle("is-changed", !!changed);
-        std.textContent = changed ? "стандарт: " + def : "";
+        std.textContent = changed ? gettext("стандарт:") + " " + def : "";
       }
       inp.addEventListener("input", mark);
       inp.addEventListener("focus", function () { inp.select(); });
@@ -616,7 +620,7 @@
       wrap.appendChild(row);
       pairs.push([inp, src]);
     });
-    wrap.appendChild(el("p", "pctd-note", "Нархлашда сводка шу фоизлар билан ҳисобланади. Кейин смета саҳифасида ҳам ўзгартириш мумкин."));
+    wrap.appendChild(el("p", "pctd-note", gettext("Нархлашда сводка шу фоизлар билан ҳисобланади. Кейин смета саҳифасида ҳам ўзгартириш мумкин.")));
     return {node: wrap, pairs: pairs};
   }
   document.addEventListener("submit", function (e) {
@@ -627,7 +631,7 @@
     e.preventDefault();
     e.stopImmediatePropagation();
     var btn = e.submitter;
-    window.narxDialog.confirm("", {title: "Сводка фоизлари", ok: "Тўғри, бошлаш", cancel: "Бекор қилиш", body: ed.node}).then(function (yes) {
+    window.narxDialog.confirm("", {title: gettext("Сводка фоизлари"), ok: gettext("Тўғри, бошлаш"), cancel: gettext("Бекор қилиш"), body: ed.node}).then(function (yes) {
       if (!yes) return;
       var changed = false;
       ed.pairs.forEach(function (p) {

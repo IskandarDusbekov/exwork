@@ -2,7 +2,7 @@
 {% load narx seo %}
 {% comment %} Видео қўлланма (/qollanma/): тепада — видеолар бўлимлари бўйича (панел «Блог» → «Видео»), кейин қисқа
 иш тартиби ва смета ёзувлари изоҳи (йиғиладиган). Мақолалар — алоҳида «Блог» саҳифасида. {% endcomment %}
-{% block seo %}{% url 'guide' as here %}{% seo_head title="Видео қўлланма — mhisobot" canonical=here description=description %}{% endblock %}
+{% block seo %}{% url 'guide' as here %}{% seo_head title=_("Видео қўлланма — mhisobot") canonical=here description=description %}{% endblock %}
 {% block css %}{% include "jobs/_blog_css.html" %}{% endblock %}
 {% block content %}
 <header class="ghead">
