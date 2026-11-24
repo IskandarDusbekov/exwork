@@ -16,6 +16,8 @@
       {% if not compact %}{% include "jobs/_work_badge.html" %}{% endif %}
       {% if not compact %}
       {# summa yo'q bo'lsa — bo'sh joy (ustun tekis tursin), «—» va izoh chiqmaydi #}
+      <span class="hidden w-28 shrink-0 text-right sm:block">{% if it.rows_done %}<span class="num block text-sm font-semibold text-slate-800">{{ it.rows_done|som }}</span>
+        <span class="block text-[11px] text-slate-400">{% if it.paid %}<span class="font-semibold text-emerald-700" title="Ҳаммаси юклаб олинган — қайта юклаш бепул">✓ тўланган</span> · {% endif %}қатор</span>{% endif %}</span>
       <span class="hidden w-40 shrink-0 text-right sm:block">{% if it.total %}<span class="num block text-sm font-semibold text-slate-800">{{ it.total|som }}</span>
         <span class="block text-[11px] text-slate-400">Всего с НДС</span>{% endif %}</span>
       {% endif %}

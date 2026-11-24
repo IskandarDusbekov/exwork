@@ -22,14 +22,20 @@
   <p class="mt-1 text-sm text-slate-500">«Объект қўшиш» — объект маълумотлари ва офёрта файли (Excel).</p>
 </div>
 {% else %}
-{# тепада — ҳамма объектлар бўйича жами; пастда ҳолат бўйича фильтр, саралаш ва рўйхат #}
+{# тепада — иш ҳолати (пул эмас): объектлар, далолатномалар, шу ой, эътибор, охирги иш; пастда фильтр ва рўйхат #}
 <div class="tn-kpis">
   <div class="tn-kpi"><span class="l">Объектлар</span><b class="num">{{ cards|length }}</b>
     <span class="s">{{ counts.run }} жараёнда · {{ counts.done }} тугаган{% if counts.new %} · {{ counts.new }} бошланмаган{% endif %}</span></div>
-  <div class="tn-kpi"><span class="l">Шартнома жами</span><b class="num" title="{{ tot.contract|pul }}">{{ tot.contract|pul }}</b><span class="s">сўм, ҚҚС билан</span></div>
-  <div class="tn-kpi is-ok"><span class="l">Бажарилган</span><b class="num" title="{{ tot.done|pul }}">{{ tot.done|pul }}</b>
-    <span class="tn-bar is-lg"><i style="width:{{ tot.pct|stringformat:'.3f' }}%"></i></span><span class="s">{{ tot.pct|floatformat:1 }}% бажарилди</span></div>
-  <div class="tn-kpi"><span class="l">Қолдиқ</span><b class="num" title="{{ tot.left|pul }}">{{ tot.left|pul }}</b><span class="s">ҳали бажарилмаган</span></div>
+  <div class="tn-kpi"><span class="l">Далолатномалар</span><b class="num">{{ ov.acts }}</b>
+    <span class="s">{% if ov.acts %}{{ ov.acts_closed }} ёпилган · {{ ov.acts_open }} очиқ{% else %}ҳали тузилмаган{% endif %}</span></div>
+  <div class="tn-kpi"><span class="l">Шу ойда · {{ ov.month_name }}</span><b class="num">{{ ov.month_acts }} <small>та далолатнома</small></b>
+    <span class="s{% if ov.waiting %} is-warn{% endif %}">{% if ov.waiting %}{{ ov.waiting }} объектда ҳали йўқ{% else %}ҳамма объектда бор{% endif %}</span></div>
+  <button type="button" class="tn-kpi is-btn{% if counts.attn %} is-warn{% endif %}" {% if counts.attn %}data-f="attn"{% else %}disabled{% endif %}>
+    <span class="l">Эътибор керак</span><b class="num">{{ counts.attn }}</b>
+    <span class="s">{% if counts.attn %}офёртаси тайёр эмас — кўриш →{% else %}ҳаммаси жойида{% endif %}</span></button>
+  {% if ov.last %}<a href="{% url 'texnazor:object' ov.last.obj.pk %}" class="tn-kpi is-btn">
+    <span class="l">Охирги иш · {{ ov.last.at|date:"d.m H:i" }}</span><b class="tn-last" title="{{ ov.last.obj.name }}">{{ ov.last.obj.name }}</b>
+    <span class="s">{{ ov.last.text }} →</span></a>{% endif %}
 </div>
 
 <div class="tn-bar-row">
@@ -100,6 +106,8 @@
         apply();
       });
     });
+    var attn = document.querySelector(".tn-kpi[data-f]"), attnChip = document.querySelector('.tn-chip[data-f="attn"]');
+    if (attn && attnChip) attn.addEventListener("click", function () { attnChip.click(); list.scrollIntoView({ behavior: "smooth", block: "start" }); });
     sort.addEventListener("change", function () {
       var k = sort.value;
       items.sort(function (a, b) {
@@ -113,14 +121,20 @@
 </script>
 {% endif %}
 <style>
-  .tn-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
-  @media (max-width: 1023px) { .tn-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .tn-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.4fr); gap: 12px; margin-bottom: 14px; }
+  @media (max-width: 1199px) { .tn-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tn-kpis > a.tn-kpi { grid-column: 1 / -1; } }
   @media (max-width: 520px) { .tn-kpis { grid-template-columns: minmax(0, 1fr); } }
   .tn-kpi { display: flex; min-width: 0; flex-direction: column; gap: 2px; border: 1px solid rgb(var(--ink-300)); border-radius: 14px; background: #fff; padding: 12px 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, .05); }
   .tn-kpi .l { font-size: 12px; font-weight: 600; color: rgb(var(--ink-500)); }
   .tn-kpi b { overflow-wrap: anywhere; white-space: normal; font-size: clamp(16px, 1.45vw, 20px); font-weight: 750; color: rgb(var(--ink-900)); }
   .tn-kpi .s { font-size: 12px; color: rgb(var(--ink-500)); }
-  .tn-kpi.is-ok b { color: rgb(var(--ok-700)); }
+  .tn-kpi b small { font-size: 12px; font-weight: 600; color: rgb(var(--ink-500)); }
+  .tn-kpi .s.is-warn { color: rgb(var(--warn-700)); font-weight: 600; }
+  .tn-kpi.is-btn { text-align: left; transition: border-color .12s, background .12s; }
+  .tn-kpi.is-btn:not([disabled]):hover { border-color: rgb(var(--ink-500)); background: rgb(var(--ink-50)); }
+  .tn-kpi.is-warn { border-color: rgb(var(--warn-300)); background: rgb(var(--warn-50)); }
+  .tn-kpi.is-warn b { color: rgb(var(--warn-700)); }
+  .tn-kpi .tn-last { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 15px; font-weight: 650; }
   .tn-bar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
   .tn-chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .tn-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid rgb(var(--ink-300)); border-radius: 999px; background: #fff; font-size: 13px; font-weight: 600; color: rgb(var(--ink-700)); }

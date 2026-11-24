@@ -86,18 +86,25 @@
   {% if done_view %}
   <section class="rs-hero{% if unpriced_rows or count_review %} is-fix{% endif %}" data-guide="next">
     <div class="rs-total">
-      <span>Всего с НДС · {{ count_smeta }} та смета · {{ nodes|length }} қисм{% if rows_total %} · {{ rows_done|som }} / {{ rows_total|som }} қатор{% endif %}</span>
+      <span>Всего с НДС · {{ count_smeta }} та смета · {{ nodes|length }} қисм</span>
       <b class="num">{{ grand_total|som }}</b>
       <div class="rs-chips">
         <button type="button" class="rs-chip is-ok" data-go="#parts">{% icon "check" "h-4 w-4" "3" %} {{ count_done }} қисм тайёр</button>
+        {% if rows_done %}<span class="rs-chip is-rows" title="Нархланган ресурс қаторлари (сарлавҳа, бўш ва сводка қаторлари саналмайди){% if rows_total > rows_done %} · сметада жами {{ rows_total|som }}{% endif %}">{% icon "list" "h-4 w-4" "2.5" %} <b class="num">{{ rows_done|som }}</b> қатор нархланди</span>{% endif %}
         {% if unpriced_rows %}<button type="button" class="rs-chip is-fix" data-go="#unpriced">{% icon "alert-circle" "h-4 w-4" %} {{ unpriced_rows }} та қатор нархсиз · {{ unpriced_parts }} қисмда</button>{% endif %}
         {% if count_recalc %}<span class="rs-chip is-run">{% icon "loader" "h-4 w-4 animate-spin" "2.5" %} {{ count_recalc }} қисм қайта ҳисобланяпти</span>{% endif %}
         {% if count_review %}<button type="button" class="rs-chip is-warn" data-part-filter="review">{% icon "alert" "h-4 w-4" %} {{ count_review }} қисмни текширинг</button>{% endif %}
       </div>
+      {% if can_download %}{% load billing_tags %}{% bill_hint project as bh %}{% if bh.kind and bh.kind != "free" %}
+      <p class="rs-bill is-{{ bh.kind }}">{% icon "wallet" "h-4 w-4" %}
+        {% if bh.kind == "paid" %}<span><b>Тўланган.</b> Ҳаммасини юклаб олиш ва офёрта — бепул.</span>
+        {% elif bh.kind == "quota" %}<span>Юклаб олишда <b>тарифдан {{ bh.quota_rows|som }} қатор</b> ечилади{% if bh.done_rows %} (аввал тўланган {{ bh.done_rows|som }} қатор саналмайди){% endif %} · тарифда {{ bh.left_after|som }} қатор қолади.</span>
+        {% else %}<span>Юклаб олишда: {% if bh.quota_rows %}тарифдан {{ bh.quota_rows|som }} қатор, {% endif %}<b>{{ bh.paid_rows|som }} қатор — балансдан {{ bh.amount|som }} сўм</b>{% if bh.done_rows %} · аввал тўланган {{ bh.done_rows|som }} қатор саналмайди{% endif %}.{% if bh.kind == "short" %} <a href="{% url 'billing:profile' %}#topup">Балансда {{ bh.need|som }} сўм етмайди</a>{% endif %}</span>{% endif %}
+      </p>{% endif %}{% endif %}
     </div>
     <div class="rs-acts">
       {% if can_download %}<a href="{% url 'project_download' project.id %}" class="rs-dl" data-guide="download">{% icon "download" "h-6 w-6" %}<span>Ҳаммасини юклаб олиш<small>ZIP · папкалар тузилиши сақланади</small></span></a>{% endif %}
-      {% if can_download %}<a href="{% url 'project_ofyorta' project.id %}" class="rs-of" data-guide="ofyorta">{% icon "sheet" "h-5 w-5" %}<span>Офёрта тузиш<small>тартиб билан · ҳар бири ўз сводкаси билан</small></span></a>{% endif %}
+      {% if can_download %}<a href="{% url 'project_ofyorta' project.id %}" class="rs-of" data-guide="ofyorta">{% icon "sheet" "h-5 w-5" %}<span>Офёрта тузиш<small>тузиш бепул · юклаб олиш — папка билан бир хил</small></span></a>{% endif %}
       <div class="ph-sec2">
         {% tender_on as show_tender %}{% if show_tender %}<a href="{% url 'project_tender' project.id %}" class="rs-sec">{% icon "chart" "h-4 w-4" %} Объект таҳлили</a>{% endif %}
       </div>

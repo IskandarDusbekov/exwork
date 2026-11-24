@@ -32,6 +32,7 @@ class Event(models.Model):
         ADMIN_SETTINGS = "admin_settings", "Админ: созламалар"
         ADMIN_BACKUP = "admin_backup", "Админ: захира нусха"
         ADMIN_SUPPORT = "admin_support", "Админ: ёрдам хизмати"
+        ADMIN_BILLING = "admin_billing", "Админ: тўлов ва тарифлар"
 
     created = models.DateTimeField(auto_now_add=True, db_index=True)
     kind = models.CharField(max_length=24, choices=Kind.choices, db_index=True)

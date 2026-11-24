@@ -2,7 +2,7 @@ from django.urls import path
 
 from . import (views, views_access, views_help, views_lm, views_mail, views_memo, views_narx,
                views_blog, views_seo, views_site,
-               views_settings, views_support, views_tender, views_tn, views_track, views_usage, views_news, views_pages, views_tizim)
+               views_settings, views_support, views_tender, views_tn, views_track, views_usage, views_billing, views_news, views_pages, views_tizim)
 
 app_name = "panel"
 
@@ -15,6 +15,14 @@ urlpatterns = [
     path("tizim/code/", views_tizim.tizim_code, name="tizim_code"),
     path("tizim/live/", views_tizim.tizim_live, name="tizim_live"),
     path("usage/", views_usage.usage_page, name="usage"),
+    path("billing/", views_billing.billing_page, name="billing"),
+    path("billing/settings/", views_billing.billing_settings_save, name="billing_settings"),
+    path("billing/tariff/", views_billing.tariff_save, name="tariff_add"),
+    path("billing/tariff/<int:pk>/", views_billing.tariff_save, name="tariff_save"),
+    path("billing/tariff/<int:pk>/delete/", views_billing.tariff_delete, name="tariff_delete"),
+    path("users/<int:pk>/balance/", views_billing.user_balance, name="user_balance"),
+    path("users/<int:pk>/gift/", views_billing.user_gift, name="user_gift"),
+    path("users/<int:pk>/sub/<int:sid>/end/", views_billing.user_sub_end, name="user_sub_end"),
     path("news/", views_news.news_page, name="news"),
     path("news/save/", views_news.news_save, name="news_save"),
     path("news/<int:pk>/delete/", views_news.news_delete, name="news_delete"),

@@ -50,7 +50,7 @@
     </details>
     <form method="post" action="{% url 'texnazor:act_add' o.pk %}" data-keep>{% csrf_token %}<input type="hidden" name="view" value="{{ view }}">
       <button class="tn-tb tn-tb-soft" title="Янги далолатнома №{{ acts|length|add:1 }} очиш (Alt+N)">{% icon "plus" "h-4 w-4" %}<span class="tn-tb-long">Янги далолатнома</span> №{{ acts|length|add:1 }}</button></form>
-    <a href="{% url 'texnazor:report' o.pk %}" class="tn-tb tn-tb-main" id="tn-xlsx" download data-est="{{ xlsx_est }}" title="Нархланган офёрта (Excel): офёрта + ҳар далолатнома ва «Остатка» блоклари; йиғилган блоклар Excel'да ҳам йиғилган (+ / − билан очилади)">{% icon "download" "h-4 w-4" %}Excel'га юклаш</a>
+    <a href="{% url 'texnazor:report' o.pk %}" class="tn-tb tn-tb-main" id="tn-xlsx" download data-est="{{ xlsx_est }}" title="Нархланган офёрта (Excel): офёрта + ҳар далолатнома ва «Остатка» блоклари; йиғилган блоклар Excel'да ҳам йиғилган (+ / − билан очилади)">{% icon "download" "h-4 w-4" %}Excel'га юклаш{% include "billing/_tag.html" with work=o %}</a>
     {% if acts %}<details class="tn-dd">
       <summary class="tn-tb tn-tb-f2" title="Ф-2 — бажарилган ишлар далолатномаси (ҳар бири алоҳида Excel)">{% icon "file" "h-4 w-4" %}Ф-2 юклаш <span class="tn-car">▾</span></summary>
       <div class="tn-pop tn-pop-f2">
@@ -270,7 +270,7 @@
     <h3 id="tn-done-t"></h3>
     <p class="tn-done-sub">Далолатнома ёпилди — ҳажмлари энди ўзгармайди.</p>
     <p class="tn-done-sum"><span>Бажарилди</span><b class="num"></b></p>
-    <a href="{% url 'texnazor:report' o.pk %}" class="tn-done-dl" data-dl download data-est="{{ xlsx_est }}">{% icon "download" "h-5 w-5" %}Excel'ни юклаб олиш</a>
+    <a href="{% url 'texnazor:report' o.pk %}" class="tn-done-dl" data-dl download data-est="{{ xlsx_est }}">{% icon "download" "h-5 w-5" %}Excel'ни юклаб олиш{% include "billing/_tag.html" with work=o %}</a>
     <span class="tn-done-hint">Нархланган офёрта: офёрта, далолатномалар ва «Остатка»</span>
     <div class="tn-done-r">
       <a href="#" data-f2 download data-est="{{ f2_est }}">{% icon "file" "h-4 w-4" %}Ф-2</a>
@@ -788,6 +788,7 @@
     var done = prog(f2 ? "Ф-2" + (/\/act\/(\d+)\/f2\//.exec(a.href) ? " №" + /\/act\/(\d+)\/f2\//.exec(a.href)[1] : "") + " тайёрланмоқда" : "Excel ҳисобот тайёрланмоқда",
                     +a.dataset.est || 10);
     fetch(a.href, {credentials: "same-origin"}).then(function (r) {
+      if (r.status === 402) { location.href = a.href; throw new Error("pay"); }  // пулли режим: тасдиқлаш / баланс саҳифаси
       if (!r.ok) throw new Error(r.status);
       var cd = r.headers.get("Content-Disposition") || "", m = /filename\*=utf-8''([^;]+)/i.exec(cd) || /filename="?([^";]+)/i.exec(cd);
       return r.blob().then(function (b) { return {b: b, name: m ? decodeURIComponent(m[1]) : "ofyorta.xlsx"}; });

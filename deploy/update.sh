@@ -8,6 +8,7 @@ sudo -u narxlash git pull --ff-only
 sudo -u narxlash "$ROOT/venv/bin/pip" install -q -r requirements.txt
 sudo -u narxlash "$ROOT/app/deploy/manage.sh" migrate --noinput
 sudo -u narxlash "$ROOT/app/deploy/manage.sh" collectstatic --noinput
+sudo -u narxlash "$ROOT/app/deploy/manage.sh" i18n compile   # tarjimalar (.po → .mo; .mo gitda yo'q)
 # nginx (www-data) static'ni o'qiy olsin: /srv/narxlash ga faqat o'tish huquqi (ro'yxat emas), static — o'qish
 chmod o+x "$ROOT"
 chmod -R o+rX "$ROOT/static"

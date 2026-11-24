@@ -34,6 +34,8 @@ def _fmt(f, v):
 def settings_page(request):
     groups = {}
     for f in conf.FIELDS:
+        if f.group == conf.BILLING_GROUP:  # тўлов созламалари — «Тўлов ва тарифлар» саҳифасида
+            continue
         groups.setdefault(f.group, []).append({"f": f, "value": conf.shown(f.key), "default": conf.default(f.key),
                                               "changed": conf.shown(f.key) != conf.default(f.key)})
     from django.db import connection
@@ -55,7 +57,8 @@ def settings_page(request):
 @superuser_required
 def settings_save(request):
     try:
-        changes = {f.key: conf.parse(f, request.POST.get(f.key, "0" if f.kind == "bool" else "")) for f in conf.FIELDS}
+        changes = {f.key: conf.parse(f, request.POST.get(f.key, "0" if f.kind == "bool" else ""))
+                   for f in conf.FIELDS if f.group != conf.BILLING_GROUP}
     except ValueError as e:
         messages.error(request, str(e))
         return redirect("panel:settings")

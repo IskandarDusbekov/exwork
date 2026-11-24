@@ -186,6 +186,40 @@ def object_cards(owner) -> list:
     return cards
 
 
+def overview(owner, cards: list) -> dict:
+    """Объектлар саҳифаси тепаси: далолатномалар (ёпилган/очиқ), шу ойда (ким тузди, кимда йўқ), охирги иш.
+    «Шу ой»: далолатнома санаси (бўлмаса — тузилган куни) ёки ойлар режимида шу ой очилгани."""
+    from .models import Act, ActQty
+    now = timezone.localtime()
+    acts = Act.objects.filter(obj__owner=owner)
+    in_month = (Q(date__year=now.year, date__month=now.month) |
+                Q(date__isnull=True, created__year=now.year, created__month=now.month))
+    month_acts = acts.filter(in_month)
+    has = set(month_acts.values_list("obj_id", flat=True)) | set(
+        Period.objects.filter(obj__owner=owner, year=now.year, month=now.month).values_list("obj_id", flat=True))
+    waiting = [c for c in cards if c["state"] in ("run", "new") and c["o"].pk not in has]
+
+    # охирги иш — ҳажм ёзилгани, далолатнома очилгани ёки объект қўшилгани (энг янгиси)
+    ev = []
+    q = ActQty.objects.filter(act__obj__owner=owner).select_related("act__obj").order_by("-updated").first()
+    if q:
+        ev.append((q.updated, q.act.obj, _("%(a)s далолатномага ҳажм ёзилди") % {"a": q.act.label}))
+    a = acts.select_related("obj").order_by("-created").first()
+    if a:
+        ev.append((a.created, a.obj, _("%(a)s далолатнома очилди") % {"a": a.label}))
+    d = Done.objects.filter(period__obj__owner=owner, updated__isnull=False).select_related("period__obj").order_by("-updated").first()
+    if d:
+        ev.append((d.updated, d.period.obj, _("%(m)s — ҳажм ёзилди") % {"m": d.period.title}))
+    o = SiteObject.objects.filter(owner=owner).order_by("-created").first()
+    if o:
+        ev.append((o.created, o, _("Объект қўшилди")))
+    last = max(ev, key=lambda e: e[0]) if ev else None
+    n, closed = acts.count(), acts.filter(closed=True).count()
+    return {"acts": n, "acts_closed": closed, "acts_open": n - closed,
+            "month_acts": month_acts.count(), "month_name": Period.MONTHS[now.month - 1], "waiting": len(waiting),
+            "last": {"at": last[0], "obj": last[1], "text": last[2]} if last else None}
+
+
 def _acts_marks(owner) -> dict:
     """Далолатномали объектлар: ҳажмлар охирги ўзгарган пайт ва сони — рўйхатдаги сумма шу ўзгармаса қайта ҳисобланмайди."""
     from django.db.models import Count, Max

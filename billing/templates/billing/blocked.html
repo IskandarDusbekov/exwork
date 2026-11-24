@@ -1,0 +1,31 @@
+{% extends "jobs/base.html" %}
+{% load narx %}
+{% block title %}Балансда пул етмайди — mhisobot{% endblock %}
+{% block content %}
+{% comment %} Юклаб олиш учун балансда пул етмайди (billing/gate.py): қанча кераклиги ва тўлдириш йўли. {% endcomment %}
+{% include "billing/_gate_css.html" %}
+<div class="bg-wrap">
+  <div class="bg-card">
+    <span class="bg-ic is-short">{% icon "lock" "h-6 w-6" %}</span>
+    <h1>Юклаб олиш учун балансда пул етмайди</h1>
+    <p class="bg-lead">Натижа тайёр ва сақланган — балансни тўлдириб, шу ерга қайтсангиз, дарров юклаб оласиз.</p>
+    <dl class="bg-dl">
+      {% if q.rows %}
+      <div><dt>Нархланган қатор</dt><dd>{{ q.rows|som }}</dd></div>
+      <div><dt>Тарифда қолган</dt><dd>{{ q.quota_rows|som|default:"0" }}</dd></div>
+      <div><dt>Балансдан · ҳар қатор {{ row_price }} сўм</dt><dd>{{ paid_rows|som }} қатор</dd></div>
+      {% else %}
+      <div><dt>Техназор объекти, шу ой учун</dt><dd>{{ object_price|som }} сўм</dd></div>
+      {% endif %}
+      <div class="is-sum"><dt>Керак</dt><dd>{{ q.amount|som }} сўм</dd></div>
+      <div><dt>Балансда</dt><dd>{{ q.balance|som|default:"0" }} сўм</dd></div>
+      <div class="is-need"><dt>Етмайди</dt><dd>{{ need|som }} сўм</dd></div>
+    </dl>
+    <div class="bg-acts">
+      <a href="{{ back }}" class="bg-btn is-line">Орқага</a>
+      <a href="{% url 'billing:profile' %}#topup" class="bg-btn is-main">{% icon "plus" "h-4 w-4" "2.5" %} Балансни тўлдириш</a>
+    </div>
+    <p class="bg-foot">Ёки тарифга ўтинг: ойлик қаторлар билан ҳар бир қатор арзонроқ тушади — <a href="{% url 'billing:profile' %}#tariffs">тарифлар</a>.</p>
+  </div>
+</div>
+{% endblock %}

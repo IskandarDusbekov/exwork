@@ -190,6 +190,13 @@ def terms_page(request):
 
 @login_not_required
 @require_safe
+def privacy_page(request):
+    return render(request, "jobs/privacy.html", {"t": pages.privacy(), "description": _(
+        "mhisobot.uz махфийлик сиёсати: қандай маълумот йиғилади, нима учун ишлатилади ва қандай ҳимоя қилинади.")})
+
+
+@login_not_required
+@require_safe
 def site_img(request, name):
     """Панелда юкланган расм (мақола, жамоа сурати). media/ nginx'да очиқ эмас — шу ердан берилади."""
     from .richtext import IMG_TYPES

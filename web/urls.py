@@ -28,6 +28,7 @@ urlpatterns = [
     path("texnazor/", include("texnazor.urls")),
     path("support/", include("support.urls")),
     path("news/", include("news.urls")),
+    path("balance/", include("billing.urls")),  # баланс ва тариф
     path("", include("accounts.urls")),
     path("", include("jobs.urls")),
 ]

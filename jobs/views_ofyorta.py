@@ -10,6 +10,8 @@ from django.views.decorators.http import require_POST
 
 from panel.audit import log as audit
 from web.i18n import ui
+from web import brand as brandfile
+from billing import gate
 from panel.models import Event
 
 from . import ofyorta
@@ -122,13 +124,16 @@ def ofyorta_state(request, project_id=None, batch_id=None):
 
 
 def ofyorta_file(request, project_id=None, batch_id=None):
-    project, kind, _b, audit_kind = _work(request, project_id, batch_id)
+    project, kind, back, audit_kind = _work(request, project_id, batch_id)
     doc = ProjectOfyorta.objects.filter(**{kind: project}).first()
     if doc is None or doc.status != ProjectOfyorta.Status.READY or not doc.file:
         raise Http404(_("Офёрта ҳали тузилмаган"))
     path = project.abs(doc.file)
     if not path.is_file():
         raise Http404(_("Офёрта файли топилмади — қайта тузинг"))
+    stop = gate.check(request, gate.items_for(project), back)  # пулли режим: ичидаги сметалар пули
+    if stop:
+        return stop
     name = f"Офёрта — {doc.name}.xlsx".replace("/", "-").replace("\\", "-")  # i18n: ok
     _audit_download(request, project, audit_kind, name)
-    return FileResponse(open(path, "rb"), as_attachment=True, filename=name)
+    return FileResponse(open(path, "rb"), as_attachment=True, filename=brandfile.name(name))

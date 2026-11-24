@@ -1,0 +1,30 @@
+{% extends "jobs/base.html" %}
+{% load narx %}
+{% block title %}Юклаб олишни тасдиқлаш — mhisobot{% endblock %}
+{% block content %}
+{% comment %} Юклаб олишда балансдан пул ечилади — аввал сўралади (billing/gate.py). «Тасдиқлаш» — имзоланган ҳавола. {% endcomment %}
+{% include "billing/_gate_css.html" %}
+<div class="bg-wrap">
+  <div class="bg-card">
+    <span class="bg-ic is-pay">{% icon "wallet" "h-6 w-6" %}</span>
+    <h1>Балансдан {{ q.amount|som }} сўм ечилади</h1>
+    <p class="bg-lead">{% if n > 1 %}{{ n }} та файлдан пули ҳали тўланмаганлари учун.{% else %}Шу файл учун — бир марта; кейин қайта юклаб олиш бепул.{% endif %}</p>
+    <dl class="bg-dl">
+      {% if q.rows %}
+      <div><dt>Нархланган қатор</dt><dd>{{ q.rows|som }}</dd></div>
+      <div><dt>Тарифдан</dt><dd>{{ q.quota_rows|som|default:"0" }}</dd></div>
+      <div><dt>Балансдан · ҳар қатор {{ row_price }} сўм</dt><dd>{{ paid_rows|som }} қатор</dd></div>
+      {% else %}
+      <div><dt>Техназор объекти, шу ой учун</dt><dd>{{ object_price|som }} сўм</dd></div>
+      {% endif %}
+      <div class="is-sum"><dt>Ечилади</dt><dd>{{ q.amount|som }} сўм</dd></div>
+      <div><dt>Баланс</dt><dd>{{ q.balance|som|default:"0" }} → <b>{{ left|som|default:"0" }}</b> сўм</dd></div>
+    </dl>
+    <div class="bg-acts">
+      <a href="{{ back }}" class="bg-btn is-line">Бекор қилиш</a>
+      <a href="{{ pay_url }}" class="bg-btn is-main" data-then="{{ back }}">{% icon "download" "h-4 w-4" %} Тасдиқлаш ва юклаб олиш</a>
+    </div>
+    <p class="bg-foot">Тарифингиз: <b>{{ plan.tariff.name|default:"—" }}</b> · шу даврда {{ plan.rows_used|som|default:"0" }} / {{ plan.rows|som|default:"0" }} қатор. Каттароқ тариф арзонроқ тушади — <a href="{% url 'billing:profile' %}#tariffs">тарифлар</a>.</p>
+  </div>
+</div>
+{% endblock %}

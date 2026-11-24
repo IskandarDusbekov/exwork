@@ -8,6 +8,7 @@ urlpatterns = [
     path("about/", views.landing, name="landing"),
     path("biz-haqimizda/", views_site.about_page, name="about_us"),
     path("shartlar/", views_site.terms_page, name="terms"),
+    path("maxfiylik/", views_site.privacy_page, name="privacy"),
     path("img/<path:name>", views_site.site_img, name="site_img"),
     path("qollanma/", views_site.guide_page, name="guide"),
     path("blog/", views_site.blog_index, name="blog"),

@@ -1,5 +1,5 @@
-"""Панел → «Биз ҳақимизда ва шартлар»: очиқ саҳифалар /biz-haqimizda/ ва /shartlar/ матни (SiteSetting "about",
-"terms"). Кўриш — ``is_staff``; ўзгартириш — суперфойдаланувчи. Ҳар бир сақлаш журналга ёзилади."""
+"""Панел → «Биз ҳақимизда ва шартлар»: очиқ саҳифалар /biz-haqimizda/, /shartlar/ ва /maxfiylik/ матни (SiteSetting
+"about", "terms", "privacy"). Кўриш — ``is_staff``; ўзгартириш — суперфойдаланувчи. Ҳар бир сақлаш журналга ёзилади."""
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.shortcuts import redirect, render
@@ -14,7 +14,7 @@ from .audit import log as audit
 from .models import Event
 from .views import _ctx, staff_required, superuser_required
 
-TABS = (("about", "Биз ҳақимизда"), ("terms", "Фойдаланиш шартлари"))
+TABS = (("about", "Биз ҳақимизда"), ("terms", "Фойдаланиш шартлари"), ("privacy", "Махфийлик сиёсати"))
 
 
 def _line(v, n=300):
@@ -27,7 +27,7 @@ def pages_page(request):
     users = get_user_model().objects
     t, a = pages.terms(), pages.about()
     return render(request, "panel/pages.html", _ctx(
-        request, "pages", ptab=ptab, tabs=TABS, a=a, t=t, modes=pages.TERMS_MODES,
+        request, "pages", ptab=ptab, tabs=TABS, a=a, t=t, modes=pages.TERMS_MODES, pv=pages.privacy(),
         facts6=(a["facts"] + [["", ""]] * 6)[:6],
         accepted=users.filter(terms_accepted_at__isnull=False).count(),
         accepted_now=users.filter(terms_version=t["version"]).count(), n_users=users.count()))
@@ -47,6 +47,13 @@ def pages_save(request):
         audit(request, Event.Kind.ADMIN_SETTINGS, detail=f"Сайт: фойдаланиш шартлари сақланди ({version}-таҳрир, {mode})")
         messages.success(request, f"Шартлар сақланди: {version}-таҳрир" + (" (янги таҳрир)" if P.get("bump") == "1" else ""))
         return redirect(reverse("panel:pages") + "?tab=terms")
+
+    if P.get("tab") == "privacy":
+        conf.put("privacy", {"body": richtext.sanitize(P.get("body", "")),
+                             "updated": timezone.localdate().strftime("%d.%m.%Y")}, request.user)
+        audit(request, Event.Kind.ADMIN_SETTINGS, detail="Сайт: махфийлик сиёсати сақланди")
+        messages.success(request, "Махфийлик сиёсати сақланди")
+        return redirect(reverse("panel:pages") + "?tab=privacy")
 
     team = []
     names, roles, bios, photos = (P.getlist(k) for k in ("t_name", "t_role", "t_bio", "t_photo"))

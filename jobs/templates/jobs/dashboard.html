@@ -40,8 +40,9 @@
         <p class="mt-0.5 text-sm text-slate-500">Смета файлларини ресурс базасидаги жорий нархлар билан нархлаш</p>
       </div>
     </div>
-    <div class="grid grid-cols-3 gap-2">
+    <div class="grid grid-cols-2 gap-2 lg:grid-cols-4">
       {# сметалар сони ва «тайёр» пастдаги кўрсаткичларда бор — бу ерда такрорламаймиз #}
+      <div class="ds-stat"><b class="num" style="color:rgb(var(--ok-700))">{{ rows_priced|som|default:"0" }}</b><span>қатор нархланган</span></div>
       <div class="ds-stat"><b class="num">{{ kinds.folder }}</b><span>папка</span></div>
       <div class="ds-stat"><b class="num">{{ kinds.object|add:kinds.smeta }}</b><span>объект / смета</span></div>
       <div class="ds-stat"><b class="num"{% if attention_total %} style="color:rgb(var(--bad-700))"{% endif %}>{{ attention_total }}</b><span>иш эътибор кутяпти</span></div>

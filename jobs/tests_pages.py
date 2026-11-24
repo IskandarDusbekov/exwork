@@ -76,12 +76,17 @@ class TermsTests(TestCase):
         conf.put("terms", {"mode": "note", "body": "<p>Қоида</p>", "version": 3}, None)
         page = self.client.get(reverse("register"))
         self.assertNotContains(page, 'name="agree"')
-        self.assertContains(page, "фойдаланиш шартлари</a>га рози бўласиз")
+        self.assertContains(page, "махфийлик сиёсати</a>га рози бўласиз")
         self._reg()
         self.assertEqual(User.objects.get().terms_version, 3)
 
     def test_pages_render(self):
         self.assertContains(self.client.get(reverse("terms")), "Умумий қоидалар")
+        r = self.client.get(reverse("privacy"))
+        self.assertContains(r, "Шахсга доир маълумотлар тўғрисида")
+        self.assertContains(r, reverse("terms"))
+        self.assertContains(self.client.get(reverse("terms")), "Тўлов, тарифлар ва қайтариш")
+        self.assertContains(self.client.get(reverse("register")), reverse("privacy"))
         conf.put("about", {"lead": "Биз — жамоа", "team": [{"name": "Али Валиев", "role": "асосчи"}],
                            "body": "<p>Матн<script>x</script></p>"}, None)
         r = self.client.get(reverse("about_us"))
@@ -166,3 +171,7 @@ class PanelEditorTests(TestCase):
         self.assertEqual((t["mode"], t["version"], t["body"]), ("note", 2, "<p>Шарт</p>"))
         self.assertEqual(self.client.get(reverse("panel:pages") + "?tab=terms").status_code, 200)
         self.assertContains(self.client.get(reverse("about_us")), "t.me/mhisobot")
+        self.assertContains(self.client.get(reverse("panel:pages") + "?tab=privacy"), "Шахсга доир маълумотлар")
+        self.client.post(reverse("panel:pages_save"), {"tab": "privacy", "body": "<h2>Янги</h2><script>x</script>"})
+        self.assertEqual(conf.raw("privacy")["body"], "<h2>Янги</h2>")
+        self.assertContains(self.client.get(reverse("privacy")), "<h2>Янги</h2>", html=False)

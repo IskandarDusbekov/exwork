@@ -30,6 +30,7 @@ from openpyxl.worksheet.formula import ArrayFormula
 from openpyxl.worksheet.merge import MergedCellRange
 
 from core.svodka import OLD_SVODKA_TEXTS, SVODKA_ROWS, make_evaluator, svodka_formulas, svodka_layout
+from core.brand import stamp_file
 from core.writer import write_cached_values
 
 from .models import Job, Project, ProjectOfyorta
@@ -537,6 +538,7 @@ def write(doc: ProjectOfyorta, parts: List[dict], jobs: Dict[str, Job], step=Non
     tmp = out.with_suffix(".tmp.xlsx")
     wb.save(tmp)
     write_cached_values(tmp, {ws.title: _values(ws)})
+    stamp_file(tmp)  # файл хусусиятлари: mhisobot.uz
     tmp.replace(out)
     return {"blocks": len(blocks), "notes": notes}
 

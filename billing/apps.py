@@ -1,0 +1,7 @@
+# i18n: ok-file — admin / тизим текшируви
+from django.apps import AppConfig
+
+
+class BillingConfig(AppConfig):
+    name = "billing"
+    verbose_name = "Тўлов ва тарифлар"

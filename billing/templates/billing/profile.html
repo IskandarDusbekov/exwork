@@ -1,0 +1,417 @@
+{% extends "jobs/base.html" %}
+{% load narx %}
+{% block title %}Баланс ва тариф — mhisobot{% endblock %}
+{% block content %}
+{% comment %} Фойдаланувчининг ҳисоби: баланс, тариф, шу даврда ишлатилгани, балансни тўлдириш, тарифлар ва тарих.
+   Қоидалар — billing/services.py. Пулли режим ўчиқ бўлса ҳам саҳифа очилади (ҳозир бепул деб айтилади). {% endcomment %}
+<style>
+  .bp { max-width: 1040px; margin: 0 auto; }
+  .bp-card { border: 1px solid rgb(var(--ink-200)); border-radius: 16px; background: #fff; padding: 16px; }
+  .bp-card h2 { font-size: 15px; font-weight: 700; color: rgb(var(--ink-900)); }
+  .bp-card h2 + p { margin: 2px 0 12px; font-size: 13px; color: rgb(var(--ink-500)); }
+  .bp-top { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 12px; }
+  @media (max-width: 900px) { .bp-top { grid-template-columns: 1fr; } }
+  .bp-l { font-size: 12px; font-weight: 600; color: rgb(var(--ink-500)); }
+  .bp-v { margin-top: 2px; font-size: 26px; font-weight: 800; line-height: 1.15; color: rgb(var(--ink-900)); font-variant-numeric: tabular-nums; }
+  .bp-v small { font-size: 14px; font-weight: 600; color: rgb(var(--ink-400)); }
+  .bp-s { margin-top: 2px; font-size: 12.5px; color: rgb(var(--ink-500)); }
+  .bp-bar { height: 8px; margin-top: 6px; overflow: hidden; border-radius: 999px; background: rgb(var(--ink-100)); }
+  .bp-bar i { display: block; height: 100%; border-radius: inherit; background: rgb(var(--brand-500)); }
+  .bp-bar.is-full i { background: rgb(var(--warn-500)); }
+  .bp-use + .bp-use { margin-top: 12px; }
+  .bp-use .h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; color: rgb(var(--ink-600)); }
+  .bp-use .h b { color: rgb(var(--ink-900)); font-variant-numeric: tabular-nums; }
+  .bp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 16px; border-radius: 12px; font-size: 14px; font-weight: 700; }
+  .bp-btn.is-main { background: rgb(var(--ok-600)); color: #fff; } .bp-btn.is-main:hover { background: rgb(var(--ok-700)); }
+  .bp-btn.is-dark { background: rgb(var(--ink-900)); color: #fff; } .bp-btn.is-dark:hover { background: rgb(var(--ink-700)); }
+  .bp-btn.is-line { border: 1px solid rgb(var(--ink-300)); color: rgb(var(--ink-800)); background: #fff; } .bp-btn.is-line:hover { border-color: rgb(var(--ink-500)); }
+  .bp-btn[disabled] { opacity: .5; cursor: not-allowed; }
+  .bp-amts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .bp-amt { height: 38px; padding: 0 14px; border: 1px solid rgb(var(--ink-300)); border-radius: 10px; background: #fff; font-size: 14px; font-weight: 700; color: rgb(var(--ink-800)); font-variant-numeric: tabular-nums; }
+  .bp-amt:hover { border-color: rgb(var(--ink-500)); } .bp-amt.is-on { border-color: rgb(var(--ok-600)); background: rgb(var(--ok-50)); color: rgb(var(--ok-800)); box-shadow: 0 0 0 1px rgb(var(--ok-600)); }
+  .bp-in { height: 40px; min-width: 0; flex: 1; border: 1px solid rgb(var(--ink-300)); border-radius: 12px; padding: 0 12px; font-size: 15px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; outline: none; }
+  .bp-in:focus { border-color: rgb(var(--brand-500)); box-shadow: 0 0 0 3px rgb(var(--brand-100)); }
+  .bp-verify { display: flex; gap: 6px; align-items: flex-start; margin-top: 8px; border-radius: 10px; background: rgb(var(--warn-50)); padding: 7px 9px; font-size: 12.5px; color: rgb(var(--warn-800)); }
+  .bp-verify svg { flex: none; margin-top: 1px; } .bp-verify a { font-weight: 700; text-decoration: underline; }
+  .bp-sec-h { display: flex; align-items: center; gap: 8px; margin: 24px 0 10px; }
+  .bp-sec-h h2 { font-size: 16px; font-weight: 800; color: rgb(var(--ink-900)); }
+  .bp-sec-h .num { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: rgb(var(--ink-900)); font-size: 12px; font-weight: 800; color: #fff; }
+  .bp-split { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 12.5px; color: rgb(var(--ink-500)); }
+  .bp-split b { color: rgb(var(--ink-800)); font-variant-numeric: tabular-nums; }
+  .bp-split .is-bonus { color: rgb(var(--brand-700)); } .bp-split .is-bonus b { color: rgb(var(--brand-800)); }
+  .bp-band { margin-top: 28px; border-radius: 22px; background: linear-gradient(180deg, rgb(var(--ink-50)), #fff 70%); border: 1px solid rgb(var(--ink-200)); padding: 20px; }
+  .bp-band-hd { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+  .bp-band-p { margin-top: 6px; max-width: 560px; font-size: 13.5px; color: rgb(var(--ink-500)); }
+  .bp-seg { display: inline-flex; gap: 2px; border-radius: 12px; background: rgb(var(--ink-100)); padding: 3px; }
+  .bp-seg button { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 9px; font-size: 13.5px; font-weight: 700; color: rgb(var(--ink-600)); }
+  .bp-seg button i { font-style: normal; border-radius: 6px; background: rgb(var(--ok-100)); padding: 1px 5px; font-size: 11px; color: rgb(var(--ok-700)); }
+  .bp-seg button.is-on { background: #fff; color: rgb(var(--ink-900)); box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+  .bp-tars { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .bp-tar { position: relative; display: flex; flex-direction: column; border: 1px solid rgb(var(--ink-200)); border-radius: 18px; background: #fff; padding: 16px; }
+  .bp-tar.is-cur { border-color: rgb(var(--ok-500)); box-shadow: 0 0 0 1px rgb(var(--ok-500)), 0 8px 24px rgba(16, 185, 129, .08); }
+  .bp-tar header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .bp-tar .n { font-size: 16px; font-weight: 800; color: rgb(var(--ink-900)); }
+  .bp-tar .tag { border-radius: 999px; background: rgb(var(--ok-600)); padding: 2px 9px; font-size: 11px; font-weight: 700; color: #fff; }
+  .bp-tar .tag.is-sale { background: rgb(var(--warn-500)); }
+  .bp-tar .note { margin-top: 2px; font-size: 12.5px; color: rgb(var(--ink-500)); }
+  .bp-tar .opt { display: none; flex-direction: column; gap: 4px; margin-top: 12px; }
+  .bp-tars[data-m="1"] .opt[data-m="1"], .bp-tars[data-m="3"] .opt[data-m="3"], .bp-tars[data-m="6"] .opt[data-m="6"],
+  .bp-tars[data-m="12"] .opt[data-m="12"], .bp-tar .opt.opt-all { display: flex; }
+  .bp-tar .p { font-size: 26px; font-weight: 800; line-height: 1.1; color: rgb(var(--ink-900)); font-variant-numeric: tabular-nums; }
+  .bp-tar .p small { font-size: 13px; font-weight: 600; color: rgb(var(--ink-400)); }
+  .bp-tar .tot { font-size: 12.5px; color: rgb(var(--ink-500)); } .bp-tar .tot b { color: rgb(var(--ink-800)); } .bp-tar .tot s { color: rgb(var(--ink-400)); }
+  .bp-tar .save { align-self: flex-start; border-radius: 8px; background: rgb(var(--ok-50)); padding: 2px 8px; font-size: 12px; font-weight: 700; color: rgb(var(--ok-700)); }
+  .bp-tar .sub { font-size: 12.5px; font-weight: 600; color: rgb(var(--ok-700)); }
+  .bp-tar .sub.is-warn { margin-bottom: 6px; color: rgb(var(--warn-700)); }
+  .bp-tar .act { margin-top: 8px; }
+  .bp-tar ul { margin: 14px 0 4px; border-top: 1px solid rgb(var(--ink-100)); padding-top: 12px; font-size: 13px; color: rgb(var(--ink-600)); }
+  .bp-tar li { display: flex; gap: 7px; align-items: flex-start; padding: 3px 0; } .bp-tar li svg { flex: none; margin-top: 3px; color: rgb(var(--ok-600)); }
+  .bp-tar li b { color: rgb(var(--ink-900)); } .bp-tar li em { font-style: normal; color: rgb(var(--ink-400)); }
+  .bp-more { display: inline-flex; align-items: center; gap: 2px; margin-top: auto; padding-top: 8px; font-size: 13px; font-weight: 700; color: rgb(var(--brand-700)); }
+  .bp-more:hover { text-decoration: underline; }
+  .bp-how { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+  @media (max-width: 900px) { .bp-how { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .bp-how > div { border-radius: 14px; background: #fff; border: 1px dashed rgb(var(--ink-200)); padding: 12px; font-size: 13px; }
+  .bp-how .i { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 6px; border-radius: 999px; background: rgb(var(--brand-50)); font-size: 12px; font-weight: 800; color: rgb(var(--brand-700)); }
+  .bp-how b { color: rgb(var(--ink-900)); } .bp-how p { margin-top: 4px; color: rgb(var(--ink-500)); }
+  .bp-det { width: min(620px, calc(100vw - 24px)); max-height: calc(100vh - 32px); margin: auto; border: 0; border-radius: 20px; padding: 0; box-shadow: 0 24px 60px rgba(15, 23, 42, .25); }
+  .bp-det::backdrop { background: rgba(15, 23, 42, .45); }
+  .bp-det .in { position: relative; padding: 22px 24px; font-size: 14px; line-height: 1.55; color: rgb(var(--ink-700)); }
+  .bp-det h3 { padding-right: 36px; font-size: 20px; font-weight: 800; color: rgb(var(--ink-900)); }
+  .bp-det .lead { margin-top: 2px; color: rgb(var(--ink-500)); }
+  .bp-det h4 { margin: 16px 0 6px; font-size: 13px; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; color: rgb(var(--ink-500)); }
+  .bp-det ul { display: grid; gap: 6px; padding-left: 18px; list-style: disc; } .bp-det b { color: rgb(var(--ink-900)); }
+  .bp-det .own { margin-top: 12px; border-radius: 12px; background: rgb(var(--brand-50)); padding: 10px 12px; color: rgb(var(--brand-900)); }
+  .bp-det .per { width: 100%; font-size: 13.5px; } .bp-det .per td { padding: 6px 4px; border-top: 1px solid rgb(var(--ink-100)); font-variant-numeric: tabular-nums; }
+  .bp-det .per .pct { border-radius: 6px; background: rgb(var(--ok-50)); padding: 1px 6px; font-weight: 700; color: rgb(var(--ok-700)); }
+  .bp-det .small { margin-top: 6px; font-size: 12.5px; color: rgb(var(--ink-500)); }
+  .bp-det .x { position: absolute; top: 14px; right: 14px; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 999px; color: rgb(var(--ink-500)); }
+  .bp-det .x:hover { background: rgb(var(--ink-100)); color: rgb(var(--ink-900)); }
+  .bp-note { border-radius: 12px; background: rgb(var(--ink-50)); padding: 10px 12px; font-size: 13px; line-height: 1.5; color: rgb(var(--ink-600)); }
+  .bp-tabs { display: flex; gap: 4px; border-bottom: 1px solid rgb(var(--ink-200)); margin: -4px -16px 0; padding: 0 12px; }
+  .bp-tabs a { margin-bottom: -1px; border-bottom: 2px solid transparent; padding: 8px 10px; font-size: 14px; font-weight: 600; color: rgb(var(--ink-500)); }
+  .bp-tabs a.is-on { border-color: rgb(var(--ink-900)); color: rgb(var(--ink-900)); }
+  .bp-t { width: 100%; font-size: 14px; } .bp-t td { padding: 9px 4px; border-top: 1px solid rgb(var(--ink-100)); vertical-align: top; }
+  .bp-t tr:first-child td { border-top: 0; }
+  .bp-plus { color: rgb(var(--ok-700)); } .bp-minus { color: rgb(var(--bad-700)); }
+  .bp-md { width: min(440px, calc(100vw - 24px)); max-height: calc(100vh - 24px); margin: auto; border: 0; border-radius: 20px; padding: 0; box-shadow: 0 24px 60px rgba(15, 23, 42, .25); }
+  .bp-md::backdrop { background: rgba(15, 23, 42, .45); }
+  .bp-md form.in { padding: 20px; }
+  .bp-md .hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .bp-md .hd h2 { font-size: 18px; font-weight: 800; color: rgb(var(--ink-900)); }
+  .bp-md .x { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 999px; color: rgb(var(--ink-500)); }
+  .bp-md .x:hover { background: rgb(var(--ink-100)); color: rgb(var(--ink-900)); }
+  .bp-md .now { margin-top: 2px; font-size: 13px; color: rgb(var(--ink-500)); }
+  .bp-md .now b { color: rgb(var(--ink-900)); }
+  .bp-md .why { margin-top: 12px; border-radius: 12px; background: rgb(var(--warn-50)); padding: 8px 12px; font-size: 13px; color: rgb(var(--warn-800)); }
+  .bp-md .amts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+  .bp-md .bp-amt { width: 100%; }
+  .bp-md .fld { position: relative; margin-top: 12px; }
+  .bp-md .fld .bp-in { width: 100%; height: 52px; padding-right: 52px; font-size: 20px; font-weight: 800; }
+  .bp-md .fld span { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 14px; font-weight: 600; color: rgb(var(--ink-400)); }
+  .bp-md .lim { margin-top: 6px; font-size: 12.5px; color: rgb(var(--ink-500)); }
+  .bp-md .lim.is-bad { color: rgb(var(--bad-700)); font-weight: 600; }
+  .bp-md .after { display: flex; justify-content: space-between; margin-top: 12px; border-top: 1px solid rgb(var(--ink-100)); padding-top: 12px; font-size: 14px; color: rgb(var(--ink-600)); }
+  .bp-md .after b { color: rgb(var(--ink-900)); font-variant-numeric: tabular-nums; }
+  .bp-md .go { width: 100%; height: 48px; margin-top: 14px; font-size: 15px; }
+  .bp-md .ft { margin-top: 10px; font-size: 12px; line-height: 1.45; color: rgb(var(--ink-500)); text-align: center; }
+  .bp-tar .sub { font-size: 12.5px; color: rgb(var(--ok-700)); font-weight: 600; }
+  .bp-tar .sub.is-warn { color: rgb(var(--warn-700)); }
+  .bp-next { margin-top: 8px; border-radius: 10px; background: rgb(var(--brand-50)); padding: 6px 10px; font-size: 12.5px; color: rgb(var(--brand-900)); }
+  .bp-mini { border: 1px solid rgb(var(--ink-300)); border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: rgb(var(--ink-700)); background: #fff; }
+  .bp-mini:hover { border-color: rgb(var(--ink-500)); }
+  .bp-pill { margin-left: 4px; border-radius: 6px; padding: 2px 6px; }
+  .bp-link:hover { text-decoration: underline; }
+  .bp-off { display: flex; gap: 10px; align-items: flex-start; border: 1px solid rgb(var(--brand-200)); border-radius: 14px; background: rgb(var(--brand-50)); padding: 12px 14px; font-size: 14px; color: rgb(var(--brand-900)); }
+</style>
+
+<div class="bp">
+  <div class="mb-4">
+    <h1 class="text-xl font-semibold text-slate-900">Баланс ва тариф</h1>
+    <p class="text-sm text-slate-500">Нархлаш, натижани кўриш ва тузатиш бепул — пул фақат тайёр файлни юклаб олганда ечилади, ҳар файл учун бир марта.</p>
+  </div>
+
+  {% if not on %}
+  <div class="bp-off mb-4">{% icon "check-circle" "h-5 w-5 shrink-0" %}<span><b>Ҳозир ҳамма нарса бепул.</b> Тўлов ёқилганда баланс, тариф ва ечимлар шу саҳифада кўринади.</span></div>
+  {% elif exempt %}
+  <div class="bp-off mb-4">{% icon "shield" "h-5 w-5 shrink-0" %}<span><b>Сиз тизим ходимисиз — тўламайсиз.</b> Саҳифа фойдаланувчилар қандай кўришини кўрсатади.</span></div>
+  {% endif %}
+
+  {# ================= 1. ҲИСОБИМ: баланс, тариф, шу ойда ишлатилгани ================= #}
+  <div class="bp-sec-h"><span class="num">1</span><h2>Ҳисобим</h2></div>
+  <div class="bp-top">
+    <div class="bp-card">
+      <div class="bp-l">Баланс</div>
+      <div class="bp-v">{{ acc.total|som|default:"0" }} <small>сўм</small></div>
+      {% if acc.bonus %}<div class="bp-split"><span>Ҳақиқий пул <b>{{ acc.balance|som|default:"0" }}</b></span><span class="is-bonus" title="Совға пул: аввал шундан ечилади, қайтарилмайди">Бонус <b>{{ acc.bonus|som }}</b></span></div>
+      {% else %}<div class="bp-s">Тариф ва тарифдан ошган қаторлар шундан ечилади</div>{% endif %}
+      <button type="button" class="bp-btn is-main mt-3 w-full" data-topup>{% icon "plus" "h-4 w-4" "2.5" %} Балансни тўлдириш</button>
+      {% if need_verify %}<p class="bp-verify">{% icon "alert" "h-4 w-4" %}<span>Тўлов учун аввал <a href="{% url 'verify_email' %}">email'ни тасдиқланг</a>.</span></p>{% endif %}
+    </div>
+    <div class="bp-card">
+      <div class="bp-l">Тариф</div>
+      <div class="bp-v" style="font-size:22px">{{ plan.tariff.name|default:"—" }}{% if plan.sub and plan.sub.months > 1 %} <small>· {{ plan.sub.months }} ой</small>{% endif %}</div>
+      <div class="bp-s">{% if plan.sub %}{{ sub_end|date:"d.m.Y" }} гача · {{ days_left }} кун қолди{% if plan.sub.gift %} · совға{% endif %}{% else %}бепул · ҳар ой 1-кунида янгиланади{% endif %}</div>
+      {% if plan.sub and not plan.sub.gift %}
+      <form method="post" action="{% url 'billing:renew' %}" class="mt-3 flex items-center gap-2 text-sm">{% csrf_token %}
+        <input type="hidden" name="auto_renew" value="{% if acc.auto_renew %}0{% else %}1{% endif %}">
+        <span class="flex-1 text-slate-600">Тугаганда ўзи янгилансин: <b class="text-slate-900">{% if acc.auto_renew %}ҳа{% else %}йўқ{% endif %}</b></span>
+        <button class="bp-mini">{% if acc.auto_renew %}Ўчириш{% else %}Ёқиш{% endif %}</button>
+      </form>
+      {% else %}<a href="#tariffs" class="bp-btn is-line mt-3 w-full">Тарифни танлаш</a>{% endif %}
+      {% if next_tariff %}<div class="bp-next">{{ sub_end|date:"d.m.Y" }} дан — <b>{{ next_tariff.name }}</b>, {{ acc.next_months }} ой</div>{% endif %}
+    </div>
+    <div class="bp-card">
+      <div class="bp-l">Шу ойда · {{ plan.start|date:"d.m" }} – {{ plan.end|date:"d.m.Y" }}</div>
+      <div class="bp-use mt-2">
+        <div class="h"><span>Смета қаторлари</span><span><b>{{ plan.rows_used|som|default:"0" }}</b> / {{ plan.rows|som|default:"0" }}</span></div>
+        <div class="bp-bar{% if plan.rows and plan.rows_left == 0 %} is-full{% endif %}"><i style="width:{{ plan.rows_pct|stringformat:'.1f' }}%"></i></div>
+      </div>
+      <div class="bp-use">
+        <div class="h"><span>Техназор объектлари</span><span><b>{{ plan.objects_used }}</b> / {{ plan.objects }}</span></div>
+        <div class="bp-bar{% if plan.objects and plan.objects_left == 0 %} is-full{% endif %}"><i style="width:{{ plan.objects_pct|stringformat:'.1f' }}%"></i></div>
+      </div>
+      <div class="bp-s mt-2">Тугаса: ҳар қатор {{ row_price }} сўм, ҳар объект ойига {{ object_price|som }} сўм — балансдан</div>
+    </div>
+  </div>
+
+  {# ================= 2. ТАРИФЛАР ================= #}
+  <section id="tariffs" class="bp-band">
+    <div class="bp-band-hd">
+      <div>
+        <div class="bp-sec-h" style="margin:0"><span class="num">2</span><h2>Тарифлар</h2></div>
+        <p class="bp-band-p">Ойлик қатор ва объектлар тўплами. Узоқ муддатга олсангиз — арзонроқ. Ҳар тарифда «Батафсил» — нима киради ва қандай ҳисобланади.</p>
+      </div>
+      <div class="bp-seg" role="tablist" aria-label="Муддат">
+        {% for p in periods %}<button type="button" role="tab" data-period="{{ p.m }}" class="{% if p.m == 1 %}is-on{% endif %}">{% if p.m == 12 %}1 йил{% else %}{{ p.m }} ой{% endif %}{% if p.pct %}<i>−{{ p.pct }}%</i>{% endif %}</button>{% endfor %}
+      </div>
+    </div>
+    <div class="bp-tars" id="bp-tars" data-m="1">
+      {% for t in tariffs %}
+      <article class="bp-tar{% if t.current %} is-cur{% endif %}">
+        <header>
+          <div class="n">{{ t.name }}</div>
+          {% if t.current %}<span class="tag">Ҳозирги</span>{% elif t.discount_now %}<span class="tag is-sale">Акция −{{ t.discount_now }}%</span>{% endif %}
+        </header>
+        {% if t.note %}<p class="note">{{ t.note }}</p>{% endif %}
+        {% for x in t.opts %}{% with o=x.o p=x.p %}
+        <div class="opt{% if t.free %} opt-all{% endif %}" data-m="{{ x.m }}">
+          <div class="p">{% if t.free %}0 <small>сўм</small>{% else %}{{ p.per_month|som }} <small>сўм / ой</small>{% endif %}</div>
+          <div class="tot">{% if t.free %}бепул, ҳар ой янгиланади{% elif x.m > 1 %}жами <b>{{ p.total|som }}</b> сўм {{ x.m }} ойга{% if p.saved %} · <s>{{ p.base|som }}</s>{% endif %}{% elif p.saved %}<s>{{ p.base|som }}</s> сўм ўрнига{% else %}ойма-ой{% endif %}</div>
+          {% if p.saved %}<div class="save">{{ p.saved|som }} сўм тежайсиз (−{{ p.pct }}%)</div>{% endif %}
+          {% if o.kind == "upgrade" %}<div class="sub">{% if o.back %}Ўтсангиз: тўлов йўқ, {{ o.back|som }} сўм балансга қайтади{% elif o.credit %}Ўтсангиз: {{ o.pay|som }} сўм тўлайсиз — ҳозиргисидан {{ o.credit|som }} сўм айрилди{% else %}Ўтсангиз: {{ o.pay|som }} сўм тўлайсиз{% endif %}</div>{% endif %}
+          <div class="act">
+          {% if o.kind == "free" or o.kind == "current" %}
+            <span class="bp-btn is-line w-full" style="pointer-events:none;opacity:.7">{% if o.kind == "current" %}Ҳозирги тарифингиз{% else %}Тариф тугагач — шу{% endif %}</span>
+          {% elif o.kind == "scheduled" %}
+            <form method="post" action="{% url 'billing:cancel_next' %}" class="w-full">{% csrf_token %}
+              <div class="sub is-warn">{{ sub_end|date:"d.m.Y" }} дан ўтасиз</div>
+              <button class="bp-btn is-line w-full">Бекор қилиш</button></form>
+          {% elif o.kind == "next" %}
+            <form method="post" action="{% url 'billing:buy' t.pk %}" class="w-full" data-confirm="Ҳозирги «{{ plan.tariff.name }}» тарифингиз {{ sub_end|date:'d.m.Y' }} гача ишлайди. Шу куни «{{ t.name }}» тарифига {{ x.m }} ойга ўтасиз — ўшанда балансдан {{ o.pay|som }} сўм ечилади." data-confirm-title="«{{ t.name }}» тарифига ўтиш" data-confirm-ok="Кейинги даврдан ўтиш">{% csrf_token %}
+              <input type="hidden" name="months" value="{{ x.m }}">
+              <button class="bp-btn is-line w-full">Кейинги даврдан</button></form>
+          {% elif not x.afford %}
+            <button type="button" class="bp-btn is-line w-full" data-topup="{{ x.need }}" data-why="«{{ t.name }}» ({{ x.m }} ой) учун балансда {{ x.need|som }} сўм етмайди">Балансни тўлдириш</button>
+          {% else %}
+            <form method="post" action="{% url 'billing:buy' t.pk %}" class="w-full" data-confirm="{% if o.kind == 'upgrade' %}«{{ t.name }}», {{ x.m }} ой: {{ p.total|som }} сўм&#10;Ҳозирги «{{ plan.tariff.name }}»нинг ишлатилмаган қисми: −{{ o.credit|som|default:'0' }} сўм&#10;{% if o.back %}Балансдан ҳеч нарса ечилмайди, ортиб қолган {{ o.back|som }} сўм балансга қайтади.{% else %}Балансдан ечилади: {{ o.pay|som|default:'0' }} сўм (фақат фарқи).{% endif %}&#10;&#10;«{{ plan.tariff.name }}» шу ондан тугайди, «{{ t.name }}» бугундан {{ x.m }} ой ишлайди, қаторлар янгидан саналади. Пул икки марта ечилмайди.{% else %}Балансдан {{ o.pay|som }} сўм ечилади, «{{ t.name }}» бугундан {{ x.m }} ой ишлайди.{% endif %}" data-confirm-title="«{{ t.name }}» тарифи · {{ x.m }} ой" data-confirm-ok="{% if o.kind == 'upgrade' %}Ўтиш{% else %}Сотиб олиш{% endif %}">{% csrf_token %}
+              <input type="hidden" name="months" value="{{ x.m }}">
+              <button class="bp-btn is-main w-full">{% if o.kind == "upgrade" %}Ўтиш{% else %}Сотиб олиш{% endif %}</button></form>
+          {% endif %}
+          </div>
+        </div>
+        {% endwith %}{% endfor %}
+        <ul>
+          <li>{% icon "check" "h-3.5 w-3.5" "3" %}<span><b>{{ t.rows|som }}</b> қатор ойига{% if t.smetas %} <em>≈ {{ t.smetas }} та смета</em>{% endif %}</span></li>
+          <li>{% icon "check" "h-3.5 w-3.5" "3" %}<span><b>{{ t.objects_limit }}</b> та техназор объекти ойига</span></li>
+          <li>{% icon "check" "h-3.5 w-3.5" "3" %}<span>Нархлаш, кўриш, тузатиш — чексиз</span></li>
+        </ul>
+        <button type="button" class="bp-more" data-details="{{ t.pk }}">Батафсил {% icon "chevron-right" "h-3.5 w-3.5" "2.5" %}</button>
+      </article>
+      <template id="tdet-{{ t.pk }}">
+        <h3>{{ t.name }}</h3>
+        <p class="lead">{% if t.free %}Бепул тариф — синаб кўриш ва кичик ишлар учун. Пулли тарифи бўлмаган ҳар бир фойдаланувчи шу тарифда.{% else %}{{ t.opts.0.p.per_month|som }} сўм / ой{% if t.discount_now %} (акция){% endif %} · {{ t.rows|som }} қатор ва {{ t.objects_limit }} та техназор объекти ҳар ойга.{% endif %}</p>
+        {% if t.details %}<div class="own">{{ t.details|linebreaksbr }}</div>{% endif %}
+        <h4>Нима киради</h4>
+        <ul>
+          <li><b>{{ t.rows|som }} та смета қатори ойига.</b> Нархланган сметани юклаб олганда фақат нархланган ресурс қаторлари саналади (сарлавҳа, бўш ва сводка қаторлари — йўқ). Ўртача смета ~{{ avg_rows }} қатор — бу тахминан {{ t.smetas }} та смета.</li>
+          <li><b>{{ t.objects_limit }} та техназор объекти ойига.</b> Объектнинг Ф-2, Ф-3 ва далолатномаларини шу ойда истаганча юклаб оласиз — объект бир марта саналади.</li>
+          <li>Нархлаш, натижани кўриш, қайта нархлаш ва қўлда тузатиш — <b>чексиз ва бепул</b>. Бир файлни қайта юклаб олиш ҳам бепул.</li>
+        </ul>
+        <h4>Ой тугамасдан қатор тугаса</h4>
+        <p>Ишлаш тўхтамайди: ҳар қўшимча қатор {{ row_price }} сўм, ҳар қўшимча объект ойига {{ object_price|som }} сўм — балансдан. Юклаб олишдан олдин нечта сўм ечилиши кўрсатилади ва тасдиқлайсиз.</p>
+        {% if not t.free %}
+        <h4>Муддат ва нарх</h4>
+        <table class="per"><tbody>
+          {% for x in t.opts %}<tr><td>{% if x.m == 12 %}1 йил{% else %}{{ x.m }} ой{% endif %}</td><td><b>{{ x.p.total|som }}</b> сўм</td><td>{{ x.p.per_month|som }} сўм / ой</td><td>{% if x.p.pct %}<span class="pct">−{{ x.p.pct }}%</span>{% endif %}</td></tr>{% endfor %}
+        </tbody></table>
+        {% if t.discount_now %}<p class="small">Тарифга {{ t.discount_now }}% чегирма{% if t.discount_until %} {{ t.discount_until|date:"d.m.Y" }} гача{% endif %} — узоқ муддат чегирмаси билан бирга қўлланади.</p>{% endif %}
+        <h4>Муддат ва алмаштириш</h4>
+        <ul>
+          <li>Тариф сотиб олинган кундан ишлайди. Қатор ва объектлар <b>ҳар ойга алоҳида</b>; ортиб қолгани кейинги ойга ўтмайди.</li>
+          <li>Муддат тугаганда балансда пул бўлса — ўзи янгиланади (профилда ўчириш мумкин). Пул етмаса — бепул тарифга ўтасиз, маълумотларингиз сақланади.</li>
+          <li><b>Қимматроқ тарифга</b> — дарров ўтасиз: ҳозиргисининг ишлатилмаган қисми янги нархдан айрилади, балансдан фақат фарқи ечилади. Пул бир марта ечилади.</li>
+          <li><b>Арзонроқ тарифга</b> (ёки бошқа муддатга) — ҳозиргиси охиригача ишлайди, кейин янгиси бошланади.</li>
+        </ul>
+        {% endif %}
+      </template>
+      {% endfor %}
+    </div>
+
+    <div class="bp-how">
+      <div><span class="i">1</span><b>Балансни тўлдиринг</b><p>Click орқали, {{ topup_min|som }} сўмдан.</p></div>
+      <div><span class="i">2</span><b>Тариф танланг</b><p>ёки тарифсиз — бепул тариф ва ортганига балансдан.</p></div>
+      <div><span class="i">3</span><b>Нархланг ва юклаб олинг</b><p>Аввал тарифдаги қатордан, тугаса — балансдан.</p></div>
+      <div><span class="i">4</span><b>Қайта юклаш — бепул</b><p>Бир файл учун бир марта тўланади.</p></div>
+    </div>
+  </section>
+
+  {# ================= 3. ТАРИХ ================= #}
+  <div class="bp-sec-h"><span class="num">3</span><h2>Тарих</h2></div>
+  <section class="bp-card">
+    <nav class="bp-tabs" aria-label="Тарих">
+      <a href="?t=ledger" class="{% if tab == 'ledger' %}is-on{% endif %}">Кирим ва чиқим</a>
+      <a href="?t=payments" class="{% if tab == 'payments' %}is-on{% endif %}">Тўловлар</a>
+      <a href="?t=files" class="{% if tab == 'files' %}is-on{% endif %}">Юклаб олинган файллар</a>
+    </nav>
+    <div class="overflow-x-auto pt-2">
+    {% if tab == "ledger" %}
+      <table class="bp-t"><tbody>
+        {% for e in page %}
+        <tr><td class="whitespace-nowrap text-xs text-slate-500">{{ e.created|date:"d.m.Y H:i" }}</td>
+          <td class="w-full"><b class="font-semibold text-slate-800">{{ e.label }}</b>{% if e.bonus %} <span class="bp-pill text-xs" style="background:rgb(var(--brand-50));color:rgb(var(--brand-700))">{% if e.amount > 0 %}бонус{% else %}бонусдан {{ e.bonus|som }}{% endif %}</span>{% endif %}{% if e.note %}<span class="block text-xs text-slate-500">{{ e.note }}</span>{% endif %}</td>
+          <td class="num whitespace-nowrap text-right font-semibold {% if e.amount > 0 %}bp-plus{% else %}bp-minus{% endif %}">{% if e.amount > 0 %}+{% endif %}{{ e.amount|som }}</td>
+          <td class="num whitespace-nowrap pl-3 text-right text-xs text-slate-400" title="Қолдиқ">{{ e.total_after|som|default:"0" }}</td></tr>
+        {% empty %}<tr><td class="py-8 text-center text-slate-400">Ҳали кирим ва чиқим йўқ</td></tr>{% endfor %}
+      </tbody></table>
+      {% if page.has_other_pages %}
+      <div class="mt-3 flex items-center justify-between text-sm">
+        {% if page.has_previous %}<a href="?t=ledger&page={{ page.previous_page_number }}" class="bp-link font-semibold text-slate-700">← Янгилари</a>{% else %}<span></span>{% endif %}
+        <span class="text-slate-500">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a href="?t=ledger&page={{ page.next_page_number }}" class="bp-link font-semibold text-slate-700">Эскилари →</a>{% else %}<span></span>{% endif %}
+      </div>{% endif %}
+    {% elif tab == "payments" %}
+      <table class="bp-t"><tbody>
+        {% for p in payments %}
+        <tr><td class="whitespace-nowrap text-xs text-slate-500">{{ p.created|date:"d.m.Y H:i" }}</td>
+          <td class="w-full">{{ p.provider|upper }} <span class="ml-1 bp-pill text-xs {% if p.status == 'paid' %}bg-emerald-50 text-emerald-700{% elif p.status == 'cancelled' or p.status == 'failed' %}bg-rose-50 text-rose-700{% else %}bg-slate-100 text-slate-600{% endif %}">{{ p.label }}</span></td>
+          <td class="num whitespace-nowrap text-right font-semibold">{{ p.amount|som }} сўм</td></tr>
+        {% empty %}<tr><td class="py-8 text-center text-slate-400">Ҳали тўлов йўқ</td></tr>{% endfor %}
+      </tbody></table>
+    {% else %}
+      <table class="bp-t"><tbody>
+        {% for x in unlocks %}
+        <tr><td class="whitespace-nowrap text-xs text-slate-500">{{ x.created|date:"d.m.Y H:i" }}</td>
+          <td class="w-full"><span class="block font-medium text-slate-800">{{ x.title|default:"—" }}</span>
+            <span class="block text-xs text-slate-500">{% if x.kind == 'object' %}{% if x.quota_object %}техназор объекти · тарифдан{% else %}техназор объекти · шу ой учун{% endif %}{% else %}{{ x.rows|som }} қатор · тарифдан {{ x.quota_rows|som|default:"0" }}{% endif %}</span></td>
+          <td class="num whitespace-nowrap text-right {% if x.amount %}font-semibold bp-minus{% else %}text-slate-400{% endif %}">{% if x.amount %}−{{ x.amount|som }}{% else %}0{% endif %}</td></tr>
+        {% empty %}<tr><td class="py-8 text-center text-slate-400">Ҳали юклаб олинган файл йўқ</td></tr>{% endfor %}
+      </tbody></table>
+    {% endif %}
+    </div>
+  </section>
+</div>
+{# ---------- тариф «Батафсил» (модал) ---------- #}
+<dialog class="bp-det" id="bp-det" aria-label="Тариф ҳақида батафсил">
+  <div class="in"><button type="button" class="x" data-close aria-label="Ёпиш">{% icon "x" "h-5 w-5" %}</button><div id="bp-det-body"></div></div>
+</dialog>
+<script>
+  (function () {
+    var tars = document.getElementById("bp-tars"), det = document.getElementById("bp-det");
+    document.querySelectorAll("[data-period]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        tars.dataset.m = b.dataset.period;
+        document.querySelectorAll("[data-period]").forEach(function (x) { x.classList.toggle("is-on", x === b); });
+      });
+    });
+    document.addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("[data-details]");
+      if (!b) return;
+      var tpl = document.getElementById("tdet-" + b.dataset.details);
+      var body = document.getElementById("bp-det-body");
+      body.innerHTML = ""; body.appendChild(tpl.content.cloneNode(true));
+      det.showModal();
+    });
+    det.querySelector("[data-close]").addEventListener("click", function () { det.close(); });
+    det.addEventListener("click", function (e) { if (e.target === det) det.close(); });
+  })();
+</script>
+{# ---------- балансни тўлдириш (модал) ---------- #}
+<dialog class="bp-md" id="bp-topup" aria-labelledby="bp-topup-h">
+  {% if need_verify %}
+  <div class="in">
+    <div class="hd"><h2 id="bp-topup-h">Аввал email'ни тасдиқланг</h2>
+      <button type="button" class="x" data-close aria-label="Ёпиш">{% icon "x" "h-5 w-5" %}</button></div>
+    <p class="now">Балансни тўлдириш ва тариф сотиб олиш — фақат email тасдиқлангандан кейин.</p>
+    <p class="ft" style="margin-top:8px">Нега: парол эсдан чиқса, ҳисобингиз ва ундаги пул фақат email орқали тикланади. Тасдиқланмаган манзилда бу иложсиз — пулингиз ҳисобда қолиб кетиши мумкин.</p>
+    <p class="ft" style="margin-top:6px">Email: <b>{{ request.user.email }}</b></p>
+    <a href="{% url 'verify_email' %}" class="bp-btn is-dark go" style="display:flex;justify-content:center;margin-top:14px">Email'ни тасдиқлаш</a>
+  </div>
+  {% else %}
+  <form method="post" action="{% url 'billing:topup' %}" class="in" id="bp-topup-f">{% csrf_token %}
+    <div class="hd"><h2 id="bp-topup-h">Балансни тўлдириш</h2>
+      <button type="button" class="x" data-close aria-label="Ёпиш">{% icon "x" "h-5 w-5" %}</button></div>
+    <p class="now">Ҳозир балансда: <b>{{ acc.total|som|default:"0" }} сўм</b></p>
+    <p class="why" id="bp-why" hidden></p>
+    <div class="amts">{% for a in amounts %}<button type="button" class="bp-amt" data-amt="{{ a }}">{{ a|som }}</button>{% endfor %}</div>
+    <div class="fld"><input name="amount" id="bp-amount" class="bp-in" inputmode="numeric" autocomplete="off" placeholder="0" aria-label="Сумма, сўм" required><span>сўм</span></div>
+    <p class="lim" id="bp-lim">Энг кам {{ topup_min|som }} · энг кўп {{ topup_max|som }} сўм</p>
+    <div class="after"><span>Тўловдан кейин балансда</span><b><span id="bp-after">{{ acc.total|som|default:"0" }}</span> сўм</b></div>
+    <button class="bp-btn is-dark go" id="bp-go" disabled>Click орқали тўлаш</button>
+    {% if click %}<p class="ft">Click саҳифаси очилади: карта ёки Click ҳисобидан тўлайсиз, кейин шу ерга қайтасиз ва пул балансда бўлади.</p>
+    {% else %}<p class="ft" style="color:rgb(var(--warn-700))">Онлайн тўлов ҳали уланмаган — ҳозирча балансни «Ёрдам хизмати» орқали тўлдириш мумкин.</p>{% endif %}
+  </form>
+  {% endif %}
+</dialog>
+<script>
+  (function () {
+    var md = document.getElementById("bp-topup"), inp = document.getElementById("bp-amount"),
+        BUY = "{% url 'billing:buy' 0 %}".replace(/0\/$/, "");
+        go = document.getElementById("bp-go"), lim = document.getElementById("bp-lim"),
+        after = document.getElementById("bp-after"), why = document.getElementById("bp-why");
+    if (!inp) {  // email тасдиқланмаган: тўлдириш ва тариф тугмалари — «аввал тасдиқланг» ойнаси
+      document.addEventListener("click", function (e) {
+        var t = e.target.closest && e.target.closest("[data-topup], form[action^='" + BUY + "'] button");
+        if (t) { e.preventDefault(); e.stopPropagation(); md.showModal(); }
+      }, true);
+      md.querySelector("[data-close]").addEventListener("click", function () { md.close(); });
+      md.addEventListener("click", function (e) { if (e.target === md) md.close(); });
+      return;
+    }
+    var MIN = {{ topup_min }}, MAX = {{ topup_max }}, BAL = {{ acc.total|default:0 }};
+    var fmt = function (n) { return Number(n).toLocaleString("ru-RU"); };
+    var num = function () { var s = inp.value.replace(/[\s  ,]/g, ""); return /^\d{1,12}$/.test(s) ? Number(s) : 0; };
+    var GO = go.textContent, UNIT = md.querySelector(".fld span").textContent;
+    function sync() {
+      var n = num(), ok = n >= MIN && n <= MAX;
+      go.disabled = !ok;
+      go.textContent = ok ? GO + " · " + fmt(n) + " " + UNIT : GO;
+      lim.classList.toggle("is-bad", inp.value.trim() !== "" && !ok);
+      after.textContent = fmt(BAL + (ok ? n : 0));
+      md.querySelectorAll(".bp-amt").forEach(function (x) { x.classList.toggle("is-on", Number(x.dataset.amt) === n); });
+    }
+    function open(amount, text) {
+      why.hidden = !text; why.textContent = text || "";
+      inp.value = amount ? fmt(Math.min(MAX, Math.max(MIN, Math.ceil(amount / 1000) * 1000))) : "";
+      sync();
+      md.showModal();
+      setTimeout(function () { inp.focus(); inp.select(); }, 30);
+    }
+    document.addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("[data-topup]");
+      if (b) { e.preventDefault(); open(Number(b.dataset.topup || 0), b.dataset.why); }
+    });
+    md.querySelector("[data-close]").addEventListener("click", function () { md.close(); });
+    md.addEventListener("click", function (e) { if (e.target === md) md.close(); });  // фонни босса — ёпилади
+    md.querySelectorAll(".bp-amt").forEach(function (b) {
+      b.addEventListener("click", function () { inp.value = fmt(b.dataset.amt); sync(); inp.focus(); });
+    });
+    inp.addEventListener("input", function () { var n = num(); if (n) inp.value = fmt(n); sync(); });
+    document.getElementById("bp-topup-f").addEventListener("submit", function (e) {
+      if (go.disabled) { e.preventDefault(); return; }
+      setTimeout(function () { go.disabled = true; }, 0);  // икки марта босилмасин
+    });
+    if (location.hash === "#topup") open(0);
+  })();
+</script>
+{% endblock %}

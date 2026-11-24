@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "texnazor",
     "support",
     "news",
+    "billing",
 ]
 
 MIDDLEWARE = [
@@ -138,6 +139,23 @@ if REDIS_URL:
 # Panel va Django admin — faqat ikki bosqichli kirish bilan (is_staff). O'chirish faqat favqulodda: 0
 NARXLASH_STAFF_2FA = os.environ.get("NARXLASH_STAFF_2FA", "1") == "1"
 TEXNAZOR_MY_OFYORTA = os.environ.get("TEXNAZOR_MY_OFYORTA", "0") == "1"
+# тайёр файлларда mhisobot.uz белгиси: файл номи ва LOG листидаги ёзув (файл хусусиятларидагиси — доим)
+NARXLASH_BRAND = os.environ.get("NARXLASH_BRAND", "1") == "1"
+# пулли режим (панел «Созламалар» → «Тўлов»): ўчиқ — ҳамма нарса бепул; нархлар — сўмда
+BILLING_ON = os.environ.get("BILLING_ON", "0") == "1"
+BILLING_ROW_PRICE = int(os.environ.get("BILLING_ROW_PRICE", "4"))  # тарифдан ошган ҳар қатор
+BILLING_OBJECT_PRICE = int(os.environ.get("BILLING_OBJECT_PRICE", "5000"))  # тарифдан ошган техназор объекти, ойига
+BILLING_TOPUP_MIN = int(os.environ.get("BILLING_TOPUP_MIN", "10000"))  # бир тўловда энг кам / энг кўп сумма
+BILLING_TOPUP_MAX = int(os.environ.get("BILLING_TOPUP_MAX", "5000000"))
+BILLING_DISC_3 = int(os.environ.get("BILLING_DISC_3", "10"))  # узоқ муддат чегирмаси, %
+BILLING_DISC_6 = int(os.environ.get("BILLING_DISC_6", "15"))
+BILLING_DISC_12 = int(os.environ.get("BILLING_DISC_12", "25"))
+# Click (SHOP API) — Click берган маълумотлар. Учаласи ёзилса — «Балансни тўлдириш» ишлайди (billing/click.py).
+# Click кабинетида: Prepare URL — https://<сайт>/balance/click/prepare/, Complete URL — .../balance/click/complete/
+CLICK_SERVICE_ID = os.environ.get("CLICK_SERVICE_ID", "")
+CLICK_MERCHANT_ID = os.environ.get("CLICK_MERCHANT_ID", "")
+CLICK_SECRET_KEY = os.environ.get("CLICK_SECRET_KEY", "")
+CLICK_MERCHANT_USER_ID = os.environ.get("CLICK_MERCHANT_USER_ID", "")  # ихтиёрий
 NARXLASH_TASKS = os.environ.get("NARXLASH_TASKS", "thread" if DEBUG else "worker")
 if NARXLASH_TASKS not in ("thread", "worker"):
     raise ImproperlyConfigured("NARXLASH_TASKS: thread yoki worker")

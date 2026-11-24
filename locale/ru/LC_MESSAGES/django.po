@@ -62,7 +62,7 @@ msgid "Ёки бошқа қурилмадан бўлса — тугмани бо
 msgstr ""
 "Или, если вы на другом устройстве, нажмите кнопку — email будет подтверждён сразу:"
 
-#: accounts/emails.py:48
+#: accounts/emails.py:48 billing/templates/billing/profile.html:348
 msgid "Email'ни тасдиқлаш"
 msgstr "Подтвердить email"
 
@@ -338,7 +338,7 @@ msgstr "Останавливается — удалите снова через 
 msgid "Листлар таҳлил қилиняпти"
 msgstr "Анализируются листы"
 
-#: jobs/folders.py:519 jobs/models.py:89 jobs/views.py:616
+#: jobs/folders.py:519 jobs/models.py:89 jobs/views.py:633
 #: jobs/templates/jobs/_tree_state.html:1
 msgid "Файллар очиляпти"
 msgstr "Открываются файлы"
@@ -352,7 +352,7 @@ msgid "Сметалар нархланяпти"
 msgstr "Расцениваются сметы"
 
 #: jobs/folders.py:527 jobs/models.py:379
-#: jobs/templates/jobs/_work_list.html:28 jobs/templates/jobs/tender.html:130
+#: jobs/templates/jobs/_work_list.html:30 jobs/templates/jobs/tender.html:130
 msgid "смета"
 msgstr "смета"
 
@@ -394,7 +394,7 @@ msgstr "Для {0} локальных смет ресурс не выбран"
 msgid "Ҳали нархланган қисм йўқ"
 msgstr "Пока нет расценённой части"
 
-#: jobs/guide.py:16 jobs/guide.py:229 jobs/templatetags/narx.py:329
+#: jobs/guide.py:16 jobs/guide.py:229 jobs/templatetags/narx.py:330
 #: jobs/templates/jobs/_site_footer.html:9
 msgid "Юклаш"
 msgstr "Загрузка"
@@ -442,7 +442,7 @@ msgid ""
 msgstr ""
 "Нажмите на название локальной сметы — она откроется в виде Excel; нажмите на процент — локальная и ресурс откроются рядом."
 
-#: jobs/guide.py:23 jobs/views.py:451
+#: jobs/guide.py:23 jobs/views.py:467
 msgid "Ҳисоблашни бошланг"
 msgstr "Запустите расчёт"
 
@@ -498,7 +498,7 @@ msgstr "Строки сметы (пометки в столбце G)"
 msgid "Нархлангандан кейин"
 msgstr "После расценки"
 
-#: jobs/guide.py:45 jobs/models.py:90 jobs/views.py:321 jobs/views.py:617
+#: jobs/guide.py:45 jobs/models.py:90 jobs/views.py:323 jobs/views.py:634
 #: jobs/templates/jobs/_work_badge.html:7
 msgid "Ҳисоблашга тайёр"
 msgstr "Готово к расчёту"
@@ -577,7 +577,7 @@ msgstr ""
 msgid "Нархлари тўлдирилган RES файлни юкланг ёки бошқа RES листини танланг."
 msgstr "Загрузите файл RES с заполненными ценами или выберите другой лист RES."
 
-#: jobs/guide.py:75 jobs/views.py:876
+#: jobs/guide.py:75 jobs/views.py:896
 msgid "Устун топилмади"
 msgstr "Столбец не найден"
 
@@ -608,7 +608,7 @@ msgstr ""
 msgid "Ҳеч нарса қилиш шарт эмас."
 msgstr "Ничего делать не нужно."
 
-#: jobs/guide.py:87 jobs/models.py:29 jobs/views.py:320
+#: jobs/guide.py:87 jobs/models.py:29 jobs/views.py:322
 #: jobs/templates/jobs/_progress.html:2
 msgid "Ишланяпти"
 msgstr "В работе"
@@ -624,9 +624,9 @@ msgid "Кутинг. Керак бўлса «Тўхтатиш» — тайёр �
 msgstr ""
 "Подождите. При необходимости нажмите «Остановить» — готовые части сохранятся."
 
-#: jobs/guide.py:93 jobs/models.py:94 jobs/site.py:71 jobs/views.py:323
-#: jobs/views.py:349 jobs/views.py:623
-#: jobs/templates/jobs/_project_body.html:148
+#: jobs/guide.py:93 jobs/models.py:94 jobs/site.py:71 jobs/views.py:325
+#: jobs/views.py:351 jobs/views.py:640
+#: jobs/templates/jobs/_project_body.html:155
 #: jobs/templates/jobs/_tree_state.html:7
 #: jobs/templates/jobs/_work_badge.html:9
 msgid "Текширинг"
@@ -642,7 +642,7 @@ msgstr ""
 msgid "Қисмни очинг, ресурсни ўзингиз танланг ва «Ҳисоблашни бошлаш»ни босинг."
 msgstr "Откройте часть, выберите ресурс сами и нажмите «Начать расчёт»."
 
-#: jobs/guide.py:99 jobs/views.py:350 jobs/views.py:622
+#: jobs/guide.py:99 jobs/views.py:352 jobs/views.py:639
 msgid "Нархланмаган қатор бор"
 msgstr "Есть нерасценённые строки"
 
@@ -658,7 +658,7 @@ msgid ""
 msgstr ""
 "Откройте смету → шаг 1 «Не найденные»: примите предложенную цену, впишите цену сами или уберите лишнюю запись."
 
-#: jobs/guide.py:106 jobs/views.py:624
+#: jobs/guide.py:106 jobs/views.py:641
 msgid "Локал топилмади"
 msgstr "Локальная смета не найдена"
 
@@ -675,11 +675,11 @@ msgstr ""
 "Если это неверно — откройте часть и в «Типах листов» отметьте лист как «Локальная»."
 
 #: jobs/guide.py:111 jobs/models.py:96 jobs/models.py:128 jobs/models.py:256
-#: jobs/views.py:324 jobs/views.py:625 texnazor/models.py:25
+#: jobs/views.py:326 jobs/views.py:642 texnazor/models.py:25
 #: texnazor/models.py:187 jobs/templates/jobs/_progress.html:2
 #: jobs/templates/jobs/_tree_state.html:8
 #: jobs/templates/jobs/_work_badge.html:11
-#: jobs/templates/jobs/dashboard.html:102 jobs/templates/jobs/project.html:294
+#: jobs/templates/jobs/dashboard.html:103 jobs/templates/jobs/project.html:294
 #: texnazor/templates/texnazor/loading.html:93
 msgid "Хато"
 msgstr "Ошибка"
@@ -696,7 +696,7 @@ msgid ""
 msgstr ""
 "Откройте файл в Excel, пересохраните его как .xlsx и загрузите снова. Если повторится — сообщите администратору."
 
-#: jobs/guide.py:116 jobs/models.py:92 jobs/views.py:322 jobs/views.py:618
+#: jobs/guide.py:116 jobs/models.py:92 jobs/views.py:324 jobs/views.py:635
 #: jobs/templates/jobs/_work_badge.html:5
 msgid "Тўхтатилди"
 msgstr "Остановлено"
@@ -710,10 +710,10 @@ msgid "«Давом эттириш»ни босинг — қолган қисм�
 msgstr "Нажмите «Продолжить» — остальные части будут расценены."
 
 #: jobs/guide.py:121 jobs/models.py:31 jobs/models.py:93 jobs/models.py:127
-#: jobs/models.py:255 jobs/ofyorta.py:600 jobs/views.py:326 jobs/views.py:621
+#: jobs/models.py:255 jobs/ofyorta.py:602 jobs/views.py:328 jobs/views.py:638
 #: texnazor/build.py:351 texnazor/models.py:24 texnazor/models.py:186
 #: texnazor/services_acts.py:124 jobs/templates/jobs/_bulk_price.html:72
-#: jobs/templates/jobs/_project_body.html:147
+#: jobs/templates/jobs/_project_body.html:154
 #: jobs/templates/jobs/_tree_state.html:5
 #: jobs/templates/jobs/_work_badge.html:17 jobs/templates/jobs/batch.html:66
 #: texnazor/templates/texnazor/acts.html:200
@@ -730,8 +730,8 @@ msgid "«Юклаб олиш»ни босинг. Ўзгартирсангиз (�
 msgstr ""
 "Нажмите «Скачать». Если что-то измените (цену, процент) — файл обновится сам."
 
-#: jobs/guide.py:127 jobs/templatetags/narx.py:94 jobs/templatetags/narx.py:486
-#: jobs/views.py:55 jobs/views.py:66 jobs/templates/jobs/landing.html:165
+#: jobs/guide.py:127 jobs/templatetags/narx.py:94 jobs/templatetags/narx.py:487
+#: jobs/views.py:57 jobs/views.py:68 jobs/templates/jobs/landing.html:165
 msgid "ТОПИЛМАДИ"
 msgstr "ТОПИЛМАДИ (не найдено)"
 
@@ -886,8 +886,8 @@ msgid "Smart режимда қайта нархланг."
 msgstr "Расцените заново в режиме Smart."
 
 #: jobs/guide.py:189 jobs/templates/jobs/_picker.html:131
-#: jobs/templates/jobs/_project_body.html:142
-#: jobs/templates/jobs/_project_body.html:192
+#: jobs/templates/jobs/_project_body.html:149
+#: jobs/templates/jobs/_project_body.html:199
 #: texnazor/templates/texnazor/my_detail.html:56
 #: texnazor/templates/texnazor/my_setup.html:50
 msgid "Сводка фоизлари"
@@ -911,21 +911,22 @@ msgstr "Общие"
 
 #: jobs/guide.py:229 jobs/templates/jobs/_project_body.html:7
 #: jobs/templates/jobs/_work_list.html:12
-#: jobs/templates/jobs/dashboard.html:204
+#: jobs/templates/jobs/dashboard.html:205
 msgid "Папка"
 msgstr "Папка"
 
-#: jobs/guide.py:229 jobs/templates/jobs/_work_list.html:12
-#: jobs/templates/jobs/batch.html:91 jobs/templates/jobs/dashboard.html:204
+#: jobs/guide.py:229 jobs/templates/jobs/_plan_chip.html:21
+#: jobs/templates/jobs/_work_list.html:12 jobs/templates/jobs/batch.html:91
+#: jobs/templates/jobs/dashboard.html:205
 #: texnazor/templates/texnazor/_f3.html:32
 #: texnazor/templates/texnazor/_info.html:10
 #: texnazor/templates/texnazor/acts.html:106
-#: texnazor/templates/texnazor/index.html:41
+#: texnazor/templates/texnazor/index.html:47
 msgid "Объект"
 msgstr "Объект"
 
 #: jobs/guide.py:229 jobs/templates/jobs/_work_list.html:12
-#: jobs/templates/jobs/dashboard.html:204 jobs/templates/jobs/landing.html:229
+#: jobs/templates/jobs/dashboard.html:205 jobs/templates/jobs/landing.html:229
 msgid "Смета"
 msgstr "Смета"
 
@@ -939,7 +940,7 @@ msgstr "Рабочий стол"
 msgid "Калькулятор"
 msgstr "Калькулятор"
 
-#: jobs/guide.py:230 jobs/templates/jobs/dashboard.html:57
+#: jobs/guide.py:230 jobs/templates/jobs/dashboard.html:58
 msgid "Офёрта ва далолатнома"
 msgstr "Оферта и акты"
 
@@ -967,17 +968,17 @@ msgstr "Проверьте — готово к расчёту"
 msgid "Текширишда"
 msgstr "На проверке"
 
-#: jobs/models.py:66 jobs/templates/jobs/_project_body.html:150
+#: jobs/models.py:66 jobs/templates/jobs/_project_body.html:157
 msgid "Нархланди"
 msgstr "Расценено"
 
-#: jobs/models.py:88 jobs/views.py:615 jobs/templates/jobs/_tree_state.html:4
+#: jobs/models.py:88 jobs/views.py:632 jobs/templates/jobs/_tree_state.html:4
 #: jobs/templates/jobs/ofyorta.html:329
 msgid "Навбатда"
 msgstr "В очереди"
 
-#: jobs/models.py:91 jobs/views.py:619
-#: jobs/templates/jobs/_project_body.html:122
+#: jobs/models.py:91 jobs/views.py:636
+#: jobs/templates/jobs/_project_body.html:129
 #: jobs/templates/jobs/_tree_state.html:1
 msgid "Нархланяпти"
 msgstr "Расценивается"
@@ -1038,35 +1039,35 @@ msgstr "Прочие затраты (начисление)"
 msgid "Даромад (тўлов)"
 msgstr "Доход (оплата)"
 
-#: jobs/ofyorta.py:426
+#: jobs/ofyorta.py:427
 msgid "«{0}»: нархлаш натижаси эски — сметани қайта нархланг"
 msgstr "«{0}»: результат расценки устарел — расцените смету заново"
 
-#: jobs/ofyorta.py:432
+#: jobs/ofyorta.py:433
 msgid "«{0}»: сводка жойи ўзгарган — сметани қайта нархланг"
 msgstr "«{0}»: место сводки изменилось — расцените смету заново"
 
-#: jobs/ofyorta.py:507
+#: jobs/ofyorta.py:508
 msgid "«{0}» — смета ўчирилган ёки нархи йўқ, олинмади"
 msgstr "«{0}» — смета удалена или не расценена, не взята"
 
-#: jobs/ofyorta.py:510
+#: jobs/ofyorta.py:511
 msgid "Смета қўшилмоқда: {0}"
 msgstr "Добавляется смета: {0}"
 
-#: jobs/ofyorta.py:513
+#: jobs/ofyorta.py:514
 msgid "«{0}»: нархланган файл топилмади — сметани қайта нархланг"
 msgstr "«{0}»: расценённый файл не найден — расцените смету заново"
 
-#: jobs/ofyorta.py:525
+#: jobs/ofyorta.py:526
 msgid "Битта ҳам смета олинмади"
 msgstr "Не взято ни одной сметы"
 
-#: jobs/ofyorta.py:527
+#: jobs/ofyorta.py:528
 msgid "Умумий сводка ва Excel файл ёзилмоқда…"
 msgstr "Записываются общая сводка и файл Excel…"
 
-#: jobs/ofyorta.py:592
+#: jobs/ofyorta.py:594
 msgid "Битта ҳам смета танланмаган"
 msgstr "Не выбрано ни одной сметы"
 
@@ -1084,11 +1085,17 @@ msgstr ""
 
 #: jobs/pages.py:55
 msgid ""
-"<h2>1. Умумий қоидалар</h2><p>Ушбу шартлар mhisobot.uz сайти ва унинг хизматларидан (смета нархлаш, техник назорат ҳужжатлари, калькулятор ва бошқалар) фойдаланиш тартибини белгилайди. Рўйхатдан ўтиш ёки сайтдан фойдаланиш шу шартларга рози бўлганингизни билдиради.</p><h2>2. Ҳисоб</h2><ul><li>Рўйхатдан ўтишда тўғри маълумот (исм, email) киритилади.</li><li>Парол ва кириш маълумотларини бошқаларга бермаслик фойдаланувчи зиммасида.</li><li>Қоидабузарлик аниқланса, ҳисоб вақтинча ёки бутунлай ёпилиши мумкин.</li></ul><h2>3. Юкланган файллар ва махфийлик</h2><p>Юкланган сметалар ва ҳужжатлар фақат эгасига кўринади. Улар учинчи шахсларга берилмайди. Хизмат сифатини ошириш учун номсиз (шахсга боғланмаган) статистика ишлатилиши мумкин.</p><h2>4. Натижалар учун жавобгарлик</h2><p>Тизим берган нархлар ва ҳисоблар маълумот учун: якуний ҳужжатни смета­чи ўзи текширади ва унга ўзи жавоб беради. Нарх манбаларидаги хато ёки эскирган маълумот учун сайт жавобгар эмас.</p><h2>5. Шартлар ўзгариши</h2><p>Шартлар янгиланиши мумкин; янги таҳрири шу саҳифада эълон қилинади.</p><h2>6. Алоқа</h2><p>Саволлар бўлса — сайтдаги «Ёрдам хизмати» орқали ёзинг.</p>"
+"<h2>1. Умумий қоидалар</h2><p>Ушбу шартлар mhisobot.uz сайти ва унинг хизматларидан (смета нархлаш, техник назорат ҳужжатлари, калькулятор ва бошқалар) фойдаланиш тартибини белгилайди. Рўйхатдан ўтиш ёки сайтдан фойдаланиш шу шартларга рози бўлганингизни билдиради.</p><h2>2. Ҳисоб</h2><ul><li>Рўйхатдан ўтишда тўғри маълумот (исм, email) киритилади.</li><li>Парол ва кириш маълумотларини бошқаларга бермаслик фойдаланувчи зиммасида.</li><li>Қоидабузарлик аниқланса, ҳисоб вақтинча ёки бутунлай ёпилиши мумкин.</li></ul><h2>3. Юкланган файллар ва махфийлик</h2><p>Юкланган сметалар ва ҳужжатлар фақат эгасига кўринади. Улар учинчи шахсларга берилмайди. Хизмат сифатини ошириш учун номсиз (шахсга боғланмаган) статистика ишлатилиши мумкин. Батафсил — <a href=\"/maxfiylik/\">Махфийлик сиёсати</a>да.</p><h2>4. Тўлов, тарифлар ва қайтариш</h2><ul><li>Пулли хизматлар нархи «Тариф ва баланс» саҳифасида кўрсатилади. Баланс Click орқали сўмда тўлдирилади.</li><li>Тариф танланган муддатга (1, 3, 6 ёки 12 ой) олдиндан тўланади; қатор ва объект чегаралари ҳар ой янгиланади. Узоқ муддатга ва акция бўйича чегирма берилиши мумкин.</li><li>Тарифдан ошган қисм ва тарифсиз юклаб олинган файл нархи балансдан ечилади. Бир файл учун бир марта тўланади — қайта юклаб олиш бепул.</li><li>Балансдаги ҳақиқий пул (сиз тўлаган) сўров бўйича қайтарилиши мумкин; сарфланган пул ва бонус (совға) пул қайтарилмайди.</li><li>Тўлов билан боғлиқ хато бўлса — «Ёрдам хизмати»га ёзинг, текшириб тузатилади.</li></ul><h2>5. Натижалар учун жавобгарлик</h2><p>Тизим берган нархлар ва ҳисоблар маълумот учун: якуний ҳужжатни смета­чи ўзи текширади ва унга ўзи жавоб беради. Нарх манбаларидаги хато ёки эскирган маълумот учун сайт жавобгар эмас.</p><h2>6. Шартлар ўзгариши</h2><p>Шартлар янгиланиши мумкин; янги таҳрири шу саҳифада эълон қилинади.</p><h2>7. Алоқа</h2><p>Саволлар бўлса — сайтдаги «Ёрдам хизмати» орқали ёзинг.</p>"
 msgstr ""
-"<h2>1. Общие положения</h2><p>Настоящие условия определяют порядок использования сайта mhisobot.uz и его сервисов (расценка смет, документы технического надзора, калькулятор и другие). Регистрация или использование сайта означает ваше согласие с этими условиями.</p><h2>2. Аккаунт</h2><ul><li>При регистрации указываются достоверные данные (имя, email).</li><li>Пользователь обязан не передавать другим пароль и данные для входа.</li><li>При выявлении нарушений аккаунт может быть закрыт временно или навсегда.</li></ul><h2>3. Загруженные файлы и конфиденциальность</h2><p>Загруженные сметы и документы видны только владельцу. Они не передаются третьим лицам. Для повышения качества сервиса может использоваться обезличенная статистика.</p><h2>4. Ответственность за результаты</h2><p>Цены и расчёты системы носят справочный характер: итоговый документ сметчик проверяет сам и сам несёт за него ответственность. Сайт не отвечает за ошибки или устаревшие данные в источниках цен.</p><h2>5. Изменение условий</h2><p>Условия могут обновляться; новая редакция публикуется на этой странице.</p><h2>6. Связь</h2><p>Если есть вопросы — пишите через «Службу поддержки» на сайте.</p>"
+"<h2>1. Общие положения</h2><p>Настоящие условия определяют порядок использования сайта mhisobot.uz и его услуг (расценка смет, документы технического надзора, калькулятор и другие). Регистрация или использование сайта означает, что вы согласны с этими условиями.</p><h2>2. Учётная запись</h2><ul><li>При регистрации указываются верные данные (имя, email).</li><li>Пользователь сам отвечает за то, чтобы не передавать пароль и данные для входа другим.</li><li>При выявлении нарушений учётная запись может быть закрыта временно или навсегда.</li></ul><h2>3. Загруженные файлы и конфиденциальность</h2><p>Загруженные сметы и документы видны только владельцу. Они не передаются третьим лицам. Для повышения качества сервиса может использоваться обезличенная (не связанная с личностью) статистика. Подробнее — в <a href=\"/maxfiylik/\">Политике конфиденциальности</a>.</p><h2>4. Оплата, тарифы и возврат</h2><ul><li>Цены платных услуг указаны на странице «Тариф и баланс». Баланс пополняется в сумах через Click.</li><li>Тариф оплачивается заранее на выбранный срок (1, 3, 6 или 12 месяцев); лимиты строк и объектов обновляются каждый месяц. За длительный срок и по акции может предоставляться скидка.</li><li>Превышение тарифа и стоимость файла, скачанного без тарифа, списываются с баланса. За один файл платят один раз — повторное скачивание бесплатно.</li><li>Реальные деньги на балансе (оплаченные вами) могут быть возвращены по запросу; потраченные деньги и бонусные (подарочные) деньги не возвращаются.</li><li>При ошибке, связанной с оплатой, напишите в «Службу поддержки» — проверим и исправим.</li></ul><h2>5. Ответственность за результаты</h2><p>Цены и расчёты системы носят справочный характер: итоговый документ сметчик проверяет сам и сам за него отвечает. Сайт не несёт ответственности за ошибки или устаревшие данные в источниках цен.</p><h2>6. Изменение условий</h2><p>Условия могут обновляться; новая редакция публикуется на этой странице.</p><h2>7. Контакты</h2><p>Если есть вопросы — пишите через «Службу поддержки» на сайте.</p>"
 
-#: jobs/preview.py:33 jobs/views.py:2433
+#: jobs/pages.py:97
+msgid ""
+"<h2>1. Умумий қоидалар</h2><p>Ушбу сиёсат mhisobot.uz сайти (кейинги ўринларда — «Сайт») фойдаланувчиларининг шахсга доир маълумотлари қандай йиғилиши, ишлатилиши, сақланиши ва ҳимоя қилинишини белгилайди. Маълумотлар Ўзбекистон Республикасининг «Шахсга доир маълумотлар тўғрисида»ги Қонунига мувофиқ ишланади. Сайтдан фойдаланиш шу сиёсатга рози бўлганингизни билдиради.</p><h2>2. Қандай маълумотлар йиғилади</h2><ul><li><b>Ҳисоб маълумотлари:</b> исм, фамилия, электрон почта манзили, кўрсатган бўлсангиз — телефон рақами ва ташкилот номи.</li><li><b>Сиз юклаган файллар:</b> сметалар, далолатномалар ва бошқа ҳужжатлар, улардан тайёрланган натижалар.</li><li><b>Тўлов маълумотлари:</b> тўлов суммаси, вақти, ҳолати ва тўлов тизимидаги рақами. Банк картаси маълумотлари Сайтга келмайди — уларни фақат тўлов тизими (Click) қабул қилади.</li><li><b>Техник маълумотлар:</b> IP манзил, браузер ва қурилма тури, кириш вақти, хатолар ҳақидаги ёзувлар.</li></ul><h2>3. Маълумотлар нима учун ишлатилади</h2><ul><li>ҳисобингизни очиш, кириш ва уни ҳимоя қилиш учун;</li><li>хизматни кўрсатиш учун: сметани нархлаш, ҳужжатларни тайёрлаш, натижаларни сизга бериш;</li><li>балансни юритиш, тўловлар ва тарифларни ҳисоблаш учун;</li><li>ҳисобингиз, тўловлар ва хизмат ўзгаришлари ҳақида хабар юбориш учун;</li><li>хатоларни топиш, Сайт хавфсизлиги ва ишлаш сифатини ошириш учун.</li></ul><p>Сиз юклаган файллар фақат сизга кўринади. Хизматни яхшилаш учун фақат номсиз (шахсга боғланмаган) умумий статистика ишлатилиши мумкин, масалан, ресурс нархлари бўйича ўртача кўрсаткичлар.</p><h2>4. Маълумотлар кимга берилади</h2><p>Шахсга доир маълумотлар сотилмайди ва реклама учун берилмайди. Улар фақат қуйидаги ҳолларда учинчи шахсга берилиши мумкин:</p><ul><li>тўловни амалга ошириш учун — тўлов тизимига (фақат тўлов учун зарур маълумот);</li><li>қонунда белгиланган ҳолларда — ваколатли давлат органларининг ёзма талаби бўйича;</li><li>сизнинг розилигингиз билан.</li></ul><h2>5. Сақлаш муддати</h2><p>Маълумотлар ҳисобингиз очиқ турган вақт давомида сақланади. Ҳисоб ўчирилгач, шахсга доир маълумотлар ва юкланган файллар ўчирилади. Тўловлар ҳақидаги ёзувлар ҳисоб-китоб ва қонун талаблари учун белгиланган муддатгача сақланиши мумкин. Заҳира нусхалардан маълумотлар уларнинг навбатдаги янгиланишида ўчади.</p><h2>6. Ҳимоя</h2><ul><li>Сайт билан алоқа шифрланган (HTTPS) уланиш орқали бўлади.</li><li>Пароллар очиқ ҳолда сақланмайди — фақат қайтариб бўлмайдиган кўринишда (хэш).</li><li>Маълумотларга фақат ваколатли ходимлар, иш учун зарур бўлганда кира олади.</li><li>Маълумотлар йўқолмаслиги учун мунтазам заҳира нусха олинади.</li></ul><h2>7. Cookie файллари</h2><p>Сайт ҳисобингизга кириб туришингиз, танлаган тилни эслаб қолиш ва хавфсизлик учун зарур cookie файлларидан фойдаланади. Реклама ва бошқа сайтларда кузатиш учун cookie ишлатилмайди. Браузерда cookie'ни ўчирсангиз, ҳисобга кириш ишламайди.</p><h2>8. Сизнинг ҳуқуқларингиз</h2><ul><li>ўзингиз ҳақингиздаги маълумотларни кўриш ва нусхасини олиш;</li><li>нотўғри маълумотни тузатиш — бунинг кўп қисми «Созламалар»да ўзингиз қила оласиз;</li><li>ҳисобингизни ва маълумотларингизни ўчиришни сўраш;</li><li>маълумотларни ишлашга берган розилигингизни қайтариб олиш (бу ҳолда хизматдан фойдаланиш тўхтайди).</li></ul><p>Бунинг учун «Ёрдам хизмати» орқали ёзинг — сўровингиз 30 кун ичида кўриб чиқилади.</p><h2>9. Сиёсат ўзгариши</h2><p>Сиёсат янгиланиши мумкин. Янги таҳрири шу саҳифада эълон қилинади; муҳим ўзгаришлар ҳақида фойдаланувчиларга алоҳида хабар берилади.</p><h2>10. Алоқа</h2><p>Шахсга доир маълумотлар бўйича саволлар бўлса — Сайтдаги «Ёрдам хизмати» орқали ёки «Биз ҳақимизда» саҳифасидаги манзиллар бўйича мурожаат қилинг.</p>"
+msgstr ""
+"<h2>1. Общие положения</h2><p>Настоящая политика определяет, как собираются, используются, хранятся и защищаются персональные данные пользователей сайта mhisobot.uz (далее — «Сайт»). Данные обрабатываются в соответствии с Законом Республики Узбекистан «О персональных данных». Использование Сайта означает, что вы согласны с этой политикой.</p><h2>2. Какие данные собираются</h2><ul><li><b>Данные учётной записи:</b> имя, фамилия, адрес электронной почты, а если вы их указали — номер телефона и название организации.</li><li><b>Загруженные вами файлы:</b> сметы, акты и другие документы, а также подготовленные на их основе результаты.</li><li><b>Платёжные данные:</b> сумма, время, статус платежа и его номер в платёжной системе. Данные банковской карты на Сайт не поступают — их принимает только платёжная система (Click).</li><li><b>Технические данные:</b> IP-адрес, тип браузера и устройства, время входа, записи об ошибках.</li></ul><h2>3. Для чего используются данные</h2><ul><li>для открытия учётной записи, входа и её защиты;</li><li>для оказания услуг: расценки смет, подготовки документов, выдачи вам результатов;</li><li>для ведения баланса, расчёта платежей и тарифов;</li><li>для уведомлений об учётной записи, платежах и изменениях сервиса;</li><li>для поиска ошибок, повышения безопасности и качества работы Сайта.</li></ul><p>Загруженные вами файлы видны только вам. Для улучшения сервиса может использоваться только обезличенная (не связанная с личностью) общая статистика, например средние показатели по ценам ресурсов.</p><h2>4. Кому передаются данные</h2><p>Персональные данные не продаются и не передаются для рекламы. Третьим лицам они могут передаваться только в следующих случаях:</p><ul><li>для проведения платежа — платёжной системе (только данные, необходимые для платежа);</li><li>в случаях, предусмотренных законом, — по письменному запросу уполномоченных государственных органов;</li><li>с вашего согласия.</li></ul><h2>5. Срок хранения</h2><p>Данные хранятся, пока открыта ваша учётная запись. После удаления учётной записи персональные данные и загруженные файлы удаляются. Записи о платежах могут храниться в течение срока, установленного для расчётов и требованиями закона. Из резервных копий данные удаляются при их очередном обновлении.</p><h2>6. Защита</h2><ul><li>Связь с Сайтом идёт по зашифрованному соединению (HTTPS).</li><li>Пароли не хранятся в открытом виде — только в необратимом виде (хэш).</li><li>Доступ к данным есть только у уполномоченных сотрудников и только когда это нужно для работы.</li><li>Чтобы данные не потерялись, регулярно делаются резервные копии.</li></ul><h2>7. Файлы cookie</h2><p>Сайт использует cookie, необходимые для того, чтобы вы оставались в учётной записи, для запоминания выбранного языка и для безопасности. Cookie для рекламы и слежки на других сайтах не используются. Если отключить cookie в браузере, вход в учётную запись работать не будет.</p><h2>8. Ваши права</h2><ul><li>просматривать данные о себе и получать их копию;</li><li>исправлять неверные данные — большую часть можно сделать самому в «Настройках»;</li><li>запросить удаление учётной записи и ваших данных;</li><li>отозвать согласие на обработку данных (в этом случае пользование сервисом прекращается).</li></ul><p>Для этого напишите через «Службу поддержки» — запрос будет рассмотрен в течение 30 дней.</p><h2>9. Изменение политики</h2><p>Политика может обновляться. Новая редакция публикуется на этой странице; о важных изменениях пользователи уведомляются отдельно.</p><h2>10. Контакты</h2><p>Если есть вопросы о персональных данных — обращайтесь через «Службу поддержки» на Сайте или по контактам на странице «О нас».</p>"
+
+#: jobs/preview.py:33 jobs/views.py:2456
 msgid "Натижа ҳали тайёр эмас"
 msgstr "Результат ещё не готов"
 
@@ -1100,8 +1107,8 @@ msgstr "Эта смета без RES — расценена по базе рес
 msgid "Нотўғри файл"
 msgstr "Неверный файл"
 
-#: jobs/preview.py:50 jobs/services.py:947 jobs/views.py:1488
-#: jobs/views.py:2436
+#: jobs/preview.py:50 jobs/services.py:948 jobs/views.py:1508
+#: jobs/views.py:2459
 msgid "Файл топилмади"
 msgstr "Файл не найден"
 
@@ -1144,44 +1151,44 @@ msgstr "{0}: принимаются только файлы .xls, .xlsx, .xlsm"
 msgid "{0}: файл жуда катта ({1} МБ)"
 msgstr "{0}: файл слишком большой ({1} МБ)"
 
-#: jobs/services.py:263
+#: jobs/services.py:264
 msgid "Локал файл"
 msgstr "Локальный файл"
 
-#: jobs/services.py:264
+#: jobs/services.py:265
 msgid "Ресурс файл"
 msgstr "Файл ресурсов"
 
-#: jobs/services.py:287 jobs/services.py:614 jobs/services.py:962
-#: jobs/services.py:988
+#: jobs/services.py:288 jobs/services.py:615 jobs/services.py:963
+#: jobs/services.py:989
 msgid "Файлни очиб бўлмади: {0}"
 msgstr "Не удалось открыть файл: {0}"
 
-#: jobs/services.py:586
+#: jobs/services.py:587
 msgid "Камида битта файл танланг"
 msgstr "Выберите хотя бы один файл"
 
-#: jobs/services.py:590
+#: jobs/services.py:591
 msgid "Бир марта кўпи билан {0} та файл юкланг"
 msgstr "Загружайте не более {0} файлов за раз"
 
-#: jobs/services.py:672
+#: jobs/services.py:673
 msgid "ҳали таҳлил қилинмаган — турини белгиланг ёки «Автоматик ажратиш»ни босинг"
 msgstr "ещё не проанализирован — укажите тип или нажмите «Автоматически разделить»"
 
-#: jobs/services.py:1009
+#: jobs/services.py:1010
 msgid "Бу файл алмаштирилмаган — қайтариладиган олдинги нусха йўқ"
 msgstr "Этот файл не заменялся — нет предыдущей версии для возврата"
 
-#: jobs/services.py:1013
+#: jobs/services.py:1014
 msgid "Олдинги нусха дискда топилмади"
 msgstr "Предыдущая версия не найдена на диске"
 
-#: jobs/services.py:1018
+#: jobs/services.py:1019
 msgid "Файлни қайтариб бўлмади: {0}"
 msgstr "Не удалось вернуть файл: {0}"
 
-#: jobs/services.py:1230
+#: jobs/services.py:1231
 msgid "Нархланган қисм йўқ"
 msgstr "Нет расценённой части"
 
@@ -1247,7 +1254,7 @@ msgstr "Цифры под изображением сметы: измерены 
 #: jobs/site.py:40 jobs/site.py:41 jobs/templates/jobs/_bulk_price.html:10
 #: jobs/templates/jobs/_picker.html:50 jobs/templates/jobs/_picker.html:59
 #: jobs/templates/jobs/_picker.html:69 jobs/templates/jobs/_picker.html:77
-#: jobs/templates/jobs/_project_body.html:142
+#: jobs/templates/jobs/_project_body.html:149
 #: jobs/templates/jobs/_project_part_head.html:25
 #: jobs/templates/jobs/guide.html:17
 #: texnazor/templates/texnazor/_corrections.html:34
@@ -1540,7 +1547,7 @@ msgstr "Заголовок контактов"
 msgid "Ташкилотингиз учун савол ёки таклиф бўлса, биз билан боғланинг"
 msgstr "Если у вашей организации есть вопрос или предложение — свяжитесь с нами"
 
-#: jobs/site.py:221
+#: jobs/site.py:222
 msgid "Умумий дарслар"
 msgstr "Общие уроки"
 
@@ -1548,8 +1555,8 @@ msgstr "Общие уроки"
 msgid "ўхшаш"
 msgstr "похоже"
 
-#: jobs/templatetags/narx.py:92 jobs/templatetags/narx.py:484 jobs/views.py:54
-#: jobs/views.py:63
+#: jobs/templatetags/narx.py:92 jobs/templatetags/narx.py:485 jobs/views.py:56
+#: jobs/views.py:65
 msgid "ШАБҲАЛИ"
 msgstr "СОМНИТЕЛЬНО"
 
@@ -1557,15 +1564,15 @@ msgstr "СОМНИТЕЛЬНО"
 msgid "бирлик бошқа"
 msgstr "другая единица"
 
-#: jobs/templatetags/narx.py:95 jobs/templatetags/narx.py:474
+#: jobs/templatetags/narx.py:95 jobs/templatetags/narx.py:475
 msgid "нархсиз"
 msgstr "без цены"
 
-#: jobs/templatetags/narx.py:96 jobs/templatetags/narx.py:466
+#: jobs/templatetags/narx.py:96 jobs/templatetags/narx.py:467
 msgid "БАЗА"
 msgstr "БАЗА"
 
-#: jobs/templatetags/narx.py:105 jobs/templatetags/narx.py:468
+#: jobs/templatetags/narx.py:105 jobs/templatetags/narx.py:469
 msgid "иш сарлавҳаси"
 msgstr "заголовок работы"
 
@@ -1584,7 +1591,7 @@ msgid ""
 msgstr ""
 "Зарплата машиниста уже входит в цену машино-часа — если добавить отдельно, она посчитается дважды. Поэтому 0 (в RES тоже 0)."
 
-#: jobs/templatetags/narx.py:111 jobs/templatetags/narx.py:423
+#: jobs/templatetags/narx.py:111 jobs/templatetags/narx.py:424
 msgid "RES'да 0"
 msgstr "В RES 0"
 
@@ -1594,7 +1601,7 @@ msgid ""
 msgstr ""
 "В файле RES цена этого ресурса 0 — она и взята. Если это неверно, впишите цену вручную."
 
-#: jobs/templatetags/narx.py:113 jobs/templatetags/narx.py:476
+#: jobs/templatetags/narx.py:113 jobs/templatetags/narx.py:477
 msgid "нол қоидаси"
 msgstr "правило нуля"
 
@@ -1602,156 +1609,156 @@ msgstr "правило нуля"
 msgid "Эски дастур қоидаси бўйича 0."
 msgstr "0 по правилу старой программы."
 
-#: jobs/templatetags/narx.py:147 jobs/tender.py:20 jobs/views.py:74
+#: jobs/templatetags/narx.py:147 jobs/tender.py:20 jobs/views.py:76
 #: texnazor/ofyorta.py:25 jobs/templates/jobs/_bulk_price.html:72
 #: texnazor/templates/texnazor/_summary.html:3
 msgid "Иш ҳақи"
 msgstr "Зарплата"
 
-#: jobs/templatetags/narx.py:147 jobs/views.py:74 texnazor/ofyorta.py:25
+#: jobs/templatetags/narx.py:147 jobs/views.py:76 texnazor/ofyorta.py:25
 #: jobs/templates/jobs/_bulk_price.html:72
 msgid "Машина"
 msgstr "Машины"
 
-#: jobs/templatetags/narx.py:147 jobs/views.py:74 texnazor/ofyorta.py:25
+#: jobs/templatetags/narx.py:147 jobs/views.py:76 texnazor/ofyorta.py:25
 #: jobs/templates/jobs/_bulk_price.html:72 jobs/templates/jobs/calc.html:63
 msgid "Материал"
 msgstr "Материал"
 
-#: jobs/templatetags/narx.py:147 jobs/views.py:74 texnazor/ofyorta.py:26
+#: jobs/templatetags/narx.py:147 jobs/views.py:76 texnazor/ofyorta.py:26
 #: jobs/templates/jobs/_bulk_price.html:72 jobs/templates/jobs/job.html:789
 #: jobs/templates/jobs/job.html:792 jobs/templates/jobs/job.html:819
 msgid "Кабель"
 msgstr "Кабель"
 
-#: jobs/templatetags/narx.py:147 jobs/views.py:74
+#: jobs/templatetags/narx.py:147 jobs/views.py:76
 #: jobs/templates/jobs/_bulk_price.html:72 jobs/templates/jobs/job.html:789
 #: jobs/templates/jobs/job.html:792 jobs/templates/jobs/job.html:819
 msgid "Ускуна"
 msgstr "Оборудование"
 
-#: jobs/templatetags/narx.py:284
+#: jobs/templatetags/narx.py:285
 msgid "{0:.1f} с"
 msgstr "{0:.1f} с"
 
-#: jobs/templatetags/narx.py:287
+#: jobs/templatetags/narx.py:288
 msgid "{0} с"
 msgstr "{0} с"
 
-#: jobs/templatetags/narx.py:290
+#: jobs/templatetags/narx.py:291
 msgid "{0} дақ {1} с"
 msgstr "{0} мин {1} с"
 
-#: jobs/templatetags/narx.py:290
+#: jobs/templatetags/narx.py:291
 msgid "{0} дақ"
 msgstr "{0} мин"
 
-#: jobs/templatetags/narx.py:292
+#: jobs/templatetags/narx.py:293
 msgid "{0} соат {1} дақ"
 msgstr "{0} ч {1} мин"
 
-#: jobs/templatetags/narx.py:292
+#: jobs/templatetags/narx.py:293
 msgid "{0} соат"
 msgstr "{0} ч"
 
-#: jobs/templatetags/narx.py:306
+#: jobs/templatetags/narx.py:307
 msgid ""
 "<button type=\"button\" class=\"help-q {}\" data-help=\"{}\" title=\"{}: бу нима дегани?\" aria-label=\"{}: бу нима дегани?\">?</button>"
 msgstr ""
 "<button type=\"button\" class=\"help-q {}\" data-help=\"{}\" title=\"{}: что это значит?\" aria-label=\"{}: что это значит?\">?</button>"
 
-#: jobs/templatetags/narx.py:329
+#: jobs/templatetags/narx.py:330
 msgid "Папка, архив ёки файлларни юклаш"
 msgstr "Загрузка папки, архива или файлов"
 
-#: jobs/templatetags/narx.py:330 texnazor/templates/texnazor/acts.html:174
+#: jobs/templatetags/narx.py:331 texnazor/templates/texnazor/acts.html:174
 msgid "Текшириш"
 msgstr "Проверка"
 
-#: jobs/templatetags/narx.py:330
+#: jobs/templatetags/narx.py:331
 msgid "Қайси локал қайси ресурс билан ҳисобланишини кўриш"
 msgstr "Посмотреть, какая локальная смета с каким ресурсом считается"
 
-#: jobs/templatetags/narx.py:331 jobs/templates/jobs/_result_row.html:13
+#: jobs/templatetags/narx.py:332 jobs/templates/jobs/_result_row.html:13
 msgid "Тўғирлаш"
 msgstr "Исправление"
 
-#: jobs/templatetags/narx.py:331
+#: jobs/templatetags/narx.py:332
 msgid "Ҳисоблангач: нархланмаган қаторлар, кабель/ускуна, сводка фоизлари"
 msgstr "После расчёта: нерасценённые строки, кабель/оборудование, проценты сводки"
 
-#: jobs/templatetags/narx.py:332 jobs/templates/jobs/job.html:2547
+#: jobs/templatetags/narx.py:333 jobs/templates/jobs/job.html:2547
 msgid "Юклаб олиш"
 msgstr "Скачать"
 
-#: jobs/templatetags/narx.py:332
+#: jobs/templatetags/narx.py:333
 msgid "Тайёр Excel ёки ZIP"
 msgstr "Готовый Excel или ZIP"
 
-#: jobs/templatetags/narx.py:418
+#: jobs/templatetags/narx.py:419
 msgid "<div class=\"xl-sub\">ресурсда: {0} ({1})</div>"
 msgstr "<div class=\"xl-sub\">в ресурсах: {0} ({1})</div>"
 
-#: jobs/templatetags/narx.py:430 jobs/templates/jobs/_sheet_viewer.html:34
+#: jobs/templatetags/narx.py:431 jobs/templates/jobs/_sheet_viewer.html:34
 msgid "нарх"
 msgstr "цена"
 
-#: jobs/templatetags/narx.py:431
+#: jobs/templatetags/narx.py:432
 msgid ""
 "<div class=\"flex items-center justify-end gap-1\"><input type=\"text\" inputmode=\"decimal\" class=\"g-input\" data-row=\"{0}\" autocomplete=\"off\" placeholder=\"{1}\" title=\"Нарх ёзинг ва Enter · Ctrl+Enter — белгиланган ҳамма қаторларга\">"
 msgstr ""
 "<div class=\"flex items-center justify-end gap-1\"><input type=\"text\" inputmode=\"decimal\" class=\"g-input\" data-row=\"{0}\" autocomplete=\"off\" placeholder=\"{1}\" title=\"Введите цену и Enter · Ctrl+Enter — во все отмеченные строки\">"
 
-#: jobs/templatetags/narx.py:433
+#: jobs/templatetags/narx.py:434
 msgid ""
 "<button type=\"button\" class=\"g-accept\" data-row=\"{0}\" title=\"Таклифни қабул қилиш: {1}\">{2}</button>"
 msgstr ""
 "<button type=\"button\" class=\"g-accept\" data-row=\"{0}\" title=\"Принять предложение: {1}\">{2}</button>"
 
-#: jobs/templatetags/narx.py:436 jobs/templatetags/narx.py:441
+#: jobs/templatetags/narx.py:437 jobs/templatetags/narx.py:442
 msgid " · таклиф {0}"
 msgstr " · предложение {0}"
 
-#: jobs/templatetags/narx.py:439
+#: jobs/templatetags/narx.py:440
 msgid ""
 "<span>{0}</span><button type=\"button\" class=\"g-clear\" data-row=\"{1}\" title=\"Қўлда нархни бекор қилиш\">×</button><div class=\"xl-sub text-sky-700\">қўлда"
 msgstr ""
 "<span>{0}</span><button type=\"button\" class=\"g-clear\" data-row=\"{1}\" title=\"Отменить ручную цену\">×</button><div class=\"xl-sub text-sky-700\">вручную"
 
-#: jobs/templatetags/narx.py:446
+#: jobs/templatetags/narx.py:447
 msgid "<div class=\"xl-sub\">таклиф {0}</div>"
 msgstr "<div class=\"xl-sub\">предложение {0}</div>"
 
-#: jobs/templatetags/narx.py:456
+#: jobs/templatetags/narx.py:457
 msgid "<span class=\"xl-mark\" title=\"Қўлда ўзгартирилган (асли {0})\">{1}</span>"
 msgstr "<span class=\"xl-mark\" title=\"Изменено вручную (исходно {0})\">{1}</span>"
 
-#: jobs/templatetags/narx.py:458 jobs/views.py:1785
+#: jobs/templatetags/narx.py:459 jobs/views.py:1808
 msgid "ресурс файлида шу бўлимда"
 msgstr "в этом разделе файла ресурсов"
 
-#: jobs/templatetags/narx.py:459
+#: jobs/templatetags/narx.py:460
 msgid "<span class=\"xl-sugg\" title=\"Таклиф: {0}\">{1}?</span>"
 msgstr "<span class=\"xl-sugg\" title=\"Предложение: {0}\">{1}?</span>"
 
-#: jobs/templatetags/narx.py:464 jobs/templates/jobs/batch.html:259
+#: jobs/templatetags/narx.py:465 jobs/templates/jobs/batch.html:259
 #: jobs/templates/jobs/job.html:1227
 msgid "қўлда"
 msgstr "вручную"
 
-#: jobs/templatetags/narx.py:464
+#: jobs/templatetags/narx.py:465
 msgid "асли: {0}"
 msgstr "исходно: {0}"
 
-#: jobs/templatetags/narx.py:470
+#: jobs/templatetags/narx.py:471
 msgid "тозаланди"
 msgstr "очищено"
 
-#: jobs/templatetags/narx.py:478
+#: jobs/templatetags/narx.py:479
 msgid "{0} · қўлда"
 msgstr "{0} · вручную"
 
-#: jobs/templatetags/narx.py:480
+#: jobs/templatetags/narx.py:481
 msgid "аниқ"
 msgstr "точно"
 
@@ -1910,230 +1917,230 @@ msgid ""
 "Фойда кўринади, лекин ресурсларнинг бир қисми бозор нархи билан солиштирилмади."
 msgstr "Прибыль видна, но часть ресурсов не сравнивалась с рыночной ценой."
 
-#: jobs/views.py:52 jobs/views.py:60
+#: jobs/views.py:54 jobs/views.py:62
 msgid "Аниқ топилди"
 msgstr "Найдено точно"
 
-#: jobs/views.py:53
+#: jobs/views.py:55
 msgid "Ўхшаш (fuzzy)"
 msgstr "Похоже (fuzzy)"
 
-#: jobs/views.py:56
+#: jobs/views.py:58
 msgid "Нол қоидаси"
 msgstr "Правило нуля"
 
-#: jobs/views.py:57
+#: jobs/views.py:59
 msgid "G да рақам эмас"
 msgstr "В G не число"
 
-#: jobs/views.py:61
+#: jobs/views.py:63
 msgid "Нархланмади — қўлда"
 msgstr "Не расценено — вручную"
 
-#: jobs/views.py:62
+#: jobs/views.py:64
 msgid "Ўхшаш (аниқ эмас)"
 msgstr "Похоже (не точно)"
 
-#: jobs/views.py:64
+#: jobs/views.py:66
 msgid "Бирлик бошқа"
 msgstr "Другая единица"
 
-#: jobs/views.py:65
+#: jobs/views.py:67
 msgid "Нархсиз ресурс"
 msgstr "Ресурс без цены"
 
-#: jobs/views.py:67 jobs/templates/jobs/_picker_pair.html:43
+#: jobs/views.py:69 jobs/templates/jobs/_picker_pair.html:43
 #: jobs/templates/jobs/index.html:231 jobs/templates/jobs/settings.html:70
 msgid "Ресурс базасидан"
 msgstr "Из базы ресурсов"
 
-#: jobs/views.py:68
+#: jobs/views.py:70
 msgid "Қўлда нархланди"
 msgstr "Расценено вручную"
 
-#: jobs/views.py:69
+#: jobs/views.py:71
 msgid "Иш сарлавҳаси → 0"
 msgstr "Заголовок работы → 0"
 
-#: jobs/views.py:70
+#: jobs/views.py:72
 msgid "Машинист → 0"
 msgstr "Машинист → 0"
 
-#: jobs/views.py:73
+#: jobs/views.py:75
 msgid "Smart (тавсия)"
 msgstr "Smart (рекомендуется)"
 
-#: jobs/views.py:73
+#: jobs/views.py:75
 msgid "Эски дастур каби (compat)"
 msgstr "Как старая программа (compat)"
 
-#: jobs/views.py:108
+#: jobs/views.py:110
 msgid "Устун {0}"
 msgstr "Столбец {0}"
 
-#: jobs/views.py:165
+#: jobs/views.py:167
 msgid "Файлни танланг."
 msgstr "Выберите файл."
 
-#: jobs/views.py:296
+#: jobs/views.py:298
 msgid "фоиз йўқ"
 msgstr "нет процента"
 
-#: jobs/views.py:325
+#: jobs/views.py:327
 msgid "Нархланмаган бор"
 msgstr "Есть нерасценённые"
 
-#: jobs/views.py:327 jobs/templates/jobs/_work_badge.html:13
+#: jobs/views.py:329 jobs/templates/jobs/_work_badge.html:13
 msgid "Смета топилмади"
 msgstr "Смета не найдена"
 
-#: jobs/views.py:331
+#: jobs/views.py:333
 msgid "локал смета аллақачон нархланган"
 msgstr "локальная смета уже расценена"
 
-#: jobs/views.py:332
+#: jobs/views.py:334
 msgid "дефект акти — ишлар рўйхати"
 msgstr "дефектный акт — перечень работ"
 
-#: jobs/views.py:333 core/batch.py:50
+#: jobs/views.py:335 core/batch.py:50
 msgid "сводка / умумий ҳисоб"
 msgstr "сводка / общий расчёт"
 
-#: jobs/views.py:334
+#: jobs/views.py:336
 msgid "нарх каталоги (миқдор йўқ)"
 msgstr "каталог цен (нет количества)"
 
-#: jobs/views.py:335 core/batch.py:51 core/batch.py:211
+#: jobs/views.py:337 core/batch.py:51 core/batch.py:211
 msgid "бўш лист"
 msgstr "пустой лист"
 
-#: jobs/views.py:343
+#: jobs/views.py:345
 msgid "«Наименование» ва «Ед. изм.» жадвали топилмади"
 msgstr "Таблица с «Наименование» и «Ед. изм.» не найдена"
 
-#: jobs/views.py:346
+#: jobs/views.py:348
 msgid "Очиляпти"
 msgstr "Открывается"
 
-#: jobs/views.py:346
+#: jobs/views.py:348
 msgid "Навбатда ёки файллари очиляпти"
 msgstr "В очереди или открываются файлы"
 
-#: jobs/views.py:347
+#: jobs/views.py:349
 msgid "Ҳисобланяпти"
 msgstr "Считается"
 
-#: jobs/views.py:347
+#: jobs/views.py:349
 msgid "Ҳозир фонда нархланяпти"
 msgstr "Сейчас расценивается в фоне"
 
-#: jobs/views.py:348
+#: jobs/views.py:350
 msgid "Ҳисобланмаган"
 msgstr "Не рассчитано"
 
-#: jobs/views.py:348
+#: jobs/views.py:350
 msgid "Тайёр ёки тўхтатилган — «Ҳисоблашни бошлаш»ни кутяпти"
 msgstr "Готово или остановлено — ждёт «Начать расчёт»"
 
-#: jobs/views.py:349
+#: jobs/views.py:351
 msgid "Ресурс танлаш ёки хатони кўриш керак"
 msgstr "Нужно выбрать ресурс или посмотреть ошибку"
 
-#: jobs/views.py:350
+#: jobs/views.py:352
 msgid "Ҳисобланди, лекин айрим қаторлар қўлда нархланиши керак"
 msgstr "Рассчитано, но некоторые строки нужно расценить вручную"
 
-#: jobs/views.py:351
+#: jobs/views.py:353
 msgid "Ҳисобланди"
 msgstr "Рассчитано"
 
-#: jobs/views.py:351
+#: jobs/views.py:353
 msgid "Тўлиқ нархланди"
 msgstr "Полностью расценено"
 
-#: jobs/views.py:390
+#: jobs/views.py:392
 msgid "{0} та смета"
 msgstr "Смет: {0}"
 
-#: jobs/views.py:402
+#: jobs/views.py:404
 msgid "{0} та жуфтлик"
 msgstr "Пар: {0}"
 
-#: jobs/views.py:449
+#: jobs/views.py:465
 msgid "{0} та қаторга нарх ёзинг"
 msgstr "Впишите цену в строки: {0}"
 
-#: jobs/views.py:451
+#: jobs/views.py:467
 msgid "{0} та қисмни ҳисоблашни бошланг"
 msgstr "Запустите расчёт частей: {0}"
 
-#: jobs/views.py:453
+#: jobs/views.py:469
 msgid "Тўхтатилган — давом эттиринг"
 msgstr "Остановлено — продолжите"
 
-#: jobs/views.py:455
+#: jobs/views.py:471
 msgid "Очиб бўлмади — сабабини кўринг"
 msgstr "Не удалось открыть — посмотрите причину"
 
-#: jobs/views.py:457
+#: jobs/views.py:473
 msgid "{0} та қисмни текширинг"
 msgstr "Проверьте части: {0}"
 
-#: jobs/views.py:458
+#: jobs/views.py:474
 msgid "Ресурсни танланг ёки хатони кўринг"
 msgstr "Выберите ресурс или посмотрите ошибку"
 
-#: jobs/views.py:520 jobs/views.py:1250
+#: jobs/views.py:537 jobs/views.py:1270
 msgid "автоматик ажратиш"
 msgstr "автоматическое разделение"
 
-#: jobs/views.py:527
+#: jobs/views.py:544
 msgid ""
 "✓ Тизим {0} та қисмда листларни ажратди — текшириб, «Ҳаммасини бошлаш»ни босинг."
 msgstr "✓ Система разделила листы в частях: {0} — проверьте и нажмите «Начать все»."
 
-#: jobs/views.py:529
+#: jobs/views.py:546
 msgid "Белгиланмаган лист йўқ."
 msgstr "Неотмеченных листов нет."
 
-#: jobs/views.py:569 jobs/views.py:583
+#: jobs/views.py:586 jobs/views.py:600
 msgid "Нотўғри тур"
 msgstr "Неверный тип"
 
-#: jobs/views.py:620
+#: jobs/views.py:637
 msgid "Қайта ҳисобланяпти"
 msgstr "Пересчитывается"
 
-#: jobs/views.py:758
+#: jobs/views.py:775
 msgid ""
 "{0} та қисмда листлар ҳали белгиланмаган — улар нархланмади. Қисмни очиб, ҳар бир листни белгиланг ва қайта «Бошлаш»ни босинг."
 msgstr ""
 "В частях ({0}) листы ещё не отмечены — они не расценены. Откройте часть, отметьте каждый лист и снова нажмите «Начать»."
 
-#: jobs/views.py:760
+#: jobs/views.py:777
 msgid "Нархлашга тайёр қисм йўқ."
 msgstr "Нет частей, готовых к расценке."
 
-#: jobs/views.py:775
+#: jobs/views.py:792
 msgid "Папка ҳали ишланяпти — тугагач нарх қўйинг"
 msgstr "Папка ещё обрабатывается — проставьте цену после завершения"
 
-#: jobs/views.py:782
+#: jobs/views.py:799
 msgid "нарх рақам бўлиши керак: «{0}»"
 msgstr "цена должна быть числом: «{0}»"
 
-#: jobs/views.py:786 jobs/views.py:1764 jobs/views.py:1887 jobs/views.py:1941
-#: jobs/views.py:2122 jobs/views.py:2243 jobs/views.py:2321 jobs/views.py:2330
-#: texnazor/views.py:369 texnazor/views.py:398 texnazor/views.py:611
-#: texnazor/views_acts.py:204 texnazor/views_acts.py:227
+#: jobs/views.py:803 jobs/views.py:1787 jobs/views.py:1910 jobs/views.py:1964
+#: jobs/views.py:2145 jobs/views.py:2266 jobs/views.py:2344 jobs/views.py:2353
+#: texnazor/views.py:368 texnazor/views.py:397 texnazor/views.py:616
+#: texnazor/views_acts.py:207 texnazor/views_acts.py:230
 msgid "нотўғри сўров"
 msgstr "неверный запрос"
 
-#: jobs/views.py:788
+#: jobs/views.py:805
 msgid "нарх ёзилмаган"
 msgstr "цена не указана"
 
-#: jobs/views.py:820 jobs/templates/jobs/_picker.html:50
+#: jobs/views.py:840 jobs/templates/jobs/_picker.html:50
 #: jobs/templates/jobs/_picker.html:116
 #: jobs/templates/jobs/_picker_pair.html:10
 #: jobs/templates/jobs/_picker_row.html:36
@@ -2143,7 +2150,7 @@ msgstr "цена не указана"
 msgid "Локал"
 msgstr "Локальная"
 
-#: jobs/views.py:820 texnazor/models.py:89 jobs/templates/jobs/_picker.html:50
+#: jobs/views.py:840 texnazor/models.py:89 jobs/templates/jobs/_picker.html:50
 #: jobs/templates/jobs/_picker.html:116
 #: jobs/templates/jobs/_picker_pair.html:35
 #: jobs/templates/jobs/_picker_row.html:36
@@ -2154,541 +2161,541 @@ msgstr "Локальная"
 msgid "Ресурс"
 msgstr "Ресурс"
 
-#: jobs/views.py:820 jobs/templates/jobs/_picker.html:50
+#: jobs/views.py:840 jobs/templates/jobs/_picker.html:50
 #: jobs/templates/jobs/_picker_row.html:36
 #: jobs/templates/jobs/_sheet_viewer.html:34 jobs/templates/jobs/batch.html:213
 msgid "Ўтказиш"
 msgstr "Пропустить"
 
-#: jobs/views.py:823 jobs/templates/jobs/job.html:1672
+#: jobs/views.py:843 jobs/templates/jobs/job.html:1672
 msgid "Ном"
 msgstr "Наименование"
 
-#: jobs/views.py:824
+#: jobs/views.py:844
 msgid ""
 "Иш ёки ресурс номи (матн). Масалан: «Щебень фракции 20-40 мм». Шу ном бўйича RES'дан нарх қидирилади."
 msgstr ""
 "Название работы или ресурса (текст). Например: «Щебень фракции 20-40 мм». По этому названию ищется цена в RES."
 
-#: jobs/views.py:825 jobs/templates/jobs/job.html:296
+#: jobs/views.py:845 jobs/templates/jobs/job.html:296
 #: jobs/templates/jobs/job.html:1672 texnazor/templates/texnazor/_panel.html:43
 #: texnazor/templates/texnazor/_panel.html:53
 msgid "Бирлик"
 msgstr "Единица"
 
-#: jobs/views.py:826
+#: jobs/views.py:846
 msgid ""
 "Ўлчов бирлиги: м3, т, км, чел.-ч, маш.-ч. Ном билан бирга солиштирилади — бирлиги бошқа бўлса, нарх олинмайди."
 msgstr ""
 "Единица измерения: м3, т, км, чел.-ч, маш.-ч. Сверяется вместе с названием — если единица другая, цена не берётся."
 
-#: jobs/views.py:827
+#: jobs/views.py:847
 msgid "Миқдор (бирликка)"
 msgstr "Количество (на единицу)"
 
-#: jobs/views.py:828
+#: jobs/views.py:848
 msgid ""
 "1 бирлик иш учун сарф — норма. Масалан: 1000 м3 грунт қазишга 21,4 маш.-ч экскаватор. Бу устун бўлмаса — «йўқ»."
 msgstr ""
 "Расход на 1 единицу работы — норма. Например: на разработку 1000 м3 грунта 21,4 маш.-ч экскаватора. Если такого столбца нет — «нет»."
 
-#: jobs/views.py:829
+#: jobs/views.py:849
 msgid "Миқдор (жами)"
 msgstr "Количество (всего)"
 
-#: jobs/views.py:830
+#: jobs/views.py:850
 msgid ""
 "Бутун иш ҳажмига сарф = норма × иш ҳажми (21,4 × 0,84 = 17,98 маш.-ч). Сумма шундан ҳисобланади: жами × нарх."
 msgstr ""
 "Расход на весь объём работы = норма × объём работы (21,4 × 0,84 = 17,98 маш.-ч). Сумма считается от него: всего × цена."
 
-#: jobs/views.py:831 jobs/templates/jobs/calc.html:63
+#: jobs/views.py:851 jobs/templates/jobs/calc.html:63
 #: jobs/templates/jobs/job.html:103 texnazor/templates/texnazor/mark.html:168
 msgid "Нарх"
 msgstr "Цена"
 
-#: jobs/views.py:832
+#: jobs/views.py:852
 msgid ""
 "RES'даги 1 бирлик ресурснинг нархи (сўм). Мос келган ресурснинг шу нархи локалга ёзилади."
 msgstr ""
 "Цена 1 единицы ресурса в RES (сум). Эта цена совпавшего ресурса записывается в локальную смету."
 
-#: jobs/views.py:835
+#: jobs/views.py:855
 msgid ""
 "Биринчи иш ёки ресурс ёзилган қатор — сарлавҳа ва «1 2 3 4…» рақамлаш қаторидан кейингиси."
 msgstr ""
 "Первая строка с работой или ресурсом — следующая после заголовка и строки нумерации «1 2 3 4…»."
 
-#: jobs/views.py:836
+#: jobs/views.py:856
 msgid "Охирги ресурс қатори. Ундан пасти («Итого», имзолар) нархланмайди."
 msgstr ""
 "Последняя строка ресурса. Всё, что ниже («Итого», подписи), не расценивается."
 
-#: jobs/views.py:864
+#: jobs/views.py:884
 msgid "Нусха"
 msgstr "Копия"
 
-#: jobs/views.py:864
+#: jobs/views.py:884
 msgid "«{0}» билан бир хил — ўтказилди"
 msgstr "Совпадает с «{0}» — пропущен"
 
-#: jobs/views.py:866
+#: jobs/views.py:886
 msgid "Белгиланг"
 msgstr "Отметьте"
 
-#: jobs/views.py:869
+#: jobs/views.py:889
 msgid "Тизим тушунмади"
 msgstr "Система не поняла"
 
-#: jobs/views.py:869
+#: jobs/views.py:889
 msgid "Жадвал топилмади — «Белгилаш»ни босиб кўрсатинг"
 msgstr "Таблица не найдена — нажмите «Отметить» и укажите"
 
-#: jobs/views.py:872
+#: jobs/views.py:892
 msgid "Қайта нархлаш керак бўлса — турини «Локал» қилинг"
 msgstr "Если нужно расценить заново — смените тип на «Локальная»"
 
-#: jobs/views.py:873
+#: jobs/views.py:893
 msgid "Локал ёки ресурс бўлса — турини ўзгартиринг"
 msgstr "Если это локальная или ресурс — смените тип"
 
-#: jobs/views.py:874
+#: jobs/views.py:894
 msgid "Ўтказилди — {0}"
 msgstr "Пропущен — {0}"
 
-#: jobs/views.py:874
+#: jobs/views.py:894
 msgid "Ўтказилди"
 msgstr "Пропущен"
 
-#: jobs/views.py:876
+#: jobs/views.py:896
 msgid "«тузатиш»ни босиб, қизил устунни кўрсатинг"
 msgstr "нажмите «исправить» и укажите красный столбец"
 
-#: jobs/views.py:878
+#: jobs/views.py:898
 msgid "Маълумот топилмади"
 msgstr "Данные не найдены"
 
-#: jobs/views.py:878
+#: jobs/views.py:898
 msgid "Нарх топилмади"
 msgstr "Цена не найдена"
 
-#: jobs/views.py:879
+#: jobs/views.py:899
 msgid "«тузатиш»да қаторлар оралиғи ва устунларни текширинг"
 msgstr "в «исправить» проверьте диапазон строк и столбцы"
 
-#: jobs/views.py:881
+#: jobs/views.py:901
 msgid "Нархланади"
 msgstr "Будет расценено"
 
-#: jobs/views.py:881 jobs/templates/jobs/_grid_head.html:7
+#: jobs/views.py:901 jobs/templates/jobs/_grid_head.html:7
 #: jobs/templates/jobs/job.html:761
 msgid "{0} та қатор"
 msgstr "Строк: {0}"
 
-#: jobs/views.py:882
+#: jobs/views.py:902
 msgid "Нарх манбаи"
 msgstr "Источник цен"
 
-#: jobs/views.py:882
+#: jobs/views.py:902
 msgid "{0} та нарх"
 msgstr "Цен: {0}"
 
-#: jobs/views.py:889
+#: jobs/views.py:909
 msgid "бошқа"
 msgstr "другое"
 
-#: jobs/views.py:931 jobs/views.py:1169
+#: jobs/views.py:951 jobs/views.py:1189
 msgid "Л{0}"
 msgstr "Л{0}"
 
-#: jobs/views.py:933
+#: jobs/views.py:953
 msgid "Р{0}"
 msgstr "Р{0}"
 
-#: jobs/views.py:995 jobs/views.py:1021 jobs/views.py:1030 jobs/views.py:1382
+#: jobs/views.py:1015 jobs/views.py:1041 jobs/views.py:1050 jobs/views.py:1402
 msgid "Лист топилмади"
 msgstr "Лист не найден"
 
-#: jobs/views.py:999 jobs/views.py:1491
+#: jobs/views.py:1019 jobs/views.py:1511
 msgid "Файл ҳали очилмаган"
 msgstr "Файл ещё не открыт"
 
-#: jobs/views.py:1223 jobs/views.py:1385
+#: jobs/views.py:1243 jobs/views.py:1405
 msgid "Бу иш сизники эмас — ўзгартириб бўлмайди"
 msgstr "Эта работа не ваша — изменить нельзя"
 
-#: jobs/views.py:1225 jobs/views.py:1388 jobs/views.py:1471
+#: jobs/views.py:1245 jobs/views.py:1408 jobs/views.py:1491
 msgid "Бу қисм ҳозир ишланяпти — тугагач ўзгартиринг"
 msgstr "Эта часть сейчас обрабатывается — измените после завершения"
 
-#: jobs/views.py:1234
+#: jobs/views.py:1254
 msgid "нотўғри лист"
 msgstr "неверный лист"
 
-#: jobs/views.py:1237
+#: jobs/views.py:1257
 msgid "Ўзгариш йўқ"
 msgstr "Изменений нет"
 
-#: jobs/views.py:1238
+#: jobs/views.py:1258
 msgid "{0} та лист — {1}"
 msgstr "Листов: {0} — {1}"
 
-#: jobs/views.py:1238 jobs/views.py:1239
+#: jobs/views.py:1258 jobs/views.py:1259
 msgid "белги олинди"
 msgstr "отметка снята"
 
-#: jobs/views.py:1255
+#: jobs/views.py:1275
 msgid "Қайтариладиган ўзгариш йўқ"
 msgstr "Нет изменений для отмены"
 
-#: jobs/views.py:1270
+#: jobs/views.py:1290
 msgid "нотўғри жуфтлик"
 msgstr "неверная пара"
 
-#: jobs/views.py:1283
+#: jobs/views.py:1303
 msgid "номаълум амал"
 msgstr "неизвестное действие"
 
-#: jobs/views.py:1338
+#: jobs/views.py:1358
 msgid "Баъзи файллар очилмади: {0}"
 msgstr "Некоторые файлы не открылись: {0}"
 
-#: jobs/views.py:1392
+#: jobs/views.py:1412
 msgid "Лист турини танланг"
 msgstr "Выберите тип листа"
 
-#: jobs/views.py:1410
+#: jobs/views.py:1430
 msgid "Кўрсатилмади: "
 msgstr "Не указано:"
 
-#: jobs/views.py:1410 jobs/templates/jobs/mark.html:312
+#: jobs/views.py:1430 jobs/templates/jobs/mark.html:312
 msgid "биринчи қатор"
 msgstr "первая строка"
 
-#: jobs/views.py:1428
+#: jobs/views.py:1448
 msgid "«{0}» листи сиз кўрсатгандек ўқилди"
 msgstr "Лист «{0}» прочитан так, как вы указали"
 
-#: jobs/views.py:1429
+#: jobs/views.py:1449
 msgid " — {0} та қатор."
 msgstr " — строк: {0}."
 
-#: jobs/views.py:1429
+#: jobs/views.py:1449
 msgid " — ўтказилади."
 msgstr " — будет пропущен."
 
-#: jobs/views.py:1460
+#: jobs/views.py:1480
 msgid ""
 "Созлашингиз эслаб қолинди: шундай тузилишдаги лист кейин келса, тизим уни ўзи шундай ўқийди — қайта кўрсатишингиз шарт эмас."
 msgstr ""
 "Ваша настройка запомнена: если потом придёт лист с такой же структурой, система сама прочитает его так — указывать заново не нужно."
 
-#: jobs/views.py:1480
+#: jobs/views.py:1500
 msgid ""
 "Аввалги созлама унутилди — лист автомат ўқилди. Керак бўлса, қайта кўрсатинг."
 msgstr ""
 "Прежняя настройка забыта — лист прочитан автоматически. При необходимости укажите заново."
 
-#: jobs/views.py:1506
+#: jobs/views.py:1526
 msgid "Файлни танланг"
 msgstr "Выберите файл"
 
-#: jobs/views.py:1508
+#: jobs/views.py:1528
 msgid "Бу қисм ҳозир ишланяпти — тугагач алмаштиринг"
 msgstr "Эта часть сейчас обрабатывается — замените после завершения"
 
-#: jobs/views.py:1512
+#: jobs/views.py:1532
 msgid "«{0}» юкланди ва листлари қайта ўқилди."
 msgstr "«{0}» загружен, листы прочитаны заново."
 
-#: jobs/views.py:1526
+#: jobs/views.py:1546
 msgid "Бу қисм ҳозир ишланяпти — тугагач қайтаринг"
 msgstr "Эта часть сейчас обрабатывается — верните после завершения"
 
-#: jobs/views.py:1530
+#: jobs/views.py:1550
 msgid "«{0}» — олдинги нусха қайтарилди."
 msgstr "«{0}» — предыдущая версия возвращена."
 
-#: jobs/views.py:1556
+#: jobs/views.py:1576
 msgid " {0} та смета шу файл билан қайта ҳисобланяпти (қўлда ўзгаришлар сақланди)."
 msgstr " Смет, пересчитываемых с этим файлом: {0} (ручные изменения сохранены)."
 
-#: jobs/views.py:1558
+#: jobs/views.py:1578
 msgid ""
 " {0} та сметанинг листи янги файлда йўқ — уларни қисмни очиб, жуфтликни тўғирлаб қайта нархланг."
 msgstr ""
 " У смет ({0}) нет листа в новом файле — откройте часть, исправьте пары и расцените заново."
 
-#: jobs/views.py:1589
+#: jobs/views.py:1609
 msgid ""
 "«Қўлда» усули: яна {0} та листнинг турини белгиланг (Локал / Ресурс / Ўтказиш)."
 msgstr ""
 "Способ «Вручную»: отметьте тип ещё у листов: {0} (Локальная / Ресурс / Пропустить)."
 
-#: jobs/views.py:1760
+#: jobs/views.py:1783
 msgid "смета тайёр эмас"
 msgstr "смета не готова"
 
-#: jobs/views.py:1831
+#: jobs/views.py:1854
 msgid "Ресурс файлида топилмаганлар"
 msgstr "Не найдены в файле ресурсов"
 
-#: jobs/views.py:1832
+#: jobs/views.py:1855
 msgid "аниқ мос ресурс йўқ — нархни қўлда киритинг"
 msgstr "нет точно совпадающего ресурса — введите цену вручную"
 
-#: jobs/views.py:1833
+#: jobs/views.py:1856
 msgid "RES бўлимидан ташқари"
 msgstr "Вне раздела RES"
 
-#: jobs/views.py:1834
+#: jobs/views.py:1857
 msgid "Иш сарлавҳалари ва машинистлар"
 msgstr "Заголовки работ и машинисты"
 
-#: jobs/views.py:1835
+#: jobs/views.py:1858
 msgid "суммага кирмайди (0)"
 msgstr "не входят в сумму (0)"
 
-#: jobs/views.py:1881
+#: jobs/views.py:1904
 msgid "Устунни фақат Smart режимдаги натижада ўзгартириш мумкин"
 msgstr "Столбец можно изменить только в результате режима Smart"
 
-#: jobs/views.py:1889
+#: jobs/views.py:1912
 msgid "нотўғри устун: {0}"
 msgstr "неверный столбец: {0}"
 
-#: jobs/views.py:1893
+#: jobs/views.py:1916
 msgid "бундай қатор йўқ: {0}"
 msgstr "такой строки нет: {0}"
 
-#: jobs/views.py:1935
+#: jobs/views.py:1958
 msgid "Нархни фақат Smart режимдаги натижада ўзгартириш мумкин"
 msgstr "Цену можно изменить только в результате режима Smart"
 
-#: jobs/views.py:1945 jobs/views.py:2126
+#: jobs/views.py:1968 jobs/views.py:2149
 msgid "нотўғри сўров: {0}"
 msgstr "неверный запрос: {0}"
 
-#: jobs/views.py:1952
+#: jobs/views.py:1975
 msgid "нарх рақам бўлиши керак (масалан 4 600 000)"
 msgstr "цена должна быть числом (например 4 600 000)"
 
-#: jobs/views.py:2041
+#: jobs/views.py:2064
 msgid "аввал ўзингиз ёзган нарх"
 msgstr "цена, введённая вами ранее"
 
-#: jobs/views.py:2116
+#: jobs/views.py:2139
 msgid "Фақат Smart режимдаги натижада"
 msgstr "Только в результате режима Smart"
 
-#: jobs/views.py:2194 jobs/templates/jobs/job.html:256
+#: jobs/views.py:2217 jobs/templates/jobs/job.html:256
 msgid "Топилмаганлар"
 msgstr "Не найденные"
 
-#: jobs/views.py:2195 jobs/templates/jobs/dashboard.html:146
+#: jobs/views.py:2218 jobs/templates/jobs/dashboard.html:147
 msgid "тайёр"
 msgstr "готово"
 
-#: jobs/views.py:2195 jobs/templates/jobs/_work_badge.html:15
+#: jobs/views.py:2218 jobs/templates/jobs/_work_badge.html:15
 msgid "{0} та нархланмаган"
 msgstr "Не расценено: {0}"
 
-#: jobs/views.py:2196 jobs/templates/jobs/job.html:203
+#: jobs/views.py:2219 jobs/templates/jobs/job.html:203
 #: jobs/templates/jobs/job.html:483 jobs/templates/jobs/job.html:778
 #: jobs/templates/jobs/job.html:844 texnazor/templates/texnazor/acts.html:151
 msgid "Жадвал"
 msgstr "Таблица"
 
-#: jobs/views.py:2198 jobs/templates/jobs/job.html:781
+#: jobs/views.py:2221 jobs/templates/jobs/job.html:781
 msgid "текширилди"
 msgstr "проверено"
 
-#: jobs/views.py:2198 jobs/templates/jobs/job.html:1488
+#: jobs/views.py:2221 jobs/templates/jobs/job.html:1488
 msgid "{0} та кабель/ускуна таклифи"
 msgstr "Предложений кабель/оборудование: {0}"
 
-#: jobs/views.py:2199
+#: jobs/views.py:2222
 msgid "жадвални кўриш"
 msgstr "посмотреть таблицу"
 
-#: jobs/views.py:2200 jobs/templates/jobs/job.html:1498
+#: jobs/views.py:2223 jobs/templates/jobs/job.html:1498
 msgid "Сводка ва фоизлар"
 msgstr "Сводка и проценты"
 
-#: jobs/views.py:2201
+#: jobs/views.py:2224
 msgid "фоизлар, юклаб олиш"
 msgstr "проценты, скачивание"
 
-#: jobs/views.py:2236
+#: jobs/views.py:2259
 msgid "Устунлар фақат Smart режимда"
 msgstr "Столбцы — только в режиме Smart"
 
-#: jobs/views.py:2250
+#: jobs/views.py:2273
 msgid "{0} устунидан кейин қўшиб бўлмайди"
 msgstr "Нельзя добавить после столбца {0}"
 
-#: jobs/views.py:2261
+#: jobs/views.py:2284
 msgid "нотўғри амал ёки устун: {0} {1}"
 msgstr "неверное действие или столбец: {0} {1}"
 
-#: jobs/views.py:2301
+#: jobs/views.py:2324
 msgid "Қайта нархлаш тасдиқланмади"
 msgstr "Повторная расценка не подтверждена"
 
-#: jobs/views.py:2306
+#: jobs/views.py:2329
 msgid "«{0}» — қўлда ўзгаришлар бекор қилинди, смета бошидан нархланяпти"
 msgstr "«{0}» — ручные изменения отменены, смета расценивается с начала"
 
-#: jobs/views.py:2317
+#: jobs/views.py:2340
 msgid "Фоизлар фақат Smart режимда"
 msgstr "Проценты — только в режиме Smart"
 
-#: jobs/views.py:2363
+#: jobs/views.py:2386
 msgid "Миқдори йўқ — сумма 0 бўлиб қолди"
 msgstr "Нет количества — сумма осталась 0"
 
-#: jobs/views.py:2364
+#: jobs/views.py:2387
 msgid ""
 "Бу қаторларда нарх топилди, лекин миқдор («Кол-во») катаги бўш ёки унда сон эмас, матн турибди. Сумма = миқдор × нарх бўлгани учун 0 чиқди ва смета жамига кирмади."
 msgstr ""
 "В этих строках цена найдена, но ячейка количества («Кол-во») пуста или в ней текст, а не число. Поскольку сумма = количество × цена, получился 0, и в итог сметы строка не вошла."
 
-#: jobs/views.py:2366
+#: jobs/views.py:2389
 msgid ""
 "Локал файлда шу қаторнинг миқдорини текширинг (одатда F — «по проектным данным»). Миқдор бошқа устунда бўлса — объект саҳифасида «Листлар тури» → «тузатиш» орқали устунларни кўрсатинг ва қайта нархланг. Қатор изоҳ ёки ортиқча бўлса — эътибор бермасангиз ҳам бўлади."
 msgstr ""
 "Проверьте количество этой строки в локальном файле (обычно F — «по проектным данным»). Если количество в другом столбце — укажите столбцы на странице объекта через «Типы листов» → «исправить» и расцените заново. Если строка — примечание или лишняя, её можно не учитывать."
 
-#: jobs/views.py:2369
+#: jobs/views.py:2392
 msgid "Сумма нотўғри ҳисобланди"
 msgstr "Сумма рассчитана неверно"
 
-#: jobs/views.py:2370
+#: jobs/views.py:2393
 msgid "Сумма (H) миқдор × нархга тенг чиқмади."
 msgstr "Сумма (H) не равна количеству × цену."
 
-#: jobs/views.py:2371
+#: jobs/views.py:2394
 msgid ""
 "Одатда миқдор устуни нотўғри аниқланганда бўлади: объект саҳифасида устунларни текширинг ва қайта нархланг."
 msgstr ""
 "Обычно так бывает, когда столбец количества определён неверно: проверьте столбцы на странице объекта и расцените заново."
 
-#: jobs/views.py:2372
+#: jobs/views.py:2395
 msgid "Сумма I–M устунига тушмади"
 msgstr "Сумма не попала в столбцы I–M"
 
-#: jobs/views.py:2373
+#: jobs/views.py:2396
 msgid ""
 "Сумма иш ҳақи, машина, материал… устунларидан бирига ўтмади — жамида кўринмайди."
 msgstr ""
 "Сумма не перешла ни в один из столбцов зарплаты, машин, материалов… — в итоге не видна."
 
-#: jobs/views.py:2374
+#: jobs/views.py:2397
 msgid "Қаторни белгиланг ва пастки панелдан тўғри устунни танланг."
 msgstr "Выделите строку и выберите правильный столбец на нижней панели."
 
-#: jobs/views.py:2375
+#: jobs/views.py:2398
 msgid "Смета маълумоти устидан ёзилди"
 msgstr "Данные сметы перезаписаны"
 
-#: jobs/views.py:2376
+#: jobs/views.py:2399
 msgid ""
 "Нарх ёки сумма локалнинг номи, бирлиги ёки миқдори турган устунга ёзилиб қолди."
 msgstr ""
 "Цена или сумма записалась в столбец, где стоят наименование, единица или количество локальной сметы."
 
-#: jobs/views.py:2377
+#: jobs/views.py:2400
 msgid ""
 "Локал устунлари нотўғри аниқланган: объект саҳифасида устунларни кўрсатинг ва қайта нархланг."
 msgstr ""
 "Столбцы локальной сметы определены неверно: укажите столбцы на странице объекта и расцените заново."
 
-#: jobs/views.py:2378
+#: jobs/views.py:2401
 msgid "RES'даги нархлар 0"
 msgstr "Цены в RES равны 0"
 
-#: jobs/views.py:2379
+#: jobs/views.py:2402
 msgid ""
 "Ресурс файлида топилган нархларнинг деярли ҳаммаси 0 — RES нархланмаган бўлса керак."
 msgstr "Почти все найденные в файле ресурсов цены равны 0 — видимо, RES не расценён."
 
-#: jobs/views.py:2380
+#: jobs/views.py:2403
 msgid "Нархланган RES файлини юкланг ёки RES'нинг нарх устунини текширинг."
 msgstr "Загрузите расценённый файл RES или проверьте столбец цен в RES."
 
-#: jobs/views.py:2381
+#: jobs/views.py:2404
 msgid "Жами сумма 0"
 msgstr "Итоговая сумма 0"
 
-#: jobs/views.py:2382
+#: jobs/views.py:2405
 msgid "Нархлар топилди, лекин смета жами 0 чиқди."
 msgstr "Цены найдены, но итог сметы получился 0."
 
-#: jobs/views.py:2383
+#: jobs/views.py:2406
 msgid ""
 "Миқдор ёки сумма устуни нотўғри аниқланган — объект саҳифасида устунларни текширинг."
 msgstr ""
 "Столбец количества или суммы определён неверно — проверьте столбцы на странице объекта."
 
-#: jobs/views.py:2384
+#: jobs/views.py:2407
 msgid "Бошқа муаммолар"
 msgstr "Другие проблемы"
 
-#: jobs/views.py:2384
+#: jobs/views.py:2407
 msgid "Натижа текширувидан ўтмади."
 msgstr "Результат не прошёл проверку."
 
-#: jobs/views.py:2384
+#: jobs/views.py:2407
 msgid "Қаторни очиб текширинг."
 msgstr "Откройте строку и проверьте."
 
-#: jobs/views.py:2410 jobs/templates/jobs/job.html:2547
+#: jobs/views.py:2433 jobs/templates/jobs/job.html:2547
 msgid "Нархланган смета"
 msgstr "Расценённая смета"
 
-#: jobs/views.py:2411
+#: jobs/views.py:2434
 msgid "Юкланган локал"
 msgstr "Загруженная локальная"
 
-#: jobs/views.py:2412
+#: jobs/views.py:2435
 msgid "Ресурс файли"
 msgstr "Файл ресурсов"
 
-#: jobs/views.py:2505
+#: jobs/views.py:2531
 msgid "Созламалар сақланди."
 msgstr "Настройки сохранены."
 
-#: jobs/views_ofyorta.py:51 texnazor/templates/texnazor/acts.html:21
+#: jobs/views_ofyorta.py:53 texnazor/templates/texnazor/acts.html:21
 #: texnazor/templates/texnazor/acts.html:254
 #: texnazor/templates/texnazor/create.html:15
 msgid "Офёрта"
 msgstr "Оферта"
 
-#: jobs/views_ofyorta.py:66 jobs/views_ofyorta.py:68
+#: jobs/views_ofyorta.py:68 jobs/views_ofyorta.py:70
 msgid "Тартиб нотўғри юборилди — саҳифани янгиланг"
 msgstr "Порядок отправлен неверно — обновите страницу"
 
-#: jobs/views_ofyorta.py:87
+#: jobs/views_ofyorta.py:89
 msgid "Офёрта ҳозир тузиляпти — тугагач, тартибни ўзгартиришингиз мумкин."
 msgstr "Оферта сейчас составляется — после завершения порядок можно изменить."
 
-#: jobs/views_ofyorta.py:100
+#: jobs/views_ofyorta.py:102
 msgid "Камида битта сметани белгиланг."
 msgstr "Отметьте хотя бы одну смету."
 
-#: jobs/views_ofyorta.py:112
+#: jobs/views_ofyorta.py:114
 msgid "Тартиб сақланди."
 msgstr "Порядок сохранён."
 
-#: jobs/views_ofyorta.py:120
+#: jobs/views_ofyorta.py:122
 msgid "Офёрта йўқ"
 msgstr "Оферты нет"
 
-#: jobs/views_ofyorta.py:128
+#: jobs/views_ofyorta.py:130
 msgid "Офёрта ҳали тузилмаган"
 msgstr "Оферта ещё не составлена"
 
-#: jobs/views_ofyorta.py:131
+#: jobs/views_ofyorta.py:133
 msgid "Офёрта файли топилмади — қайта тузинг"
 msgstr "Файл оферты не найден — составьте заново"
 
@@ -2699,7 +2706,8 @@ msgstr "Файл оферты не найден — составьте зано�
 #: jobs/templates/jobs/about.html:32 jobs/templates/jobs/blog.html:10
 #: jobs/templates/jobs/blog_category.html:9
 #: jobs/templates/jobs/blog_post.html:9 jobs/templates/jobs/blog_video.html:8
-#: jobs/templates/jobs/guide.html:11 jobs/templates/jobs/terms.html:13
+#: jobs/templates/jobs/guide.html:11 jobs/templates/jobs/privacy.html:13
+#: jobs/templates/jobs/terms.html:13
 msgid "Бош саҳифа"
 msgstr "Главная"
 
@@ -2751,7 +2759,13 @@ msgstr "О нас"
 msgid "mhisobot.uz сайтидан фойдаланиш шартлари."
 msgstr "Условия использования сайта mhisobot.uz."
 
-#: jobs/views_tender.py:28 jobs/templates/jobs/_project_body.html:102
+#: jobs/views_site.py:194
+msgid ""
+"mhisobot.uz махфийлик сиёсати: қандай маълумот йиғилади, нима учун ишлатилади ва қандай ҳимоя қилинади."
+msgstr ""
+"Политика конфиденциальности mhisobot.uz: какие данные собираются, для чего используются и как защищаются."
+
+#: jobs/views_tender.py:28 jobs/templates/jobs/_project_body.html:109
 #: jobs/templates/jobs/batch.html:54 jobs/templates/jobs/batch.html:129
 #: jobs/templates/jobs/job.html:78 jobs/templates/jobs/tender.html:35
 msgid "Объект таҳлили"
@@ -2937,6 +2951,7 @@ msgid "Ойлар (эски)"
 msgstr "По месяцам (старое)"
 
 #: texnazor/models.py:29 texnazor/templates/texnazor/acts.html:25
+#: texnazor/templates/texnazor/index.html:28
 msgid "Далолатномалар"
 msgstr "Акты"
 
@@ -3074,8 +3089,8 @@ msgstr "Оферта должна быть в формате .xls, .xlsx или 
 msgid "Файл жуда катта ({0} МБ) — кўпи билан {1} МБ"
 msgstr "Файл слишком большой ({0} МБ) — максимум {1} МБ"
 
-#: texnazor/services.py:56 texnazor/views_acts.py:441
-#: texnazor/views_acts.py:465 texnazor/views_my.py:137
+#: texnazor/services.py:56 texnazor/views_acts.py:450
+#: texnazor/views_acts.py:474 texnazor/views_my.py:137
 msgid "Офёрта ҳали тайёр эмас"
 msgstr "Оферта ещё не готова"
 
@@ -3094,197 +3109,216 @@ msgid "Офёртада иш топилмади (А устунида тарти�
 msgstr ""
 "В оферте не найдены работы (строки с порядковым номером в столбце А и названием в C)"
 
-#: texnazor/services.py:242
+#: texnazor/services.py:206
+#, python-format
+msgid "%(a)s далолатномага ҳажм ёзилди"
+msgstr "В акт %(a)s внесены объёмы"
+
+#: texnazor/services.py:209
+#, python-format
+msgid "%(a)s далолатнома очилди"
+msgstr "Открыт акт %(a)s"
+
+#: texnazor/services.py:212
+#, python-format
+msgid "%(m)s — ҳажм ёзилди"
+msgstr "%(m)s — внесены объёмы"
+
+#: texnazor/services.py:215
+msgid "Объект қўшилди"
+msgstr "Объект добавлен"
+
+#: texnazor/services.py:276
 msgid "Ой нотўғри"
 msgstr "Неверный месяц"
 
-#: texnazor/services.py:245
+#: texnazor/services.py:279
 msgid "Янги ой охиргисидан ({0}) кейин бўлиши керак"
 msgstr "Новый месяц должен быть после последнего ({0})"
 
-#: texnazor/services.py:276
+#: texnazor/services.py:310
 msgid "Сон ёки фоиз ёзинг (масалан «35» ёки «60%»): «{0}»"
 msgstr "Введите число или процент (например «35» или «60%»): «{0}»"
 
-#: texnazor/services.py:288 texnazor/services.py:321
+#: texnazor/services.py:322 texnazor/services.py:355
 msgid "{0} ёпилган — ўзгартириб бўлмайди"
 msgstr "{0} закрыт — изменить нельзя"
 
-#: texnazor/services.py:290
+#: texnazor/services.py:324
 msgid "Бу қаторнинг ҳажми белгиланмайди (ресурс иш ҳажмига эргашади)"
 msgstr "Объём этой строки не отмечается (ресурс следует за объёмом работы)"
 
-#: texnazor/services.py:298
+#: texnazor/services.py:332
 msgid "Ҳажм манфий бўлмайди"
 msgstr "Объём не может быть отрицательным"
 
-#: texnazor/services.py:302
+#: texnazor/services.py:336
 msgid "Қолдиқ {0} {1} — {2} ёзиб бўлмайди (шартнома {3}, бошқа ойларда {4})"
 msgstr ""
 "Остаток {0} {1} — нельзя записать {2} (по договору {3}, в других месяцах {4})"
 
-#: texnazor/services.py:348
+#: texnazor/services.py:382
 msgid "Ресурс ҳажми алоҳида тузатилмайди — ишнинг ҳажмини тузатинг"
 msgstr "Объём ресурса отдельно не исправляется — исправьте объём работы"
 
-#: texnazor/services.py:350
+#: texnazor/services.py:384
 msgid "{0} ёпилган — тузатиш очиқ ойдан кучга киради"
 msgstr "{0} закрыт — исправление вступит в силу с открытого месяца"
 
-#: texnazor/services.py:353
+#: texnazor/services.py:387
 msgid "Асос ҳужжатини ёзинг (масалан: «Қўшимча келишув №2, 12.11.2026»)"
 msgstr ""
 "Укажите документ-основание (например: «Дополнительное соглашение №2, 12.11.2026»)"
 
-#: texnazor/services.py:356
+#: texnazor/services.py:390
 msgid "Янги ҳажмни ёзинг"
 msgstr "Введите новый объём"
 
-#: texnazor/services.py:359
+#: texnazor/services.py:393
 msgid "Бажарилган {0} {1} — шартнома ҳажмини ундан кам қилиб бўлмайди"
 msgstr "Выполнено {0} {1} — объём по договору нельзя сделать меньше"
 
-#: texnazor/services.py:398 texnazor/templates/texnazor/_ofyorta_js.html:493
+#: texnazor/services.py:432 texnazor/templates/texnazor/_ofyorta_js.html:493
 msgid "БЕКОР"
 msgstr "ОТМЕНА"
 
-#: texnazor/services.py:399 texnazor/templates/texnazor/acts.html:120
+#: texnazor/services.py:433 texnazor/templates/texnazor/acts.html:120
 #: texnazor/templates/texnazor/object.html:147
 msgid "ЎЧИРИШ"
 msgstr "УДАЛИТЬ"
 
-#: texnazor/services.py:414
+#: texnazor/services.py:448
 msgid "Тасдиқлаш учун «{0}» деб ёзинг"
 msgstr "Для подтверждения напишите «{0}»"
 
-#: texnazor/services.py:416
+#: texnazor/services.py:450
 msgid "Бу тузатиш аллақачон бекор қилинган"
 msgstr "Это исправление уже отменено"
 
-#: texnazor/services.py:419
+#: texnazor/services.py:453
 msgid "Аввал шу ишнинг кейинги тузатишини бекор қилинг (энг охиргиси биринчи)"
 msgstr ""
 "Сначала отмените последующее исправление этой работы (начиная с самого последнего)"
 
-#: texnazor/services.py:422
+#: texnazor/services.py:456
 msgid ""
 "Бажарилган {0} {1} — ҳажмни {2} га қайтариб бўлмайди. Аввал ортиқча бажарилган ҳажмни ўчиринг."
 msgstr ""
 "Выполнено {0} {1} — объём нельзя вернуть к {2}. Сначала удалите лишний выполненный объём."
 
-#: texnazor/services.py:433
+#: texnazor/services.py:467
 msgid "{0} ёпилган (тўлов шу бўйича) — ўчириш учун аввал «Қайта очиш»"
 msgstr "{0} закрыт (по нему оплата) — чтобы удалить, сначала «Открыть заново»"
 
-#: texnazor/services.py:435
+#: texnazor/services.py:469
 msgid "Тасдиқлаш учун ой номини ёзинг: «{0}»"
 msgstr "Для подтверждения напишите название месяца: «{0}»"
 
-#: texnazor/services.py:527
+#: texnazor/services.py:561
 msgid "олдинги ой"
 msgstr "предыдущий месяц"
 
-#: texnazor/services.py:661 texnazor/services.py:664
+#: texnazor/services.py:695 texnazor/services.py:698
 #: jobs/templates/jobs/about.html:62 texnazor/templates/texnazor/_info.html:30
 #: texnazor/templates/texnazor/_info.html:40
 #: texnazor/templates/texnazor/create.html:58
 msgid "Манзил"
 msgstr "Адрес"
 
-#: texnazor/services.py:661 jobs/templates/jobs/about.html:59
+#: texnazor/services.py:695 jobs/templates/jobs/about.html:59
 #: texnazor/templates/texnazor/_info.html:31
 msgid "Телефон"
 msgstr "Телефон"
 
-#: texnazor/services.py:662 texnazor/services.py:665
+#: texnazor/services.py:696 texnazor/services.py:699
 #: texnazor/templates/texnazor/_info.html:32
 #: texnazor/templates/texnazor/_info.html:42
 msgid "Банк"
 msgstr "Банк"
 
-#: texnazor/services.py:662 texnazor/services.py:665
+#: texnazor/services.py:696 texnazor/services.py:699
 #: texnazor/templates/texnazor/_info.html:33
 #: texnazor/templates/texnazor/_info.html:43
 msgid "СТИР"
 msgstr "ИНН"
 
-#: texnazor/services.py:662 texnazor/services.py:665
+#: texnazor/services.py:696 texnazor/services.py:699
 #: texnazor/templates/texnazor/_info.html:34
 #: texnazor/templates/texnazor/_info.html:44
 msgid "МФО"
 msgstr "МФО"
 
-#: texnazor/services.py:663 texnazor/templates/texnazor/_info.html:35
+#: texnazor/services.py:697 texnazor/templates/texnazor/_info.html:35
 msgid "Ҳисоб рақами (ШХР)"
 msgstr "Лицевой счёт (ЛС)"
 
-#: texnazor/services.py:664 texnazor/templates/texnazor/_info.html:41
+#: texnazor/services.py:698 texnazor/templates/texnazor/_info.html:41
 msgid "Ҳисоб рақами (х/р)"
 msgstr "Расчётный счёт (р/с)"
 
-#: texnazor/services.py:666 texnazor/templates/texnazor/_info.html:45
+#: texnazor/services.py:700 texnazor/templates/texnazor/_info.html:45
 msgid "ОКОНХ"
 msgstr "ОКОНХ"
 
-#: texnazor/services.py:667 texnazor/services.py:701
+#: texnazor/services.py:701 texnazor/services.py:735
 msgid "Шартнома рақами"
 msgstr "Номер договора"
 
-#: texnazor/services.py:667 texnazor/services.py:702
+#: texnazor/services.py:701 texnazor/services.py:736
 msgid "Шартнома санаси"
 msgstr "Дата договора"
 
-#: texnazor/services.py:668 texnazor/templates/texnazor/_info.html:20
+#: texnazor/services.py:702 texnazor/templates/texnazor/_info.html:20
 msgid "ИД"
 msgstr "ИД"
 
-#: texnazor/services.py:668 texnazor/templates/texnazor/_info.html:21
+#: texnazor/services.py:702 texnazor/templates/texnazor/_info.html:21
 msgid "Лот"
 msgstr "Лот"
 
-#: texnazor/services.py:669 texnazor/templates/texnazor/_info.html:46
+#: texnazor/services.py:703 texnazor/templates/texnazor/_info.html:46
 msgid "Буюртмачи томони сарлавҳаси"
 msgstr "Заголовок стороны заказчика"
 
-#: texnazor/services.py:669 texnazor/templates/texnazor/_info.html:50
+#: texnazor/services.py:703 texnazor/templates/texnazor/_info.html:50
 msgid "Буюртмачи раҳбари"
 msgstr "Руководитель заказчика"
 
-#: texnazor/services.py:670 texnazor/templates/texnazor/_info.html:51
+#: texnazor/services.py:704 texnazor/templates/texnazor/_info.html:51
 msgid "Буюртмачи бош ҳисобчиси"
 msgstr "Главный бухгалтер заказчика"
 
-#: texnazor/services.py:670 texnazor/templates/texnazor/_info.html:52
+#: texnazor/services.py:704 texnazor/templates/texnazor/_info.html:52
 msgid "Консультант вакили (ILF)"
 msgstr "Представитель консультанта (ILF)"
 
-#: texnazor/services.py:671 texnazor/templates/texnazor/_info.html:53
+#: texnazor/services.py:705 texnazor/templates/texnazor/_info.html:53
 msgid "Пудратчи раҳбари"
 msgstr "Руководитель подрядчика"
 
-#: texnazor/services.py:671 texnazor/templates/texnazor/_info.html:54
+#: texnazor/services.py:705 texnazor/templates/texnazor/_info.html:54
 msgid "Пудратчи бош ҳисобчиси"
 msgstr "Главный бухгалтер подрядчика"
 
-#: texnazor/services.py:672 jobs/templates/jobs/_site_footer.html:9
+#: texnazor/services.py:706 jobs/templates/jobs/_site_footer.html:9
 #: jobs/templates/jobs/landing.html:236
 #: texnazor/templates/texnazor/_info.html:55
 msgid "Техник назорат"
 msgstr "Технический надзор"
 
-#: texnazor/services.py:701 texnazor/templates/texnazor/create.html:63
+#: texnazor/services.py:735 texnazor/templates/texnazor/create.html:63
 msgid "Буюртмачи"
 msgstr "Заказчик"
 
-#: texnazor/services.py:701 texnazor/templates/texnazor/create.html:69
+#: texnazor/services.py:735 texnazor/templates/texnazor/create.html:69
 msgid "Пудратчи"
 msgstr "Подрядчик"
 
-#: texnazor/services.py:702
+#: texnazor/services.py:736
 msgid "Пудратчи СТИР"
 msgstr "ИНН подрядчика"
 
-#: texnazor/services.py:703
+#: texnazor/services.py:737
 msgid "Пудратчи ҳисоб рақами"
 msgstr "Расчётный счёт подрядчика"
 
@@ -3377,7 +3411,7 @@ msgid "{0}-қатор листда йўқ"
 msgstr "Строки {0} нет на листе"
 
 #: texnazor/services_acts.py:439 texnazor/services_acts.py:558
-#: texnazor/services_acts.py:660 texnazor/views_acts.py:469
+#: texnazor/services_acts.py:660 texnazor/views_acts.py:478
 msgid "Устун нотўғри"
 msgstr "Неверный столбец"
 
@@ -3783,19 +3817,19 @@ msgid ""
 msgstr ""
 "<tr class=\"tn-bh tn-svh\"><td colspan=\"{0}\">Итого и сводка — по каждому блоку (как в Ф-2)</td></tr>"
 
-#: texnazor/views.py:50
+#: texnazor/views.py:52
 msgid "Ой йўқ"
 msgstr "Нет месяцев"
 
-#: texnazor/views.py:84
+#: texnazor/views.py:83
 msgid "Офёртани танланг"
 msgstr "Выберите оферту"
 
-#: texnazor/views.py:88
+#: texnazor/views.py:87
 msgid "Офёрта файлини танланг"
 msgstr "Выберите файл оферты"
 
-#: texnazor/views.py:310 jobs/templates/jobs/dashboard.html:95
+#: texnazor/views.py:309 jobs/templates/jobs/dashboard.html:96
 #: texnazor/templates/texnazor/_panel.html:57
 #: texnazor/templates/texnazor/acts.html:31
 #: texnazor/templates/texnazor/acts.html:559
@@ -3803,124 +3837,124 @@ msgstr "Выберите файл оферты"
 msgid "ёпилган"
 msgstr "закрыт"
 
-#: texnazor/views.py:310 texnazor/templates/texnazor/acts.html:31
+#: texnazor/views.py:309 texnazor/templates/texnazor/acts.html:31
 #: texnazor/templates/texnazor/object.html:83
 msgid "очиқ"
 msgstr "открыт"
 
-#: texnazor/views.py:312 texnazor/templates/texnazor/_summary.html:10
+#: texnazor/views.py:311 texnazor/templates/texnazor/_summary.html:10
 msgid "Олдинги ойлар"
 msgstr "Предыдущие месяцы"
 
-#: texnazor/views.py:312
+#: texnazor/views.py:311
 msgid "Кейинги ойлар"
 msgstr "Следующие месяцы"
 
-#: texnazor/views.py:334
+#: texnazor/views.py:333
 msgid "Камида 2 та ҳарф ёзинг"
 msgstr "Введите не менее 2 букв"
 
-#: texnazor/views.py:411
+#: texnazor/views.py:410
 msgid "Тўланган сумма нотўғри: «{0}»"
 msgstr "Неверная оплаченная сумма: «{0}»"
 
-#: texnazor/views.py:427 texnazor/views_acts.py:219
+#: texnazor/views.py:426 texnazor/views_acts.py:222
 msgid "Аввал ишларни белгиланг"
 msgstr "Сначала отметьте работы"
 
-#: texnazor/views.py:435 texnazor/views.py:455
+#: texnazor/views.py:434 texnazor/views.py:454
 msgid "фоиз нотўғри"
 msgstr "неверный процент"
 
-#: texnazor/views.py:504
+#: texnazor/views.py:509
 msgid "Ф-3 рақами нотўғри: «{0}»"
 msgstr "Неверный номер Ф-3: «{0}»"
 
-#: texnazor/views.py:510
+#: texnazor/views.py:515
 msgid "Сана нотўғри: «{0}»"
 msgstr "Неверная дата: «{0}»"
 
-#: texnazor/views.py:531
+#: texnazor/views.py:536
 msgid "Жорий йилга сумма нотўғри: «{0}»"
 msgstr "Неверная сумма на текущий год: «{0}»"
 
-#: texnazor/views.py:534
+#: texnazor/views.py:539
 msgid "Шартнома санаси нотўғри: «{0}»"
 msgstr "Неверная дата договора: «{0}»"
 
-#: texnazor/views.py:548
+#: texnazor/views.py:553
 msgid "Объект маълумотлари сақланди"
 msgstr "Данные объекта сохранены"
 
-#: texnazor/views.py:580
+#: texnazor/views.py:585
 msgid "Объект ўчирилмади: тасдиқлаш учун «{0}» деб ёзинг"
 msgstr "Объект не удалён: для подтверждения напишите «{0}»"
 
-#: texnazor/views_acts.py:49 jobs/templates/jobs/dashboard.html:101
+#: texnazor/views_acts.py:52 jobs/templates/jobs/dashboard.html:102
 msgid "Листни танланг"
 msgstr "Выберите лист"
 
-#: texnazor/views_acts.py:71
+#: texnazor/views_acts.py:74
 msgid "Далолатномаларда ҳажм ёзилган — листни алмаштириб бўлмайди"
 msgstr "В актах записаны объёмы — лист заменить нельзя"
 
-#: texnazor/views_acts.py:113
+#: texnazor/views_acts.py:116
 msgid "Ҳажм (иш миқдори)"
 msgstr "Объём (количество работ)"
 
-#: texnazor/views_acts.py:113
+#: texnazor/views_acts.py:116
 msgid "иш қаторидаги сон: 0,08 / 12"
 msgstr "число в строке работы: 0,08 / 12"
 
-#: texnazor/views_acts.py:114
+#: texnazor/views_acts.py:117
 msgid "Ресурс жами («по проектным данным»)"
 msgstr "Итого по ресурсу («по проектным данным»)"
 
-#: texnazor/views_acts.py:114
+#: texnazor/views_acts.py:117
 msgid "ҳажм устуни ўзи бўлса — шуни танланг"
 msgstr "если это сам столбец объёма — выберите его"
 
-#: texnazor/views_acts.py:115
+#: texnazor/views_acts.py:118
 msgid "Нарх (бир бирлик)"
 msgstr "Цена (за единицу)"
 
-#: texnazor/views_acts.py:115
+#: texnazor/views_acts.py:118
 msgid "сўм / бирлик"
 msgstr "сум / единица"
 
-#: texnazor/views_acts.py:116
+#: texnazor/views_acts.py:119
 msgid "Сумма (ҳажм × нарх)"
 msgstr "Сумма (объём × цена)"
 
-#: texnazor/views_acts.py:116
+#: texnazor/views_acts.py:119
 msgid "иш / ресурс қаторининг пули"
 msgstr "деньги строки работы / ресурса"
 
-#: texnazor/views_acts.py:199
+#: texnazor/views_acts.py:202
 msgid "Ҳажм сон ёки фоиз бўлиши керак (масалан: 0,08 ёки 60%)"
 msgstr "Объём должен быть числом или процентом (например: 0,08 или 60%)"
 
-#: texnazor/views_acts.py:222
+#: texnazor/views_acts.py:225
 msgid "0 дан 100 гача фоиз ёзинг"
 msgstr "Введите процент от 0 до 100"
 
-#: texnazor/views_acts.py:236
+#: texnazor/views_acts.py:239
 msgid "Сана нотўғри"
 msgstr "Неверная дата"
 
-#: texnazor/views_acts.py:269
+#: texnazor/views_acts.py:272
 msgid "Далолатнома {0} ўчирилди"
 msgstr "Акт {0} удалён"
 
-#: texnazor/views_acts.py:403 texnazor/views_acts.py:416
+#: texnazor/views_acts.py:412 texnazor/views_acts.py:425
 msgid "Белгилаб бўлмайди"
 msgstr "Отметить нельзя"
 
-#: texnazor/views_acts.py:409
+#: texnazor/views_acts.py:418
 msgid "Листни очиб бўлмади"
 msgstr "Не удалось открыть лист"
 
-#: texnazor/views_acts.py:454
+#: texnazor/views_acts.py:463
 msgid "Қаторлар нотўғри"
 msgstr "Неверные строки"
 
@@ -4421,177 +4455,360 @@ msgstr "нет условного форматирования"
 msgid "{0}-қатор файлда йўқ"
 msgstr "строки {0} нет в файле"
 
-#: core/pipeline.py:200
+#: core/pipeline.py:204
 msgid "{0} — манба устуни (номи, бирлиги ёки миқдори) устидан ёзилди"
 msgstr ""
 "{0} — записано поверх исходного столбца (наименование, единица или количество)"
 
-#: core/pipeline.py:208
+#: core/pipeline.py:212
 msgid "нарх бор ({0}), лекин миқдори йўқ ёки сон эмас ({1!r}) — H = 0"
 msgstr "цена есть ({0}), но количества нет или это не число ({1!r}) — H = 0"
 
-#: core/pipeline.py:212
+#: core/pipeline.py:216
 msgid "H = {0}, кутилгани {1:,.2f} (миқдор {2:g} × нарх {3:g})"
 msgstr "H = {0}, ожидалось {1:,.2f} (количество {2:g} × цена {3:g})"
 
-#: core/pipeline.py:214
+#: core/pipeline.py:218
 msgid "сумма {0} устунига тушмади"
 msgstr "сумма не попала в столбец {0}"
 
-#: core/pipeline.py:236
+#: core/pipeline.py:240
 msgid "Ресурс файлисиз фақат smart режимда нархлаш мумкин"
 msgstr "Без файла ресурсов расценка возможна только в режиме smart"
 
-#: core/pipeline.py:289
+#: core/pipeline.py:293
 msgid "сарлавҳаси («Наименование», «Ед. изм.»)"
 msgstr "заголовок («Наименование», «Ед. изм.»)"
 
-#: core/pipeline.py:289
+#: core/pipeline.py:293
 msgid "нарх устуни"
 msgstr "столбец цены"
 
-#: core/pipeline.py:290
+#: core/pipeline.py:294
 msgid ""
 "«{0}» RES листида {1} топилмади — тахмин билан нархланмади. Объект саҳифасида «Устунларни тузатиш» → шу листнинг «тузатиш» тугмаси: ном, бирлик ва нарх устунини кўрсатинг (Excel кўринишида босиб танлаш мумкин). Кўрсатганингиз эслаб қолинади."
 msgstr ""
 "В листе RES «{0}» не найден {1} — по догадке не расценено. На странице объекта «Исправить столбцы» → кнопка «исправить» у этого листа: укажите столбцы наименования, единицы и цены (можно выбрать щелчком в виде Excel). Указанное запоминается."
 
-#: core/pipeline.py:608
+#: core/pipeline.py:613
 msgid ""
 "{0} та қатор нархланмади (Excel'да G қизил): нархни қўлда киритинг — H ва сводка ўзи қайта ҳисобланади. Ҳозирги сумма тўлиқ эмас."
 msgstr ""
 "Не расценено строк: {0} (в Excel G красный): введите цену вручную — H и сводка пересчитаются сами. Текущая сумма неполная."
 
-#: core/pipeline.py:613
+#: core/pipeline.py:618
 msgid ""
 "{0} / {1} та аниқ топилган ресурснинг нархи 0 — ресурс файли нархланмаган ёки нарх устуни нотўғри"
 msgstr ""
 "У {0} из {1} точно найденных ресурсов цена 0 — файл ресурсов не расценён или столбец цены неверный"
 
-#: core/pipeline.py:615
+#: core/pipeline.py:620
 msgid ""
 "аниқ топилган нархлар бор, лекин жами сумма 0 — миқдор ёки сумма устуни нотўғри"
 msgstr ""
 "точно найденные цены есть, но общая сумма 0 — неверный столбец количества или суммы"
 
-#: core/pipeline.py:617
+#: core/pipeline.py:622
 msgid ""
 "Текширувдан ўтмади: {0} та муаммо — натижага ишониб бўлмайди, «Текширув» рўйхатини кўринг"
 msgstr ""
 "Проверка не пройдена: проблем — {0}, результату доверять нельзя, см. список «Проверка»"
 
-#: core/pipeline.py:631
+#: core/pipeline.py:636
 msgid "«{0}» олиб ташланди — нарх киритинг"
 msgstr "«{0}» убрано — введите цену"
 
-#: core/pipeline.py:633
+#: core/pipeline.py:638
 msgid "бирлиги йўқ — тозаланди"
 msgstr "нет единицы — очищено"
 
-#: core/pipeline.py:639
+#: core/pipeline.py:644
 msgid "таклиф тасдиқланди"
 msgstr "предложение подтверждено"
 
-#: core/pipeline.py:639
+#: core/pipeline.py:644
 msgid "нарх қўлда киритилди"
 msgstr "цена введена вручную"
 
-#: core/pipeline.py:664
+#: core/pipeline.py:669
 msgid "ресурс базасида шу турда"
 msgstr "в базе ресурсов этого типа"
 
-#: core/pipeline.py:668
+#: core/pipeline.py:673
 msgid "RES'да «{0}» бўлимида"
 msgstr "в RES в разделе «{0}»"
 
-#: core/pipeline.py:682
+#: core/pipeline.py:687
 msgid "номида «{0}…» (RES'да материал бўлимида)"
 msgstr "в названии «{0}…» (в RES в разделе материалов)"
 
-#: core/pipeline.py:686
+#: core/pipeline.py:691
 msgid "RES'даги ўхшаш «{0}» — «{1}» бўлимида"
 msgstr "похожий в RES «{0}» — в разделе «{1}»"
 
-#: core/pipeline.py:694
+#: core/pipeline.py:699
 msgid "номида «{0}…»"
 msgstr "в названии «{0}…»"
 
-#: core/pipeline.py:1104
+#: core/pipeline.py:1109
 msgid ""
 "RES'да шу ном {0} марта ҳар хил нархда: {1} — смета қаторлари миқдори бўйича тақсимланди, бу қаторга {2}"
 msgstr ""
 "В RES это название встречается {0} раз с разными ценами: {1} — распределено по количеству строк сметы, этой строке {2}"
 
-#: core/pipeline.py:1107
+#: core/pipeline.py:1112
 msgid "RES'да шу ном {0} марта ҳар хил нархда: {1} — миқдори ({2}) тенги олинди"
 msgstr ""
 "В RES это название встречается {0} раз с разными ценами: {1} — взята цена с равным количеством ({2})"
 
-#: core/pipeline.py:1110
+#: core/pipeline.py:1115
 msgid ""
 "RES'да шу ном {0} марта ҳар хил нархда: {1} — қайсиниси аниқланмади, текширинг"
 msgstr ""
 "В RES это название встречается {0} раз с разными ценами: {1} — какая из них, не определено, проверьте"
 
-#: core/pipeline.py:1114
+#: core/pipeline.py:1119
 msgid "иш сарлавҳаси: остидаги ресурслар нархланади"
 msgstr "заголовок работы: расцениваются ресурсы под ним"
 
-#: core/pipeline.py:1116
+#: core/pipeline.py:1121
 msgid "машинист меҳнати машина нархи ичида"
 msgstr "труд машиниста входит в цену машины"
 
-#: core/pipeline.py:1119
+#: core/pipeline.py:1124
 msgid "ном аниқ, лекин бирлик бошқа: локал «{0}», ресурс «{1}» ({2})"
 msgstr "название точное, но единица другая: в локальной «{0}», в ресурсе «{1}» ({2})"
 
-#: core/pipeline.py:1124
+#: core/pipeline.py:1129
 msgid "ресурсда нарх рақам эмас: «{0}»"
 msgstr "в ресурсе цена не число: «{0}»"
 
-#: core/pipeline.py:1127
+#: core/pipeline.py:1132
 msgid "ресурсда иш ҳақи нархи 0 — соат нархини киритинг"
 msgstr "в ресурсе цена зарплаты 0 — введите цену часа"
 
-#: core/pipeline.py:1131
+#: core/pipeline.py:1136
 msgid "ҳарфлари бошқача ёзилган (лотин/кирилл): ресурсда «{0}»"
 msgstr "буквы написаны иначе (латиница/кириллица): в ресурсе «{0}»"
 
-#: core/pipeline.py:1139
+#: core/pipeline.py:1144
 msgid "таклиф (аниқ эмас): «{0}» {1} — {2}"
 msgstr "предложение (неточное): «{0}» {1} — {2}"
 
-#: core/pipeline.py:1142
+#: core/pipeline.py:1147
 msgid "2 та номзод: «{0}» ({1}) ва «{2}» ({3}), ўхшашлик {4}"
 msgstr "2 кандидата: «{0}» ({1}) и «{2}» ({3}), сходство {4}"
 
-#: core/pipeline.py:1148
+#: core/pipeline.py:1153
 msgid "шифр бир хил («{0}»), номи бошқача: ресурсда «{1}» — {2}, текширинг"
 msgstr "шифр одинаковый («{0}»), название другое: в ресурсе «{1}» — {2}, проверьте"
 
-#: core/pipeline.py:1158
+#: core/pipeline.py:1163
 msgid "яқин ресурс: «{0}» ({1}) {2}% — {3}"
 msgstr "близкий ресурс: «{0}» ({1}) {2}% — {3}"
 
-#: core/pipeline.py:1159
+#: core/pipeline.py:1164
 msgid "; бирлик бошқа (локал «{0}»)"
 msgstr "; единица другая (в локальной «{0}»)"
 
-#: core/pipeline.py:1174
+#: core/pipeline.py:1179
 msgid "база: {0}, {1}"
 msgstr "база: {0}, {1}"
 
-#: core/pipeline.py:1177
+#: core/pipeline.py:1182
 msgid "ресурс базаси"
 msgstr "база ресурсов"
 
-#: core/pipeline.py:1180
+#: core/pipeline.py:1185
 msgid "базада бор ({0}), лекин бирлик бошқа: «{1}»"
 msgstr "в базе есть ({0}), но единица другая: «{1}»"
 
-#: core/pipeline.py:1228
+#: core/pipeline.py:1233
 msgid "базада яқин: «{0}» {1}% — {2}"
 msgstr "близкий в базе: «{0}» {1}% — {2}"
+
+#: billing/gate.py:126
+msgid "тўланган"
+msgstr "оплачено"
+
+#: billing/gate.py:128
+msgid "тарифдан"
+msgstr "из тарифа"
+
+#: billing/gate.py:131 jobs/templates/jobs/tender.html:80
+#: jobs/templates/jobs/tender.html:167
+#: billing/templates/billing/blocked.html:18
+#: billing/templates/billing/blocked.html:20
+#: billing/templates/billing/blocked.html:21
+#: billing/templates/billing/blocked.html:22
+#: billing/templates/billing/confirm.html:18
+#: billing/templates/billing/confirm.html:20
+#: billing/templates/billing/profile.html:298
+#: billing/templates/billing/profile.html:354
+msgid "{0} сўм"
+msgstr "{0} сум"
+
+#: billing/gate.py:133
+msgid "пул етмайди"
+msgstr "не хватает средств"
+
+#: billing/services.py:35
+msgid "Балансда пул етмайди: керак {0} сўм, бор {1} сўм"
+msgstr "Недостаточно средств на балансе: нужно {0} сум, есть {1} сум"
+
+#: billing/services.py:107
+msgid "Бу амал аввал ёзилган"
+msgstr "Эта операция уже записана"
+
+#: billing/services.py:320
+msgid "Бу тариф ҳозир ёқиқ — муддати тугагач ўзи янгиланади."
+msgstr "Этот тариф уже подключён — по окончании срока он продлится сам."
+
+#: billing/services.py:340
+msgid "Бепул тарифни сотиб олиш шарт эмас"
+msgstr "Бесплатный тариф покупать не нужно"
+
+#: billing/services.py:342
+msgid "Бу тариф ҳозир сотувда йўқ"
+msgstr "Этот тариф сейчас недоступен"
+
+#: billing/services.py:359
+#, python-format
+msgid "{0} тарифи, {1} ой, {2:%d.%m.%Y} гача"
+msgstr "Тариф {0}, {1} мес., до {2:%d.%m.%Y}"
+
+#: billing/services.py:361
+msgid "чегирма {0}%"
+msgstr "скидка {0}%"
+
+#: billing/services.py:363
+msgid "олдинги тарифнинг ишлатилмаган {0} сўми ҳисобга олинди"
+msgstr "учтены неиспользованные {0} сум прежнего тарифа"
+
+#: billing/services.py:369
+msgid "олдинги тарифдан ортиб қолгани"
+msgstr "остаток от прежнего тарифа"
+
+#: billing/services.py:449
+msgid "{0}: шу ой учун"
+msgstr "{0}: за этот месяц"
+
+#: billing/services.py:452
+msgid "{0}: {1} қатор (тарифдан {2})"
+msgstr "{0}: {1} строк (из тарифа {2})"
+
+#: billing/views.py:27
+msgid "Баланс тўлдирилди"
+msgstr "Пополнение баланса"
+
+#: billing/views.py:27 billing/templates/billing/profile.html:146
+msgid "Бонус"
+msgstr "Бонус"
+
+#: billing/views.py:27
+msgid "Тузатиш"
+msgstr "Корректировка"
+
+#: billing/views.py:28 jobs/templates/jobs/_plan_chip.html:12
+#: billing/templates/billing/profile.html:149
+msgid "Тариф"
+msgstr "Тариф"
+
+#: billing/views.py:28
+msgid "Смета юклаб олинди"
+msgstr "Скачана смета"
+
+#: billing/views.py:29
+msgid "Техназор объекти"
+msgstr "Объект технадзора"
+
+#: billing/views.py:29
+msgid "Қайтарилди"
+msgstr "Возврат"
+
+#: billing/views.py:33
+msgid "Кутилмоқда"
+msgstr "Ожидается"
+
+#: billing/views.py:34
+msgid "Тўланди"
+msgstr "Оплачено"
+
+#: billing/views.py:34
+msgid "Бекор қилинди"
+msgstr "Отменено"
+
+#: billing/views.py:35
+msgid "Ўтмади"
+msgstr "Не прошёл"
+
+#: billing/views.py:52
+msgid "Тўлов ўтди: балансга {0} сўм тушди."
+msgstr "Оплата прошла: на баланс зачислено {0} сум."
+
+#: billing/views.py:54
+msgid "Тўлов ўтмади — балансдан ҳеч нарса ечилмади. Қайта уриниб кўринг."
+msgstr "Оплата не прошла — с баланса ничего не списано. Попробуйте ещё раз."
+
+#: billing/views.py:56
+msgid ""
+"Тўлов текширилмоқда: Click тасдиқлаши билан {0} сўм балансга тушади — саҳифани бир оздан кейин янгиланг."
+msgstr ""
+"Оплата проверяется: после подтверждения Click {0} сум поступят на баланс — обновите страницу чуть позже."
+
+#: billing/views.py:109
+msgid ""
+"Балансда пул етмайди: керак {0} сўм, балансда {1} сўм. Аввал балансни тўлдиринг."
+msgstr ""
+"Недостаточно средств: нужно {0} сум, на балансе {1} сум. Сначала пополните баланс."
+
+#: billing/views.py:118
+#, python-format
+msgid ""
+"«{0}» тарифига {1:%d.%m.%Y} дан ўтасиз — ҳозирги тарифингиз шу кунгача ишлайди. Пул ўша куни балансдан ечилади."
+msgstr ""
+"Вы перейдёте на тариф «{0}» с {1:%d.%m.%Y} — текущий тариф действует до этого дня. Деньги спишутся с баланса в тот же день."
+
+#: billing/views.py:121
+#, python-format
+msgid "«{0}» тарифи ёқилди — {1:%d.%m.%Y} гача."
+msgstr "Тариф «{0}» подключён — до {1:%d.%m.%Y}."
+
+#: billing/views.py:123
+msgid "Олдинги тарифдан ортиб қолган {0} сўм балансга қайтди."
+msgstr "Остаток прежнего тарифа {0} сум возвращён на баланс."
+
+#: billing/views.py:125
+msgid "Олдинги тарифдан {0} сўм ҳисобга олинди, балансдан {1} сўм ечилди."
+msgstr "Зачтено {0} сум от прежнего тарифа, с баланса списано {1} сум."
+
+#: billing/views.py:134
+msgid "Тариф алмашиши бекор қилинди — ҳозирги тарифингиз давом этади."
+msgstr "Смена тарифа отменена — текущий тариф продолжает действовать."
+
+#: billing/views.py:143
+msgid "Тариф муддати тугаганда балансдан ўзи янгиланади."
+msgstr "По окончании срока тариф продлится сам с баланса."
+
+#: billing/views.py:144
+msgid "Ўзи янгиланиш ўчирилди — тариф муддати тугагач, бепул тарифга ўтасиз."
+msgstr ""
+"Автопродление отключено — после окончания срока вы перейдёте на бесплатный тариф."
+
+#: billing/views.py:155
+msgid ""
+"Аввал email манзилингизни тасдиқланг: парол эсдан чиқса, ҳисобингиз ва ундаги пул фақат шу email орқали тикланади."
+msgstr ""
+"Сначала подтвердите email: если забудете пароль, учётную запись и деньги на ней можно восстановить только через этот email."
+
+#: billing/views.py:174
+msgid "Сумма {0} дан {1} сўмгача бўлсин."
+msgstr "Сумма должна быть от {0} до {1} сум."
+
+#: billing/views.py:177
+msgid "Онлайн тўлов ҳали уланмаган. Балансни тўлдириш учун «Ёрдам хизмати»га ёзинг."
+msgstr ""
+"Онлайн-оплата ещё не подключена. Чтобы пополнить баланс, напишите в «Службу поддержки»."
 
 #: accounts/templates/accounts/_auth.html:106
 msgid "← Тизим ҳақида"
@@ -4614,6 +4831,7 @@ msgid "Техназор"
 msgstr "Технадзор"
 
 #: accounts/templates/accounts/_auth.html:111
+#: billing/templates/billing/profile.html:200
 msgid "ойма-ой"
 msgstr "по месяцам"
 
@@ -4666,7 +4884,7 @@ msgstr "Вход в аккаунт"
 #: accounts/templates/accounts/login_code.html:9
 #: accounts/templates/accounts/register.html:52
 #: jobs/templates/jobs/_site_footer.html:10
-#: jobs/templates/jobs/_site_header.html:19 jobs/templates/jobs/base.html:92
+#: jobs/templates/jobs/_site_header.html:19 jobs/templates/jobs/base.html:93
 msgid "Кириш"
 msgstr "Войти"
 
@@ -4723,7 +4941,7 @@ msgstr "Новый аккаунт"
 
 #: accounts/templates/accounts/register.html:3
 #: accounts/templates/accounts/register.html:32
-#: jobs/templates/jobs/_site_footer.html:10 jobs/templates/jobs/base.html:93
+#: jobs/templates/jobs/_site_footer.html:10 jobs/templates/jobs/base.html:94
 msgid "Рўйхатдан ўтиш"
 msgstr "Регистрация"
 
@@ -4751,14 +4969,27 @@ msgid "Фойдаланиш шартлари"
 msgstr "Условия использования"
 
 #: accounts/templates/accounts/register.html:29
-msgid "билан танишдим ва уларга розиман"
-msgstr "прочитал(а) и принимаю"
+#: accounts/templates/accounts/register.html:34
+#: jobs/templates/jobs/landing.html:280
+msgid "ва"
+msgstr "и"
+
+#: accounts/templates/accounts/register.html:29
+#: accounts/templates/accounts/register.html:34
+#: jobs/templates/jobs/terms.html:21
+msgid "махфийлик сиёсати"
+msgstr "политикой конфиденциальности"
+
+#: accounts/templates/accounts/register.html:29
+msgid "билан танишдим, уларга розиман"
+msgstr "ознакомлен(а) и согласен(на) с ними"
 
 #: accounts/templates/accounts/register.html:34
 msgid "«Рўйхатдан ўтиш» тугмасини босиб, сиз"
 msgstr "Нажимая «Регистрация», вы соглашаетесь с"
 
 #: accounts/templates/accounts/register.html:34
+#: jobs/templates/jobs/privacy.html:21
 msgid "фойдаланиш шартлари"
 msgstr "условиями использования"
 
@@ -4916,6 +5147,7 @@ msgid "Илова кўрсатган 6 рақамли кодни киритин�
 msgstr "Введите 6-значный код, который показывает приложение."
 
 #: accounts/templates/accounts/twofa_setup.html:24
+#: billing/templates/billing/profile.html:159
 msgid "Ёқиш"
 msgstr "Включить"
 
@@ -4960,7 +5192,7 @@ msgid "Код {0} дақиқа амал қилади, 5 марта хато ки
 msgstr "Код действует {0} мин., после 5 неверных попыток он аннулируется."
 
 #: accounts/templates/accounts/verify_email.html:25
-#: jobs/templates/jobs/base.html:112
+#: jobs/templates/jobs/base.html:113
 #: texnazor/templates/texnazor/_confirm2.html:5
 msgid "Тасдиқлаш"
 msgstr "Подтвердить"
@@ -5027,7 +5259,7 @@ msgid ""
 msgstr ""
 "Форма долго была открыта или сессия обновилась. Обновите страницу (F5) и повторите действие."
 
-#: jobs/templates/403_csrf.html:7
+#: jobs/templates/403_csrf.html:7 billing/templates/billing/blocked.html:25
 msgid "Орқага"
 msgstr "Назад"
 
@@ -5080,7 +5312,7 @@ msgstr ""
 
 #: jobs/templates/jobs/_blog_cta.html:4
 #: jobs/templates/jobs/_site_header.html:17
-#: jobs/templates/jobs/dashboard.html:50 jobs/templates/jobs/dashboard.html:128
+#: jobs/templates/jobs/dashboard.html:51 jobs/templates/jobs/dashboard.html:129
 #: jobs/templates/jobs/index.html:5 jobs/templates/jobs/landing.html:158
 #: jobs/templates/jobs/landing.html:294
 msgid "Смета юклаш"
@@ -5098,7 +5330,7 @@ msgstr "Создать аккаунт"
 msgid "Тизимга кириш"
 msgstr "Войти в систему"
 
-#: jobs/templates/jobs/_blog_cta.html:6 jobs/templates/jobs/base.html:91
+#: jobs/templates/jobs/_blog_cta.html:6 jobs/templates/jobs/base.html:92
 msgid "Тизим ҳақида"
 msgstr "О системе"
 
@@ -5160,10 +5392,10 @@ msgid "Йиғиш"
 msgstr "Свернуть"
 
 #: jobs/templates/jobs/_bulk_price.html:21 jobs/templates/jobs/_picker.html:37
-#: jobs/templates/jobs/_project_body.html:144 jobs/templates/jobs/blog.html:27
-#: jobs/templates/jobs/dashboard.html:229 jobs/templates/jobs/job.html:274
+#: jobs/templates/jobs/_project_body.html:151 jobs/templates/jobs/blog.html:27
+#: jobs/templates/jobs/dashboard.html:230 jobs/templates/jobs/job.html:274
 #: jobs/templates/jobs/job.html:886 texnazor/templates/texnazor/_panel.html:30
-#: texnazor/templates/texnazor/index.html:32
+#: texnazor/templates/texnazor/index.html:38
 msgid "Ҳаммаси"
 msgstr "Все"
 
@@ -5172,7 +5404,7 @@ msgid "RES'да ўхшаши бор — таклифни қабул қилиш �
 msgstr "В RES есть похожий — можно принять предложение"
 
 #: jobs/templates/jobs/_bulk_price.html:21
-#: jobs/templates/jobs/_project_body.html:111 jobs/templates/jobs/job.html:277
+#: jobs/templates/jobs/_project_body.html:118 jobs/templates/jobs/job.html:277
 msgid "Таклиф бор"
 msgstr "Есть предложение"
 
@@ -5181,7 +5413,7 @@ msgid "Ўхшаши йўқ ёки ресурсда нархи йўқ — нар�
 msgstr "Похожего нет или в ресурсе нет цены — цену пишете сами"
 
 #: jobs/templates/jobs/_bulk_price.html:21
-#: jobs/templates/jobs/_project_body.html:111 jobs/templates/jobs/job.html:280
+#: jobs/templates/jobs/_project_body.html:118 jobs/templates/jobs/job.html:280
 msgid "Нарх йўқ"
 msgstr "Нет цены"
 
@@ -5239,6 +5471,9 @@ msgstr "Поставить введённые цены"
 #: texnazor/templates/texnazor/acts.html:156
 #: texnazor/templates/texnazor/acts.html:277
 #: support/templates/support/_widget.html:78 news/templates/news/_modal.html:3
+#: billing/templates/billing/profile.html:314
+#: billing/templates/billing/profile.html:341
+#: billing/templates/billing/profile.html:351
 msgid "Ёпиш"
 msgstr "Закрыть"
 
@@ -5365,7 +5600,7 @@ msgstr "Такой ресурс не найден."
 
 #: jobs/templates/jobs/_bulk_price.html:72
 #: jobs/templates/jobs/_sheet_viewer.html:34
-#: jobs/templates/jobs/dashboard.html:139 jobs/templates/jobs/job.html:820
+#: jobs/templates/jobs/dashboard.html:140 jobs/templates/jobs/job.html:820
 #: jobs/templates/jobs/job.html:936 jobs/templates/jobs/job.html:1227
 #: jobs/templates/jobs/job.html:1750
 msgid "та"
@@ -5540,7 +5775,8 @@ msgstr "смет ·"
 
 #: jobs/templates/jobs/_bulk_price.html:72
 #: jobs/templates/jobs/_project_live.html:4
-#: jobs/templates/jobs/_sheet_viewer.html:34 jobs/templates/jobs/job.html:66
+#: jobs/templates/jobs/_sheet_viewer.html:34
+#: jobs/templates/jobs/_work_list.html:20 jobs/templates/jobs/job.html:66
 #: jobs/templates/jobs/job.html:844 texnazor/templates/texnazor/choose.html:87
 #: texnazor/templates/texnazor/loading.html:93
 #: texnazor/templates/texnazor/mark.html:168
@@ -5700,7 +5936,8 @@ msgstr ""
 #: jobs/templates/jobs/_crumbs.html:1 jobs/templates/jobs/about.html:28
 #: jobs/templates/jobs/blog.html:6 jobs/templates/jobs/blog_category.html:5
 #: jobs/templates/jobs/blog_post.html:5 jobs/templates/jobs/blog_video.html:5
-#: jobs/templates/jobs/guide.html:7 jobs/templates/jobs/terms.html:10
+#: jobs/templates/jobs/guide.html:7 jobs/templates/jobs/privacy.html:10
+#: jobs/templates/jobs/terms.html:10
 msgid "Йўл"
 msgstr "Путь"
 
@@ -5709,6 +5946,8 @@ msgstr "Путь"
 #: texnazor/templates/texnazor/_corrections.html:26
 #: texnazor/templates/texnazor/_corrections.html:53
 #: texnazor/templates/texnazor/_ofyorta_js.html:493
+#: billing/templates/billing/confirm.html:24
+#: billing/templates/billing/profile.html:208
 msgid "Бекор қилиш"
 msgstr "Отмена"
 
@@ -5732,7 +5971,7 @@ msgstr "Понятно"
 #: jobs/templates/jobs/settings.html:92 texnazor/templates/texnazor/_f3.html:17
 #: texnazor/templates/texnazor/_info.html:59
 #: texnazor/templates/texnazor/_payments.html:5
-#: texnazor/templates/texnazor/acts.html:1984
+#: texnazor/templates/texnazor/acts.html:1985
 msgid "Сақлаш"
 msgstr "Сохранить"
 
@@ -5925,7 +6164,7 @@ msgid "Нархланмаган қаторлар бор"
 msgstr "Есть нерасценённые строки"
 
 #: jobs/templates/jobs/_ofyorta_nodes.html:20
-#: jobs/templates/jobs/_project_body.html:128
+#: jobs/templates/jobs/_project_body.html:135
 msgid "{0} та қатор нархсиз"
 msgstr "Строк без цены: {0}"
 
@@ -5940,7 +6179,7 @@ msgid "Листлар ва жуфтликлар"
 msgstr "Листы и пары"
 
 #: jobs/templates/jobs/_picker.html:18
-#: jobs/templates/jobs/_project_body.html:110
+#: jobs/templates/jobs/_project_body.html:117
 #: jobs/templates/jobs/_site_header.html:6
 #: jobs/templates/jobs/_site_header.html:26
 #: jobs/templates/jobs/landing.html:161
@@ -5974,7 +6213,7 @@ msgstr "сами"
 msgid "белгиланг; локал учун ресурсни танланг."
 msgstr "и для локальной выберите ресурс."
 
-#: jobs/templates/jobs/_picker.html:21 jobs/templates/jobs/dashboard.html:247
+#: jobs/templates/jobs/_picker.html:21 jobs/templates/jobs/dashboard.html:248
 msgid "Яна"
 msgstr "Ещё"
 
@@ -6191,19 +6430,19 @@ msgid "Белгини олиш"
 msgstr "Снять отметку"
 
 #: jobs/templates/jobs/_picker.html:131
-#: jobs/templates/jobs/_project_body.html:192
+#: jobs/templates/jobs/_project_body.html:199
 msgid "— транспорт, прочие, страхование, НДС"
 msgstr "— транспорт, прочие, страхование, НДС"
 
 #: jobs/templates/jobs/_picker.html:131
 #: jobs/templates/jobs/_project_body.html:71
-#: jobs/templates/jobs/_project_body.html:192
+#: jobs/templates/jobs/_project_body.html:199
 #: jobs/templates/jobs/index.html:205
 msgid "Ўзгартириш"
 msgstr "Изменить"
 
 #: jobs/templates/jobs/_picker.html:136
-#: jobs/templates/jobs/_project_body.html:197 jobs/templates/jobs/job.html:1519
+#: jobs/templates/jobs/_project_body.html:204 jobs/templates/jobs/job.html:1519
 msgid "Стандарт: {0}"
 msgstr "Стандарт: {0}"
 
@@ -6434,6 +6673,77 @@ msgstr "пара не составлена — обновите страницу
 msgid "нархланмайди"
 msgstr "не расценивается"
 
+#: jobs/templates/jobs/_plan_chip.html:4
+msgid "Тариф: {0} · {1} қатор қолди"
+msgstr "Тариф: {0} · осталось {1} строк"
+
+#: jobs/templates/jobs/_plan_chip.html:8
+#: jobs/templates/jobs/_project_body.html:4
+#: billing/templates/billing/blocked.html:16
+#: billing/templates/billing/confirm.html:16
+msgid "{0} қатор"
+msgstr "{0} строк"
+
+#: jobs/templates/jobs/_plan_chip.html:8
+msgid "Тариф ва баланс"
+msgstr "Тариф и баланс"
+
+#: jobs/templates/jobs/_plan_chip.html:14
+msgid "{0} гача · {1} кун"
+msgstr "до {0} · {1} дн."
+
+#: jobs/templates/jobs/_plan_chip.html:14
+msgid "бепул · ҳар ой янгиланади"
+msgstr "бесплатно · обновляется каждый месяц"
+
+#: jobs/templates/jobs/_plan_chip.html:14
+msgid "Шу ой қатор"
+msgstr "Строки в этом месяце"
+
+#: jobs/templates/jobs/_plan_chip.html:17
+msgid "/ {0} қолди"
+msgstr "/ {0} осталось"
+
+#: jobs/templates/jobs/_plan_chip.html:18
+msgid "ишлатилди {0} · {1} да янгиланади"
+msgstr "использовано {0} · обновится {1}"
+
+#: jobs/templates/jobs/_plan_chip.html:20
+msgid "Қатор тугади — юклаб олишда ҳар қатор {0} сўмдан балансдан ечилади."
+msgstr ""
+"Строки закончились — при скачивании каждая строка списывается с баланса по {0} сум."
+
+#: jobs/templates/jobs/_plan_chip.html:21
+msgid "Қатор оз қолди."
+msgstr "Строк осталось мало."
+
+#: jobs/templates/jobs/_plan_chip.html:24
+#: billing/templates/billing/confirm.html:20
+#: billing/templates/billing/profile.html:140
+msgid "Баланс"
+msgstr "Баланс"
+
+#: jobs/templates/jobs/_plan_chip.html:25 jobs/templates/jobs/calc.html:63
+#: jobs/templates/jobs/tender.html:251 jobs/templates/jobs/tender.html:276
+#: texnazor/templates/texnazor/_panel.html:12
+#: texnazor/templates/texnazor/choose.html:81
+#: billing/templates/billing/confirm.html:21
+#: billing/templates/billing/profile.html:145
+#: billing/templates/billing/profile.html:199
+#: billing/templates/billing/profile.html:246
+#: billing/templates/billing/profile.html:356
+#: billing/templates/billing/profile.html:359
+msgid "сўм"
+msgstr "сум"
+
+#: jobs/templates/jobs/_plan_chip.html:28
+msgid "Тўлдириш"
+msgstr "Пополнить"
+
+#: jobs/templates/jobs/_plan_chip.html:29
+msgid "Тариф ва тарих"
+msgstr "Тариф и история"
+
 #: jobs/templates/jobs/_post_item.html:3 jobs/templates/jobs/blog.html:40
 #: jobs/templates/jobs/blog_post.html:18
 msgid "{0} дақ."
@@ -6458,10 +6768,6 @@ msgstr "Закрыть (работа продолжится)"
 #: jobs/templates/jobs/_progress.html:2
 msgid "— тайёр"
 msgstr "— готово"
-
-#: jobs/templates/jobs/_project_body.html:4
-msgid "{0} қатор"
-msgstr "{0} строк"
 
 #: jobs/templates/jobs/_project_body.html:5
 msgid "{0} та қисмни тўғирлаш керак"
@@ -6530,12 +6836,12 @@ msgid "Қисмларни текширинг"
 msgstr "Проверьте части"
 
 #: jobs/templates/jobs/_project_body.html:60
-#: jobs/templates/jobs/_project_body.html:202
+#: jobs/templates/jobs/_project_body.html:209
 msgid "тасида листларни белгиланг"
 msgstr "— отметьте листы"
 
 #: jobs/templates/jobs/_project_body.html:60
-#: jobs/templates/jobs/_project_body.html:202
+#: jobs/templates/jobs/_project_body.html:209
 msgid "тасида ресурсни танланг"
 msgstr "— выберите ресурс"
 
@@ -6615,193 +6921,251 @@ msgstr ""
 msgid "Всего с НДС · {0} та смета · {1} қисм"
 msgstr "Всего с НДС · смет: {0} · частей: {1}"
 
-#: jobs/templates/jobs/_project_body.html:89 jobs/templates/jobs/batch.html:44
-msgid "· {0} / {1} қатор"
-msgstr "· {0} / {1} строк"
-
 #: jobs/templates/jobs/_project_body.html:92
-#: jobs/templates/jobs/_project_body.html:127
+#: jobs/templates/jobs/_project_body.html:134
 msgid "{0} қисм тайёр"
 msgstr "Готово частей: {0}"
 
 #: jobs/templates/jobs/_project_body.html:93
+msgid "Нархланган ресурс қаторлари (сарлавҳа, бўш ва сводка қаторлари саналмайди)"
+msgstr ""
+"Расценённые строки ресурсов (заголовки, пустые и сводные строки не считаются)"
+
+#: jobs/templates/jobs/_project_body.html:93
+msgid "· сметада жами {0}"
+msgstr "· всего в сметах {0}"
+
+#: jobs/templates/jobs/_project_body.html:93
+msgid "қатор нархланди"
+msgstr "строк расценено"
+
+#: jobs/templates/jobs/_project_body.html:94
 msgid "{0} та қатор нархсиз · {1} қисмда"
 msgstr "Строк без цены: {0} · в частях: {1}"
 
-#: jobs/templates/jobs/_project_body.html:94
+#: jobs/templates/jobs/_project_body.html:95
 msgid "{0} қисм қайта ҳисобланяпти"
 msgstr "Пересчитывается частей: {0}"
 
-#: jobs/templates/jobs/_project_body.html:95
+#: jobs/templates/jobs/_project_body.html:96
 msgid "{0} қисмни текширинг"
 msgstr "Проверьте частей: {0}"
 
-#: jobs/templates/jobs/_project_body.html:99
+#: jobs/templates/jobs/_project_body.html:100
+msgid "Тўланган."
+msgstr "Оплачено."
+
+#: jobs/templates/jobs/_project_body.html:100
+msgid "Ҳаммасини юклаб олиш ва офёрта — бепул."
+msgstr "Скачивание всего и офёрта — бесплатно."
+
+#: jobs/templates/jobs/_project_body.html:101
+msgid "Юклаб олишда"
+msgstr "При скачивании"
+
+#: jobs/templates/jobs/_project_body.html:101
+msgid "тарифдан {0} қатор"
+msgstr "из тарифа {0} строк"
+
+#: jobs/templates/jobs/_project_body.html:101
+msgid "ечилади"
+msgstr "спишется"
+
+#: jobs/templates/jobs/_project_body.html:101
+msgid "(аввал тўланган {0} қатор саналмайди)"
+msgstr "(ранее оплаченные {0} строк не считаются)"
+
+#: jobs/templates/jobs/_project_body.html:101
+msgid "· тарифда {0} қатор қолади."
+msgstr "· в тарифе останется {0} строк."
+
+#: jobs/templates/jobs/_project_body.html:102
+msgid "Юклаб олишда:"
+msgstr "При скачивании:"
+
+#: jobs/templates/jobs/_project_body.html:102
+msgid "тарифдан {0} қатор,"
+msgstr "из тарифа {0} строк,"
+
+#: jobs/templates/jobs/_project_body.html:102
+msgid "{0} қатор — балансдан {1} сўм"
+msgstr "{0} строк — с баланса {1} сум"
+
+#: jobs/templates/jobs/_project_body.html:102
+msgid "· аввал тўланган {0} қатор саналмайди"
+msgstr "· ранее оплаченные {0} строк не считаются"
+
+#: jobs/templates/jobs/_project_body.html:102
+#: billing/templates/billing/_tag.html:1
+msgid "Балансда {0} сўм етмайди"
+msgstr "На балансе не хватает {0} сум"
+
+#: jobs/templates/jobs/_project_body.html:106
 msgid "Ҳаммасини юклаб олиш"
 msgstr "Скачать всё"
 
-#: jobs/templates/jobs/_project_body.html:99
+#: jobs/templates/jobs/_project_body.html:106
 msgid "ZIP · папкалар тузилиши сақланади"
 msgstr "ZIP · структура папок сохраняется"
 
-#: jobs/templates/jobs/_project_body.html:100 jobs/templates/jobs/batch.html:53
+#: jobs/templates/jobs/_project_body.html:107 jobs/templates/jobs/batch.html:53
 #: jobs/templates/jobs/ofyorta.html:56 jobs/templates/jobs/ofyorta.html:146
 #: texnazor/templates/texnazor/my_list.html:48
 #: texnazor/templates/texnazor/my_setup.html:7
 msgid "Офёрта тузиш"
 msgstr "Составить оферту"
 
-#: jobs/templates/jobs/_project_body.html:100 jobs/templates/jobs/batch.html:53
-msgid "тартиб билан · ҳар бири ўз сводкаси билан"
-msgstr "по порядку · каждая со своей сводкой"
+#: jobs/templates/jobs/_project_body.html:107
+msgid "тузиш бепул · юклаб олиш — папка билан бир хил"
+msgstr "составление бесплатно · скачивание — как у папки"
 
-#: jobs/templates/jobs/_project_body.html:110
+#: jobs/templates/jobs/_project_body.html:117
 msgid "Нархсиз ресурслар — ҳамма сметалар бўйича битта жадвал"
 msgstr "Ресурсы без цены — одна таблица по всем сметам"
 
-#: jobs/templates/jobs/_project_body.html:110
+#: jobs/templates/jobs/_project_body.html:117
 msgid "Тизим бу ресурсларни RES файлларидан топа олмади — улар"
 msgstr "Система не нашла эти ресурсы в файлах RES — они"
 
-#: jobs/templates/jobs/_project_body.html:111
+#: jobs/templates/jobs/_project_body.html:118
 msgid "{0} та қисмдаги ҳамма сметалардан"
 msgstr "из всех смет в частях ({0})"
 
-#: jobs/templates/jobs/_project_body.html:111
+#: jobs/templates/jobs/_project_body.html:118
 msgid "битта жадвалга йиғилди."
 msgstr "собраны в одну таблицу."
 
-#: jobs/templates/jobs/_project_body.html:111
+#: jobs/templates/jobs/_project_body.html:118
 msgid ": белгиланг ва «Таклифни қабул қилиш»."
 msgstr ": отметьте и нажмите «Принять предложение»."
 
-#: jobs/templates/jobs/_project_body.html:111
+#: jobs/templates/jobs/_project_body.html:118
 msgid ": нархни ўзингиз ёзинг ва «Нархни қўйиш». Нарх у учраган"
 msgstr ": впишите цену сами и нажмите «Поставить цену». Цена попадает"
 
-#: jobs/templates/jobs/_project_body.html:111
+#: jobs/templates/jobs/_project_body.html:118
 msgid "ҳамма сметага бирданига"
 msgstr "сразу во все сметы,"
 
-#: jobs/templates/jobs/_project_body.html:111
+#: jobs/templates/jobs/_project_body.html:118
 msgid "тушади, сметалар ўзи қайта ҳисобланади."
 msgstr "где ресурс встречается, сметы пересчитываются сами."
 
-#: jobs/templates/jobs/_project_body.html:122
+#: jobs/templates/jobs/_project_body.html:129
 msgid "Тўхтатиляпти…"
 msgstr "Останавливается…"
 
-#: jobs/templates/jobs/_project_body.html:122
-#: jobs/templates/jobs/_project_body.html:183
+#: jobs/templates/jobs/_project_body.html:129
+#: jobs/templates/jobs/_project_body.html:190
 msgid "Иш тўхтатилган"
 msgstr "Работа остановлена"
 
-#: jobs/templates/jobs/_project_body.html:122
+#: jobs/templates/jobs/_project_body.html:129
 msgid "· {0} / {1} қисм"
 msgstr "· {0} / {1} частей"
 
-#: jobs/templates/jobs/_project_body.html:132
+#: jobs/templates/jobs/_project_body.html:139
 msgid "Юклаб олиш ва офёрта"
 msgstr "Скачивание и оферта"
 
-#: jobs/templates/jobs/_project_body.html:132
+#: jobs/templates/jobs/_project_body.html:139
 msgid "ҳамма қисм нархлангач шу ерда очилади."
 msgstr "откроются здесь после расценки всех частей."
 
-#: jobs/templates/jobs/_project_body.html:134
+#: jobs/templates/jobs/_project_body.html:141
 msgid "Бошқа ойнада бўлсангиз ҳам, тугаганда браузер хабар беради"
 msgstr "Даже если вы в другом окне, по завершении браузер сообщит"
 
-#: jobs/templates/jobs/_project_body.html:134
+#: jobs/templates/jobs/_project_body.html:141
 msgid "Тугаганда хабар бериш"
 msgstr "Сообщить по завершении"
 
-#: jobs/templates/jobs/_project_body.html:142
+#: jobs/templates/jobs/_project_body.html:149
 msgid "Нархланган сметалар"
 msgstr "Расценённые сметы"
 
-#: jobs/templates/jobs/_project_body.html:142
+#: jobs/templates/jobs/_project_body.html:149
 msgid "{0} қисм · {1} смета"
 msgstr "частей: {0} · смет: {1}"
 
-#: jobs/templates/jobs/_project_body.html:142
+#: jobs/templates/jobs/_project_body.html:149
 msgid ""
 "Ҳар бир қатор — битта ички папка. «Очиш» — Excel кўринишида, у ерда қаторларни тўғирлаш мумкин."
 msgstr ""
 "Каждая строка — одна вложенная папка. «Открыть» — в виде Excel, там можно исправить строки."
 
-#: jobs/templates/jobs/_project_body.html:142
+#: jobs/templates/jobs/_project_body.html:149
 msgid ""
 "— сметани очиб, «Сводка» бўлимида ўзгартирилади, натижа дарров қайта ҳисобланади."
 msgstr ""
 "— откройте смету и измените в разделе «Сводка», результат сразу пересчитается."
 
-#: jobs/templates/jobs/_project_body.html:142
+#: jobs/templates/jobs/_project_body.html:149
 msgid "Хато файл"
 msgstr "Файл с ошибкой"
 
-#: jobs/templates/jobs/_project_body.html:142
+#: jobs/templates/jobs/_project_body.html:149
 msgid ""
 "— чапдаги дарахтда файл устига келинг: юклаб олиш, тузатилганини юклаш ёки ортга қайтариш. Фақат шу файлга боғлиқ сметалар қайта ҳисобланади."
 msgstr ""
 "— наведите на файл в дереве слева: скачать, загрузить исправленный или вернуть назад. Пересчитываются только сметы, связанные с этим файлом."
 
-#: jobs/templates/jobs/_project_body.html:144
+#: jobs/templates/jobs/_project_body.html:151
 msgid "Қисмлар"
 msgstr "Части"
 
-#: jobs/templates/jobs/_project_body.html:144
-#: texnazor/templates/texnazor/index.html:32
+#: jobs/templates/jobs/_project_body.html:151
+#: texnazor/templates/texnazor/index.html:38
 msgid "Ҳолат бўйича"
 msgstr "По состоянию"
 
-#: jobs/templates/jobs/_project_body.html:149
+#: jobs/templates/jobs/_project_body.html:156
 msgid "Нархланмаган"
 msgstr "Не расценено"
 
-#: jobs/templates/jobs/_project_body.html:152
+#: jobs/templates/jobs/_project_body.html:159
 msgid "{0} та олдинги натижа олинмади"
 msgstr "Предыдущих результатов не взято: {0}"
 
-#: jobs/templates/jobs/_project_body.html:152
+#: jobs/templates/jobs/_project_body.html:159
 msgid "Бу ҳолатда қисм йўқ."
 msgstr "Частей в этом состоянии нет."
 
-#: jobs/templates/jobs/_project_body.html:172
+#: jobs/templates/jobs/_project_body.html:179
 msgid "Тўхтатиляпти — жорий файл тугагач тўхтайди…"
 msgstr "Останавливается — остановится после текущего файла…"
 
-#: jobs/templates/jobs/_project_body.html:172
+#: jobs/templates/jobs/_project_body.html:179
 msgid "Ишланяпти: {0} / {1} қисм"
 msgstr "В работе: {0} / {1} частей"
 
-#: jobs/templates/jobs/_project_body.html:177
+#: jobs/templates/jobs/_project_body.html:184
 msgid "Жорий файл тугагач тўхтайди; тайёр бўлганлари сақланади"
 msgstr "Остановится после текущего файла; готовые сохранятся"
 
-#: jobs/templates/jobs/_project_body.html:178
+#: jobs/templates/jobs/_project_body.html:185
 msgid "Тўхтатиш"
 msgstr "Остановить"
 
-#: jobs/templates/jobs/_project_body.html:184
+#: jobs/templates/jobs/_project_body.html:191
 msgid ""
 "{0} та қисм қолди — тайёрлари сақланган, давом эттирсангиз қолган жойидан бошланади."
 msgstr ""
 "Осталось частей: {0} — готовые сохранены, при продолжении работа начнётся с места остановки."
 
-#: jobs/templates/jobs/_project_body.html:185
+#: jobs/templates/jobs/_project_body.html:192
 msgid "Давом эттириш"
 msgstr "Продолжить"
 
-#: jobs/templates/jobs/_project_body.html:188
+#: jobs/templates/jobs/_project_body.html:195
 msgid "Пастда: {0} та нархланган смета"
 msgstr "Ниже: расценённых смет — {0}"
 
-#: jobs/templates/jobs/_project_body.html:201
+#: jobs/templates/jobs/_project_body.html:208
 msgid "Ҳаммасини бошлаш"
 msgstr "Начать все"
 
-#: jobs/templates/jobs/_project_body.html:202
+#: jobs/templates/jobs/_project_body.html:209
 msgid "та қисм нархланади · фоизлар бошлашда сўралади"
 msgstr "частей будет расценено · проценты спрашиваются при запуске"
 
@@ -6864,7 +7228,7 @@ msgid "{0} та қатор нархланмади"
 msgstr "Строк не расценено: {0}"
 
 #: jobs/templates/jobs/_project_part_head.html:27
-#: jobs/templates/jobs/_work_list.html:19 jobs/templates/jobs/job.html:62
+#: jobs/templates/jobs/_work_list.html:21 jobs/templates/jobs/job.html:62
 #: jobs/templates/jobs/job.html:1532 jobs/templates/jobs/landing.html:165
 msgid "Всего с НДС"
 msgstr "Всего с НДС"
@@ -7168,6 +7532,7 @@ msgstr ""
 #: jobs/templates/jobs/_sheet_viewer.html:34 jobs/templates/jobs/job.html:795
 #: jobs/templates/jobs/mark.html:220 jobs/templates/jobs/tender.html:101
 #: texnazor/templates/texnazor/_panel.html:56
+#: billing/templates/billing/profile.html:158
 msgid "йўқ"
 msgstr "нет"
 
@@ -7193,7 +7558,7 @@ msgid "Локал шу листдаги нархлар билан ҳисобла
 msgstr "Локальная будет рассчитана по ценам этого листа"
 
 #: jobs/templates/jobs/_sheet_viewer.html:34
-#: jobs/templates/jobs/_work_list.html:58 jobs/templates/jobs/index.html:519
+#: jobs/templates/jobs/_work_list.html:60 jobs/templates/jobs/index.html:519
 #: jobs/templates/jobs/job.html:519 jobs/templates/jobs/job.html:642
 #: jobs/templates/jobs/job.html:936 jobs/templates/jobs/job.html:1227
 #: jobs/templates/jobs/job.html:1577 jobs/templates/jobs/job.html:2324
@@ -7229,29 +7594,33 @@ msgstr "<div class=\"p-6 text-sm text-rose-700\">Не удалось откры�
 msgid "Бўлимлар"
 msgstr "Разделы"
 
-#: jobs/templates/jobs/_side.html:23 texnazor/templates/texnazor/acts.html:106
+#: jobs/templates/jobs/_side.html:24 billing/templates/billing/profile.html:6
+msgid "Баланс ва тариф"
+msgstr "Баланс и тариф"
+
+#: jobs/templates/jobs/_side.html:26 texnazor/templates/texnazor/acts.html:106
 #: support/templates/support/_widget.html:71
 msgid "Ёрдам"
 msgstr "Помощь"
 
-#: jobs/templates/jobs/_side.html:26 jobs/templates/jobs/_side.html:27
+#: jobs/templates/jobs/_side.html:29 jobs/templates/jobs/_side.html:30
 #: support/templates/support/_widget.html:78
 msgid "Ёрдам хизмати"
 msgstr "Служба поддержки"
 
-#: jobs/templates/jobs/_side.html:27 support/templates/support/_widget.html:72
+#: jobs/templates/jobs/_side.html:30 support/templates/support/_widget.html:72
 msgid "Янги жавоблар"
 msgstr "Новые ответы"
 
-#: jobs/templates/jobs/_side.html:39
+#: jobs/templates/jobs/_side.html:42
 msgid "Чиқиш"
 msgstr "Выйти"
 
-#: jobs/templates/jobs/_side.html:40
+#: jobs/templates/jobs/_side.html:43
 msgid "Менюни йиғиш / ёйиш"
 msgstr "Свернуть / развернуть меню"
 
-#: jobs/templates/jobs/_side.html:43
+#: jobs/templates/jobs/_side.html:46
 msgid "Менюни йиғиш"
 msgstr "Свернуть меню"
 
@@ -7274,6 +7643,10 @@ msgstr "Адрес · год"
 #: jobs/templates/jobs/_site_footer.html:7
 msgid "Пастки ҳаволалар"
 msgstr "Нижние ссылки"
+
+#: jobs/templates/jobs/_site_footer.html:12 jobs/templates/jobs/privacy.html:13
+msgid "Махфийлик сиёсати"
+msgstr "Политика конфиденциальности"
 
 #: jobs/templates/jobs/_site_header.html:4 jobs/templates/jobs/guide.html:18
 msgid "Саҳифа бўлимлари"
@@ -7394,74 +7767,83 @@ msgstr "Готово — начинайте"
 msgid "Сабаби: {0}"
 msgstr "Причина: {0}"
 
-#: jobs/templates/jobs/_work_list.html:25
+#: jobs/templates/jobs/_work_list.html:20
+msgid "Ҳаммаси юклаб олинган — қайта юклаш бепул"
+msgstr "Всё скачано — повторное скачивание бесплатно"
+
+#: jobs/templates/jobs/_work_list.html:20
+msgid "✓ тўланган"
+msgstr "✓ оплачено"
+
+#: jobs/templates/jobs/_work_list.html:27
 msgid "Тўхтатиш — очилганлари сақланади, кейин давом эттириш мумкин"
 msgstr "Остановить — открытые сохранятся, потом можно продолжить"
 
-#: jobs/templates/jobs/_work_list.html:25
+#: jobs/templates/jobs/_work_list.html:27
 msgid "Тўхтатиш: {0}"
 msgstr "Остановить: {0}"
 
-#: jobs/templates/jobs/_work_list.html:28 jobs/templates/jobs/dashboard.html:45
+#: jobs/templates/jobs/_work_list.html:30 jobs/templates/jobs/dashboard.html:46
 msgid "папка"
 msgstr "папка"
 
-#: jobs/templates/jobs/_work_list.html:28 jobs/templates/jobs/dashboard.html:64
+#: jobs/templates/jobs/_work_list.html:30 jobs/templates/jobs/dashboard.html:65
 msgid "объект"
 msgstr "объект"
 
-#: jobs/templates/jobs/_work_list.html:29
+#: jobs/templates/jobs/_work_list.html:31
 msgid "Тўхтатиб, тарихдан ўчириш"
 msgstr "Остановить и удалить из истории"
 
-#: jobs/templates/jobs/_work_list.html:29
+#: jobs/templates/jobs/_work_list.html:31
 msgid "Тарихдан ўчириш"
 msgstr "Удалить из истории"
 
-#: jobs/templates/jobs/_work_list.html:29
+#: jobs/templates/jobs/_work_list.html:31
 msgid "Ўчириш: {0}"
 msgstr "Удалить: {0}"
 
-#: jobs/templates/jobs/_work_list.html:31
-#: jobs/templates/jobs/_work_list.html:58
+#: jobs/templates/jobs/_work_list.html:33
+#: jobs/templates/jobs/_work_list.html:60
 msgid "Интернет ёки сервер билан алоқа узилди. Қайта уриниб кўринг."
 msgstr "Связь с интернетом или сервером прервалась. Попробуйте снова."
 
-#: jobs/templates/jobs/_work_list.html:31
-#: jobs/templates/jobs/_work_list.html:58
+#: jobs/templates/jobs/_work_list.html:33
+#: jobs/templates/jobs/_work_list.html:60
 msgid "Тармоқ хатоси"
 msgstr "Ошибка сети"
 
-#: jobs/templates/jobs/_work_list.html:31
+#: jobs/templates/jobs/_work_list.html:33
 msgid ") тарихдан ўчирилади.\n\n"
 msgstr ") будет удалено из истории.\n\n"
 
-#: jobs/templates/jobs/_work_list.html:31
+#: jobs/templates/jobs/_work_list.html:33
 msgid "Ҳозир ишланяпти — аввал тўхтатилади.\n"
 msgstr "Сейчас идёт обработка — сначала она будет остановлена.\n"
 
-#: jobs/templates/jobs/_work_list.html:31
+#: jobs/templates/jobs/_work_list.html:33
 msgid "Юкланган файллар ва натижалар бутунлай ўчади — қайтариб бўлмайди."
 msgstr "Загруженные файлы и результаты удалятся полностью — вернуть нельзя."
 
-#: jobs/templates/jobs/_work_list.html:31
+#: jobs/templates/jobs/_work_list.html:33
 msgid "Ўчирилсинми?"
 msgstr "Удалить?"
 
-#: jobs/templates/jobs/_work_list.html:31 jobs/templates/jobs/job.html:2324
+#: jobs/templates/jobs/_work_list.html:33 jobs/templates/jobs/job.html:2324
 #: texnazor/templates/texnazor/acts.html:41
 #: texnazor/templates/texnazor/acts.html:238
 #: texnazor/templates/texnazor/acts.html:748
 #: texnazor/templates/texnazor/mark.html:122
 #: texnazor/templates/texnazor/object.html:74
+#: billing/templates/billing/profile.html:159
 msgid "Ўчириш"
 msgstr "Удалить"
 
-#: jobs/templates/jobs/_work_list.html:58
+#: jobs/templates/jobs/_work_list.html:60
 msgid "Ўчириб бўлмади"
 msgstr "Удалить нельзя"
 
-#: jobs/templates/jobs/_work_list.html:58
+#: jobs/templates/jobs/_work_list.html:60
 msgid "Ўчирилмади"
 msgstr "Не удалено"
 
@@ -7485,29 +7867,29 @@ msgstr "Руководство: порядок работы и предупре�
 msgid "Йўриқнома"
 msgstr "Руководство"
 
-#: jobs/templates/jobs/base.html:101
+#: jobs/templates/jobs/base.html:102
 msgid "Текширув режими"
 msgstr "Режим проверки"
 
-#: jobs/templates/jobs/base.html:101 jobs/templates/jobs/ofyorta.html:107
+#: jobs/templates/jobs/base.html:102 jobs/templates/jobs/ofyorta.html:107
 msgid "Бу"
 msgstr "Это работа пользователя"
 
-#: jobs/templates/jobs/base.html:102
+#: jobs/templates/jobs/base.html:103
 msgid ""
 "({0}) иши — фақат кўриш ва юклаб олиш, ўзгартириб бўлмайди. Кўрганингиз журналга ёзилади."
 msgstr ""
 "({0}) — только просмотр и скачивание, изменить нельзя. Ваш просмотр записывается в журнал."
 
-#: jobs/templates/jobs/base.html:103
+#: jobs/templates/jobs/base.html:104
 msgid "Панелга"
 msgstr "В панель"
 
-#: jobs/templates/jobs/base.html:110
+#: jobs/templates/jobs/base.html:111
 msgid "Email тасдиқланмаган"
 msgstr "Email не подтверждён"
 
-#: jobs/templates/jobs/base.html:111
+#: jobs/templates/jobs/base.html:112
 msgid "{0} манзилини тасдиқланг — акс ҳолда паролни унутсангиз, тиклай олмайсиз."
 msgstr ""
 "Подтвердите адрес {0} — иначе, если забудете пароль, не сможете его восстановить."
@@ -7536,6 +7918,10 @@ msgstr ""
 msgid "Всего с НДС · {0} та смета"
 msgstr "Всего с НДС · смет: {0}"
 
+#: jobs/templates/jobs/batch.html:44
+msgid "· {0} / {1} қатор"
+msgstr "· {0} / {1} строк"
+
 #: jobs/templates/jobs/batch.html:47
 msgid "{0} тайёр"
 msgstr "Готово: {0}"
@@ -7555,6 +7941,10 @@ msgstr "Всё в одном файле"
 #: jobs/templates/jobs/batch.html:52
 msgid "{0} та смета · Excel"
 msgstr "смет: {0} · Excel"
+
+#: jobs/templates/jobs/batch.html:53
+msgid "тартиб билан · ҳар бири ўз сводкаси билан"
+msgstr "по порядку · каждая со своей сводкой"
 
 #: jobs/templates/jobs/batch.html:60
 msgid "Тўғирлаш керак"
@@ -8992,13 +9382,6 @@ msgstr "С НДС — НДС выделяется"
 msgid "Сумма"
 msgstr "Сумма"
 
-#: jobs/templates/jobs/calc.html:63 jobs/templates/jobs/tender.html:251
-#: jobs/templates/jobs/tender.html:276
-#: texnazor/templates/texnazor/_panel.html:12
-#: texnazor/templates/texnazor/choose.html:81
-msgid "сўм"
-msgstr "сум"
-
 #: jobs/templates/jobs/calc.html:63
 msgid "Ставка"
 msgstr "Ставка"
@@ -9455,290 +9838,296 @@ msgstr "Расценка смет"
 msgid "Смета файлларини ресурс базасидаги жорий нархлар билан нархлаш"
 msgstr "Расценка файлов смет по текущим ценам базы ресурсов"
 
-#: jobs/templates/jobs/dashboard.html:46
+#: jobs/templates/jobs/dashboard.html:45
+msgid "қатор нархланган"
+msgstr "строк расценено"
+
+#: jobs/templates/jobs/dashboard.html:47
 msgid "объект / смета"
 msgstr "объект / смета"
 
-#: jobs/templates/jobs/dashboard.html:47
+#: jobs/templates/jobs/dashboard.html:48
 msgid "иш эътибор кутяпти"
 msgstr "работ ждут внимания"
 
-#: jobs/templates/jobs/dashboard.html:51
+#: jobs/templates/jobs/dashboard.html:52
 msgid "охирги: {0}"
 msgstr "последняя: {0}"
 
-#: jobs/templates/jobs/dashboard.html:51
+#: jobs/templates/jobs/dashboard.html:52
 msgid "ҳали иш йўқ"
 msgstr "работ пока нет"
 
-#: jobs/templates/jobs/dashboard.html:57
+#: jobs/templates/jobs/dashboard.html:58
 msgid "Объект офёртаси бўйича бажарилган ишлар: далолатномалар, Ф-2, Ф-3, қолдиқ"
 msgstr "Выполненные работы по оферте объекта: акты, Ф-2, Ф-3, остаток"
 
-#: jobs/templates/jobs/dashboard.html:65
+#: jobs/templates/jobs/dashboard.html:66
 #: texnazor/templates/texnazor/acts.html:207
 msgid "далолатнома"
 msgstr "акт"
 
-#: jobs/templates/jobs/dashboard.html:66
+#: jobs/templates/jobs/dashboard.html:67
 #: texnazor/templates/texnazor/mark.html:168
 msgid "охирги иш"
 msgstr "последняя работа"
 
-#: jobs/templates/jobs/dashboard.html:69
+#: jobs/templates/jobs/dashboard.html:70
 msgid "Янги офёрта"
 msgstr "Новая оферта"
 
-#: jobs/templates/jobs/dashboard.html:70
+#: jobs/templates/jobs/dashboard.html:71
 msgid "Барча объектлар"
 msgstr "Все объекты"
 
-#: jobs/templates/jobs/dashboard.html:76
+#: jobs/templates/jobs/dashboard.html:77
 msgid "Охирги объектлар"
 msgstr "Последние объекты"
 
-#: jobs/templates/jobs/dashboard.html:76
+#: jobs/templates/jobs/dashboard.html:77
 msgid "— охирги ишлаганингиз биринчи"
 msgstr "— последний, с которым вы работали, первым"
 
-#: jobs/templates/jobs/dashboard.html:80
+#: jobs/templates/jobs/dashboard.html:81
 msgid "Барчаси {0} →"
 msgstr "Все {0} →"
 
-#: jobs/templates/jobs/dashboard.html:95
+#: jobs/templates/jobs/dashboard.html:96
 #: texnazor/templates/texnazor/acts.html:558
 msgid "ёзиляпти"
 msgstr "записывается"
 
-#: jobs/templates/jobs/dashboard.html:96
-#: texnazor/templates/texnazor/index.html:71
+#: jobs/templates/jobs/dashboard.html:97
+#: texnazor/templates/texnazor/index.html:77
 msgid "{0} та далолатнома"
 msgstr "Актов: {0}"
 
-#: jobs/templates/jobs/dashboard.html:96
+#: jobs/templates/jobs/dashboard.html:97
 msgid "· {0} таси ёпилган"
 msgstr "· закрыто: {0}"
 
-#: jobs/templates/jobs/dashboard.html:97
+#: jobs/templates/jobs/dashboard.html:98
 #: texnazor/templates/texnazor/loading.html:88
 #: texnazor/templates/texnazor/my_detail.html:25
 msgid "Офёрта тайёр"
 msgstr "Оферта готова"
 
-#: jobs/templates/jobs/dashboard.html:97
+#: jobs/templates/jobs/dashboard.html:98
 msgid "далолатнома ҳали йўқ"
 msgstr "актов пока нет"
 
-#: jobs/templates/jobs/dashboard.html:103
+#: jobs/templates/jobs/dashboard.html:104
 msgid "Ўқиляпти…"
 msgstr "Читается…"
 
-#: jobs/templates/jobs/dashboard.html:112
+#: jobs/templates/jobs/dashboard.html:113
 #: texnazor/templates/texnazor/index.html:20
 msgid "Ҳали объект йўқ"
 msgstr "Объектов пока нет"
 
-#: jobs/templates/jobs/dashboard.html:112
+#: jobs/templates/jobs/dashboard.html:113
 msgid "Офёртани юкланг — далолатномаларни шу ерда юритасиз."
 msgstr "Загрузите оферту — акты будете вести здесь."
 
-#: jobs/templates/jobs/dashboard.html:115
+#: jobs/templates/jobs/dashboard.html:116
 msgid "Офёрта юклаш"
 msgstr "Загрузить оферту"
 
-#: jobs/templates/jobs/dashboard.html:125
+#: jobs/templates/jobs/dashboard.html:126
 msgid "Ҳали ҳеч нарса юкланмаган"
 msgstr "Пока ничего не загружено"
 
-#: jobs/templates/jobs/dashboard.html:125
+#: jobs/templates/jobs/dashboard.html:126
 msgid "Биринчи папка ёки сметани юкланг — статистика шу ерда пайдо бўлади."
 msgstr "Загрузите первую папку или смету — здесь появится статистика."
 
-#: jobs/templates/jobs/dashboard.html:138
+#: jobs/templates/jobs/dashboard.html:139
 msgid "Жами сметалар"
 msgstr "Всего смет"
 
-#: jobs/templates/jobs/dashboard.html:139
+#: jobs/templates/jobs/dashboard.html:140
 msgid "Тайёр {0}% · нархсиз қатор бор {1}% · сизни кутяпти {2}%"
 msgstr "Готово {0}% · есть строки без цены {1}% · ждут вас {2}%"
 
-#: jobs/templates/jobs/dashboard.html:146
+#: jobs/templates/jobs/dashboard.html:147
 msgid "нархсиз қатор бор"
 msgstr "есть строки без цены"
 
-#: jobs/templates/jobs/dashboard.html:146
+#: jobs/templates/jobs/dashboard.html:147
 msgid "сизни кутяпти"
 msgstr "ждут вас"
 
-#: jobs/templates/jobs/dashboard.html:156
+#: jobs/templates/jobs/dashboard.html:157
 msgid "Тайёр — юклаб олса бўлади"
 msgstr "Готово — можно скачать"
 
-#: jobs/templates/jobs/dashboard.html:157
-#: jobs/templates/jobs/dashboard.html:168
-#: jobs/templates/jobs/dashboard.html:180
+#: jobs/templates/jobs/dashboard.html:158
+#: jobs/templates/jobs/dashboard.html:169
+#: jobs/templates/jobs/dashboard.html:181
 msgid "та смета"
 msgstr "смет"
 
-#: jobs/templates/jobs/dashboard.html:159
+#: jobs/templates/jobs/dashboard.html:160
 msgid "ҳамма қатори нархланган"
 msgstr "все строки расценены"
 
-#: jobs/templates/jobs/dashboard.html:161
-#: jobs/templates/jobs/dashboard.html:172
+#: jobs/templates/jobs/dashboard.html:162
+#: jobs/templates/jobs/dashboard.html:173
 msgid "{0} та иш →"
 msgstr "Работ: {0} →"
 
-#: jobs/templates/jobs/dashboard.html:167
+#: jobs/templates/jobs/dashboard.html:168
 msgid "Нарх ёзиш керак"
 msgstr "Нужно вписать цену"
 
-#: jobs/templates/jobs/dashboard.html:169
+#: jobs/templates/jobs/dashboard.html:170
 #: texnazor/templates/texnazor/mark.html:136
 #: texnazor/templates/texnazor/mark.html:168
+#: billing/templates/billing/profile.html:200
 msgid "жами"
 msgstr "всего"
 
-#: jobs/templates/jobs/dashboard.html:170
+#: jobs/templates/jobs/dashboard.html:171
 msgid "та қаторнинг нархи топилмади"
 msgstr "строк без найденной цены"
 
-#: jobs/templates/jobs/dashboard.html:170
+#: jobs/templates/jobs/dashboard.html:171
 msgid "сметани очиб, нархини қўйинг"
 msgstr "откройте смету и поставьте цену"
 
-#: jobs/templates/jobs/dashboard.html:173
+#: jobs/templates/jobs/dashboard.html:174
 msgid "Ҳамма қатор нархланган"
 msgstr "Все строки расценены"
 
-#: jobs/templates/jobs/dashboard.html:179
+#: jobs/templates/jobs/dashboard.html:180
 msgid "Сизни кутяпти"
 msgstr "Ждут вас"
 
-#: jobs/templates/jobs/dashboard.html:181
+#: jobs/templates/jobs/dashboard.html:182
 msgid "{0} ишланяпти"
 msgstr "В работе: {0}"
 
-#: jobs/templates/jobs/dashboard.html:183
+#: jobs/templates/jobs/dashboard.html:184
 msgid "ҳисоблаш бошланмаган"
 msgstr "расчёт не начат"
 
-#: jobs/templates/jobs/dashboard.html:184
+#: jobs/templates/jobs/dashboard.html:185
 msgid "ресурсни текширинг"
 msgstr "проверьте ресурс"
 
-#: jobs/templates/jobs/dashboard.html:190
-#: jobs/templates/jobs/dashboard.html:337
-#: texnazor/templates/texnazor/index.html:41
+#: jobs/templates/jobs/dashboard.html:191
+#: jobs/templates/jobs/dashboard.html:338
+#: texnazor/templates/texnazor/index.html:33
+#: texnazor/templates/texnazor/index.html:47
 msgid "Эътибор керак"
 msgstr "Требует внимания"
 
-#: jobs/templates/jobs/dashboard.html:194
+#: jobs/templates/jobs/dashboard.html:195
 msgid "Ҳаммаси пастда →"
 msgstr "Все ниже →"
 
-#: jobs/templates/jobs/dashboard.html:213
+#: jobs/templates/jobs/dashboard.html:214
 msgid "Ҳаммаси тайёр — сизни кутаётган иш йўқ."
 msgstr "Всё готово — работ, ожидающих вас, нет."
 
-#: jobs/templates/jobs/dashboard.html:217
-#: jobs/templates/jobs/dashboard.html:337
+#: jobs/templates/jobs/dashboard.html:218
+#: jobs/templates/jobs/dashboard.html:338
 msgid "Барча ишлар"
 msgstr "Все работы"
 
-#: jobs/templates/jobs/dashboard.html:222
+#: jobs/templates/jobs/dashboard.html:223
 msgid "Ном бўйича қидириш"
 msgstr "Поиск по названию"
 
-#: jobs/templates/jobs/dashboard.html:222
+#: jobs/templates/jobs/dashboard.html:223
 msgid "Тур"
 msgstr "Тип"
 
-#: jobs/templates/jobs/dashboard.html:222
+#: jobs/templates/jobs/dashboard.html:223
 msgid "Барча турлар"
 msgstr "Все типы"
 
-#: jobs/templates/jobs/dashboard.html:222
+#: jobs/templates/jobs/dashboard.html:223
 msgid "Папкалар ({0})"
 msgstr "Папки ({0})"
 
-#: jobs/templates/jobs/dashboard.html:227
+#: jobs/templates/jobs/dashboard.html:228
 msgid "Объектлар ({0})"
 msgstr "Объекты ({0})"
 
-#: jobs/templates/jobs/dashboard.html:228
+#: jobs/templates/jobs/dashboard.html:229
 msgid "Сметалар ({0})"
 msgstr "Сметы ({0})"
 
-#: jobs/templates/jobs/dashboard.html:239
+#: jobs/templates/jobs/dashboard.html:240
 msgid "Ҳаммасини кўрсатиш"
 msgstr "Показать все"
 
-#: jobs/templates/jobs/dashboard.html:239
+#: jobs/templates/jobs/dashboard.html:240
 msgid "Танланган шартга мос иш йўқ"
 msgstr "Нет работ, подходящих под условие"
 
-#: jobs/templates/jobs/dashboard.html:247
+#: jobs/templates/jobs/dashboard.html:248
 msgid "та кўрсатиш"
 msgstr "показать"
 
-#: jobs/templates/jobs/dashboard.html:247
+#: jobs/templates/jobs/dashboard.html:248
 msgid "кўрсатилди"
 msgstr "показано"
 
-#: jobs/templates/jobs/dashboard.html:337
+#: jobs/templates/jobs/dashboard.html:338
 msgid "Иккита бўлим"
 msgstr "Два раздела"
 
-#: jobs/templates/jobs/dashboard.html:337
+#: jobs/templates/jobs/dashboard.html:338
 msgid ""
 "<ul><li><b>Смета нархлаш</b> — сметаларни жорий нархлар билан нархлаш</li><li><b>Офёрта ва далолатнома</b> — объект офёртаси бўйича бажарилган ишлар</li></ul>"
 msgstr ""
 
-#: jobs/templates/jobs/dashboard.html:337
+#: jobs/templates/jobs/dashboard.html:338
 msgid ""
 "<div class='tip'>Картани босинг — пастда шу бўлимнинг охирги ишлари тартиб билан чиқади.</div>"
 msgstr ""
 "<div class='tip'>Нажмите на карточку — ниже по порядку появятся последние работы этого раздела.</div>"
 
-#: jobs/templates/jobs/dashboard.html:337
+#: jobs/templates/jobs/dashboard.html:338
 msgid "Ҳамма ишларингиз — бир қарашда"
 msgstr "Все ваши работы — одним взглядом"
 
-#: jobs/templates/jobs/dashboard.html:337
+#: jobs/templates/jobs/dashboard.html:338
 msgid ""
 "<ul><li><b>Жами сметалар</b> — чизиқ: <b class='text-emerald-700'>яшил</b> тайёр, <b class='text-rose-700'>қизил</b> нархсиз қатор бор, <b class='text-violet-700'>бинафша</b> сизни кутяпти</li>"
 msgstr ""
 
-#: jobs/templates/jobs/dashboard.html:337
+#: jobs/templates/jobs/dashboard.html:338
 msgid ""
 "<li><b>Тайёр</b> — тўлиқ нархланган, юклаб олса бўлади</li><li><b>Нарх ёзиш керак</b> — айрим қаторларнинг нархи топилмаган</li>"
 msgstr ""
 "<li><b>Готово</b> — расценено полностью, можно скачать</li><li><b>Нужно вписать цену</b> — для некоторых строк цена не найдена</li>"
 
-#: jobs/templates/jobs/dashboard.html:337
+#: jobs/templates/jobs/dashboard.html:338
 msgid ""
 "<li><b>Сизни кутяпти</b> — ҳисоблашни бошлаш ёки ресурсни текшириш керак</li></ul><div class='tip'>Картани босинг — пастдаги рўйхат шу ҳолат бўйича сараланади.</div>"
 msgstr ""
 
-#: jobs/templates/jobs/dashboard.html:337
+#: jobs/templates/jobs/dashboard.html:338
 msgid ""
 "<p>Сизни кутаётган ишлар. Ҳар бирининг ёнида нима қилиш кераклиги ёзилган:</p>"
 msgstr "<p>Работы, ожидающие вас. Рядом с каждой написано, что нужно сделать:</p>"
 
-#: jobs/templates/jobs/dashboard.html:337
+#: jobs/templates/jobs/dashboard.html:338
 msgid ""
 "<ul><li><b class='text-rose-700'>нарх ёзиш</b> — нархсиз қаторлар бор</li><li><b class='text-violet-700'>ҳисоблашни бошлаш</b> — файллар очилди, сизни кутяпти</li>"
 msgstr ""
 "<ul><li><b class='text-rose-700'>вписать цену</b> — есть строки без цены</li><li><b class='text-violet-700'>начать расчёт</b> — файлы открыты, ждут вас</li>"
 
-#: jobs/templates/jobs/dashboard.html:337
+#: jobs/templates/jobs/dashboard.html:338
 msgid ""
 "<li><b class='text-amber-700'>текшириш</b> — ресурсни ўзингиз танлашингиз керак</li></ul><div class='tip'>Қаторни босинг — иш очилади.</div>"
 msgstr ""
 "<li><b class='text-amber-700'>проверить</b> — ресурс нужно выбрать самому</li></ul><div class='tip'>Нажмите на строку — работа откроется.</div>"
 
-#: jobs/templates/jobs/dashboard.html:337
+#: jobs/templates/jobs/dashboard.html:338
 msgid ""
 "<p>Ҳамма папка, объект ва сметаларингиз.</p><ul><li>Номи бўйича <b>қидиринг</b></li><li>Ҳолати бўйича <b>фильтрланг</b></li></ul>"
 msgstr ""
@@ -12107,9 +12496,9 @@ msgstr ""
 #: texnazor/templates/texnazor/_panel.html:45
 #: texnazor/templates/texnazor/_panel.html:53
 #: texnazor/templates/texnazor/_summary.html:18
-#: texnazor/templates/texnazor/index.html:31
-#: texnazor/templates/texnazor/index.html:41
+#: texnazor/templates/texnazor/index.html:47
 #: texnazor/templates/texnazor/object.html:116
+#: billing/templates/billing/profile.html:283
 msgid "Қолдиқ"
 msgstr ""
 
@@ -12139,10 +12528,6 @@ msgstr ""
 
 #: jobs/templates/jobs/landing.html:280
 msgid "блогда"
-msgstr ""
-
-#: jobs/templates/jobs/landing.html:280
-msgid "ва"
 msgstr ""
 
 #: jobs/templates/jobs/landing.html:280
@@ -12704,6 +13089,26 @@ msgstr "✓ добавлено"
 msgid "қўшиляпти…"
 msgstr "добавляется…"
 
+#: jobs/templates/jobs/privacy.html:15
+msgid "Янгиланди: {0}"
+msgstr "Обновлено: {0}"
+
+#: jobs/templates/jobs/privacy.html:16 jobs/templates/jobs/terms.html:16
+msgid "Мундарижа"
+msgstr "Содержание"
+
+#: jobs/templates/jobs/privacy.html:16 jobs/templates/jobs/terms.html:16
+msgid "Яна қаранг:"
+msgstr "См. также:"
+
+#: jobs/templates/jobs/privacy.html:21 jobs/templates/jobs/terms.html:21
+msgid "Саволлар бўлса —"
+msgstr "Если есть вопросы —"
+
+#: jobs/templates/jobs/privacy.html:22 jobs/templates/jobs/terms.html:22
+msgid "биз билан боғланинг"
+msgstr "свяжитесь с нами"
+
 #: jobs/templates/jobs/project.html:120
 msgid "<div class=\"pp-loading\">Листлар очиляпти…</div>"
 msgstr "<div class=\"pp-loading\">Открываются листы…</div>"
@@ -12995,10 +13400,6 @@ msgstr ""
 msgid "Фойда улуши"
 msgstr ""
 
-#: jobs/templates/jobs/tender.html:80 jobs/templates/jobs/tender.html:167
-msgid "{0} сўм"
-msgstr ""
-
 #: jobs/templates/jobs/tender.html:86
 msgid "Маълумот етарли эмас:"
 msgstr ""
@@ -13281,19 +13682,7 @@ msgstr ""
 
 #: jobs/templates/jobs/terms.html:15
 msgid "{0}-таҳрир"
-msgstr ""
-
-#: jobs/templates/jobs/terms.html:16
-msgid "Мундарижа"
-msgstr ""
-
-#: jobs/templates/jobs/terms.html:16
-msgid "Саволлар бўлса —"
-msgstr ""
-
-#: jobs/templates/jobs/terms.html:21
-msgid "биз билан боғланинг"
-msgstr ""
+msgstr "Редакция {0}"
 
 #: texnazor/templates/texnazor/_confirm2.html:5
 msgid "-қадам, 2 тадан"
@@ -13546,7 +13935,7 @@ msgstr "например Ташкентская область, Чиназски
 
 #: texnazor/templates/texnazor/_info.html:15
 #: texnazor/templates/texnazor/create.html:74
-#: texnazor/templates/texnazor/index.html:41
+#: texnazor/templates/texnazor/index.html:47
 msgid "Шартнома"
 msgstr "Договор"
 
@@ -14785,7 +15174,7 @@ msgstr "Все акты"
 
 #: texnazor/templates/texnazor/acts.html:255
 #: texnazor/templates/texnazor/acts.html:269
-#: texnazor/templates/texnazor/index.html:41
+#: texnazor/templates/texnazor/index.html:47
 msgid "Бажарилди"
 msgstr "Выполнено"
 
@@ -14794,7 +15183,7 @@ msgid "Далолатнома ёпилди — ҳажмлари энди ўзг�
 msgstr "Акт закрыт — его объёмы больше не меняются."
 
 #: texnazor/templates/texnazor/acts.html:273
-#: texnazor/templates/texnazor/acts.html:2009
+#: texnazor/templates/texnazor/acts.html:2010
 msgid "Excel'ни юклаб олиш"
 msgstr "Скачать Excel"
 
@@ -15100,36 +15489,36 @@ msgstr "Отменить свёртку: эти строки снова верн
 msgid "Блокларни ёйиш"
 msgstr "Развернуть блоки"
 
-#: texnazor/templates/texnazor/acts.html:1984
-#: texnazor/templates/texnazor/acts.html:2009
+#: texnazor/templates/texnazor/acts.html:1985
+#: texnazor/templates/texnazor/acts.html:2010
 msgid "Далолатнома №"
 msgstr "Акт №"
 
-#: texnazor/templates/texnazor/acts.html:1984
+#: texnazor/templates/texnazor/acts.html:1985
 msgid "номи (бўш қолса — фақат рақам)"
 msgstr "название (если пусто — только номер)"
 
-#: texnazor/templates/texnazor/acts.html:1984
+#: texnazor/templates/texnazor/acts.html:1985
 msgid "номи"
 msgstr "название"
 
-#: texnazor/templates/texnazor/acts.html:1984
+#: texnazor/templates/texnazor/acts.html:1985
 msgid "масалан: Пойдевор ёки Октябрь 2026"
 msgstr "например: Фундамент или Октябрь 2026"
 
-#: texnazor/templates/texnazor/acts.html:2008
+#: texnazor/templates/texnazor/acts.html:2009
 msgid "тугатилган · Excel"
 msgstr "завершён · Excel"
 
-#: texnazor/templates/texnazor/acts.html:2009
+#: texnazor/templates/texnazor/acts.html:2010
 msgid "ни тугатиш"
 msgstr "— завершить"
 
-#: texnazor/templates/texnazor/acts.html:2009
+#: texnazor/templates/texnazor/acts.html:2010
 msgid "ни тугатиш (ёпиш) ва Excel'ни юклаб олиш"
 msgstr "— завершить (закрыть) и скачать Excel"
 
-#: texnazor/templates/texnazor/acts.html:2009
+#: texnazor/templates/texnazor/acts.html:2010
 msgid ""
 "\n"
 "Босиб туриб суриш мумкин · ўнг тугма — ўз жойига"
@@ -15137,67 +15526,67 @@ msgstr ""
 "\n"
 "Можно перетащить, удерживая · правая кнопка — на место"
 
-#: texnazor/templates/texnazor/acts.html:2009
+#: texnazor/templates/texnazor/acts.html:2010
 msgid "Далолатнома"
 msgstr "Акт"
 
-#: texnazor/templates/texnazor/acts.html:2009
+#: texnazor/templates/texnazor/acts.html:2010
 msgid "тугатилди"
 msgstr "завершён"
 
-#: texnazor/templates/texnazor/acts.html:2009
+#: texnazor/templates/texnazor/acts.html:2010
 msgid "Ф-2 №"
 msgstr "Ф-2 №"
 
-#: texnazor/templates/texnazor/acts.html:2071
+#: texnazor/templates/texnazor/acts.html:2072
 msgid "Тугма ўз жойига қайтди"
 msgstr "Кнопка вернулась на место"
 
-#: texnazor/templates/texnazor/acts.html:2071
+#: texnazor/templates/texnazor/acts.html:2072
 msgid "очиляпти…"
 msgstr "открывается…"
 
-#: texnazor/templates/texnazor/acts.html:2071
+#: texnazor/templates/texnazor/acts.html:2072
 msgid "ёпиляпти…"
 msgstr "закрывается…"
 
-#: texnazor/templates/texnazor/acts.html:2071
+#: texnazor/templates/texnazor/acts.html:2072
 msgid "ёпилган — ўчириш учун аввал очинг (Alt+L)"
 msgstr "закрыт — чтобы удалить, сначала откройте (Alt+L)"
 
-#: texnazor/templates/texnazor/acts.html:2071
+#: texnazor/templates/texnazor/acts.html:2072
 msgid "Янги далолатнома очиляпти…"
 msgstr "Открывается новый акт…"
 
-#: texnazor/templates/texnazor/acts.html:2071
+#: texnazor/templates/texnazor/acts.html:2072
 msgid "Текширилмоқда…"
 msgstr "Проверяется…"
 
-#: texnazor/templates/texnazor/acts.html:2218
+#: texnazor/templates/texnazor/acts.html:2219
 msgid "<b>✓ Тўғри:</b>"
 msgstr "<b>✓ Верно:</b>"
 
-#: texnazor/templates/texnazor/acts.html:2218
+#: texnazor/templates/texnazor/acts.html:2219
 msgid "<b>✗ Ҳали тўғри эмас:</b>"
 msgstr "<b>✗ Пока неверно:</b>"
 
-#: texnazor/templates/texnazor/acts.html:2218
+#: texnazor/templates/texnazor/acts.html:2219
 msgid "тўлиқ ҳажмда"
 msgstr "при полном объёме"
 
-#: texnazor/templates/texnazor/acts.html:2218
+#: texnazor/templates/texnazor/acts.html:2219
 msgid "(файлда"
 msgstr "(в файле"
 
-#: texnazor/templates/texnazor/acts.html:2218
+#: texnazor/templates/texnazor/acts.html:2219
 msgid "), ярим ҳажмда"
 msgstr "), при половине объёма"
 
-#: texnazor/templates/texnazor/acts.html:2218
+#: texnazor/templates/texnazor/acts.html:2219
 msgid ", бўш далолатномада"
 msgstr ", в пустом акте"
 
-#: texnazor/templates/texnazor/acts.html:2218
+#: texnazor/templates/texnazor/acts.html:2219
 msgid "Текшириб бўлмади — қайта уриниб кўринг"
 msgstr "Не удалось проверить — попробуйте снова"
 
@@ -15402,7 +15791,7 @@ msgid "да нархланган сметалардан тузинг."
 msgstr " составьте её из расценённых смет."
 
 #: texnazor/templates/texnazor/create.html:37
-#: texnazor/templates/texnazor/index.html:61
+#: texnazor/templates/texnazor/index.html:67
 msgid "Офёрта файли"
 msgstr "Файл оферты"
 
@@ -15468,88 +15857,109 @@ msgstr "В работе: {0} · завершено: {1}"
 msgid "· {0} бошланмаган"
 msgstr "· не начато: {0}"
 
-#: texnazor/templates/texnazor/index.html:28
-msgid "Шартнома жами"
-msgstr "Итого по договору"
+#: texnazor/templates/texnazor/index.html:30
+msgid "{0} ёпилган · {1} очиқ"
+msgstr "{0} закрыто · {1} открыто"
 
-#: texnazor/templates/texnazor/index.html:29
-msgid "сўм, ҚҚС билан"
-msgstr "сум, с НДС"
+#: texnazor/templates/texnazor/index.html:30
+msgid "ҳали тузилмаган"
+msgstr "ещё не составлены"
 
-#: texnazor/templates/texnazor/index.html:29
-#: texnazor/templates/texnazor/index.html:41
-msgid "Бажарилган"
-msgstr "Выполнено"
+#: texnazor/templates/texnazor/index.html:30
+msgid "Шу ойда · {0}"
+msgstr "В этом месяце · {0}"
 
 #: texnazor/templates/texnazor/index.html:31
-msgid "{0}% бажарилди"
-msgstr "Выполнено {0}%"
+msgid "та далолатнома"
+msgstr "актов"
 
 #: texnazor/templates/texnazor/index.html:32
-msgid "ҳали бажарилмаган"
-msgstr "пока не выполнено"
+msgid "{0} объектда ҳали йўқ"
+msgstr "на {0} объектах ещё нет"
 
-#: texnazor/templates/texnazor/index.html:38
+#: texnazor/templates/texnazor/index.html:32
+msgid "ҳамма объектда бор"
+msgstr "есть на всех объектах"
+
+#: texnazor/templates/texnazor/index.html:35
+msgid "офёртаси тайёр эмас — кўриш →"
+msgstr "оферта не готова — посмотреть →"
+
+#: texnazor/templates/texnazor/index.html:35
+msgid "ҳаммаси жойида"
+msgstr "всё в порядке"
+
+#: texnazor/templates/texnazor/index.html:36
+msgid "Охирги иш · {0}"
+msgstr "Последняя работа · {0}"
+
+#: texnazor/templates/texnazor/index.html:44
 msgid "Жараёнда"
 msgstr "В работе"
 
-#: texnazor/templates/texnazor/index.html:39
+#: texnazor/templates/texnazor/index.html:45
 msgid "Тугаган"
 msgstr "Завершён"
 
-#: texnazor/templates/texnazor/index.html:40
+#: texnazor/templates/texnazor/index.html:46
 msgid "Бошланмаган"
 msgstr "Не начат"
 
-#: texnazor/templates/texnazor/index.html:41
+#: texnazor/templates/texnazor/index.html:47
 msgid "Саралаш"
 msgstr "Сортировка"
 
-#: texnazor/templates/texnazor/index.html:41
+#: texnazor/templates/texnazor/index.html:47
 msgid "Янгилари биринчи"
 msgstr "Сначала новые"
 
-#: texnazor/templates/texnazor/index.html:41
+#: texnazor/templates/texnazor/index.html:47
 msgid "Кўп бажарилгани"
 msgstr "Больше выполнено"
 
-#: texnazor/templates/texnazor/index.html:41
+#: texnazor/templates/texnazor/index.html:47
 msgid "Шартнома суммаси"
 msgstr "Сумма договора"
 
-#: texnazor/templates/texnazor/index.html:41
+#: texnazor/templates/texnazor/index.html:47
 msgid "Қолдиғи кўпи"
 msgstr "Больший остаток"
 
-#: texnazor/templates/texnazor/index.html:41
+#: texnazor/templates/texnazor/index.html:47
 msgid "Номи бўйича"
 msgstr "По названию"
 
-#: texnazor/templates/texnazor/index.html:64
+#: texnazor/templates/texnazor/index.html:47
+msgid "Бажарилган"
+msgstr "Выполнено"
+
+#: texnazor/templates/texnazor/index.html:70
 msgid "Офёрта ўқилмоқда…"
 msgstr "Оферта читается…"
 
-#: texnazor/templates/texnazor/index.html:65
+#: texnazor/templates/texnazor/index.html:71
 msgid "Офёрта листини танланг →"
 msgstr "Выберите лист оферты →"
 
-#: texnazor/templates/texnazor/index.html:66
+#: texnazor/templates/texnazor/index.html:72
 msgid "Жадвални белгиланг →"
 msgstr "Разметьте таблицу →"
 
-#: texnazor/templates/texnazor/index.html:67
+#: texnazor/templates/texnazor/index.html:73
 msgid "Офёрта ўқилмади — сабабини кўринг"
 msgstr "Оферта не прочитана — посмотрите причину"
 
-#: texnazor/templates/texnazor/index.html:71
+#: texnazor/templates/texnazor/index.html:77
 msgid "далолатнома йўқ"
 msgstr "актов нет"
 
-#: texnazor/templates/texnazor/index.html:71
+#: texnazor/templates/texnazor/index.html:77
+#: billing/templates/billing/profile.html:186
+#: billing/templates/billing/profile.html:246
 msgid "{0} ой"
 msgstr "{0} мес."
 
-#: texnazor/templates/texnazor/index.html:80
+#: texnazor/templates/texnazor/index.html:86
 msgid "Бундай объект топилмади"
 msgstr "Такой объект не найден"
 
@@ -16504,4 +16914,627 @@ msgstr "Объявление"
 #: news/templates/news/_modal.html:43
 msgid "та янги"
 msgstr "новых"
+
+#: billing/templates/billing/_tag.html:1
+msgid "Юклаб олишда балансдан ечилади (бир марта)"
+msgstr "Списывается с баланса при скачивании (один раз)"
+
+#: billing/templates/billing/_tag.html:1
+msgid "Тарифдаги қаторлардан"
+msgstr "Из строк тарифа"
+
+#: billing/templates/billing/_tag.html:1
+msgid "Аввал тўланган — бепул"
+msgstr "Уже оплачено — бесплатно"
+
+#: billing/templates/billing/blocked.html:3
+msgid "Балансда пул етмайди — mhisobot"
+msgstr "Недостаточно средств — mhisobot"
+
+#: billing/templates/billing/blocked.html:9
+msgid "Юклаб олиш учун балансда пул етмайди"
+msgstr "Для скачивания недостаточно средств на балансе"
+
+#: billing/templates/billing/blocked.html:9
+msgid ""
+"Натижа тайёр ва сақланган — балансни тўлдириб, шу ерга қайтсангиз, дарров юклаб оласиз."
+msgstr ""
+"Результат готов и сохранён — пополните баланс и вернитесь сюда, чтобы сразу скачать."
+
+#: billing/templates/billing/blocked.html:13
+#: billing/templates/billing/confirm.html:13
+msgid "Нархланган қатор"
+msgstr "Расценённых строк"
+
+#: billing/templates/billing/blocked.html:14
+msgid "Тарифда қолган"
+msgstr "Осталось в тарифе"
+
+#: billing/templates/billing/blocked.html:15
+#: billing/templates/billing/confirm.html:15
+msgid "Балансдан · ҳар қатор {0} сўм"
+msgstr "С баланса · {0} сум за строку"
+
+#: billing/templates/billing/blocked.html:17
+#: billing/templates/billing/confirm.html:17
+msgid "Техназор объекти, шу ой учун"
+msgstr "Объект технадзора, за этот месяц"
+
+#: billing/templates/billing/blocked.html:19
+msgid "Керак"
+msgstr "Нужно"
+
+#: billing/templates/billing/blocked.html:20
+msgid "Балансда"
+msgstr "На балансе"
+
+#: billing/templates/billing/blocked.html:21
+msgid "Етмайди"
+msgstr "Не хватает"
+
+#: billing/templates/billing/blocked.html:26
+#: billing/templates/billing/profile.html:148
+#: billing/templates/billing/profile.html:215
+#: billing/templates/billing/profile.html:351
+msgid "Балансни тўлдириш"
+msgstr "Пополнить баланс"
+
+#: billing/templates/billing/blocked.html:26
+msgid "Ёки тарифга ўтинг: ойлик қаторлар билан ҳар бир қатор арзонроқ тушади —"
+msgstr "Или перейдите на тариф: с месячным пакетом строк каждая строка дешевле —"
+
+#: billing/templates/billing/blocked.html:28
+#: billing/templates/billing/confirm.html:27
+msgid "тарифлар"
+msgstr "тарифы"
+
+#: billing/templates/billing/confirm.html:3
+msgid "Юклаб олишни тасдиқлаш — mhisobot"
+msgstr "Подтверждение скачивания — mhisobot"
+
+#: billing/templates/billing/confirm.html:9
+msgid "Балансдан {0} сўм ечилади"
+msgstr "С баланса будет списано {0} сум"
+
+#: billing/templates/billing/confirm.html:11
+msgid "{0} та файлдан пули ҳали тўланмаганлари учун."
+msgstr "За ещё не оплаченные файлы ({0})."
+
+#: billing/templates/billing/confirm.html:11
+msgid "Шу файл учун — бир марта; кейин қайта юклаб олиш бепул."
+msgstr "За этот файл — один раз; повторное скачивание бесплатно."
+
+#: billing/templates/billing/confirm.html:14
+msgid "Тарифдан"
+msgstr "Из тарифа"
+
+#: billing/templates/billing/confirm.html:19
+msgid "Ечилади"
+msgstr "Списывается"
+
+#: billing/templates/billing/confirm.html:25
+msgid "Тасдиқлаш ва юклаб олиш"
+msgstr "Подтвердить и скачать"
+
+#: billing/templates/billing/confirm.html:25
+msgid "Тарифингиз:"
+msgstr "Ваш тариф:"
+
+#: billing/templates/billing/confirm.html:27
+msgid "· шу даврда {0} / {1} қатор. Каттароқ тариф арзонроқ тушади —"
+msgstr "· за период {0} / {1} строк. Тариф побольше выгоднее —"
+
+#: billing/templates/billing/profile.html:3
+msgid "Баланс ва тариф — mhisobot"
+msgstr "Баланс и тариф — mhisobot"
+
+#: billing/templates/billing/profile.html:6
+msgid ""
+"Нархлаш, натижани кўриш ва тузатиш бепул — пул фақат тайёр файлни юклаб олганда ечилади, ҳар файл учун бир марта."
+msgstr ""
+"Расценка, просмотр результата и правки бесплатны — деньги списываются только при скачивании готового файла, один раз за файл."
+
+#: billing/templates/billing/profile.html:135
+msgid "Ҳозир ҳамма нарса бепул."
+msgstr "Сейчас всё бесплатно."
+
+#: billing/templates/billing/profile.html:135
+msgid "Тўлов ёқилганда баланс, тариф ва ечимлар шу саҳифада кўринади."
+msgstr ""
+"Когда оплата будет включена, баланс, тариф и списания появятся на этой странице."
+
+#: billing/templates/billing/profile.html:137
+msgid "Сиз тизим ходимисиз — тўламайсиз."
+msgstr "Вы сотрудник системы — оплата не требуется."
+
+#: billing/templates/billing/profile.html:137
+msgid "Саҳифа фойдаланувчилар қандай кўришини кўрсатади."
+msgstr "Страница показывает, как её видят пользователи."
+
+#: billing/templates/billing/profile.html:140
+msgid "Ҳисобим"
+msgstr "Мой счёт"
+
+#: billing/templates/billing/profile.html:146
+msgid "Ҳақиқий пул"
+msgstr "Реальные деньги"
+
+#: billing/templates/billing/profile.html:146
+msgid "Совға пул: аввал шундан ечилади, қайтарилмайди"
+msgstr "Подарочные деньги: списываются первыми, не возвращаются"
+
+#: billing/templates/billing/profile.html:147
+msgid "Тариф ва тарифдан ошган қаторлар шундан ечилади"
+msgstr "С него списываются тариф и строки сверх тарифа"
+
+#: billing/templates/billing/profile.html:149
+msgid "Тўлов учун аввал"
+msgstr "Для оплаты сначала"
+
+#: billing/templates/billing/profile.html:149
+msgid "email'ни тасдиқланг"
+msgstr "подтвердите email"
+
+#: billing/templates/billing/profile.html:153
+msgid "· {0} ой"
+msgstr "· {0} мес."
+
+#: billing/templates/billing/profile.html:154
+msgid "{0} гача · {1} кун қолди"
+msgstr "до {0} · осталось {1} дн."
+
+#: billing/templates/billing/profile.html:154
+msgid "· совға"
+msgstr "· подарок"
+
+#: billing/templates/billing/profile.html:154
+msgid "бепул · ҳар ой 1-кунида янгиланади"
+msgstr "бесплатный · обновляется 1-го числа каждого месяца"
+
+#: billing/templates/billing/profile.html:157
+msgid "Тугаганда ўзи янгилансин:"
+msgstr "Продлевать автоматически:"
+
+#: billing/templates/billing/profile.html:158
+msgid "ҳа"
+msgstr "да"
+
+#: billing/templates/billing/profile.html:161
+msgid "Тарифни танлаш"
+msgstr "Выбрать тариф"
+
+#: billing/templates/billing/profile.html:162
+msgid "{0} дан —"
+msgstr "С {0} —"
+
+#: billing/templates/billing/profile.html:162
+msgid ", {0} ой"
+msgstr ", {0} мес."
+
+#: billing/templates/billing/profile.html:162
+msgid "Шу ойда · {0} – {1}"
+msgstr "В этом месяце · {0} – {1}"
+
+#: billing/templates/billing/profile.html:165
+msgid "Смета қаторлари"
+msgstr "Строки смет"
+
+#: billing/templates/billing/profile.html:168
+msgid "Техназор объектлари"
+msgstr "Объекты технадзора"
+
+#: billing/templates/billing/profile.html:172
+msgid "Тугаса: ҳар қатор {0} сўм, ҳар объект ойига {1} сўм — балансдан"
+msgstr "Сверх лимита: строка {0} сум, объект {1} сум в месяц — с баланса"
+
+#: billing/templates/billing/profile.html:178
+msgid "Тарифлар"
+msgstr "Тарифы"
+
+#: billing/templates/billing/profile.html:178
+msgid ""
+"Ойлик қатор ва объектлар тўплами. Узоқ муддатга олсангиз — арзонроқ. Ҳар тарифда «Батафсил» — нима киради ва қандай ҳисобланади."
+msgstr ""
+"Месячный пакет строк и объектов. На длительный срок — дешевле. В каждом тарифе «Подробнее» — что входит и как считается."
+
+#: billing/templates/billing/profile.html:178
+msgid "Муддат"
+msgstr "Срок"
+
+#: billing/templates/billing/profile.html:186
+#: billing/templates/billing/profile.html:246
+msgid "1 йил"
+msgstr "1 год"
+
+#: billing/templates/billing/profile.html:194
+msgid "Ҳозирги"
+msgstr "Текущий"
+
+#: billing/templates/billing/profile.html:194
+msgid "Акция −{0}%"
+msgstr "Акция −{0}%"
+
+#: billing/templates/billing/profile.html:199
+msgid "сўм / ой"
+msgstr "сум / мес"
+
+#: billing/templates/billing/profile.html:200
+msgid "бепул, ҳар ой янгиланади"
+msgstr "бесплатно, обновляется каждый месяц"
+
+#: billing/templates/billing/profile.html:200
+msgid "сўм {0} ойга"
+msgstr "сум за {0} мес."
+
+#: billing/templates/billing/profile.html:200
+msgid "сўм ўрнига"
+msgstr "сум вместо"
+
+#: billing/templates/billing/profile.html:201
+msgid "{0} сўм тежайсиз (−{1}%)"
+msgstr "экономия {0} сум (−{1}%)"
+
+#: billing/templates/billing/profile.html:202
+msgid "Ўтсангиз: тўлов йўқ, {0} сўм балансга қайтади"
+msgstr "При переходе: оплаты нет, {0} сум вернётся на баланс"
+
+#: billing/templates/billing/profile.html:202
+msgid "Ўтсангиз: {0} сўм тўлайсиз — ҳозиргисидан {1} сўм айрилди"
+msgstr "При переходе: заплатите {0} сум — {1} сум зачтено от текущего"
+
+#: billing/templates/billing/profile.html:202
+msgid "Ўтсангиз: {0} сўм тўлайсиз"
+msgstr "При переходе: заплатите {0} сум"
+
+#: billing/templates/billing/profile.html:205
+msgid "Ҳозирги тарифингиз"
+msgstr "Ваш текущий тариф"
+
+#: billing/templates/billing/profile.html:205
+msgid "Тариф тугагач — шу"
+msgstr "После окончания тарифа"
+
+#: billing/templates/billing/profile.html:208
+msgid "{0} дан ўтасиз"
+msgstr "Переход с {0}"
+
+#: billing/templates/billing/profile.html:211
+msgid ""
+"Ҳозирги «{0}» тарифингиз {1} гача ишлайди. Шу куни «{2}» тарифига {3} ойга ўтасиз — ўшанда балансдан {4} сўм ечилади."
+msgstr ""
+"Текущий тариф «{0}» действует до {1}. В этот день вы перейдёте на тариф «{2}» на {3} мес. — тогда с баланса спишется {4} сум."
+
+#: billing/templates/billing/profile.html:211
+msgid "«{0}» тарифига ўтиш"
+msgstr "Переход на тариф «{0}»"
+
+#: billing/templates/billing/profile.html:211
+msgid "Кейинги даврдан ўтиш"
+msgstr "Перейти со следующего периода"
+
+#: billing/templates/billing/profile.html:212
+msgid "Кейинги даврдан"
+msgstr "Со следующего периода"
+
+#: billing/templates/billing/profile.html:215
+msgid "«{0}» ({1} ой) учун балансда {2} сўм етмайди"
+msgstr "Для «{0}» ({1} мес.) на балансе не хватает {2} сум"
+
+#: billing/templates/billing/profile.html:217
+msgid ""
+"«{0}», {1} ой: {2} сўм&#10;Ҳозирги «{3}»нинг ишлатилмаган қисми: −{4} сўм&#10;"
+msgstr ""
+"«{0}», {1} мес.: {2} сум&#10;Неиспользованная часть текущего «{3}»: −{4} сум&#10;"
+
+#: billing/templates/billing/profile.html:217
+msgid "Балансдан ҳеч нарса ечилмайди, ортиб қолган {0} сўм балансга қайтади."
+msgstr "С баланса ничего не спишется, остаток {0} сум вернётся на баланс."
+
+#: billing/templates/billing/profile.html:217
+msgid "Балансдан ечилади: {0} сўм (фақат фарқи)."
+msgstr "С баланса спишется: {0} сум (только разница)."
+
+#: billing/templates/billing/profile.html:217
+msgid ""
+"&#10;&#10;«{0}» шу ондан тугайди, «{1}» бугундан {2} ой ишлайди, қаторлар янгидан саналади. Пул икки марта ечилмайди."
+msgstr ""
+"&#10;&#10;«{0}» заканчивается сейчас, «{1}» действует с сегодняшнего дня {2} мес., строки считаются заново. Деньги дважды не списываются."
+
+#: billing/templates/billing/profile.html:217
+msgid "Балансдан {0} сўм ечилади, «{1}» бугундан {2} ой ишлайди."
+msgstr ""
+"С баланса спишется {0} сум, «{1}» будет действовать с сегодняшнего дня {2} мес."
+
+#: billing/templates/billing/profile.html:217
+msgid "«{0}» тарифи · {1} ой"
+msgstr "Тариф «{0}» · {1} мес."
+
+#: billing/templates/billing/profile.html:217
+#: billing/templates/billing/profile.html:219
+msgid "Ўтиш"
+msgstr "Перейти"
+
+#: billing/templates/billing/profile.html:217
+#: billing/templates/billing/profile.html:219
+msgid "Сотиб олиш"
+msgstr "Купить"
+
+#: billing/templates/billing/profile.html:225
+msgid "қатор ойига"
+msgstr "строк в месяц"
+
+#: billing/templates/billing/profile.html:225
+msgid "≈ {0} та смета"
+msgstr "≈ {0} смет"
+
+#: billing/templates/billing/profile.html:226
+msgid "та техназор объекти ойига"
+msgstr "объектов технадзора в месяц"
+
+#: billing/templates/billing/profile.html:227
+msgid "Нархлаш, кўриш, тузатиш — чексиз"
+msgstr "Расценка, просмотр, правка — без ограничений"
+
+#: billing/templates/billing/profile.html:229
+msgid "Батафсил"
+msgstr "Подробнее"
+
+#: billing/templates/billing/profile.html:233
+msgid ""
+"Бепул тариф — синаб кўриш ва кичик ишлар учун. Пулли тарифи бўлмаган ҳар бир фойдаланувчи шу тарифда."
+msgstr ""
+"Бесплатный тариф — для пробы и небольших работ. На нём каждый пользователь без платного тарифа."
+
+#: billing/templates/billing/profile.html:233
+#: billing/templates/billing/profile.html:246
+msgid "{0} сўм / ой"
+msgstr "{0} сум / мес."
+
+#: billing/templates/billing/profile.html:233
+msgid "(акция)"
+msgstr "(акция)"
+
+#: billing/templates/billing/profile.html:233
+msgid "· {0} қатор ва {1} та техназор объекти ҳар ойга."
+msgstr "· {0} строк и {1} объектов технадзора каждый месяц."
+
+#: billing/templates/billing/profile.html:234
+msgid "Нима киради"
+msgstr "Что входит"
+
+#: billing/templates/billing/profile.html:237
+msgid "{0} та смета қатори ойига."
+msgstr "{0} строк смет в месяц."
+
+#: billing/templates/billing/profile.html:237
+msgid ""
+"Нархланган сметани юклаб олганда фақат нархланган ресурс қаторлари саналади (сарлавҳа, бўш ва сводка қаторлари — йўқ). Ўртача смета ~{0} қатор — бу тахминан {1} та смета."
+msgstr ""
+"При скачивании расценённой сметы считаются только расценённые строки ресурсов (заголовки, пустые и сводные строки — нет). Средняя смета ~{0} строк — это примерно {1} смет."
+
+#: billing/templates/billing/profile.html:238
+msgid "{0} та техназор объекти ойига."
+msgstr "{0} объектов технадзора в месяц."
+
+#: billing/templates/billing/profile.html:238
+msgid ""
+"Объектнинг Ф-2, Ф-3 ва далолатномаларини шу ойда истаганча юклаб оласиз — объект бир марта саналади."
+msgstr ""
+"Ф-2, Ф-3 и акты объекта в этом месяце можно скачивать сколько угодно — объект считается один раз."
+
+#: billing/templates/billing/profile.html:238
+msgid "Нархлаш, натижани кўриш, қайта нархлаш ва қўлда тузатиш —"
+msgstr "Расценка, просмотр результата, повторная расценка и ручная правка —"
+
+#: billing/templates/billing/profile.html:238
+msgid "чексиз ва бепул"
+msgstr "без ограничений и бесплатно"
+
+#: billing/templates/billing/profile.html:238
+msgid ". Бир файлни қайта юклаб олиш ҳам бепул."
+msgstr ". Повторное скачивание файла тоже бесплатно."
+
+#: billing/templates/billing/profile.html:238
+msgid "Ой тугамасдан қатор тугаса"
+msgstr "Если строки закончились до конца месяца"
+
+#: billing/templates/billing/profile.html:238
+msgid ""
+"Ишлаш тўхтамайди: ҳар қўшимча қатор {0} сўм, ҳар қўшимча объект ойига {1} сўм — балансдан. Юклаб олишдан олдин нечта сўм ечилиши кўрсатилади ва тасдиқлайсиз."
+msgstr ""
+"Работа не останавливается: каждая дополнительная строка {0} сум, каждый дополнительный объект {1} сум в месяц — с баланса. Перед скачиванием показывается сумма списания, и вы её подтверждаете."
+
+#: billing/templates/billing/profile.html:243
+msgid "Муддат ва нарх"
+msgstr "Срок и цена"
+
+#: billing/templates/billing/profile.html:248
+msgid "Тарифга {0}% чегирма"
+msgstr "Скидка на тариф {0}%"
+
+#: billing/templates/billing/profile.html:248
+msgid "{0} гача"
+msgstr "до {0}"
+
+#: billing/templates/billing/profile.html:248
+msgid "— узоқ муддат чегирмаси билан бирга қўлланади."
+msgstr "— применяется вместе со скидкой за длительный срок."
+
+#: billing/templates/billing/profile.html:248
+msgid "Муддат ва алмаштириш"
+msgstr "Срок и смена тарифа"
+
+#: billing/templates/billing/profile.html:248
+msgid "Тариф сотиб олинган кундан ишлайди. Қатор ва объектлар"
+msgstr "Тариф действует со дня покупки. Строки и объекты"
+
+#: billing/templates/billing/profile.html:248
+msgid "ҳар ойга алоҳида"
+msgstr "отдельно на каждый месяц"
+
+#: billing/templates/billing/profile.html:248
+msgid "; ортиб қолгани кейинги ойга ўтмайди."
+msgstr "; остаток на следующий месяц не переносится."
+
+#: billing/templates/billing/profile.html:248
+msgid ""
+"Муддат тугаганда балансда пул бўлса — ўзи янгиланади (профилда ўчириш мумкин). Пул етмаса — бепул тарифга ўтасиз, маълумотларингиз сақланади."
+msgstr ""
+"По окончании срока, если на балансе есть деньги, тариф продлится сам (можно отключить в профиле). Если денег не хватит — вы перейдёте на бесплатный тариф, данные сохранятся."
+
+#: billing/templates/billing/profile.html:248
+msgid "Қимматроқ тарифга"
+msgstr "На более дорогой тариф"
+
+#: billing/templates/billing/profile.html:248
+msgid ""
+"— дарров ўтасиз: ҳозиргисининг ишлатилмаган қисми янги нархдан айрилади, балансдан фақат фарқи ечилади. Пул бир марта ечилади."
+msgstr ""
+"— переходите сразу: неиспользованная часть текущего вычитается из новой цены, с баланса списывается только разница. Деньги списываются один раз."
+
+#: billing/templates/billing/profile.html:248
+msgid "Арзонроқ тарифга"
+msgstr "На более дешёвый тариф"
+
+#: billing/templates/billing/profile.html:248
+msgid "(ёки бошқа муддатга) — ҳозиргиси охиригача ишлайди, кейин янгиси бошланади."
+msgstr "(или на другой срок) — текущий работает до конца, затем начинается новый."
+
+#: billing/templates/billing/profile.html:258
+msgid "Балансни тўлдиринг"
+msgstr "Пополните баланс"
+
+#: billing/templates/billing/profile.html:258
+msgid "Click орқали, {0} сўмдан."
+msgstr "Через Click, от {0} сум."
+
+#: billing/templates/billing/profile.html:262
+msgid "Тариф танланг"
+msgstr "Выберите тариф"
+
+#: billing/templates/billing/profile.html:262
+msgid "ёки тарифсиз — бепул тариф ва ортганига балансдан."
+msgstr "или без тарифа — бесплатный тариф, а сверх него — с баланса."
+
+#: billing/templates/billing/profile.html:262
+msgid "Нархланг ва юклаб олинг"
+msgstr "Расцените и скачайте"
+
+#: billing/templates/billing/profile.html:262
+msgid "Аввал тарифдаги қатордан, тугаса — балансдан."
+msgstr "Сначала из строк тарифа, когда закончатся — с баланса."
+
+#: billing/templates/billing/profile.html:262
+msgid "Қайта юклаш — бепул"
+msgstr "Повторное скачивание — бесплатно"
+
+#: billing/templates/billing/profile.html:262
+msgid "Бир файл учун бир марта тўланади."
+msgstr "За один файл платят один раз."
+
+#: billing/templates/billing/profile.html:269
+msgid "Тарих"
+msgstr "История"
+
+#: billing/templates/billing/profile.html:273
+msgid "Кирим ва чиқим"
+msgstr "Поступления и списания"
+
+#: billing/templates/billing/profile.html:274
+msgid "Тўловлар"
+msgstr "Платежи"
+
+#: billing/templates/billing/profile.html:275
+msgid "Юклаб олинган файллар"
+msgstr "Скачанные файлы"
+
+#: billing/templates/billing/profile.html:282
+msgid "бонус"
+msgstr "бонус"
+
+#: billing/templates/billing/profile.html:282
+msgid "бонусдан {0}"
+msgstr "из бонуса {0}"
+
+#: billing/templates/billing/profile.html:285
+msgid "Ҳали кирим ва чиқим йўқ"
+msgstr "Пока нет поступлений и списаний"
+
+#: billing/templates/billing/profile.html:289
+msgid "← Янгилари"
+msgstr "← Новее"
+
+#: billing/templates/billing/profile.html:291
+msgid "Эскилари →"
+msgstr "Старее →"
+
+#: billing/templates/billing/profile.html:299
+msgid "Ҳали тўлов йўқ"
+msgstr "Пока нет платежей"
+
+#: billing/templates/billing/profile.html:306
+msgid "техназор объекти · тарифдан"
+msgstr "объект технадзора · из тарифа"
+
+#: billing/templates/billing/profile.html:306
+msgid "техназор объекти · шу ой учун"
+msgstr "объект технадзора · за этот месяц"
+
+#: billing/templates/billing/profile.html:306
+msgid "{0} қатор · тарифдан {1}"
+msgstr "{0} строк · из тарифа {1}"
+
+#: billing/templates/billing/profile.html:308
+msgid "Ҳали юклаб олинган файл йўқ"
+msgstr "Пока нет скачанных файлов"
+
+#: billing/templates/billing/profile.html:314
+msgid "Тариф ҳақида батафсил"
+msgstr "Подробнее о тарифе"
+
+#: billing/templates/billing/profile.html:341
+msgid "Аввал email'ни тасдиқланг"
+msgstr "Сначала подтвердите email"
+
+#: billing/templates/billing/profile.html:344
+msgid "Балансни тўлдириш ва тариф сотиб олиш — фақат email тасдиқлангандан кейин."
+msgstr "Пополнение баланса и покупка тарифа — только после подтверждения email."
+
+#: billing/templates/billing/profile.html:344
+msgid ""
+"Нега: парол эсдан чиқса, ҳисобингиз ва ундаги пул фақат email орқали тикланади. Тасдиқланмаган манзилда бу иложсиз — пулингиз ҳисобда қолиб кетиши мумкин."
+msgstr ""
+"Почему: если забудете пароль, учётная запись и деньги на ней восстанавливаются только через email. С неподтверждённым адресом это невозможно — деньги могут остаться на недоступном счёте."
+
+#: billing/templates/billing/profile.html:353
+msgid "Ҳозир балансда:"
+msgstr "Сейчас на балансе:"
+
+#: billing/templates/billing/profile.html:356
+msgid "Сумма, сўм"
+msgstr "Сумма, сум"
+
+#: billing/templates/billing/profile.html:356
+msgid "Энг кам {0} · энг кўп {1} сўм"
+msgstr "Минимум {0} · максимум {1} сум"
+
+#: billing/templates/billing/profile.html:358
+msgid "Тўловдан кейин балансда"
+msgstr "После оплаты на балансе"
+
+#: billing/templates/billing/profile.html:359
+msgid "Click орқали тўлаш"
+msgstr "Оплатить через Click"
+
+#: billing/templates/billing/profile.html:361
+msgid ""
+"Click саҳифаси очилади: карта ёки Click ҳисобидан тўлайсиз, кейин шу ерга қайтасиз ва пул балансда бўлади."
+msgstr ""
+"Откроется страница Click: оплатите картой или со счёта Click, затем вернётесь сюда — деньги будут на балансе."
+
+#: billing/templates/billing/profile.html:362
+msgid ""
+"Онлайн тўлов ҳали уланмаган — ҳозирча балансни «Ёрдам хизмати» орқали тўлдириш мумкин."
+msgstr ""
+"Онлайн-оплата ещё не подключена — пока пополнить баланс можно через «Службу поддержки»."
 

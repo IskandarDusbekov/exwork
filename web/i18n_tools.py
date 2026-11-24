@@ -20,7 +20,7 @@ from django.conf import settings
 
 ROOT = Path(settings.BASE_DIR)
 # админ панел (panel/) таржима қилинмайди — доим кирилл
-APPS = ["accounts", "jobs", "texnazor", "support", "news", "web", "core"]
+APPS = ["accounts", "jobs", "texnazor", "support", "news", "web", "core", "billing"]
 SKIP_DIRS = {"migrations", "tests", "__pycache__", "management", "node_modules"}
 JS_DIR = ROOT / "web" / "static" / "js"
 JS_SKIP = {"tizim.js"}  # панел «Тизим» саҳифаси

@@ -9,7 +9,7 @@
       {% if user.is_authenticated %}<a href="{% url 'index' %}">Юклаш</a><a href="{% url 'dashboard' %}">Иш столи</a><a href="{% url 'texnazor:index' %}">Техник назорат</a>
       {% else %}<a href="{% url 'login' %}">Кириш</a>{% if signup_open %}<a href="{% url 'register' %}">Рўйхатдан ўтиш</a>{% endif %}{% endif %}
       <a href="{% url 'guide' %}">Видео қўлланма</a><a href="{% url 'blog' %}">Блог</a><a href="{% url 'landing' %}#security">Хавфсизлик</a><a href="{% url 'landing' %}#faq">Саволлар</a>
-      <a href="{% url 'about_us' %}">Биз ҳақимизда</a><a href="{% url 'terms' %}">Фойдаланиш шартлари</a>
+      <a href="{% url 'about_us' %}">Биз ҳақимизда</a><a href="{% url 'terms' %}">Фойдаланиш шартлари</a><a href="{% url 'privacy' %}">Махфийлик сиёсати</a>
     </nav>
   </div></div>
 </footer>

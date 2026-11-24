@@ -214,7 +214,7 @@ class FlowTests(LoggedInTestCase):
 
         dl = self.client.get(reverse("job_download", args=[job.id]))
         self.assertEqual(dl.status_code, 200)
-        self.assertIn("narxlandi.xlsx", dl["Content-Disposition"])
+        self.assertIn("narxlandi (mhisobot.uz).xlsx", dl["Content-Disposition"])
         out = self.src / "dl.xlsx"
         out.write_bytes(b"".join(dl.streaming_content))
         self.assertEqual(load_workbook(out).sheetnames, ["LOG", "202611450_БВ"])

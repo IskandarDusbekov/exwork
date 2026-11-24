@@ -1,0 +1,284 @@
+{% extends "panel/base.html" %}
+{% load narx %}
+{% block title %}Тўлов ва тарифлар — Панел{% endblock %}
+{% block page_title %}Тўлов ва тарифлар{% endblock %}
+{% block page_desc %}Тўловга оид ҳаммаси бир жойда: умумий ҳолат, тарифлар, созламалар, дафтар, тўловлар ва журнал. Ҳақиқий пул (Click) ва бонус алоҳида ҳисобланади.{% endblock %}
+{% block page_actions %}
+  <a href="?tab=settings" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 ring-inset {% if on %}bg-emerald-50 text-emerald-800 ring-emerald-200{% else %}bg-white text-slate-600 ring-slate-200{% endif %}">
+    <span class="h-2 w-2 rounded-full {% if on %}bg-emerald-500{% else %}bg-slate-300{% endif %}"></span>
+    {% if on %}Пулли режим ёқиқ{% else %}Пулли режим ўчиқ — ҳамма нарса бепул{% endif %}</a>
+{% endblock %}
+{% block panel %}
+<style>
+  .bl-tabs { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid rgb(var(--ink-200)); margin-bottom: 14px; }
+  .bl-tabs a { margin-bottom: -1px; border-bottom: 2px solid transparent; padding: 8px 12px; font-size: 14px; font-weight: 600; color: rgb(var(--ink-500)); }
+  .bl-tabs a:hover { color: rgb(var(--ink-800)); }
+  .bl-tabs a.is-on { border-color: rgb(var(--ink-900)); color: rgb(var(--ink-900)); }
+  .bl-box { overflow: hidden; border: 1px solid rgb(var(--ink-200)); border-radius: .9rem; background: #fff; }
+  .bl-box > .hd { border-bottom: 1px solid rgb(var(--ink-100)); padding: .7rem 1rem; }
+  .bl-box > .hd h2 { font-weight: 600; } .bl-box > .hd p { margin-top: 2px; font-size: .75rem; color: rgb(var(--ink-500)); }
+  .bl-grp { margin: 18px 0 8px; font-size: .78rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: rgb(var(--ink-500)); }
+  .bl-grp:first-child { margin-top: 0; }
+  .bl-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+  @media (max-width: 1023.98px) { .bl-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .bl-kpi { border: 1px solid rgb(var(--ink-200)); border-radius: .9rem; background: #fff; padding: .85rem 1rem; }
+  .bl-kpi.is-real { border-color: rgb(var(--ok-200)); background: rgb(var(--ok-50) / .5); }
+  .bl-kpi.is-bonus { border-color: rgb(var(--brand-200)); background: rgb(var(--brand-50) / .5); }
+  .bl-kpi .l { font-size: .78rem; color: rgb(var(--ink-500)); }
+  .bl-kpi .v { margin-top: .2rem; font-size: 1.4rem; font-weight: 700; color: rgb(var(--ink-900)); font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .bl-kpi .v small { font-size: .8rem; font-weight: 500; color: rgb(var(--ink-400)); }
+  .bl-kpi .s { margin-top: .15rem; font-size: .74rem; color: rgb(var(--ink-500)); }
+  .bl-in { width: 100%; min-width: 0; border: 1px solid rgb(var(--ink-200)); border-radius: .5rem; padding: .35rem .55rem; font-size: .85rem; outline: none; background: #fff; }
+  .bl-in:focus { border-color: rgb(var(--ink-400)); }
+  .bl-in.num { text-align: right; }
+  .bl-plus { color: rgb(var(--ok-700)); } .bl-minus { color: rgb(var(--bad-700)); }
+  .bl-w { display: inline-block; border-radius: .35rem; padding: 0 .35rem; font-size: .72rem; font-weight: 600; }
+  .bl-w.is-real { background: rgb(var(--ok-50)); color: rgb(var(--ok-700)); }
+  .bl-w.is-bonus { background: rgb(var(--brand-50)); color: rgb(var(--brand-700)); }
+  .bl-tf { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: .75rem; }
+  .bl-tc { display: flex; flex-direction: column; gap: .5rem; border: 1px solid rgb(var(--ink-200)); border-radius: .9rem; background: #fff; padding: .9rem; }
+  .bl-tc.is-off { background: rgb(var(--ink-50)); }
+  .bl-tc .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+  .bl-tc label.f { display: block; margin-bottom: 2px; font-size: .7rem; font-weight: 600; color: rgb(var(--ink-500)); }
+  .bl-tc .pr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .25rem; border-radius: .6rem; background: rgb(var(--ink-50)); padding: .45rem; font-size: .72rem; text-align: center; color: rgb(var(--ink-500)); }
+  .bl-tc .pr b { display: block; font-size: .8rem; color: rgb(var(--ink-900)); font-variant-numeric: tabular-nums; }
+  .bl-tc .pr i { font-style: normal; color: rgb(var(--ok-700)); }
+  .bl-btn { border-radius: .45rem; padding: .3rem .7rem; font-size: .78rem; font-weight: 600; }
+  .bl-btn.is-dark { background: rgb(var(--ink-900)); color: #fff; } .bl-btn.is-dark:hover { background: rgb(var(--ink-700)); }
+  .bl-btn.is-line { border: 1px solid rgb(var(--ink-300)); color: rgb(var(--ink-800)); background: #fff; }
+  .bl-btn.is-bad { border: 1px solid rgb(var(--bad-200)); color: rgb(var(--bad-700)); background: #fff; }
+  .bl-pg { display: flex; align-items: center; justify-content: space-between; padding: .6rem 1rem; font-size: .85rem; border-top: 1px solid rgb(var(--ink-100)); }
+  .bl-pg a { font-weight: 600; color: rgb(var(--ink-700)); } .bl-pg a:hover { text-decoration: underline; }
+  .bl-flt { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .6rem 1rem; border-bottom: 1px solid rgb(var(--ink-100)); background: rgb(var(--ink-50) / .6); }
+  .bl-flt .bl-in { width: auto; }
+  .bl-two { display: grid; gap: .75rem; align-items: start; }
+  @media (min-width: 1024px) { .bl-two { grid-template-columns: minmax(0, 1fr) 22rem; } }
+</style>
+
+<nav class="bl-tabs" aria-label="Бўлимлар">
+  {% for k, label in btabs %}<a href="?tab={{ k }}" class="{% if btab == k %}is-on{% endif %}">{{ label }}</a>{% endfor %}
+</nav>
+
+{% if btab == "overview" %}
+{# ===================== УМУМИЙ ===================== #}
+<div class="bl-grp">Ҳақиқий пул — Click орқали тушган</div>
+<div class="bl-kpis">
+  <div class="bl-kpi is-real"><div class="l">Шу ой тушди ({{ month_name }})</div><div class="v">{{ m.in_month|som|default:"0" }} <small>сўм</small></div><div class="s">{{ m.in_month_n }} та тўлов</div></div>
+  <div class="bl-kpi is-real"><div class="l">Жами тушган</div><div class="v">{{ m.in_all|som|default:"0" }} <small>сўм</small></div><div class="s">{{ m.in_all_n }} та тўлов</div></div>
+  <div class="bl-kpi is-real"><div class="l">Шу ой сарфланди (ҳақиқий)</div><div class="v">{{ m.spent_real_month|som|default:"0" }} <small>сўм</small></div><div class="s">тариф, қатор, объект · жами {{ m.spent_real_all|som|default:"0" }}</div></div>
+  <div class="bl-kpi is-real"><div class="l">Фойдаланувчилар ҳисобида</div><div class="v">{{ m.bal_real|som|default:"0" }} <small>сўм</small></div><div class="s">ҳали сарфланмаган — қайтариш мумкин бўлган пул</div></div>
+</div>
+<div class="bl-grp">Бонус ва совғалар — ҳақиқий пул эмас</div>
+<div class="bl-kpis">
+  <div class="bl-kpi is-bonus"><div class="l">Шу ой бонус берилди</div><div class="v">{{ m.bonus_month|som|default:"0" }} <small>сўм</small></div><div class="s">жами {{ m.bonus_all|som|default:"0" }}</div></div>
+  <div class="bl-kpi is-bonus"><div class="l">Шу ой бонусдан сарфланди</div><div class="v">{{ m.spent_bonus_month|som|default:"0" }} <small>сўм</small></div><div class="s">жами {{ m.spent_bonus_all|som|default:"0" }}</div></div>
+  <div class="bl-kpi is-bonus"><div class="l">Ҳисобларда бонус</div><div class="v">{{ m.bal_bonus|som|default:"0" }} <small>сўм</small></div><div class="s">қайтарилмайди</div></div>
+  <div class="bl-kpi is-bonus"><div class="l">Совға тарифлар (фаол)</div><div class="v">{{ m.subs_gift }}</div><div class="s">қиймати {{ m.gift_value|som|default:"0" }} сўм</div></div>
+</div>
+<div class="bl-grp">Бошқа</div>
+<div class="bl-kpis">
+  <div class="bl-kpi"><div class="l">Фаол пулли обуналар</div><div class="v">{{ m.subs_paid }}</div><div class="s">совғасиз</div></div>
+  <div class="bl-kpi"><div class="l">Пули бор ҳисоблар</div><div class="v">{{ m.accounts }}</div><div class="s">ҳақиқий ёки бонус</div></div>
+  <div class="bl-kpi"><div class="l">Шу ой админ тузатиши</div><div class="v">{{ m.admin_month|som|default:"0" }} <small>сўм</small></div><div class="s">ҳақиқий пул (нақд, банк, қайтариш)</div></div>
+  <div class="bl-kpi"><div class="l">Ортиқча нарх</div><div class="v" style="font-size:1rem;margin-top:.45rem">қатор {{ row_price }} · объект {{ object_price|som }}</div><div class="s">сўм — тарифдан ошганда</div></div>
+</div>
+
+<div class="mt-4 grid gap-3 lg:grid-cols-2">
+  {% include "panel/_billing_click.html" %}
+  <section class="bl-box">
+    <div class="hd"><h2>Охирги тўловлар</h2><p>Click · <a href="?tab=payments" class="underline">ҳаммаси</a></p></div>
+    <table class="w-full text-sm"><tbody class="divide-y divide-slate-100">
+      {% for p in recent %}
+      <tr><td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500">{{ p.created|date:"d.m H:i" }}</td>
+        <td class="px-2 py-2"><a href="{% url 'panel:user' p.user_id %}?tab=billing" class="hover:underline">{{ p.user.get_full_name|default:p.user.email }}</a></td>
+        <td class="px-2 py-2 text-xs">{% include "panel/_billing_status.html" %}</td>
+        <td class="num px-4 py-2 text-right font-semibold">{{ p.amount|som }}</td></tr>
+      {% empty %}<tr><td class="px-4 py-8 text-center text-slate-400">Ҳали тўлов йўқ</td></tr>{% endfor %}
+    </tbody></table>
+  </section>
+</div>
+
+{% elif btab == "tariffs" %}
+{# ===================== ТАРИФЛАР ===================== #}
+<p class="mb-3 text-sm text-slate-600">Нархи 0 — бепул тариф: пулли тарифи йўқлар шунда ({% if free %}ҳозир «{{ free.name }}»{% else %}<b class="text-rose-600">йўқ — тарифсизларга 0 қатор</b>{% endif %}).
+  Ўзгартирилса — янги обуналарга; аввал сотиб олинганлар тугагунча эски шартида. Узоқ муддат чегирмалари:
+  {% for mm, pct in periods %}{% if mm > 1 %}{{ mm }} ой — {{ pct }}%{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}
+  (<a href="?tab=settings" class="underline">созламаларда</a>). Тариф чегирмаси (акция) улар билан кетма-кет қўлланади.</p>
+<div class="bl-tf">
+  {% for t in tariffs %}
+  <form method="post" action="{% url 'panel:tariff_save' t.pk %}" class="bl-tc{% if not t.active %} is-off{% endif %}">{% csrf_token %}
+    <div class="flex items-center gap-2">
+      <input name="name" value="{{ t.name }}" class="bl-in font-semibold" required maxlength="60" aria-label="Номи" {% if not can_act %}disabled{% endif %}>
+      <label class="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-slate-600"><input type="checkbox" name="active" value="1" {% if t.active %}checked{% endif %} class="h-4 w-4" {% if not can_act %}disabled{% endif %}> сотувда</label>
+    </div>
+    <div class="row">
+      <div><label class="f">Нархи, сўм / ой</label><input name="price" value="{{ t.price }}" class="bl-in num" inputmode="numeric" {% if not can_act %}disabled{% endif %}></div>
+      <div><label class="f">Қатор / ой</label><input name="rows" value="{{ t.rows }}" class="bl-in num" inputmode="numeric" {% if not can_act %}disabled{% endif %}></div>
+      <div><label class="f">Объект / ой</label><input name="objects_limit" value="{{ t.objects_limit }}" class="bl-in num" inputmode="numeric" {% if not can_act %}disabled{% endif %}></div>
+    </div>
+    <div class="row">
+      <div><label class="f">Чегирма (акция), %</label><input name="discount" value="{{ t.discount }}" class="bl-in num" inputmode="numeric" {% if not can_act %}disabled{% endif %}></div>
+      <div><label class="f">Акция қачонгача</label><input type="date" name="discount_until" value="{{ t.discount_until|date:'Y-m-d' }}" class="bl-in" {% if not can_act %}disabled{% endif %}></div>
+      <div><label class="f">Тартиб</label><input name="order" value="{{ t.order }}" class="bl-in num" inputmode="numeric" {% if not can_act %}disabled{% endif %}></div>
+    </div>
+    <div><label class="f">Қисқа изоҳ (картада)</label><input name="note" value="{{ t.note }}" class="bl-in" maxlength="200" {% if not can_act %}disabled{% endif %}></div>
+    <div><label class="f">Батафсил (фойдаланувчи «Батафсил»ни босганда, стандарт тушунтиришдан олдин)</label><textarea name="details" rows="2" class="bl-in" maxlength="4000" {% if not can_act %}disabled{% endif %}>{{ t.details }}</textarea></div>
+    {% if t.prices %}<div class="pr">{% for p in t.prices %}<div>{% if p.months == 12 %}1 йил{% else %}{{ p.months }} ой{% endif %}<b>{{ p.total|som }}</b>{% if p.pct %}<i>−{{ p.pct }}%</i>{% else %}&nbsp;{% endif %}</div>{% endfor %}</div>{% endif %}
+    <div class="flex items-center justify-between gap-2">
+      <span class="text-xs text-slate-500" title="ҳозир фаол / жами">обуна: {{ t.active_subs }} / {{ t.all_subs }}{% if t.discount_now %} · <b class="text-amber-700">акция −{{ t.discount_now }}%</b>{% elif t.discount %} · акция тугаган{% endif %}</span>
+      {% if can_act %}<span class="flex gap-1">
+        <button class="bl-btn is-dark">Сақлаш</button>
+        <button type="submit" form="tdel{{ t.pk }}" class="bl-btn is-bad">Ўчириш</button></span>{% endif %}
+    </div>
+  </form>
+  {% endfor %}
+  {% if can_act %}
+  <form method="post" action="{% url 'panel:tariff_add' %}" class="bl-tc" style="border-style:dashed">{% csrf_token %}
+    <div class="flex items-center gap-2"><input name="name" placeholder="Янги тариф номи" class="bl-in font-semibold" required maxlength="60">
+      <label class="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-slate-600"><input type="checkbox" name="active" value="1" checked class="h-4 w-4"> сотувда</label></div>
+    <div class="row">
+      <div><label class="f">Нархи, сўм / ой</label><input name="price" placeholder="0" class="bl-in num" inputmode="numeric"></div>
+      <div><label class="f">Қатор / ой</label><input name="rows" placeholder="0" class="bl-in num" inputmode="numeric"></div>
+      <div><label class="f">Объект / ой</label><input name="objects_limit" placeholder="0" class="bl-in num" inputmode="numeric"></div>
+    </div>
+    <div class="row">
+      <div><label class="f">Чегирма, %</label><input name="discount" placeholder="0" class="bl-in num" inputmode="numeric"></div>
+      <div><label class="f">Акция қачонгача</label><input type="date" name="discount_until" class="bl-in"></div>
+      <div><label class="f">Тартиб</label><input name="order" placeholder="0" class="bl-in num" inputmode="numeric"></div>
+    </div>
+    <div><label class="f">Қисқа изоҳ</label><input name="note" class="bl-in" maxlength="200"></div>
+    <div class="mt-auto text-right"><button class="bl-btn is-line">+ Тариф қўшиш</button></div>
+  </form>
+  {% endif %}
+</div>
+{% if can_act %}{% for t in tariffs %}<form id="tdel{{ t.pk }}" method="post" action="{% url 'panel:tariff_delete' t.pk %}" data-confirm="«{{ t.name }}» ўчирилсинми? Обунаси бор бўлса — фақат сотувдан олинади." data-confirm-title="Тарифни ўчириш" data-confirm-ok="Ўчириш" data-danger hidden>{% csrf_token %}</form>{% endfor %}{% endif %}
+
+{% elif btab == "settings" %}
+{# ===================== СОЗЛАМАЛАР ===================== #}
+<div class="bl-two">
+  <form method="post" action="{% url 'panel:billing_settings' %}" class="bl-box">{% csrf_token %}
+    <div class="hd"><h2>Тўлов созламалари</h2><p>Дарҳол (ярим дақиқа ичида) ишлайди. Ҳар ўзгариш «Журнал»га ёзилади. Ўзгартирилмагани — сервердаги (.env) стандарт.</p></div>
+    <div class="divide-y divide-slate-100">
+      {% for r in rows %}{% with f=r.f %}
+      <div class="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_14rem] sm:items-center">
+        <div>
+          <label for="f-{{ f.key }}" class="text-sm font-medium text-slate-800">{{ f.label }}</label>
+          {% if r.changed %}<span class="ml-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700">стандарт: {% if f.kind == "bool" %}{{ r.default|yesno:"ҳа,йўқ" }}{% else %}{{ r.default }} {{ f.unit }}{% endif %}</span>{% endif %}
+          {% if f.help %}<p class="text-xs text-slate-500">{{ f.help }}</p>{% endif %}
+        </div>
+        <div>
+          {% if f.kind == "bool" %}
+          <label class="inline-flex items-center gap-2 text-sm"><input id="f-{{ f.key }}" type="checkbox" name="{{ f.key }}" value="1" {% if r.value %}checked{% endif %} {% if not can_act %}disabled{% endif %} class="h-4 w-4 rounded border-slate-300"> ёқилган</label>
+          {% else %}
+          <div class="flex items-center gap-2">
+            <input id="f-{{ f.key }}" name="{{ f.key }}" value="{{ r.value }}" inputmode="numeric" {% if not can_act %}disabled{% endif %} class="bl-in num">
+            <span class="w-10 shrink-0 text-xs text-slate-500">{{ f.unit }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endwith %}{% endfor %}
+    </div>
+    <div class="border-t border-slate-100 px-4 py-3">{% if can_act %}<button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Сақлаш</button>{% else %}<span class="text-sm text-slate-500">Ўзгартириш — фақат суперфойдаланувчи.</span>{% endif %}</div>
+  </form>
+  <div class="space-y-3">
+    {% include "panel/_billing_click.html" %}
+    <section class="bl-box"><div class="hd"><h2>Икки ҳамён</h2></div>
+      <ul class="space-y-1.5 py-3 pr-4 text-sm text-slate-600" style="list-style:disc;padding-left:2rem">
+        <li><span class="bl-w is-real">ҳақиқий</span> — Click орқали тўланган ёки админ «бонус»сиз қўшган пул (нақд, банк). Қайтариш мумкин.</li>
+        <li><span class="bl-w is-bonus">бонус</span> — совға пул. Сарфлашда <b>аввал бонус</b> ишлатилади. Қайтарилмайди.</li>
+        <li>Фойдаланувчига қўшиш / айириш — унинг саҳифасида, «Баланс ва тариф».</li>
+      </ul>
+    </section>
+  </div>
+</div>
+
+{% elif btab == "ledger" %}
+{# ===================== ДАФТАР ===================== #}
+<section class="bl-box">
+  <form method="get" class="bl-flt"><input type="hidden" name="tab" value="ledger">
+    <select name="kind" class="bl-in" aria-label="Тур"><option value="">Ҳамма тур</option>{% for k, label in kinds %}<option value="{{ k }}" {% if f_kind == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <select name="wallet" class="bl-in" aria-label="Ҳамён"><option value="">Иккала ҳамён</option><option value="real" {% if f_wallet == 'real' %}selected{% endif %}>Ҳақиқий пул</option><option value="bonus" {% if f_wallet == 'bonus' %}selected{% endif %}>Бонус</option></select>
+    <input name="q" value="{{ f_q }}" placeholder="email ёки изоҳ" class="bl-in" style="min-width:14rem" aria-label="Қидириш">
+    <button class="bl-btn is-dark">Кўрсатиш</button>
+    <span class="ml-auto text-xs text-slate-500">Танланганлар: ҳақиқий <b class="{% if totals.real < 0 %}bl-minus{% else %}bl-plus{% endif %}">{{ totals.real|som|default:"0" }}</b> · бонус <b>{{ totals.bonus|som|default:"0" }}</b></span>
+  </form>
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm" style="min-width:56rem">
+    <thead class="border-b border-slate-100 bg-slate-50 text-left text-xs text-slate-500"><tr>
+      <th class="px-4 py-2 font-medium">Сана</th><th class="px-2 py-2 font-medium">Фойдаланувчи</th><th class="px-2 py-2 font-medium">Тур ва изоҳ</th>
+      <th class="px-2 py-2 text-right font-medium">Сумма</th><th class="px-2 py-2 text-right font-medium">Ҳақиқий</th><th class="px-2 py-2 text-right font-medium">Бонус</th>
+      <th class="px-4 py-2 text-right font-medium" title="ҳақиқий / бонус">Қолдиқ</th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for e in page %}
+      <tr class="hover:bg-slate-50">
+        <td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500">{{ e.created|date:"d.m.Y H:i" }}</td>
+        <td class="px-2 py-2"><a href="{% url 'panel:user' e.user_id %}?tab=billing" class="block truncate font-medium hover:underline" style="max-width:13rem">{{ e.user.get_full_name|default:e.user.email }}</a></td>
+        <td class="px-2 py-2"><span class="font-medium text-slate-800">{{ e.get_kind_display }}</span>
+          <span class="block truncate text-xs text-slate-500" style="max-width:24rem" title="{{ e.note }}">{{ e.note }}{% if e.actor %} · {{ e.actor.get_short_name|default:e.actor.email }}{% endif %}</span></td>
+        <td class="num whitespace-nowrap px-2 py-2 text-right font-semibold {% if e.amount > 0 %}bl-plus{% else %}bl-minus{% endif %}">{% if e.amount > 0 %}+{% endif %}{{ e.amount|som }}</td>
+        <td class="num whitespace-nowrap px-2 py-2 text-right">{% if e.real %}<span class="bl-w is-real">{{ e.real|som }}</span>{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+        <td class="num whitespace-nowrap px-2 py-2 text-right">{% if e.bonus %}<span class="bl-w is-bonus">{{ e.bonus|som }}</span>{% else %}<span class="text-slate-300">—</span>{% endif %}</td>
+        <td class="num whitespace-nowrap px-4 py-2 text-right text-xs text-slate-500">{{ e.balance_after|som|default:"0" }} / {{ e.bonus_after|som|default:"0" }}</td>
+      </tr>
+      {% empty %}<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">Ёзув йўқ</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% include "panel/_billing_pager.html" %}
+</section>
+
+{% elif btab == "payments" %}
+{# ===================== ТЎЛОВЛАР ===================== #}
+<section class="bl-box">
+  <form method="get" class="bl-flt"><input type="hidden" name="tab" value="payments">
+    <select name="status" class="bl-in" aria-label="Ҳолати" onchange="this.form.submit()"><option value="">Ҳаммаси (очилиб тўланмаганларсиз)</option>{% for k, label in statuses %}<option value="{{ k }}" {% if f_status == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <span class="ml-auto text-xs text-slate-500">Тўланганлари жами: <b class="bl-plus">{{ total|som|default:"0" }}</b> сўм</span>
+  </form>
+  <table class="w-full text-sm"><thead class="border-b border-slate-100 bg-slate-50 text-left text-xs text-slate-500"><tr>
+    <th class="px-4 py-2 font-medium">Яратилди</th><th class="px-2 py-2 font-medium">Фойдаланувчи</th><th class="px-2 py-2 font-medium">Ҳолати</th>
+    <th class="px-2 py-2 font-medium">Click ID</th><th class="px-2 py-2 font-medium">Тўланди</th><th class="px-4 py-2 text-right font-medium">Сумма</th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+    {% for p in page %}
+    <tr><td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500">{{ p.created|date:"d.m.Y H:i" }} · #{{ p.pk }}</td>
+      <td class="px-2 py-2"><a href="{% url 'panel:user' p.user_id %}?tab=billing" class="hover:underline">{{ p.user.get_full_name|default:p.user.email }}</a></td>
+      <td class="px-2 py-2 text-xs">{% include "panel/_billing_status.html" %}{% if p.error %} <span class="text-rose-600" title="{{ p.error }}">· {{ p.error|truncatechars:40 }}</span>{% endif %}</td>
+      <td class="px-2 py-2 font-mono text-xs text-slate-500">{{ p.provider_id|default:"—" }}</td>
+      <td class="whitespace-nowrap px-2 py-2 text-xs text-slate-500">{{ p.paid_at|date:"d.m.Y H:i"|default:"—" }}</td>
+      <td class="num px-4 py-2 text-right font-semibold">{{ p.amount|som }}</td></tr>
+    {% empty %}<tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">Тўлов йўқ</td></tr>{% endfor %}
+  </tbody></table>
+  {% include "panel/_billing_pager.html" %}
+</section>
+
+{% elif btab == "unlocks" %}
+{# ===================== ЮКЛАБ ОЛИНГАНЛАР ===================== #}
+<section class="bl-box">
+  <div class="hd"><h2>Юклаб олинган (пули тўланган) файллар</h2><p>Ҳар бир файл бир марта: тарифдан ёки балансдан. Қайта юклаб олиш бепул.</p></div>
+  <table class="w-full text-sm"><tbody class="divide-y divide-slate-100">
+    {% for x in page %}
+    <tr><td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500">{{ x.created|date:"d.m.Y H:i" }}</td>
+      <td class="px-2 py-2"><span class="block truncate font-medium" style="max-width:28rem" title="{{ x.title }}">{{ x.title|default:x.key }}</span>
+        <span class="block text-xs text-slate-500"><a href="{% url 'panel:user' x.user_id %}?tab=billing" class="hover:underline">{{ x.user.get_full_name|default:x.user.email }}</a> · {% if x.kind == 'object' %}{% if x.quota_object %}объект, тарифдан{% else %}объект-ой, балансдан{% endif %}{% else %}{{ x.rows|som }} қатор, тарифдан {{ x.quota_rows|som|default:"0" }}{% endif %}</span></td>
+      <td class="num px-4 py-2 text-right {% if x.amount %}font-semibold bl-minus{% else %}text-slate-400{% endif %}">{% if x.amount %}−{{ x.amount|som }}{% else %}0{% endif %}</td></tr>
+    {% empty %}<tr><td class="px-4 py-10 text-center text-slate-400">Ҳали йўқ</td></tr>{% endfor %}
+  </tbody></table>
+  {% include "panel/_billing_pager.html" %}
+</section>
+
+{% else %}
+{# ===================== ЖУРНАЛ ===================== #}
+<section class="bl-box">
+  <div class="hd"><h2>Журнал</h2><p>Админ ҳаракатлари: тарифлар, созламалар, фойдаланувчи балансини тузатиш, совға, обунани тугатиш. Ўзгармайди — фақат қўшилади.</p></div>
+  <table class="w-full text-sm"><tbody class="divide-y divide-slate-100">
+    {% for ev in page %}
+    <tr><td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500">{{ ev.created|date:"d.m.Y H:i" }}</td>
+      <td class="px-2 py-2 text-xs text-slate-600">{% if ev.actor %}{{ ev.actor.get_short_name|default:ev.actor.email }}{% else %}—{% endif %}</td>
+      <td class="px-2 py-2">{{ ev.detail }}{% if ev.target_id %} <a href="{% url 'panel:user' ev.target_id %}?tab=billing" class="text-xs text-slate-500 underline">фойдаланувчи</a>{% endif %}</td>
+      <td class="whitespace-nowrap px-4 py-2 text-right font-mono text-xs text-slate-400">{{ ev.ip|default:"" }}</td></tr>
+    {% empty %}<tr><td class="px-4 py-10 text-center text-slate-400">Ҳали ёзув йўқ</td></tr>{% endfor %}
+  </tbody></table>
+  {% include "panel/_billing_pager.html" %}
+</section>
+{% endif %}
+{% endblock %}

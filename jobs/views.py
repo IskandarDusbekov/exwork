@@ -20,6 +20,8 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from openpyxl.utils import column_index_from_string, get_column_letter
 
 from core.batch import KIND_LABELS
+from web import brand as brandfile
+from billing import gate
 from core.pipeline import UNPRICED_STATUSES, extra_columns_of
 from core.svodka import DEFAULT_PERCENTS, PERCENT_LABELS, parse_text_number, percent_text, svodka_layout
 
@@ -391,7 +393,7 @@ def work_items(user, limit=None):
                       "progress": f"{finished}/{len(parts)}", "percent": round(100 * finished / len(parts)) if parts else 100,
                       "total": total, "not_priced": not_priced, "review": review, "stopped": stopped, "awaiting": awaiting,
                       "state": state, "pipes": [_STAGE_PIPE.get(p.stage) or _pipe_of_jobs(list(p.jobs.all()), "done")
-                                                for p in parts]})
+                                                for p in parts], "_jobs": jobs})
     for b in Batch.objects.filter(owner=user, project__isnull=True).prefetch_related(
             Prefetch("jobs", light_jobs(Job.objects)))[:limit]:
         jobs = list(b.jobs.all())
@@ -401,7 +403,7 @@ def work_items(user, limit=None):
                       "delete_url": reverse("work_delete", args=["object", b.id]),
                       "meta": _("{0} та жуфтлик").format(len(b.pairs)), "working": False,
                       "reason": _skip_reason(b.sheets) if state == "empty" else "", "total": total, "not_priced": not_priced,
-                      "review": 0 if b.status == Batch.Status.DONE else 1, "state": state, "pipes": [state]})
+                      "review": 0 if b.status == Batch.Status.DONE else 1, "state": state, "pipes": [state], "_jobs": jobs})
     for j in light_jobs(Job.objects.filter(owner=user, batch__isnull=True))[:limit]:
         total, not_priced = _job_sums([j]) if j.status == Job.Status.DONE else (0, 0)
         state = ("failed" if j.status == Job.Status.FAILED else "review" if j.status != Job.Status.DONE
@@ -410,11 +412,25 @@ def work_items(user, limit=None):
                       "delete_url": reverse("work_delete", args=["smeta", j.id]),
                       "meta": j.local_sheet, "reason": "", "working": False, "total": total, "not_priced": not_priced,
                       "review": 1 if j.status != Job.Status.DONE else 0, "state": state,
-                      "pipes": [state if state in ("warn", "done") else "review"]})
+                      "pipes": [state if state in ("warn", "done") else "review"], "_jobs": [j]})
     items.sort(key=lambda x: x["created"], reverse=True)
     for it in items:
         it["state_label"], it["state_color"], it["state_icon"] = WORK_STATES[it["state"]]
     return items[:limit] if limit else items
+
+
+def _rows_info(user, items):
+    """Ҳар бир ишга: нечта қатор нархланди ва (пулли режимда) ҳаммаси юклаб олинганми — ``work_items`` нинг
+    ``_jobs`` идан (қўшимча сўровсиз; тўланганлар — битта сўров)."""
+    from billing import services as bs
+    from billing.models import Unlock
+    billing = bs.enabled() and not bs.exempt(user)
+    paid = set(Unlock.objects.filter(user=user, kind=Unlock.Kind.ROWS).values_list("key", flat=True)) if billing else set()
+    for it in items:
+        done = [j for j in it.pop("_jobs", []) if j.status == Job.Status.DONE]
+        it["rows_done"] = sum(j.rows_done or 0 for j in done)
+        it["paid"] = billing and bool(done) and all(bs.job_key(j.id) in paid for j in done)
+    return items
 
 
 def _tn_summary(cards) -> dict:
@@ -464,7 +480,7 @@ ATTENTION = ("warn", "awaiting", "stopped", "review", "failed")
 def dashboard(request):
     """Дашборд: нима тайёр ва нима смета­чини кутяпти (нархлаш ҳамда техназор), сметалар босқичлари, барча ишлар."""
     from texnazor.services import object_cards
-    items = work_items(request.user)
+    items = _rows_info(request.user, work_items(request.user))
     attention = [dict(it, todo=_todo(it)) for it in items if it["state"] in ATTENTION]
     pipes = [p for it in items for p in it["pipes"]]
     pipeline = [{"key": k, "label": label, "color": color, "hint": hint, "count": pipes.count(k),
@@ -505,6 +521,7 @@ def dashboard(request):
         "pane": "tn" if tn_recent and (not items or tn_recent[0]["when"] > items[0]["created"]) else "smeta",
         "priced_pct": round(100 * (pipes.count("done") + pipes.count("warn")) / len(pipes)) if pipes else 0,
         "any_working": any(it["working"] for it in items),
+        "rows_priced": sum(it["rows_done"] for it in items),
     })
 
 
@@ -791,12 +808,15 @@ def project_unpriced(request, project_id):
 
 def project_download(request, project_id):
     project = _get_work(request, Project, id=project_id)
+    stop = gate.check(request, gate.items_for(project), reverse("project", args=[project.id]))  # пулли режим
+    if stop:
+        return stop
     try:
         path = build_project_zip(project)
     except UploadError as e:
         raise Http404(str(e))
     _audit_download(request, project, "folder", path.name)
-    return FileResponse(open(path, "rb"), as_attachment=True, filename=path.name)
+    return FileResponse(open(path, "rb"), as_attachment=True, filename=brandfile.name(path.name))
 
 
 # ===================== tizim haqida (landing) =====================
@@ -1621,12 +1641,15 @@ def batch_confirm(request, batch_id):
 
 def batch_download(request, batch_id):
     batch = _get_work(request, Batch, id=batch_id)
+    stop = gate.check(request, gate.items_for(batch), reverse("batch", args=[batch.id]))  # пулли режим
+    if stop:
+        return stop
     try:
         path = build_combined(batch)
     except UploadError as e:
         raise Http404(str(e))
     _audit_download(request, batch, "object", path.name)
-    return FileResponse(open(path, "rb"), as_attachment=True, filename=path.name)
+    return FileResponse(open(path, "rb"), as_attachment=True, filename=brandfile.name(path.name))
 
 
 def job_detail(request, job_id):
@@ -2434,8 +2457,11 @@ def job_download(request, job_id):
     path = job.abs(job.output_path)
     if not path.is_file():
         raise Http404(_("Файл топилмади"))
+    stop = gate.check(request, gate.items_for(job), reverse("job", args=[job.id]))  # пулли режим
+    if stop:
+        return stop
     _audit_download(request, job, "smeta", job.download_name)
-    return FileResponse(open(path, "rb"), as_attachment=True, filename=job.download_name)
+    return FileResponse(open(path, "rb"), as_attachment=True, filename=brandfile.name(job.download_name))
 
 
 # ===================== калькулятор =====================

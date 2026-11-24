@@ -244,9 +244,10 @@ def base_options(job: Job) -> dict:
     from resbase.services import period_label, price_map
     lm = ({"lm_base": load_base(job.owner_id, job.id), "lm_auto": lm_auto_of(job.owner_id) and job_auto(job)}  # ускуна ва кабель базаси — L/M таклифи
           if job.mode == "smart" else {})
+    from panel import conf
+    lm["brand"] = bool(conf.get("brand"))  # LOG листида mhisobot.uz ёзуви (панел «Созламалар» → «Тайёр файллар»)
     if job.res_path:
         return {"base_prices": None, "base_label": "", **lm}
-    from panel import conf
     prices = price_map(job.base_period)
     return {"base_prices": prices or None, "base_label": period_label(job.base_period) if prices else "",
             "base_loose": bool(conf.get("base_loose")), "base_near_min": conf.get("base_near_min") / 100, **lm}

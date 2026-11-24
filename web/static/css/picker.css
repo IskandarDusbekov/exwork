@@ -424,19 +424,24 @@
 @media (max-width: 640px) { .pk-now { flex-wrap: wrap; } .pk-now-go { width: 100%; } }
 
 /* ===== натижа: қора блок (смета саҳифаси ва папка саҳифаси) ===== */
-.rs-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 24px; align-items: center; padding: 20px 22px; border-radius: 20px; background: rgb(var(--ink-900)); color: #fff; }
+.rs-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 20px; align-items: center; padding: 16px 18px; border-radius: 18px; background: rgb(var(--ink-900)); color: #fff; }
 .rs-total > span { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: rgb(var(--ink-400)); }
-.rs-total > b { display: block; margin-top: 2px; font-size: 34px; font-weight: 800; line-height: 1.15; }
-.rs-chips { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
-.rs-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 14px; font-weight: 700; }
+.rs-total > b { display: block; margin-top: 1px; font-size: 30px; font-weight: 800; line-height: 1.15; }
+.rs-chips { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.rs-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px; font-size: 13.5px; font-weight: 700; }
+.rs-chip.is-rows { background: rgb(255 255 255 / .1); color: #fff; font-weight: 600; } .rs-chip.is-rows b { font-weight: 800; }
+.rs-bill { display: flex; align-items: flex-start; gap: 7px; margin-top: 10px; font-size: 13px; line-height: 1.45; color: rgb(var(--ink-300)); }
+.rs-bill svg { flex: none; margin-top: 2px; color: rgb(var(--ink-400)); } .rs-bill b { color: #fff; font-weight: 700; }
+.rs-bill.is-paid svg, .rs-bill.is-quota svg { color: rgb(var(--ok-300)); }
+.rs-bill.is-short a { font-weight: 700; color: rgb(var(--warn-300)); text-decoration: underline; }
 .rs-chip.is-ok { background: rgba(34, 197, 94, .18); color: rgb(var(--ok-300)); } .rs-chip.is-fix { background: rgba(251, 113, 133, .2); color: rgb(var(--bad-300)); }
-.rs-acts { display: grid; gap: 8px; justify-items: stretch; }
-.rs-dl { display: inline-flex; align-items: center; gap: 12px; padding: 12px 22px; border-radius: 16px; background: rgb(var(--ok-600)); color: #fff; font-size: 18px; font-weight: 800;
+.rs-acts { display: grid; gap: 6px; justify-items: stretch; }
+.rs-dl { display: inline-flex; align-items: center; gap: 10px; padding: 9px 18px; border-radius: 14px; background: rgb(var(--ok-600)); color: #fff; font-size: 16px; font-weight: 800;
   box-shadow: 0 10px 26px rgba(22, 163, 74, .4); animation: pk-pulse 1.8s ease-in-out infinite; }
-.rs-dl small { display: block; font-size: 12px; font-weight: 500; color: rgb(var(--ok-100)); }
+.rs-dl small { display: block; font-size: 11.5px; font-weight: 500; color: rgb(var(--ok-100)); }
 .rs-dl:hover { background: rgb(var(--ok-700)); }
 .rs-hero.is-fix .rs-dl { animation: none; }
-.rs-sec { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; border-radius: 12px; border: 1px solid rgb(var(--ink-700)); color: rgb(var(--ink-200)); font-size: 14px; font-weight: 600; }
+.rs-sec { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; border-radius: 12px; border: 1px solid rgb(var(--ink-700)); color: rgb(var(--ink-200)); font-size: 14px; font-weight: 600; }
 .rs-sec:hover { background: rgb(var(--ink-800)); }
 .rs-chip.is-warn { background: rgba(251, 191, 36, .2); color: rgb(var(--warn-300)); }
 button.rs-chip { cursor: pointer; transition: filter .15s; } button.rs-chip:hover { filter: brightness(1.25); text-decoration: underline; }
@@ -475,7 +480,7 @@ button.rs-chip { cursor: pointer; transition: filter .15s; } button.rs-chip:hove
 @media (max-width: 640px) { .ph-steps li { grid-template-columns: auto minmax(0, 1fr); } .ph-go { grid-column: 1 / -1; justify-content: center; } }
 
 /* ===== папка: офёрта (сариқ) ва ишлаётган ҳолат ===== */
-.rs-of { display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px; border-radius: 14px; background: rgb(var(--warn-300)); color: rgb(var(--warn-950)); font-size: 16px; font-weight: 800; }
+.rs-of { display: inline-flex; align-items: center; gap: 10px; padding: 8px 18px; border-radius: 14px; background: rgb(var(--warn-300)); color: rgb(var(--warn-950)); font-size: 14.5px; font-weight: 800; }
 .rs-of small { display: block; font-size: 11px; font-weight: 500; color: rgb(var(--warn-900)); }
 .rs-of:hover { background: rgb(var(--warn-400)); }
 .ph-go.is-of { background: rgb(var(--warn-300)); color: rgb(var(--warn-950)); border: 0; }

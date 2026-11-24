@@ -6,7 +6,7 @@
       <h2 class="font-semibold">Ф-3 №{{ m.num }} — справка-счёт-фактура · {{ period.title }}</h2>
       <p class="text-xs text-slate-500">Тўлов ҳужжати: шартнома қиймати, бошидан ва шу ойда бажарилган (пудратчи қисми). Суммалар Ф-2 дан, минг сўмда — Excel'дагидек.</p>
     </div>
-    <a href="{% url 'texnazor:f3' o.pk period.pk %}" class="tn-mbtn tn-mbtn-line" download>{% icon "download" "h-4 w-4" %}Ф-3 юклаб олиш</a>
+    <a href="{% url 'texnazor:f3' o.pk period.pk %}" class="tn-mbtn tn-mbtn-line">{% icon "download" "h-4 w-4" %}Ф-3 юклаб олиш</a>
   </div>
 
   {# ---- ҳужжат: рақам, сана, давр — ҳар ой ----#}

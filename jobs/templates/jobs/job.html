@@ -73,7 +73,7 @@
     <span class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">{% icon "check-circle" "h-4 w-4 text-emerald-600" %} ҳаммаси нархланган</span>
     {% endif %}
     <a href="{% url 'job_download' job.id %}" title="{{ job.download_name }}" data-guide="download"
-       class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">{% icon "download" "h-4 w-4" %} Юклаб олиш · Excel</a>
+       class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">{% icon "download" "h-4 w-4" %} Юклаб олиш · Excel{% include "billing/_tag.html" with work=job %}</a>
     {% tender_on as show_tender %}{% if show_tender %}<a href="{% url 'job_tender' job.id %}" title="Сметадаги нархлар бозор нархлари билан: фойда, зарар, хулоса"
        class="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 shadow-sm hover:bg-indigo-100">{% icon "chart" "h-4 w-4" %} Объект таҳлили</a>{% endif %}
   </div>
@@ -1565,7 +1565,7 @@
       </div>
       {% endif %}
       <a href="{% url 'job_download' job.id %}" class="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 font-semibold text-white shadow-sm hover:bg-emerald-700">
-        {% icon "download" "h-5 w-5" %} Юклаб олиш · Excel</a>
+        {% icon "download" "h-5 w-5" %} Юклаб олиш · Excel{% include "billing/_tag.html" with work=job %}</a>
     </aside>
   </div>
 </section>

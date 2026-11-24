@@ -1,0 +1,20 @@
+<section class="rounded-xl border {% if click.ready %}border-emerald-200 bg-emerald-50/40{% else %}border-amber-200 bg-amber-50/50{% endif %} px-4 py-3 text-sm">
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <div class="flex items-center gap-2 font-semibold">
+      <span class="h-2 w-2 rounded-full {% if click.ready %}bg-emerald-500{% else %}bg-amber-500{% endif %}"></span>
+      {% if click.ready %}Click уланган · service_id {{ click.service_id }}{% else %}Click уланмаган — «Балансни тўлдириш» ўчиқ{% endif %}
+    </div>
+  </div>
+  {% if not click.ready %}
+  <p class="mt-1.5 text-slate-600">Click берган маълумотларни серверда <code>/srv/narxlash/.env</code> га ёзинг ва хизматни қайта ишга туширинг (<code>sudo systemctl restart narxlash-web</code>):</p>
+  <pre class="mt-1.5 overflow-x-auto rounded-lg bg-white px-3 py-2 text-xs ring-1 ring-slate-200">CLICK_SERVICE_ID=…
+CLICK_MERCHANT_ID=…
+CLICK_SECRET_KEY=…
+CLICK_MERCHANT_USER_ID=…   # ихтиёрий</pre>
+  {% else %}<p class="mt-1 text-xs text-slate-500">Калитлар серверда, .env да (панелда кўринмайди).</p>{% endif %}
+  <p class="mt-1.5 text-slate-600">Click кабинетида ёзиладиган манзиллар:</p>
+  <div class="mt-1 grid gap-1 text-xs">
+    <div><span class="inline-block w-24 text-slate-500">Prepare URL</span> <code class="select-all break-all rounded bg-white px-1.5 py-0.5 ring-1 ring-slate-200">{{ click.prepare }}</code></div>
+    <div><span class="inline-block w-24 text-slate-500">Complete URL</span> <code class="select-all break-all rounded bg-white px-1.5 py-0.5 ring-1 ring-slate-200">{{ click.complete }}</code></div>
+  </div>
+</section>

@@ -27,7 +27,7 @@ def public_pages():
     # блог: видео дарслар (бўлимлари билан) ва мақолалар — қидирув тизими ҳар бирини алоҳида саҳифа сифатида кўради
     from jobs import site
     from .models import Category, Post
-    pages += [(reverse("guide"), "0.8"), (reverse("blog"), "0.8"), (reverse("about_us"), "0.6"), (reverse("terms"), "0.3")]
+    pages += [(reverse("guide"), "0.8"), (reverse("blog"), "0.8"), (reverse("about_us"), "0.6"), (reverse("terms"), "0.3"), (reverse("privacy"), "0.3")]
     for sec in site.video_sections():
         pages += [(reverse("blog_video", args=[v["id"]]), "0.6", v.get("added") or "") for v in sec["videos"]]
     pages += [(reverse("blog_post", args=[slug]), "0.7", upd.date().isoformat())

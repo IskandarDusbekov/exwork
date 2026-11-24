@@ -227,6 +227,84 @@
     </div>
   </div>
 
+{% elif utab == "billing" %}
+  {# ---------------- баланс ва тариф ---------------- #}
+  {% with acc=bill.acc p=bill.plan %}
+  <div class="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+    <div class="min-w-0 space-y-3">
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-xs text-slate-500">Баланс</div>
+          <div class="num mt-1 text-2xl font-bold text-slate-900">{{ acc.balance|som|default:"0" }} <span class="text-sm font-normal text-slate-400">сўм</span></div>
+          <div class="text-xs text-slate-500">ўзи янгиланиш: {% if acc.auto_renew %}ёқиқ{% else %}ўчиқ{% endif %}</div></div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-xs text-slate-500">Тариф</div>
+          <div class="mt-1 text-lg font-bold text-slate-900">{{ p.tariff.name|default:"—" }}</div>
+          <div class="text-xs text-slate-500">{% if p.sub %}{{ p.end|date:"d.m.Y" }} гача{% if p.sub.gift %} · совға{% endif %}{% else %}обуна йўқ · {{ p.start|date:"d.m" }}–{{ p.end|date:"d.m.Y" }}{% endif %}</div></div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="text-xs text-slate-500">Шу даврда ишлатгани</div>
+          <div class="num mt-1 text-sm"><b class="text-slate-900">{{ p.rows_used|som|default:"0" }}</b> / {{ p.rows|som|default:"0" }} қатор</div>
+          <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-sky-500" style="width:{{ p.rows_pct|stringformat:'.1f' }}%"></div></div>
+          <div class="num mt-1.5 text-sm"><b class="text-slate-900">{{ p.objects_used }}</b> / {{ p.objects }} объект</div></div>
+      </div>
+
+      <section class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Дафтар</h2><p class="text-xs text-slate-500">Охирги 30 та кирим ва чиқим</p></div>
+        <div class="overflow-x-auto"><table class="w-full text-sm"><tbody class="divide-y divide-slate-100">
+          {% for e in bill.entries %}
+          <tr><td class="whitespace-nowrap px-4 py-2 text-xs text-slate-500">{{ e.created|date:"d.m.Y H:i" }}</td>
+            <td class="px-2 py-2"><span class="font-medium">{{ e.get_kind_display }}</span>{% if e.note %}<span class="block text-xs text-slate-500">{{ e.note }}{% if e.actor %} · {{ e.actor.get_short_name|default:e.actor.email }}{% endif %}</span>{% endif %}</td>
+            <td class="num whitespace-nowrap px-2 py-2 text-right font-semibold {% if e.amount > 0 %}text-emerald-700{% else %}text-rose-700{% endif %}">{% if e.amount > 0 %}+{% endif %}{{ e.amount|som }}</td>
+            <td class="num whitespace-nowrap px-4 py-2 text-right text-xs text-slate-500">{{ e.balance_after|som|default:"0" }}</td></tr>
+          {% empty %}<tr><td class="px-4 py-8 text-center text-slate-400">Ҳали ёзув йўқ</td></tr>{% endfor %}
+        </tbody></table></div>
+      </section>
+
+      <section class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Обуналар</h2></div>
+        <table class="w-full text-sm"><tbody class="divide-y divide-slate-100">
+          {% for s in bill.subs %}
+          <tr><td class="px-4 py-2 font-medium">{{ s.tariff.name }}{% if s.gift %} <span class="text-xs font-normal text-violet-600">совға</span>{% endif %}</td>
+            <td class="num px-2 py-2 text-xs text-slate-500">{{ s.start|date:"d.m.Y" }} — {{ s.end|date:"d.m.Y" }}</td>
+            <td class="num px-2 py-2 text-right">{{ s.price|som|default:"0" }}</td>
+            <td class="px-4 py-2 text-right">{% if s.active %}<span class="text-xs font-semibold text-emerald-700">фаол</span>
+              {% if can_act %}<form method="post" action="{% url 'panel:user_sub_end' u.pk s.pk %}" class="inline" data-confirm="«{{ s.tariff.name }}» обунаси шу ондан тугатилсинми? Пул қайтарилмайди (керак бўлса — «Баланс»дан қўлда)." data-confirm-title="Обунани тугатиш" data-confirm-ok="Тугатиш" data-danger>{% csrf_token %}
+                <button class="ml-1 rounded-md border border-rose-200 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-50">Тугатиш</button></form>{% endif %}
+              {% else %}<span class="text-xs text-slate-400">тугаган</span>{% endif %}</td></tr>
+          {% empty %}<tr><td class="px-4 py-6 text-center text-slate-400">Пулли обуна бўлмаган</td></tr>{% endfor %}
+        </tbody></table>
+      </section>
+    </div>
+
+    <div class="space-y-3">
+      {% if can_act %}
+      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 class="font-semibold">Балансни ўзгартириш</h2>
+        <p class="text-xs text-slate-500">Қўшиш — сон, айириш — минус билан (−5000). Сабаби дафтарда ва журналда қолади.</p>
+        <form method="post" action="{% url 'panel:user_balance' u.pk %}" class="mt-3 space-y-2">{% csrf_token %}
+          <div class="flex items-center gap-2"><input name="amount" required inputmode="numeric" placeholder="50000" class="num min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-right text-sm outline-none focus:border-slate-400" aria-label="Сумма"><span class="text-xs text-slate-500">сўм</span></div>
+          <input name="note" required maxlength="200" placeholder="Сабаби: нақд тўлади, хато ечилди…" class="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-slate-400" aria-label="Сабаби">
+          <label class="flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" name="bonus" value="1" class="h-4 w-4"> Бонус (қайтарилмайдиган пул)</label>
+          <button class="w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700">Сақлаш</button>
+        </form>
+      </section>
+      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 class="font-semibold">Тариф совға қилиш</h2>
+        <p class="text-xs text-slate-500">Бир ойга, балансдан ечилмайди, ўзи янгиланмайди. Ҳозирги обунаси шу ондан тугайди.</p>
+        <form method="post" action="{% url 'panel:user_gift' u.pk %}" class="mt-3 flex gap-2" data-confirm="Тариф бир ойга бепул берилсинми?" data-confirm-title="Тариф совға қилиш" data-confirm-ok="Бериш">{% csrf_token %}
+          <select name="tariff" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm">{% for t in bill.tariffs %}<option value="{{ t.pk }}">{{ t.name }} · {{ t.rows|som }} қатор</option>{% endfor %}</select>
+          <button class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Бериш</button>
+        </form>
+      </section>
+      {% endif %}
+      <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-100 px-4 py-3"><h2 class="font-semibold">Тўловлари</h2></div>
+        <table class="w-full text-sm"><tbody class="divide-y divide-slate-100">
+          {% for x in bill.payments %}<tr><td class="px-4 py-2 text-xs text-slate-500">{{ x.created|date:"d.m.Y H:i" }}</td><td class="px-2 py-2 text-xs">{{ x.get_status_display }}</td><td class="num px-4 py-2 text-right font-semibold">{{ x.amount|som }}</td></tr>
+          {% empty %}<tr><td class="px-4 py-6 text-center text-sm text-slate-400">Йўқ</td></tr>{% endfor %}
+        </tbody></table>
+      </section>
+    </div>
+  </div>
+  {% endwith %}
+
 {% else %}
   {# ---------------- ҳаракатлари ---------------- #}
   <section class="rounded-xl border border-slate-200 bg-white shadow-sm">

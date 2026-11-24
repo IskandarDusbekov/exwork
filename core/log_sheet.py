@@ -60,9 +60,11 @@ def excel_value(v):
 SMART_FILLS = dict(STATUS_FILLS, FUZZY="FFFFC7CE", AMBIGUOUS="FFFFC7CE", UNIT_MISMATCH="FFFFC7CE")
 
 
-def write_log(wb, rows: Sequence[Sequence], smart: bool = False, title: str = LOG_TITLE) -> "object":
+def write_log(wb, rows: Sequence[Sequence], smart: bool = False, title: str = LOG_TITLE, brand: bool = False) -> "object":
     """compat: LOG faol listdan oldin va faol bo'ladi (eski dastur kabi).
-    smart: LOG oxirgi list, izoh ustuni bilan; faol list o'zgarmaydi (fayl smetaning o'zida ochiladi)."""
+    smart: LOG oxirgi list, izoh ustuni bilan; faol list o'zgarmaydi (fayl smetaning o'zida ochiladi).
+    brand: jadvaldan bitta bo'sh ustun o'ngda, 1-qatorda «mhisobot.uz tizimida tayyorlandi» (havola) —
+    jadval ustunlari va qatorlari o'zgarmaydi (LOG'ni o'qiydigan kod ``row[0..]`` bo'yicha o'qiydi)."""
     if title in wb.sheetnames:
         del wb[title]
 
@@ -99,6 +101,15 @@ def write_log(wb, rows: Sequence[Sequence], smart: bool = False, title: str = LO
                 ws.cell(row=r, column=c).fill = fill
 
     _autofit(ws, len(rows) + 1, len(header))
+
+    if brand:
+        from .brand import LOG_NOTE, URL
+        col = len(header) + 2
+        cell = ws.cell(row=1, column=col, value=LOG_NOTE)
+        cell.hyperlink = URL
+        cell.font = Font(name="Calibri", sz=10, i=True, color="FF7F7F7F", u="single")
+        cell.alignment = Alignment(vertical="center")
+        ws.column_dimensions[get_column_letter(col)].width = len(LOG_NOTE) + 2
 
     if smart:
         wb.active = active

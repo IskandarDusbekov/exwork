@@ -284,6 +284,47 @@ dan daqiqasiga 10 ta, qolgan sahifalar — soniyasiga 20 ta. Oshsa — 429. Conf
 3. Kichik papka yuklab, «Ҳисоблашни бошлаш»ni bosing. Worker uni olishi kerak (Панел → Жараёнлар).
 4. «Паролни унутдингизми?» orqali o'zingizga xat yuboring. Email ishlayotganini tekshirasiz.
 
+## 10. To'lov tizimi (balans, tariflar, Click)
+
+Pulli rejim **o'chiq holda** keladi: `update.sh` dagi `migrate` to'lov jadvallarini va 4 ta boshlang'ich tarifni
+(Бепул, Старт, Про, Компания) yaratadi, lekin hamma narsa bepul qoladi. Yoqish tartibi:
+
+1. **Narxlar.** Панел → «Тўлов ва тарифлар»: tariflar (narx, oylik qator, obyekt). Панел → Созламалар → «Тўлов»:
+   tarifdan oshgan qator va obyekt narxi. Faol **bepul tarif (narxi 0) bo'lishi shart** — tarifsiz foydalanuvchi shu
+   tarif bilan ishlaydi.
+2. **Click kalitlari.** Click bergan ma'lumotlarni `/srv/narxlash/.env` ga yozing (namuna — `deploy/.env.example`):
+
+   ```
+   CLICK_SERVICE_ID=...
+   CLICK_MERCHANT_ID=...
+   CLICK_SECRET_KEY=...
+   CLICK_MERCHANT_USER_ID=...   # ixtiyoriy
+   ```
+
+   va `sudo systemctl restart narxlash-web`. Kalitlar panelda yo'q (atayin): panelga kirgan odam ularni ko'ra olmasin.
+3. **Click kabinetida** (merchant.click.uz → servis sozlamalari) manzillar:
+   Prepare URL — `https://mhisobot.uz/balance/click/prepare/`,
+   Complete URL — `https://mhisobot.uz/balance/click/complete/`.
+   Ular «Тўлов ва тарифлар» sahifasida ham ko'rinadi.
+4. **Tekshiruv** (pul harakatlanmaydi):
+
+   ```
+   sudo -u narxlash /srv/narxlash/app/deploy/manage.sh billing_check --ping
+   ```
+
+   `--ping` saytning o'z Prepare manziliga mavjud bo'lmagan buyurtma bilan imzolangan so'rov yuboradi. «имзо ўтди»
+   chiqsa — manzil tashqaridan ochiladi va kalit to'g'ri. «имзо ўтмади» — `.env` dagi kalit Click'dagidan farq qiladi
+   yoki xizmat qayta ishga tushirilmagan. Buyruq yana tariflarni, daftar to'g'riligini (balans = yozuvlar yig'indisi)
+   va osilib qolgan to'lovlarni tekshiradi.
+5. **Haqiqiy sinov.** Oddiy (xodim **emas**) hisob bilan kiring → «Баланс ва тариф» → 10 000 so'm (eng kam summa) Click orqali to'lang
+   → balansga tushishi kerak. Xodimlar to'lamaydi, ularda sanash ham ko'rinmaydi.
+6. **Yoqish.** Панел → Созламалар → «Пулли режим». Shundan keyin tayyor fayllarni yuklab olish tarifdan / balansdan
+   hisoblanadi (narxlash, ko'rish, tuzatish — bepul; har fayl uchun bir marta).
+
+Muammo bo'lsa: Панел → «Тўлов ва тарифлар» → «Тўловлар» (holati bilan), server logida `billing.click` yozuvlari.
+Foydalanuvchi balansini qo'lda tuzatish — Панел → foydalanuvchi → «Баланс ва тариф» (sababi daftarga yoziladi).
+Fiskal chek (IKPU / OFD) hali ulanmagan — Click talab qilsa, alohida qilinadi.
+
 ## Domen olinguncha (SSH tunnel)
 
 Domen faollashguncha sayt xavfsiz holatda, faqat sizga ochiq ishlaydi: tashqaridan (IP orqali) kirib bo'lmaydi,

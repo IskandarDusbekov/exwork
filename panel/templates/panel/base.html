@@ -61,6 +61,7 @@
         <div class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Таҳлил</div>
         {% include "panel/_side_link.html" with key="stats" url="panel:stats" ic="chart" label="Статистика" hint="Юклашлар, нархлашлар, киришлар — давр бўйича" %}
         {% include "panel/_side_link.html" with key="usage" url="panel:usage" ic="table" label="Қатор ҳисоби" hint="Ким қанча қатор ишлади — ҳафта, ой (тўлов учун)" %}
+        {% include "panel/_side_link.html" with key="billing" url="panel:billing" ic="tag" label="Тўлов ва тарифлар" hint="Тарифлар ва нархлар, баланслар, тўловлар ва ечимлар" %}
         {% include "panel/_side_link.html" with key="track" url="panel:track" ic="activity" label="Фойдаланувчи йўли" hint="Юклашдан натижагача: ким қаерга етди, қаерда тўхтади, қайтиб келдими" %}
         {% include "panel/_side_link.html" with key="speed" url="panel:speed" ic="clock" label="Тезлик" hint="Файл очиш ва нархлаш вақти" %}
         {% if user.is_superuser %}{% include "panel/_side_link.html" with key="tizim" url="panel:tizim" ic="activity" label="Тизим (жонли)" hint="Сервер, база, фон ишчиси, LibreOffice ва nginx — ҳозирги ҳолат, муаммолар ва коди" %}{% endif %}

@@ -55,9 +55,9 @@
     {% if period %}
     <div class="tn-months-act">
       <span class="tn-months-sel">Танланган: <b>{{ period.title }}</b></span>
-      <a href="{% url 'texnazor:f2' o.pk period.pk %}" class="tn-mbtn tn-mbtn-line" download
-         title="{% if period.closed %}Бажарилган ишлар далолатномаси (Excel){% else %}Ой ҳали ёпилмаган — ҳозиргача ёзилганлар бўйича{% endif %}">{% icon "download" "h-4 w-4" %}Ф-2 юклаб олиш</a>
-      <a href="{% url 'texnazor:f3' o.pk period.pk %}" class="tn-mbtn tn-mbtn-line" download
+      <a href="{% url 'texnazor:f2' o.pk period.pk %}" class="tn-mbtn tn-mbtn-line"
+         title="{% if period.closed %}Бажарилган ишлар далолатномаси (Excel){% else %}Ой ҳали ёпилмаган — ҳозиргача ёзилганлар бўйича{% endif %}">{% icon "download" "h-4 w-4" %}Ф-2 юклаб олиш{% include "billing/_tag.html" with work=o %}</a>
+      <a href="{% url 'texnazor:f3' o.pk period.pk %}" class="tn-mbtn tn-mbtn-line"
          title="Справка-счёт-фактура (Excel) — тўлов учун">{% icon "download" "h-4 w-4" %}Ф-3 юклаб олиш</a>
       <form method="post" action="{% url 'texnazor:period_close' o.pk period.pk %}">{% csrf_token %}
         <input type="hidden" name="closed" value="{{ period.closed|yesno:'0,1' }}">

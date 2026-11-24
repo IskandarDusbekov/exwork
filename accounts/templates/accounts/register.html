@@ -26,12 +26,12 @@
   {% if form.terms.mode == "checkbox" %}
   <div class="f agree{% if form.agree.errors %} has-err{% endif %}">
     <label class="agree-l"><input type="checkbox" name="agree" value="on" id="id_agree" required{% if form.agree.value %} checked{% endif %}>
-      <span><a href="{% url 'terms' %}" target="_blank" rel="noopener">Фойдаланиш шартлари</a> билан танишдим ва уларга розиман</span></label>
+      <span><a href="{% url 'terms' %}" target="_blank" rel="noopener">Фойдаланиш шартлари</a> ва <a href="{% url 'privacy' %}" target="_blank" rel="noopener">махфийлик сиёсати</a> билан танишдим, уларга розиман</span></label>
     {% for e in form.agree.errors %}<p class="f-e">{{ e }}</p>{% endfor %}
   </div>
   {% endif %}
   <button type="submit" class="btn btn-p">Рўйхатдан ўтиш</button>
-  {% if form.terms.mode == "note" %}<p class="agree-note">«Рўйхатдан ўтиш» тугмасини босиб, сиз <a href="{% url 'terms' %}" target="_blank" rel="noopener">фойдаланиш шартлари</a>га рози бўласиз.</p>{% endif %}
+  {% if form.terms.mode == "note" %}<p class="agree-note">«Рўйхатдан ўтиш» тугмасини босиб, сиз <a href="{% url 'terms' %}" target="_blank" rel="noopener">фойдаланиш шартлари</a> ва <a href="{% url 'privacy' %}" target="_blank" rel="noopener">махфийлик сиёсати</a>га рози бўласиз.</p>{% endif %}
 </form>
 <style>
   .promo { display: grid; gap: 8px; margin-top: 18px; }

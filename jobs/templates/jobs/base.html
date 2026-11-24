@@ -83,6 +83,7 @@
       <a href="{% url 'help' %}" id="guide-btn" data-guide="help-btn" class="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-sm font-medium text-violet-700 hover:bg-violet-100" title="Йўриқнома: иш тартиби ва огоҳлантиришлар">
         {% icon "help" "h-4 w-4" %}<span class="hidden sm:inline">Йўриқнома</span></a>
       {% page_videos %}
+      {% include "jobs/_plan_chip.html" %}
       {% include "news/_bell.html" %}
       {% include "jobs/_lang.html" %}
       {% else %}

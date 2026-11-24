@@ -228,7 +228,7 @@ def _tn_by_user() -> dict:
     return dict(SiteObject.objects.values("owner_id").annotate(n=Count("id")).values_list("owner_id", "n"))
 
 
-USER_TABS = (("works", "Ишлари"), ("files", "Юклаган файллари"), ("access", "Кириш ва рухсат"), ("events", "Ҳаракатлари"))
+USER_TABS = (("works", "Ишлари"), ("files", "Юклаган файллари"), ("access", "Кириш ва рухсат"), ("billing", "Баланс ва тариф"), ("events", "Ҳаракатлари"))
 
 
 @staff_required
@@ -264,6 +264,9 @@ def user_detail(request, pk):
         ctx.update(sessions=u.login_sessions.all()[:30], online_since=sessions.online_since(),
                    blocked_ips=sessions.blocked_ips(), my_ip=client_ip(request), disk_info=_disk_info(u),
                    ips=list(u.login_sessions.values_list("ip").annotate(n=Count("id")).order_by("-n")[:10]))
+    elif tab == "billing":
+        from .views_billing import user_billing
+        ctx["bill"] = user_billing(u)
     else:
         ctx["events"] = Event.objects.filter(Q(actor=u) | Q(target=u) | Q(email=u.email)).select_related("actor", "target")[:100]
     return render(request, "panel/user.html", _ctx(request, "users", **ctx))

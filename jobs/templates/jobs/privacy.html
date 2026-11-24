@@ -1,0 +1,37 @@
+{% extends "jobs/_public.html" %}
+{% load seo %}
+{% block seo %}{% url 'privacy' as here %}{% seo_head title=_("Махфийлик сиёсати — mhisobot") canonical=here description=description %}{% endblock %}
+{% block css %}{% include "jobs/_blog_css.html" %}
+  .toc { display: grid; gap: 2px; }
+  .toc a { padding: 7px 0 7px 12px; border-left: 1px solid var(--line-2); font-size: 14px; color: var(--ink-2); text-decoration: none; }
+  .toc a:hover, .toc a.on { color: var(--acc); border-left-color: var(--acc); }
+  @media (min-width: 1100px) { .art .side { position: sticky; top: 96px; } }
+{% endblock %}
+{% block content %}
+<div class="wrap art">
+  <article class="art-main">
+    <nav class="crumbs" aria-label="Йўл"><a href="{% url 'index' %}">Бош саҳифа</a><span aria-hidden="true">/</span><span>Махфийлик сиёсати</span></nav>
+    <h1>Махфийлик сиёсати</h1>
+    {% if t.updated %}<p class="meta">Янгиланди: {{ t.updated }}</p>{% endif %}
+    <div class="prose rich" id="terms-body">{{ t.body|safe }}</div>
+  </article>
+  <aside class="side">
+    <h2>Мундарижа</h2>
+    <nav class="toc" id="toc" aria-label="Мундарижа"></nav>
+    <p class="meta">Яна қаранг: <a href="{% url 'terms' %}">фойдаланиш шартлари</a>.</p>
+    <p class="meta">Саволлар бўлса — <a href="{% url 'about_us' %}">биз билан боғланинг</a>.</p>
+  </aside>
+</div>
+<script>
+  (function () {
+    var toc = document.getElementById("toc"), hs = document.querySelectorAll("#terms-body h2");
+    if (!hs.length) { toc.parentNode.querySelector("h2").remove(); return; }
+    hs.forEach(function (h, i) {
+      h.id = h.id || "s" + (i + 1);
+      var a = document.createElement("a");
+      a.href = "#" + h.id; a.textContent = h.textContent;
+      toc.appendChild(a);
+    });
+  })();
+</script>
+{% endblock %}

@@ -29,6 +29,7 @@ from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.utils.cell import coordinate_from_string
 
 from . import convert
+from .brand import stamp_file
 from .classify import (
     CABLE, COLUMN_KIND, EQUIPMENT, KIND_COLUMN, OTHER, is_chel_ch, is_machinists_labor, is_workers_row, name_hint, row_kind,
 )
@@ -106,6 +107,9 @@ class Options:
     # smart: ресурс базасида L/M (кабель, ускуна) деб белгиланган қатор: True — дарҳол шу устунга (сукут),
     # False — фақат таклиф: 2-босқичда кўрсатилади, фойдаланувчи ўзи ўтказади (созламалар «Ускуна ва кабель»)
     lm_auto: bool = True
+    # LOG листида «mhisobot.uz тизимида тайёрланди» ёзуви (панел «Созламалар» → «Тайёр файллар»); файл
+    # хусусиятларидаги белги (core.brand.stamp_file) эса доим
+    brand: bool = False
     # moslashtirish natijalari fayli (JSON): qayta hisoblashda RES bilan solishtirish takrorlanmaydi. Natija
     # o'zgarmaydi — RES mazmuni yoki moslashtirish kodi o'zgarsa, saqlangani ishlatilmaydi (matcher.fingerprint)
     match_cache: Optional[Path] = None
@@ -438,7 +442,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
                 _write_table_header(w, range(num, num + 1), last_col, numbering=num)
             # Filtr raqamlash qatorida (bo'lmasa sarlavhada), oxirgi resurs qatorigacha — sum qatori va svodka tashqarida
             ws.auto_filter.ref = f"A{num or head}:{last_col}{end_r}"
-    write_log(wb, priced.log_rows, smart=smart, title=opts.log_title or LOG_TITLE)
+    write_log(wb, priced.log_rows, smart=smart, title=opts.log_title or LOG_TITLE, brand=opts.brand)
     if smart:
         # LOG dan keyin — narxlar olingan resurs listi (smetachi Excel'da solishtiradi). Lokal faylning
         # o'zida shu nomli list bo'lsa (lokal va resurs bitta faylda) — u allaqachon bor, qayta qo'shilmaydi.
@@ -544,6 +548,7 @@ def _run_xlsx(local_xlsx: Path, res_xlsx: Path, out_path: Path, opts: Options) -
     wb.close()
     restore_header_footer(local_xlsx, out_path, sheet_titles)
     write_cached_values(out_path, {ws.title: cached})
+    stamp_file(out_path)  # файл хусусиятлари: mhisobot.uz (жадвалга тегмайди)
 
     # --- statistika va muammolar ---
     stats = Counter({EXACT: 0, FUZZY: 0, AMBIGUOUS: 0, NOT_FOUND: 0})

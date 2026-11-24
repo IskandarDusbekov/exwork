@@ -10,7 +10,10 @@ from django.contrib import messages
 from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.http import content_disposition_header
+from web import brand as brandfile
+from billing import gate
 from django.views.decorators.http import require_POST
 
 from . import services_acts as sa
@@ -277,8 +280,8 @@ def act_edit(request, obj_id, number):
 
 
 def _xlsx(content: bytes, name: str) -> HttpResponse:
-    r = HttpResponse(content, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    r["Content-Disposition"] = content_disposition_header(True, name)
+    r = HttpResponse(brandfile.xlsx(content), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    r["Content-Disposition"] = content_disposition_header(True, brandfile.name(name))
     return r
 
 
@@ -345,6 +348,9 @@ def _built(o: SiteObject, kind: str, build) -> bytes:
 def report_download(request, obj_id):
     from . import hisobot
     o = _obj(request, obj_id)
+    stop = gate.check(request, gate.items_for(o), reverse("texnazor:object", args=[o.pk]))  # пулли режим
+    if stop:
+        return stop
     coll = {k for k in request.GET.get("coll", "").split(",") if k}  # saytda yig'ilgan bloklar
     data = _built(o, "report:" + ",".join(sorted(coll)), lambda: hisobot.build_report(o, coll))
     return _xlsx(data, f"Офёрта (нархланган) — {o.name}"[:150] + ".xlsx")  # i18n: ok
@@ -354,6 +360,9 @@ def f2_download(request, obj_id, number):
     from . import hisobot
     o = _obj(request, obj_id)
     a = get_object_or_404(Act, obj=o, number=number)
+    stop = gate.check(request, gate.items_for(o), reverse("texnazor:object", args=[o.pk]))  # пулли режим
+    if stop:
+        return stop
     return _xlsx(_built(o, f"f2:{a.pk}", lambda: hisobot.build_f2(o, a)), f"Ф-2 {a.title} — {o.name}"[:150] + ".xlsx")  # i18n: ok
 
 

@@ -9,7 +9,7 @@ def page_urls(user) -> list[str]:
     from texnazor.models import SiteObject
 
     urls = [reverse(n) for n in ("dashboard", "calc", "help", "guide", "user_settings", "landing",
-                                 "about_us", "terms", "blog", "texnazor:index", "texnazor:create")]
+                                 "about_us", "terms", "privacy", "blog", "texnazor:index", "texnazor:create")]
     pr = Project.objects.filter(owner=user).order_by("-created").first()
     if pr:
         urls += [reverse("project", args=[pr.id]), reverse("project_ofyorta", args=[pr.id]),
@@ -26,4 +26,4 @@ def page_urls(user) -> list[str]:
     return urls
 
 
-PUBLIC = ["login", "register", "reset_request", "landing", "about_us", "terms", "blog"]
+PUBLIC = ["login", "register", "reset_request", "landing", "about_us", "terms", "privacy", "blog"]

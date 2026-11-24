@@ -5,7 +5,7 @@
 {% block panel %}
 <div class="mb-4 flex flex-wrap items-center gap-3">
   <h1 class="text-2xl font-semibold">Биз ҳақимизда ва шартлар</h1>
-  <a href="{% if ptab == 'terms' %}{% url 'terms' %}{% else %}{% url 'about_us' %}{% endif %}" target="_blank" rel="noopener" class="text-sm text-sky-700 hover:underline">Сайтда кўриш ↗</a>
+  <a href="{% if ptab == 'terms' %}{% url 'terms' %}{% elif ptab == 'privacy' %}{% url 'privacy' %}{% else %}{% url 'about_us' %}{% endif %}" target="_blank" rel="noopener" class="text-sm text-sky-700 hover:underline">Сайтда кўриш ↗</a>
 </div>
 {% for m in messages %}<div class="mb-3 rounded-lg border px-3 py-2 text-sm {% if m.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% else %}border-rose-200 bg-rose-50 text-rose-700{% endif %}">{{ m }}</div>{% endfor %}
 
@@ -36,6 +36,18 @@
       <div class="text-xs text-slate-500">Рози бўлганлар: <b class="num text-slate-700">{{ accepted }}</b> / <span class="num">{{ n_users }}</span> · шу таҳрирга: <b class="num text-slate-700">{{ accepted_now }}</b></div>
     </div>
     {% if can_act %}<button class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">Шартларни сақлаш</button>{% endif %}
+  </aside>
+  {% elif ptab == "privacy" %}
+  <div class="grid content-start gap-3 min-w-0">
+    {% include "panel/_rich_editor.html" with name="body" value=pv.body minh=520 draft="privacy" %}
+  </div>
+  <aside class="grid content-start gap-3">
+    <div class="pg-card">
+      <b class="pg-h">Махфийлик сиёсати</b>
+      <p class="text-sm text-slate-600">Сайтда: <a href="{% url 'privacy' %}" target="_blank" rel="noopener" class="text-sky-700 hover:underline">/maxfiylik/</a>{% if pv.updated %} · янгиланди <span class="num">{{ pv.updated }}</span>{% endif %}</p>
+      <p class="text-[11px] leading-snug text-slate-400">Рўйхатдан ўтиш саҳифасида шартлар билан бирга кўрсатилади. Бўш қолдирилса — стандарт матн. Сарлавҳалар (H2) ўнг томондаги мундарижага ўзи тушади.</p>
+    </div>
+    {% if can_act %}<button class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">Сақлаш</button>{% endif %}
   </aside>
   {% else %}
   <div class="grid content-start gap-4 min-w-0">

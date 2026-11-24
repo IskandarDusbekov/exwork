@@ -26,6 +26,8 @@ from panel import conf
 from panel.audit import log as _log
 from panel.models import Event
 from web.i18n import ui, ui_progress
+from web import brand as brandfile
+from billing import gate
 from django.utils.translation import gettext as _
 
 SEARCH_LIMIT = 200
@@ -53,15 +55,12 @@ def _period(obj, request, data=None) -> Period:
 
 def index(request):
     cards = services.object_cards(request.user)
-    ready = [c for c in cards if c["o"].status == SiteObject.Status.READY]
     for c in cards:  # рўйхатдаги фильтр учун ҳолат: тугаган / жараёнда / бошланмаган / эътибор (офёрта ўқилмаган)
         c["state"] = ("attn" if c["o"].status != SiteObject.Status.READY else
                       "done" if c["pct"] >= 99.995 else "run" if c["done"] else "new")
-    tot = {"contract": sum(c["contract"] or 0 for c in ready), "done": sum(c["done"] or 0 for c in ready)}
-    tot["left"] = tot["contract"] - tot["done"]
-    tot["pct"] = 100 * tot["done"] / tot["contract"] if tot["contract"] else 0.0
     counts = {k: sum(1 for c in cards if c["state"] == k) for k in ("run", "done", "new", "attn")}
-    return render(request, "texnazor/index.html", {"nav": "texnazor", "cards": cards, "tot": tot, "counts": counts,
+    ov = services.overview(request.user, cards) if cards else None
+    return render(request, "texnazor/index.html", {"nav": "texnazor", "cards": cards, "ov": ov, "counts": counts,
                                                     "my_ofyorta": conf.get("my_ofyorta")})
 
 
@@ -466,9 +465,12 @@ def f2_download(request, obj_id, period_id):
     """Ф-2 (bajarilgan ishlar dalolatnomasi) — shu oy, Excel: texnazor faylidagi varaq bilan bir xil, formulalar bilan."""
     o = _obj(request, obj_id)
     p = get_object_or_404(Period, pk=period_id, obj=o)
-    resp = HttpResponse(f2.build(p), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    stop = gate.check(request, gate.items_for(o), f"{reverse('texnazor:object', args=[o.pk])}?p={p.pk}")  # пулли режим
+    if stop:
+        return stop
+    resp = HttpResponse(brandfile.xlsx(f2.build(p)), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     audit(request, o, f"{p.title}: Ф-2 юклаб олинди")  # i18n: ok
-    resp["Content-Disposition"] = content_disposition_header(True, f2.file_name(p))
+    resp["Content-Disposition"] = content_disposition_header(True, brandfile.name(f2.file_name(p)))
     return resp
 
 
@@ -476,9 +478,12 @@ def f3_download(request, obj_id, period_id):
     """Ф-3 (справка-счёт-фактура) — shu oy, Excel: texnazor faylidagi varaq bilan bir xil."""
     o = _obj(request, obj_id)
     p = get_object_or_404(Period, pk=period_id, obj=o)
-    resp = HttpResponse(f3.build(p), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    stop = gate.check(request, gate.items_for(o), f"{reverse('texnazor:object', args=[o.pk])}?p={p.pk}")  # пулли режим
+    if stop:
+        return stop
+    resp = HttpResponse(brandfile.xlsx(f3.build(p)), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     audit(request, o, f"{p.title}: Ф-3 юклаб олинди")  # i18n: ok
-    resp["Content-Disposition"] = content_disposition_header(True, f3.file_name(p))
+    resp["Content-Disposition"] = content_disposition_header(True, brandfile.name(f3.file_name(p)))
     return resp
 
 

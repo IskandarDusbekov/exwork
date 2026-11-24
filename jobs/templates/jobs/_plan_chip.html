@@ -1,0 +1,73 @@
+{% load narx %}{# сарлавҳадаги тариф тугмаси (пулли режимда): тариф номи ва қолган қатор; босилса — тўлиқ маълумот #}
+{% if my_plan %}{% with p=my_plan %}
+<div class="pc" data-pc>
+  <button type="button" class="pc-btn{% if p.low %} is-low{% endif %}{% if p.empty %} is-out{% endif %}" aria-haspopup="true" aria-expanded="false" data-pc-btn
+          title="Тариф: {{ p.name }} · {{ p.rows_left|som|default:'0' }} қатор қолди">
+    <svg class="pc-ring" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15" class="bg"/>
+      <circle cx="18" cy="18" r="15" class="fg" stroke-dasharray="{{ p.left_pct }} 100" pathLength="100"/></svg>
+    <span class="pc-t"><b>{{ p.name }}</b><span class="num">{{ p.rows_left|som|default:"0" }} қатор</span></span>
+  </button>
+  <div class="pc-pop" hidden data-pc-pop role="dialog" aria-label="Тариф ва баланс">
+    <div class="pc-hd">
+      <span class="pc-ic">{% icon "wallet" "h-5 w-5" %}</span>
+      <div class="min-w-0"><div class="pc-l">Тариф</div><div class="pc-n">{{ p.name }}</div>
+        <div class="pc-l">{% if p.paid %}{{ p.end|date:"d.m.Y" }} гача · {{ p.days }} кун{% else %}бепул · ҳар ой янгиланади{% endif %}</div></div>
+    </div>
+    <div class="pc-sec">
+      <div class="pc-row"><span>Шу ой қатор</span><b class="num">{{ p.rows_left|som|default:"0" }} <small>/ {{ p.rows|som }} қолди</small></b></div>
+      <div class="pc-bar"><i style="width: {{ p.left_pct }}%"></i></div>
+      <div class="pc-sub">ишлатилди {{ p.rows_used|som|default:"0" }} · {{ p.month_end|date:"d.m" }} да янгиланади</div>
+      {% if p.empty %}<p class="pc-warn">Қатор тугади — юклаб олишда ҳар қатор {{ p.row_price }} сўмдан балансдан ечилади.</p>
+      {% elif p.low %}<p class="pc-warn">Қатор оз қолди.</p>{% endif %}
+    </div>
+    <div class="pc-sec pc-two">
+      <div><span>Объект</span><b class="num">{{ p.objects_used }} <small>/ {{ p.objects }}</small></b></div>
+      <div><span>Баланс</span><b class="num">{{ p.balance|som|default:"0" }} <small>сўм</small></b></div>
+    </div>
+    <div class="pc-acts">
+      <a href="{% url 'billing:profile' %}#topup" class="pc-go is-line">{% icon "plus" "h-4 w-4" "2.5" %} Тўлдириш</a>
+      <a href="{% url 'billing:profile' %}" class="pc-go">Тариф ва тарих {% icon "chevron-right" "h-4 w-4" %}</a>
+    </div>
+  </div>
+</div>
+<style>
+  .pc { position: relative; flex-shrink: 0; }
+  .pc-btn { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px 0 6px; border-radius: 10px; border: 1px solid rgb(var(--ok-200)); background: rgb(var(--ok-50) / .6); color: rgb(var(--ink-800)); transition: background .15s, border-color .15s; }
+  .pc-btn:hover, .pc-btn[aria-expanded="true"] { background: rgb(var(--ok-50)); border-color: rgb(var(--ok-300)); }
+  .pc-btn.is-low { border-color: rgb(var(--warn-200)); background: rgb(var(--warn-50) / .7); }
+  .pc-btn.is-out { border-color: rgb(var(--bad-200)); background: rgb(var(--bad-50) / .7); }
+  .pc-ring { width: 26px; height: 26px; transform: rotate(-90deg); }
+  .pc-ring circle { fill: none; stroke-width: 4.5; } .pc-ring .bg { stroke: rgb(var(--ink-200)); }
+  .pc-ring .fg { stroke: rgb(var(--ok-500)); stroke-linecap: round; }
+  .pc-btn.is-low .pc-ring .fg { stroke: rgb(var(--warn-500)); } .pc-btn.is-out .pc-ring .fg { stroke: rgb(var(--bad-500)); }
+  .pc-t { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; text-align: left; }
+  .pc-t b { font-size: 12.5px; font-weight: 800; color: rgb(var(--ink-900)); } .pc-t span { font-size: 11.5px; color: rgb(var(--ink-500)); white-space: nowrap; }
+  @media (max-width: 639.98px) { .pc-t { display: none; } .pc-btn { padding: 0 5px; } }
+  .pc-pop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 70; width: min(320px, calc(100vw - 24px)); border: 1px solid rgb(var(--ink-200)); border-radius: 16px; background: #fff; box-shadow: 0 18px 50px rgb(15 23 42 / .18); }
+  .pc-hd { display: flex; gap: 10px; align-items: center; padding: 14px 16px 12px; }
+  .pc-ic { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: 12px; background: rgb(var(--ok-100)); color: rgb(var(--ok-700)); }
+  .pc-l { font-size: 12px; color: rgb(var(--ink-500)); } .pc-n { font-size: 17px; font-weight: 800; color: rgb(var(--ink-900)); line-height: 1.2; }
+  .pc-sec { border-top: 1px solid rgb(var(--ink-100)); padding: 12px 16px; font-size: 13px; color: rgb(var(--ink-600)); }
+  .pc-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .pc-sec b { font-size: 15px; font-weight: 800; color: rgb(var(--ink-900)); } .pc-sec small { font-size: 12px; font-weight: 500; color: rgb(var(--ink-400)); }
+  .pc-bar { margin-top: 7px; height: 7px; border-radius: 999px; background: rgb(var(--ink-100)); overflow: hidden; }
+  .pc-bar i { display: block; height: 100%; border-radius: 999px; background: rgb(var(--ok-500)); }
+  .pc-btn.is-low + .pc-pop .pc-bar i { background: rgb(var(--warn-500)); } .pc-btn.is-out + .pc-pop .pc-bar i { background: rgb(var(--bad-500)); }
+  .pc-sub { margin-top: 5px; font-size: 12px; color: rgb(var(--ink-400)); }
+  .pc-warn { margin-top: 8px; border-radius: 8px; background: rgb(var(--warn-50)); padding: 6px 8px; font-size: 12.5px; color: rgb(var(--warn-800)); }
+  .pc-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } .pc-two span { display: block; font-size: 12px; color: rgb(var(--ink-500)); }
+  .pc-acts { display: flex; gap: 8px; border-top: 1px solid rgb(var(--ink-100)); padding: 12px 16px 14px; }
+  .pc-go { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 36px; border-radius: 10px; background: rgb(var(--ink-900)); color: #fff; font-size: 13px; font-weight: 700; }
+  .pc-go:hover { background: rgb(var(--ink-700)); }
+  .pc-go.is-line { background: #fff; color: rgb(var(--ink-800)); border: 1px solid rgb(var(--ink-300)); } .pc-go.is-line:hover { background: rgb(var(--ink-50)); }
+</style>
+<script>
+  (function () {
+    var box = document.querySelector("[data-pc]"), btn = box.querySelector("[data-pc-btn]"), pop = box.querySelector("[data-pc-pop]");
+    function show(on) { pop.hidden = !on; btn.setAttribute("aria-expanded", on ? "true" : "false"); }
+    btn.addEventListener("click", function () { show(pop.hidden); });
+    document.addEventListener("click", function (e) { if (!pop.hidden && !box.contains(e.target)) show(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !pop.hidden) { show(false); btn.focus(); } });
+  })();
+</script>
+{% endwith %}{% endif %}

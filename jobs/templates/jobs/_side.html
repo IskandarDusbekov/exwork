@@ -20,6 +20,9 @@
     {% if "texnazor" not in side.off %}{% include "jobs/_side_link.html" with key="texnazor" url="texnazor:index" ic="building" label=_("Офёрта ва далолатнома") %}{% endif %}
     {% if "calc" not in side.off %}{% include "jobs/_side_link.html" with key="calc" url="calc" ic="calculator" label=_("Калькулятор") %}{% endif %}
     {% if "settings" not in side.off %}{% include "jobs/_side_link.html" with key="settings" url="user_settings" ic="sliders" label=_("Созламалар") %}{% endif %}
+    {% if billing_on and "balance" not in side.off %}{# пулли режим ёқиқ бўлсагина; ёнида — баланс #}
+    <a href="{% url 'billing:profile' %}" title="Баланс ва тариф" class="side-link{% if nav == 'balance' %} is-on{% endif %}"{% if nav == 'balance' %} aria-current="page"{% endif %}>{% icon "wallet" "h-5 w-5 shrink-0" %}<span class="side-label flex-1">Баланс ва тариф</span>{% if my_balance is not None %}<span class="side-label num text-xs font-semibold text-slate-400">{{ my_balance|som|default:"0" }}</span>{% endif %}</a>
+    {% endif %}
     {% if not side or side.yordam %}<div class="side-cap">Ёрдам</div>{% endif %}
     {% if "help" not in side.off %}{% include "jobs/_side_link.html" with key="help" url="help" ic="help" label=_("Йўриқнома") %}{% endif %}
     {% if "guide" not in side.off %}{% include "jobs/_side_link.html" with key="guide" url="guide" ic="play" label=_("Видео қўлланма") %}{% endif %}
