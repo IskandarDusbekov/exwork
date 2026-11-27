@@ -196,6 +196,34 @@ def test_service_rejects_and_reports(tmp_path, monkeypatch):
     assert died  # жараён чиқади — systemd тоза профил билан қайта ёқади
 
 
+def test_cgroup_memory_read(tmp_path):
+    m = _script()
+    (tmp_path / "cgroup").write_text("0::/system.slice/narxlash-office@2003.service\n")
+    d = tmp_path / "cg" / "system.slice" / "narxlash-office@2003.service"
+    d.mkdir(parents=True)
+    (d / "memory.current").write_text("927989760\n")
+    assert m.cgroup_memory(tmp_path / "cgroup", tmp_path / "cg") == 927989760
+    assert m.cgroup_memory(tmp_path / "yoq", tmp_path / "cg") is None
+
+
+def test_restart_after_heavy_file(tmp_path, monkeypatch):
+    """Оғир файлдан кейин LibreOffice хотирани қайтармайди — чегарадан ошса, хизмат қайта ёқилади."""
+    m = _script()
+    mem = [100 * 2 ** 20]
+    svc = m.Service(FakeOffice(tmp_path), timeout=30, max_conversions=0, max_mb=1, restart_mb=600,
+                    memory=lambda: mem[0])
+    stops = []
+    monkeypatch.setattr(svc, "shutdown", lambda: stops.append(1))
+    svc.convert(xmlrpc.client.Binary(b"a"), ".xls")
+    threading.Event().wait(0.7)
+    assert stops == []  # 100 МБ — ишлашда давом этади
+    mem[0] = 885 * 2 ** 20
+    svc.convert(xmlrpc.client.Binary(b"b"), ".xls")
+    svc.convert(xmlrpc.client.Binary(b"c"), ".xls")  # қайта ёқилишини кутаётганда — яна бир марта эмас
+    threading.Event().wait(0.7)
+    assert stops == [1]
+
+
 def test_request_size_limited(tmp_path):
     m = _script()
     server = SimpleXMLRPCServer(("127.0.0.1", 0), requestHandler=m.make_handler(1000), allow_none=True,

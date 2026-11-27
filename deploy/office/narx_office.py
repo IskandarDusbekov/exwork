@@ -13,7 +13,8 @@
   ҳар файл ўз вақтинча папкасида, ўгирилгач ўчирилади;
 * алоҳида ҳуқуқсиз фойдаланувчи (systemd: ``narxlash-office``) — сайт папкалари, .env, база кўринмайди;
 * битта ўгириш ``--timeout`` дан ошса ёки LibreOffice ўлса — жараён чиқади, systemd тоза профил билан
-  қайта ёқади; ``--max-conversions`` тадан кейин ҳам (хотира тўпланиб қолмасин).
+  қайта ёқади; ``--max-conversions`` тадан кейин ва оғир файлдан кейин хотира ``--restart-mb`` дан ошса ҳам
+  (LibreOffice олган хотирасини қайтармайди — бўш турганда юзлаб МБ банд бўлиб қолмасин).
 
 Тизим Python'и билан ишлайди (``python3-uno`` пакети — venv'да эмас)::
 
@@ -75,6 +76,17 @@ def fresh_profile(work: Path) -> Path:
     (profile / "user" / "registrymodifications.xcu").write_text(profile_xcu(), encoding="utf-8")
     (work / "tmp").mkdir()
     return profile
+
+
+def cgroup_memory(proc_cgroup="/proc/self/cgroup", root="/sys/fs/cgroup"):
+    """Хизматнинг (systemd cgroup — LibreOffice билан бирга) ҳозирги хотираси, байт. Билиб бўлмаса — None."""
+    try:
+        for line in Path(proc_cgroup).read_text().splitlines():
+            if line.startswith("0::"):
+                return int((Path(root) / line[3:].strip().lstrip("/") / "memory.current").read_text().strip())
+    except (OSError, ValueError):
+        pass
+    return None
 
 
 def request_limit(max_mb: int) -> int:
@@ -157,10 +169,14 @@ class Office:
 
 
 class Service:
-    def __init__(self, office: Office, timeout: float, max_conversions: int, max_mb: int):
+    def __init__(self, office: Office, timeout: float, max_conversions: int, max_mb: int, restart_mb: int = 0,
+                 memory=cgroup_memory):
         self.office, self.timeout, self.max_conversions, self.max_mb = office, timeout, max_conversions, max_mb
+        self.restart_bytes = restart_mb * 1024 * 1024
+        self.memory = memory
         self.done = 0
         self.server = None
+        self.stopping = False
 
     def _die(self, why: str, code: int = 3):
         """LibreOffice қотди / ўлди: жараён чиқади — systemd тоза профил билан қайта ёқади."""
@@ -210,8 +226,21 @@ class Service:
                  time.monotonic() - t0, self.done)
         if self.max_conversions and self.done >= self.max_conversions:
             # хотира тўпланиб қолмасин: жавоб қайтгач тоза профил билан қайта ёқилади
-            threading.Timer(0.5, self.shutdown).start()
+            self._restart_soon(f"{self.done} та файл ўгирилди")
+        elif self.restart_bytes:
+            # оғир файлдан кейин LibreOffice олган хотирасини қайтармайди (юзлаб МБ) — бўш турганда ҳам банд
+            # бўлмасин: чегарадан ошса, жавоб қайтгач қайта ёқилади (~4 с; шу орада сайт одатдаги усулда)
+            mem = self.memory()
+            if mem is not None and mem > self.restart_bytes:
+                self._restart_soon(f"хотира {mem // 2 ** 20} МБ > {self.restart_bytes // 2 ** 20} МБ")
         return xmlrpc.client.Binary(out)
+
+    def _restart_soon(self, why: str):
+        if self.stopping:
+            return
+        self.stopping = True
+        log.info("%s — тоза профил билан қайта ёқилади", why)
+        threading.Timer(0.5, self.shutdown).start()
 
     def shutdown(self):
         log.info("тўхтатилмоқда (%s та ўгирилди)", self.done)
@@ -249,6 +278,8 @@ def main(argv=None):
     ap.add_argument("--timeout", type=float, default=170, help="битта ўгириш энг кўпи (с)")
     ap.add_argument("--max-conversions", type=int, default=500, help="шунчадан кейин тоза қайта ёқилади (0 — чекловсиз)")
     ap.add_argument("--max-mb", type=int, default=40, help="энг катта файл (МБ)")
+    ap.add_argument("--restart-mb", type=int, default=600,
+                    help="ўгиришдан кейин хизмат хотираси шундан ошса — қайта ёқилади (0 — текширилмайди)")
     ap.add_argument("--selftest", default="", help="шу .xls ни ўгириб, натижани ёзади ва чиқади")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -256,7 +287,7 @@ def main(argv=None):
     work.mkdir(parents=True, exist_ok=True)
     office = Office(a.soffice, work, a.uno_port or a.port + 1000)
     office.start()
-    svc = Service(office, a.timeout, a.max_conversions, a.max_mb)
+    svc = Service(office, a.timeout, a.max_conversions, a.max_mb, 0 if a.selftest else a.restart_mb)
     try:
         if a.selftest:
             src = Path(a.selftest)

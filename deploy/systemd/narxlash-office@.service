@@ -19,10 +19,12 @@ TemporaryFileSystem=/srv:ro
 BindReadOnlyPaths=/srv/narxlash/app/deploy/office:/srv/office
 ExecStart=/usr/bin/python3 /srv/office/narx_office.py --port %i --work /var/lib/narxlash-office/%i
 Restart=always
-RestartSec=2
-# хотира тўпланиб қолмасин: ҳар 6 соатда тоза профил билан қайта ёқилади (скрипт ўзи ҳам 500 файлдан кейин)
+RestartSec=1
+# хотира тўпланиб қолмасин: ҳар 6 соатда тоза профил билан қайта ёқилади (скрипт ўзи ҳам 500 файлдан кейин ва
+# оғир файлдан кейин хотира 600 МБ дан ошса). Чегара — ўгириш пайтида етарли бўлсин: оғир .xls ~900 МБ олади,
+# чегарага яқинлашса ядро хотирани қайта-қайта бўшатиб, ишни бир неча баравар секинлатади
 RuntimeMaxSec=6h
-MemoryMax=1G
+MemoryMax=1536M
 TasksMax=256
 Nice=5
 UMask=0077
