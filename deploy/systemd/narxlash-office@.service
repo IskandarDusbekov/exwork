@@ -1,0 +1,53 @@
+[Unit]
+# Доимий LibreOffice (.xls → .xlsx): ҳар нусха — алоҳида порт. Иккита нусха:
+#   sudo systemctl enable --now narxlash-office@2003 narxlash-office@2004
+# сайт .env'ида: NARXLASH_OFFICE=127.0.0.1:2003,127.0.0.1:2004 (нусхалар сони = NARXLASH_LO_SLOTS)
+Description=Narxlash — doimiy LibreOffice (.xls → .xlsx), port %i
+After=network.target
+
+[Service]
+# Сайтдан алоҳида, ҳуқуқсиз фойдаланувчи: зарарли файл LibreOffice'даги хатодан фойдаланса ҳам
+# сайт сирлари (.env), база, бошқа сметалар (media) ва захира нусхалар кўринмайди
+User=narxlash-office
+Group=narxlash-office
+# профил ва вақтинча файллар: /var/lib/narxlash-office/<порт> (systemd ўзи яратади, фақат шу фойдаланувчига)
+StateDirectory=narxlash-office
+StateDirectoryMode=0700
+Environment=HOME=/var/lib/narxlash-office
+# /srv бутунлай яширин — фақат хизмат скрипти (ўқиш учун) кўринади
+TemporaryFileSystem=/srv:ro
+BindReadOnlyPaths=/srv/narxlash/app/deploy/office:/srv/office
+ExecStart=/usr/bin/python3 /srv/office/narx_office.py --port %i --work /var/lib/narxlash-office/%i
+Restart=always
+RestartSec=2
+# хотира тўпланиб қолмасин: ҳар 6 соатда тоза профил билан қайта ёқилади (скрипт ўзи ҳам 500 файлдан кейин)
+RuntimeMaxSec=6h
+MemoryMax=1G
+TasksMax=256
+Nice=5
+UMask=0077
+# тармоқ: фақат шу компьютер ичида (127.0.0.1) — ташқарига ҳам, ташқаридан ҳам уланиб бўлмайди
+IPAddressDeny=any
+IPAddressAllow=localhost
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/narxlash-office
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

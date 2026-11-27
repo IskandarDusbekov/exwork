@@ -7,6 +7,7 @@
 * ёзилгандан кейин ресурс «тасдиқланган» бўлади: кейин ҳеч қандай автоматика унинг тоифасини ўзгартирмайди,
   кейинги файлларда шу ресурс ўзи белгиланиб «такрорий» рўйхатга тушади (нархи 3× фарқ қилмаса);
 * ҳар қарор дарҳол сақланади — браузер ёпилса ҳам иш йўқолмайди."""
+import datetime as dt
 import logging
 from datetime import date as _date
 from decimal import Decimal
@@ -81,8 +82,8 @@ def _job_raw(jobs) -> tuple:
         fi = len(files)
         files.append({"job": str(job.id), "file": job.local_name[:200], "sheet": job.local_sheet or ""})
         for r in (job.result or {}).get("rows") or []:
-            if (r.get("status") or "") in SKIP_STATUS:
-                continue
+            if (r.get("status") or "") in SKIP_STATUS or S.from_base(r):
+                continue  # базадан олинган нарх — базанинг ўзи, янги кузатув эмас
             raw.append({"fi": fi, "sheet": job.local_sheet or "", "row": int(r.get("row") or 0), "name": r.get("name"),
                         "unit": r.get("unit"), "price": r.get("g"),
                         "qty": r.get("qty_total") if r.get("qty_total") is not None else r.get("qty"),
@@ -370,27 +371,111 @@ def start_upload(*, items, root, kind, title, user, file_path="", default_catego
     return it
 
 
+# Ўқиш оғир (архив, юзлаб файл, катта Excel): ``NARXLASH_TASKS=worker`` да сайт жараёнида эмас — ``run_worker``
+# навбатдан олади (lease: ``worker`` + ``heartbeat``, ``jobs.pricing`` каби). thread режимида (ишлаб чиқиш) — оқим.
+LEASE_STALE = dt.timedelta(minutes=5)  # ишчи шунча жим бўлса (ўчиб қолган) — бошқаси қайтадан олади
+KEEPALIVE_SECONDS = 30
+
+
+def worker_mode() -> bool:
+    from django.conf import settings
+    return getattr(settings, "NARXLASH_TASKS", "thread") == "worker"
+
+
+def _reading():
+    return Intake.objects.filter(status=Intake.Status.READING)
+
+
+def _free():
+    return Q(worker="") | Q(heartbeat__isnull=True) | Q(heartbeat__lt=timezone.now() - LEASE_STALE)
+
+
+def _claim(pk, worker: str) -> bool:
+    return bool(_reading().filter(pk=pk).filter(_free()).update(worker=worker, heartbeat=timezone.now()))
+
+
+def claim_next(worker: str):
+    """Навбатдаги ўқишни эгаллайди (атомар UPDATE): аввал юклангани биринчи. Навбат id'си ёки None."""
+    for pk in _reading().filter(_free()).order_by("created").values_list("id", flat=True)[:10]:
+        if _claim(pk, worker):
+            return pk
+    return None
+
+
 def run(pk, inline=None):
+    """Ўқишни бошлаш: inline (тестлар) — шу ерда; worker режимида — ҳеч нарса (бўш ишчи ўзи олади);
+    thread режимида — сайт жараёнидаги оқим."""
     from django.conf import settings
     if inline if inline is not None else getattr(settings, "NARXBAZA_INLINE", False):
-        read_upload(pk)
+        run_now(pk)
+        return
+    if worker_mode():
         return
     import threading
-    transaction.on_commit(lambda: threading.Thread(target=read_upload, args=(pk,), daemon=True,
+    transaction.on_commit(lambda: threading.Thread(target=run_now, args=(pk,), daemon=True,
                                                    name=f"narx-intake-{pk}").start())
 
 
+def run_now(pk):
+    """Шу жараёнда (thread режими, тестлар): эгаллаб, ўқийди."""
+    import os
+    import threading
+    me = f"thread:{os.getpid()}:{threading.get_ident()}"
+    if _claim(pk, me):
+        read_upload(pk, me)
+
+
+def requeue(it: Intake):
+    """Тўхтаб қолган / хато берган ўқишни қайта навбатга қўяди (сақланган файллардан)."""
+    pr = {k: v for k, v in (it.progress or {}).items() if k in ("src", "root", "cat")}
+    it.status, it.progress = Intake.Status.READING, {**pr, "stage": "Қайта бошланди", "done": 0}
+    it.worker, it.heartbeat = "", None
+    it.save(update_fields=["status", "progress", "worker", "heartbeat", "updated"])
+    run(it.pk)
+
+
 def stuck(it: Intake) -> bool:
-    return it.status == Intake.Status.READING and (timezone.now() - it.updated).total_seconds() > STUCK_MINUTES * 60
+    """Ўқиш олдинга силжимаяпти: 15 дақиқа ўзгармаган ва ҳеч бир ишчи тирик белги бермаяпти (ишчи ўчган ёки
+    сервер қайта ишга тушган). Ишчи ишлаётган бўлса (бир файл узоқ ўгирилса ҳам) — тўхтаган эмас."""
+    if it.status != Intake.Status.READING:
+        return False
+    now = timezone.now()
+    if it.heartbeat and now - it.heartbeat < LEASE_STALE:
+        return False
+    return (now - it.updated).total_seconds() > STUCK_MINUTES * 60
 
 
-def read_upload(pk) -> None:
+def read_upload(pk, worker: str = "") -> None:
+    """Юкланган файлларни ўқийди. ``worker`` — навбатни эгаллаган ишчи: ўқиш давомида тириклик белгиси
+    қўйилади, тугагач навбат бўшатилади."""
+    import threading
+    stop = threading.Event()
+    if worker:
+        def keepalive():
+            from django.db import close_old_connections
+            while not stop.wait(KEEPALIVE_SECONDS):
+                try:
+                    Intake.objects.filter(pk=pk, worker=worker).update(heartbeat=timezone.now())
+                except Exception:  # noqa: BLE001 — белги қўйилмаса, кейингисида
+                    pass
+                finally:
+                    close_old_connections()
+        threading.Thread(target=keepalive, daemon=True, name=f"narx-intake-keepalive-{pk}").start()
+    try:
+        _read_upload(pk)
+    finally:
+        stop.set()
+        if worker:
+            Intake.objects.filter(pk=pk, worker=worker).update(worker="", heartbeat=None)
+
+
+def _read_upload(pk) -> None:
     from pathlib import Path, PurePosixPath
 
     from django.conf import settings
     from django.db import close_old_connections
 
-    from core import convert
+    from core import xlsfast
     from jobs.archives import ArchiveError, extract_excel
     close_old_connections()
     it = Intake.objects.get(pk=pk)
@@ -427,7 +512,8 @@ def read_upload(pk) -> None:
 
         def conv(n, show, path):
             try:
-                x = convert.ensure_xlsx(path, root / "view" / str(n))
+                # базага фақат қийматлар керак: .xls — xlrd билан (LibreOffice'сиз), бўлмаса — LibreOffice
+                x = xlsfast.to_xlsx_values(path, root / "view" / str(n))
                 return (show, x, x.relative_to(media).as_posix()), None
             except Exception as e:  # noqa: BLE001
                 return None, (show, str(e)[:120] or "очиб бўлмади")
@@ -479,7 +565,7 @@ def restore_view(it: Intake, fi: int):
 
     from django.conf import settings
 
-    from core import convert
+    from core import xlsfast
     from jobs.archives import extract_excel, is_archive
     media = Path(settings.MEDIA_ROOT)
     files = list(it.files or [])
@@ -500,7 +586,7 @@ def restore_view(it: Intake, fi: int):
         else:
             match = [p] if show == want or len(src) == 1 else []
         if match:
-            x = convert.ensure_xlsx(match[0], root / "view_r" / f"{fi}")
+            x = xlsfast.to_xlsx_values(match[0], root / "view_r" / f"{fi}")
             files[fi] = {**files[fi], "path": x.relative_to(media).as_posix()}
             Intake.objects.filter(pk=it.pk).update(files=files)
             it.files = files

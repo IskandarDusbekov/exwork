@@ -83,12 +83,19 @@ def pending_works() -> list:
     return out
 
 
+def from_base(r: dict) -> bool:
+    """Қатор нарх базасидан олинган ва смета­чи нархини ўзгартирмаган — бу базанинг ўз нархи, янги кузатув эмас.
+    Йиғилмайди: бўлмаса база ўз нархини «тасдиқлаб» қайта олади, нархлар сони (n) сунъий ортади ва ўрта нарх
+    шу қийматда қотиб қолади. Смета­чи қўлда ўзгартирган бўлса (``manual`` / MANUAL) — янги маълумот, йиғилади."""
+    return (r.get("status") or "") == "BASE" and not r.get("manual")
+
+
 def _job_items(jobs):
-    """Нархланган смета қаторлари: (name, unit, price, qty, category, status, place)."""
+    """Нархланган смета қаторлари: (name, unit, price, qty, category, status, place). Базадан олинганлари йўқ."""
     for job in jobs:
         for r in (job.result or {}).get("rows") or []:
             status = r.get("status") or ""
-            if status == "WORK_HEADER":
+            if status == "WORK_HEADER" or from_base(r):
                 continue
             if r.get("manual"):
                 status = "MANUAL"
@@ -269,9 +276,10 @@ def parse_file(path, kind, file_name, default_category="K", soffice=None) -> lis
     """Юкланган файлдан қаторлар (``group_rows`` натижаси). ``kind``: "res" ёки "excel"."""
     import tempfile
     from pathlib import Path
-    from core import convert
+    from core import xlsfast
     with tempfile.TemporaryDirectory(prefix="narx_xl_") as tmp:
-        xlsx = convert.ensure_xlsx(Path(path), Path(tmp), soffice=soffice) if kind == "excel" else Path(path)
+        # фақат қийматлар керак: .xls — xlrd билан (LibreOffice'сиз), ўқиб бўлмаса — LibreOffice
+        xlsx = xlsfast.to_xlsx_values(Path(path), Path(tmp), soffice=soffice) if kind == "excel" else Path(path)
         raw = file_rows(xlsx, kind, default_category)
     return group_rows((r["name"], r["unit"], r["price"], r["qty"], r["category"], "FILE",
                        {"file": file_name[:200], "sheet": r["sheet"][:60], "row": r["row"]}) for r in raw)

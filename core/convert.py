@@ -11,6 +11,7 @@ dastur ham .xls ni shunday ochardi. ``NARXLASH_CONVERTER`` bilan tanlanadi:
 ``auto`` (standart: LibreOffice, bo'lmasa Excel), ``libreoffice`` yoki ``excel``.
 """
 import contextlib
+import hashlib
 import importlib.util
 import os
 import shutil
@@ -45,6 +46,95 @@ _LIMITER = None
 def set_limiter(fn):
     global _LIMITER
     _LIMITER = fn
+
+
+# ===================== ўгирилган файллар кеши =====================
+# Бир хил .xls кўп марта келади (қайта нархлаш, папкани қайта юклаш, нарх базасига йиғиш): мазмуни (SHA-256)
+# бўйича тайёр .xlsx сақланади — такрор келганда LibreOffice умуман ишга тушмайди. Django илова ``set_cache``
+# билан йўлини ўрнатади; ўрнатилмаса — кешсиз (core Django'сиз ҳам ишласин).
+CACHE_VERSION = "1"  # ўгириш усули ўзгарса оширилади — эски нусхалар ишлатилмайди
+_CACHE_DIR: Optional[Path] = None
+_CACHE_MAX = 2 * 1024 ** 3
+_PRUNE_EVERY = 50
+_cache_writes = 0
+
+
+def set_cache(path, max_bytes: Optional[int] = None):
+    """Кеш папкаси (``None`` — кешсиз) ва энг катта ҳажми: ошса, энг узоқ ишлатилмаганлари ўчирилади."""
+    global _CACHE_DIR, _CACHE_MAX
+    _CACHE_DIR = Path(path) if path else None
+    if max_bytes:
+        _CACHE_MAX = int(max_bytes)
+
+
+def _file_hash(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _cache_entry(path: Path, tag: str) -> Optional[Path]:
+    if _CACHE_DIR is None:
+        return None
+    try:
+        key = _file_hash(path)
+    except OSError:
+        return None
+    return _CACHE_DIR / key[:2] / f"{key}-{tag}-v{CACHE_VERSION}.xlsx"
+
+
+def _cache_prune():
+    """Кеш ҳажми чегарадан ошса — энг узоқ ишлатилмаганлари (mtime) ўчирилади."""
+    if _CACHE_DIR is None or not _CACHE_DIR.is_dir():
+        return
+    files = []
+    for p in _CACHE_DIR.rglob("*.xlsx"):
+        try:
+            st = p.stat()
+        except OSError:
+            continue
+        files.append((st.st_mtime, st.st_size, p))
+    total = sum(s for _, s, _ in files)
+    for _, size, p in sorted(files):
+        if total <= _CACHE_MAX:
+            break
+        with contextlib.suppress(OSError):
+            p.unlink()
+            total -= size
+
+
+def _cached(path: Path, out_dir: Path, tag: str, convert_fn) -> Path:
+    """``convert_fn()`` натижаси мазмун бўйича кешланади. Кешдан олинганда ҳам натижа ``out_dir`` да."""
+    global _cache_writes
+    entry = _cache_entry(path, tag)
+    out = out_dir / (path.stem + ".xlsx")
+    if entry is not None and entry.is_file():
+        try:
+            shutil.copyfile(entry, out)
+            if not zipfile.is_zipfile(out):
+                raise ConversionError("кешдаги нусха бузуқ")
+            os.utime(entry)  # яқинда ишлатилди — тозалашда охирида ўчади
+            check_xlsx(out)
+            return out
+        except (OSError, ConversionError):
+            with contextlib.suppress(OSError):
+                entry.unlink()  # бузуқ нусха — қайта ўгирилади
+    result = convert_fn()
+    if entry is not None:
+        try:
+            if result.is_file() and result.stat().st_size > 0:
+                entry.parent.mkdir(parents=True, exist_ok=True)
+                tmp = entry.with_name(f".{entry.name}.{os.getpid()}.tmp")
+                shutil.copyfile(result, tmp)
+                os.replace(tmp, entry)  # бир вақтда икки жараён ёзса ҳам — бутун файл
+                _cache_writes += 1
+                if _cache_writes % _PRUNE_EVERY == 1:
+                    _cache_prune()
+        except OSError:
+            pass  # кешга ёзиб бўлмади — ўгириш барибир тайёр
+    return result
 
 
 def find_soffice(soffice: Optional[str] = None) -> str:
@@ -114,23 +204,114 @@ def ensure_xlsx(path: Path, out_dir: Path, soffice: Optional[str] = None, timeou
     out_dir.mkdir(parents=True, exist_ok=True)
     mode = (converter or os.environ.get(CONVERTER_ENV) or "auto").lower()
     if mode == "excel":
-        return _convert_excel(path, out_dir)
+        return _cached(path, out_dir, "excel", lambda: _convert_excel(path, out_dir))
     if mode == "libreoffice":
-        return _convert_libreoffice(find_soffice(soffice), path, out_dir, timeout)
+        exe = find_soffice(soffice)
+        return _cached(path, out_dir, "lo", lambda: _convert_libreoffice(exe, path, out_dir, timeout))
     try:
         exe = find_soffice(soffice)
     except ConversionError:
         if excel_available():
-            return _convert_excel(path, out_dir)
+            return _cached(path, out_dir, "excel", lambda: _convert_excel(path, out_dir))
         raise
-    return _convert_libreoffice(exe, path, out_dir, timeout)
+    return _cached(path, out_dir, "lo", lambda: _convert_libreoffice(exe, path, out_dir, timeout))
+
+
+# ===================== доимий LibreOffice (deploy/office/narx_office.py) =====================
+# Сервердa 1–2 та LibreOffice доим ёқиқ туради (``narxlash-office@<порт>``) — ҳар файл учун ишга тушиб-ўчмайди.
+# Файл мазмуни 127.0.0.1 даги XML-RPC орқали юборилади, .xlsx мазмуни қайтади (йўл эмас: хизмат бошқа
+# фойдаланувчи номидан ишлайди ва сайт папкаларини кўрмайди). Хизмат жавоб бермаса — одатдаги усул (ҳар файлга
+# алоҳида soffice): сайт ишлашда давом этади. Ўрнатилмаса (``set_office`` чақирилмаса) — фақат одатдаги усул.
+OFFICE_ENV = "NARXLASH_OFFICE"
+OFFICE_FAULT_FILE = 1  # хизмат жавоби: файл очилмади (бузуқ / смета эмас) — deploy/office/narx_office.py билан бир хил
+OFFICE_FAULT_SERVICE = 2  # хизматнинг ўзи ишламаяпти (LibreOffice ўлган, қайта ёқилмоқда)
+_LOOPBACK = {"127.0.0.1", "localhost", "::1"}
+_OFFICE: list = []
+
+
+def parse_office(spec) -> list:
+    """«127.0.0.1:2003,127.0.0.1:2004» → [("127.0.0.1", 2003), …]. Фақат шу компьютер (127.0.0.1) — хизматда
+    пароль йўқ, бошқа манзил хавфли: ``ValueError``."""
+    out = []
+    for part in str(spec or "").replace(" ", "").split(","):
+        if not part:
+            continue
+        host, _, port = part.rpartition(":")
+        host = host.strip("[]") or "127.0.0.1"
+        if host not in _LOOPBACK:
+            raise ValueError(f"{OFFICE_ENV}: фақат 127.0.0.1 рухсат этилган, «{host}» эмас")
+        if not port.isdigit() or not 0 < int(port) < 65536:
+            raise ValueError(f"{OFFICE_ENV}: порт нотўғри — «{part}»")
+        out.append((host, int(port)))
+    return out
+
+
+def set_office(spec):
+    """Доимий LibreOffice манзиллари (``NARXLASH_OFFICE``); бўш — ўчиқ."""
+    global _OFFICE
+    _OFFICE = parse_office(spec)
+
+
+class _TimeoutTransport:
+    """xmlrpc Transport — уланиш ва жавоб учун вақт чегараси (хизмат қотса, сайт кутиб қолмасин)."""
+
+    def __new__(cls, timeout):
+        import xmlrpc.client
+
+        class T(xmlrpc.client.Transport):
+            def make_connection(self, host):
+                conn = super().make_connection(host)
+                conn.timeout = timeout
+                return conn
+        return T()
+
+
+class OfficeUnavailable(Exception):
+    """Доимий LibreOffice жавоб бермади — одатдаги усулга қайтилади."""
+
+
+def _office_convert(path: Path, out_dir: Path, timeout: int, slot_no) -> Path:
+    """``path`` ни доимий LibreOffice'да ўгиради. Хизмат йўқ / жавоб бермади — ``OfficeUnavailable``;
+    хизмат файлни очолмади (бузуқ файл) — ``ConversionError`` (одатдаги усул ҳам очолмайди, қайта уринилмайди)."""
+    import socket
+    import xmlrpc.client
+    host, port = _OFFICE[(slot_no or 0) % len(_OFFICE)]
+    proxy = xmlrpc.client.ServerProxy(f"http://{host}:{port}/RPC2", transport=_TimeoutTransport(timeout),
+                                      allow_none=True)
+    try:
+        data = proxy.convert(xmlrpc.client.Binary(path.read_bytes()), path.suffix.lower())
+    except xmlrpc.client.Fault as e:
+        if e.faultCode == OFFICE_FAULT_FILE:  # LibreOffice ишлаяпти, лекин бу файлни очолмади
+            raise ConversionError(f".xls -> .xlsx konvertatsiyada xato: {e.faultString}") from e
+        raise OfficeUnavailable(e.faultString) from e  # хизматнинг ўзида муаммо — одатдаги усул
+    except (OSError, socket.timeout, xmlrpc.client.ProtocolError, EOFError) as e:
+        raise OfficeUnavailable(str(e) or e.__class__.__name__) from e
+    out = out_dir / (path.stem + ".xlsx")
+    out.write_bytes(data.data if hasattr(data, "data") else bytes(data))
+    if not zipfile.is_zipfile(out):
+        out.unlink(missing_ok=True)
+        raise OfficeUnavailable("жавоб .xlsx эмас")
+    check_xlsx(out)
+    return out
 
 
 def _convert_libreoffice(exe: str, path: Path, out_dir: Path, timeout: int) -> Path:
-    # Har bir chaqiruvga alohida profil: parallel ishga tushganda LibreOffice qulflanib qolmasin.
     # Бўш ўрин келгунча кутилади (сервер бўйича бир вақтда кўпи билан N та soffice).
     limit = _LIMITER(path.name) if _LIMITER else contextlib.nullcontext()
-    with limit, tempfile.TemporaryDirectory(prefix="narxlash_lo_") as profile:
+    with limit as slot_no:
+        if _OFFICE:
+            try:
+                return _office_convert(path, out_dir, timeout, slot_no)
+            except OfficeUnavailable as e:
+                import logging
+                logging.getLogger(__name__).warning("доимий LibreOffice жавоб бермади (%s) — одатдаги усул: %s",
+                                                    e, path.name)
+        return _convert_cold(exe, path, out_dir, timeout)
+
+
+def _convert_cold(exe: str, path: Path, out_dir: Path, timeout: int) -> Path:
+    # Har bir chaqiruvga alohida profil: parallel ishga tushganda LibreOffice qulflanib qolmasin.
+    with tempfile.TemporaryDirectory(prefix="narxlash_lo_") as profile:
         cmd = [
             exe,
             f"-env:UserInstallation={Path(profile).as_uri()}",

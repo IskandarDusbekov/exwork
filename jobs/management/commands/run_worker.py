@@ -1,4 +1,5 @@
-"""Fondagi ishchi: navbatdagi papkalarni ochadi va narxlaydi, smetalarni qayta hisoblaydi.
+"""Fondagi ishchi: navbatdagi papkalarni ochadi va narxlaydi, smetalarni qayta hisoblaydi, нарх базасига
+юкланган файлларни ўқийди.
 
     python manage.py run_worker              # 2 ta oqim, to'xtatilguncha
     python manage.py run_worker --threads 4
@@ -22,6 +23,7 @@ from django.utils import timezone
 
 from jobs import folders, preview, pricing, recalc
 from jobs.models import Worker
+from narxbaza import intake as narx_intake
 from texnazor import tasks as tn_tasks
 
 log = logging.getLogger("jobs.worker")
@@ -108,6 +110,15 @@ class Command(BaseCommand):
                         self._count(busy=F("busy") + 1)
                         try:
                             tn_tasks.run(oid, me)
+                        finally:
+                            self._count(busy=F("busy") - 1, done=F("done") + 1)
+                        continue
+                    iid = narx_intake.claim_next(me)  # нарх базаси: юкланган файл / архивни ўқиш
+                    if iid is not None:
+                        self.idle[i] = False
+                        self._count(busy=F("busy") + 1)
+                        try:
+                            narx_intake.read_upload(iid, me)
                         finally:
                             self._count(busy=F("busy") - 1, done=F("done") + 1)
                         continue

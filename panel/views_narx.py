@@ -604,10 +604,7 @@ def narx_intake_retry(request, pk):
     from narxbaza import intake as I
     it = get_object_or_404(Intake, pk=pk, kind="file")
     if it.status == Intake.Status.FAILED or I.stuck(it):
-        pr = {k: v for k, v in (it.progress or {}).items() if k in ("src", "root", "cat")}
-        it.status, it.progress = Intake.Status.READING, {**pr, "stage": "Қайта бошланди", "done": 0}
-        it.save(update_fields=["status", "progress", "updated"])
-        I.run(it.pk)
+        I.requeue(it)
     return redirect("panel:narx_intake", pk=pk)
 
 

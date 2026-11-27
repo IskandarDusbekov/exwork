@@ -237,3 +237,5 @@ staticfiles/
 # loglar
 logs/
 backups/
+# ўгирилган .xlsx кеши (NARXLASH_CONVERT_CACHE)
+/cache/

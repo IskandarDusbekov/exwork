@@ -138,6 +138,33 @@ sudo systemctl enable --now narxlash-web narxlash-worker
 sudo systemctl status narxlash-web narxlash-worker
 ```
 
+### 6a. Doimiy LibreOffice (ixtiyoriy, tavsiya etiladi)
+
+Odatda har bir `.xls` uchun LibreOffice noldan ishga tushadi va yopiladi (bir necha soniya, har safar
+~200–400 MB RAM). Doimiy rejimda 2 ta LibreOffice doim yoqiq turadi, sayt faylni ularga yuboradi —
+ishga tushish vaqti ketmaydi. Xizmat ishlamay qolsa, sayt o'zi eski usulga qaytadi (faqat sekinroq).
+
+Xavfsizlik: xizmat faqat `127.0.0.1` da tinglaydi, alohida huquqsiz `narxlash-office` foydalanuvchisidan
+ishlaydi (sayt papkalari, `.env`, baza ko'rinmaydi), makroslar va tashqi havolalar o'chiq, profil har
+ishga tushganda noldan. Batafsil: `deploy/office/narx_office.py` boshidagi izoh.
+
+```bash
+sudo apt install -y python3-uno                      # LibreOffice'ning Python ulanishi (tizim python3 uchun)
+sudo adduser --system --group --no-create-home --home /var/lib/narxlash-office narxlash-office
+# 1) avval qo'lda tekshirish: namuna .xls o'girilsin («OK: … байт» chiqishi kerak)
+sudo -u narxlash-office HOME=/tmp /usr/bin/python3 /srv/narxlash/app/deploy/office/narx_office.py \
+    --port 2003 --work /tmp/narx_office_test --selftest /srv/narxlash/app/core/tests/xls/sample.xls
+# 2) xizmatlar (2 ta nusxa — NARXLASH_LO_SLOTS=2 ga teng)
+sudo cp /srv/narxlash/app/deploy/systemd/narxlash-office@.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now narxlash-office@2003 narxlash-office@2004
+```
+
+Keyin `/srv/narxlash/.env` ga `NARXLASH_OFFICE=127.0.0.1:2003,127.0.0.1:2004` yozib,
+`sudo systemctl restart narxlash-web narxlash-worker`. Tekshirish: `deploy/manage.sh check --deploy`
+(`narxlash.W008` chiqmasin), jurnal — `journalctl -u narxlash-office@2003 -f` (har o'girish va vaqti yoziladi).
+O'chirish: `.env` dan `NARXLASH_OFFICE` ni olib tashlab, sayt va workerni qayta yoqish.
+
 ## 7. nginx va HTTPS
 
 Domen: **mhisobot.uz** va **www.mhisobot.uz**. DNS serverga ulangan bo'lishi kerak — domen panelida

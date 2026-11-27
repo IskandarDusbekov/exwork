@@ -77,7 +77,8 @@ def _count(delta: int):
 
 @contextlib.contextmanager
 def slot(name: str = ""):
-    """Бўш ўрин келгунча кутади, ўгириш тугагач бўшатади."""
+    """Бўш ўрин келгунча кутади, ўгириш тугагач бўшатади. Ўрин рақамини (0, 1, …) беради: доимий LibreOffice
+    (``NARXLASH_OFFICE``) шу рақам бўйича танланади — ҳар нусхага бир вақтда биттадан файл."""
     got = _try(name)
     waited = 0.0
     if not got:
@@ -102,7 +103,7 @@ def slot(name: str = ""):
             _call(cb, None, None, time.monotonic() - t0)
     key, token = got
     try:
-        yield
+        yield int(key[len(PREFIX):])
     finally:
         cur = cache.get(key)
         if cur and cur.get("id") == token:

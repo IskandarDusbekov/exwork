@@ -78,6 +78,13 @@ class IntakeFlowTests(TestCase):
         self.assertNotContains(self.client.get(reverse("panel:narx_collect")), self.url)
         self._decide(intake, [rows[11].pk], status=409, state="new")  # ёпилган навбат ўзгармайди
 
+    def test_base_priced_rows_skip_review_queue(self):
+        job = make_job(self.smetachi, [row(5, "ЦЕМЕНТ", "Т", 750_000, status="BASE"), row(6, "ВОДА", "М3", 760),
+                                       row(7, "ЩЕБЕНЬ", "М3", 90_000, status="MANUAL", orig_status="BASE")],
+                       name="base.xlsx")
+        it = I.open_for_work("smeta", job, self.admin)
+        self.assertEqual(sorted(it.rows.values_list("name", flat=True)), ["ВОДА", "ЩЕБЕНЬ"])
+
     def test_second_time_known_rows_and_price_warning(self):
         intake = self._open()
         self._decide(intake, list(intake.rows.values_list("pk", flat=True)), state="ok", cat="K")
@@ -258,6 +265,52 @@ class IntakeUploadTests(TestCase):
             it.refresh_from_db()
             self.assertEqual((it.status, it.rows.count()), ("open", 2))
         self.assertTrue(connection.is_usable() if hasattr(connection, "is_usable") else True)
+
+    def test_worker_mode_reading_goes_to_worker(self):
+        """``NARXLASH_TASKS=worker``: сайт ўқимайди — навбатга қўяди, ``run_worker`` эгаллаб ўқийди."""
+        with override_settings(MEDIA_ROOT=self.media, NARXLASH_TASKS="worker"):
+            self.client.post(reverse("panel:narx_upload"), {"file": self._xlsx(), "kind": "excel"})
+            it = Intake.objects.get()
+            self.assertEqual((it.status, it.worker), ("reading", ""))
+            self.assertEqual(I.claim_next("w1"), it.pk)
+            self.assertIsNone(I.claim_next("w2"))  # бир ўқишни икки ишчи олмайди
+            it.refresh_from_db()
+            self.assertEqual(it.worker, "w1")
+            self.assertIsNotNone(it.heartbeat)
+            from panel.views_tizim import tasks_state
+            [task] = [x for x in tasks_state()["running"] if x["kind"] == "Нарх базасига ўқиш"]  # панел «Тизим»
+            self.assertEqual((task["name"], task["worker"]), ("taklif.xlsx", "w1"))
+            I.read_upload(it.pk, "w1")
+            it.refresh_from_db()
+            self.assertEqual((it.status, it.worker, it.heartbeat, it.rows.count()), ("open", "", None, 2))
+            self.assertIsNone(I.claim_next("w2"))  # ўқилди — навбат бўш
+
+    def test_dead_worker_lease_taken_over(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        with override_settings(MEDIA_ROOT=self.media, NARXLASH_TASKS="worker"):
+            self.client.post(reverse("panel:narx_upload"), {"file": self._xlsx(), "kind": "excel"})
+            it = Intake.objects.get()
+            old = timezone.now() - timedelta(minutes=20)
+            Intake.objects.filter(pk=it.pk).update(worker="dead", heartbeat=timezone.now())
+            self.assertIsNone(I.claim_next("w2"))  # тирик ишчи ишлаяпти
+            Intake.objects.filter(pk=it.pk).update(updated=old)
+            it.refresh_from_db()
+            self.assertFalse(I.stuck(it))  # узоқ ўзгармаса ҳам, ишчи белги бериб турибди — тўхтамаган
+            Intake.objects.filter(pk=it.pk).update(heartbeat=old)
+            it.refresh_from_db()
+            self.assertTrue(I.stuck(it))
+            self.assertEqual(I.claim_next("w2"), it.pk)  # ишчи ўчган — бошқаси олади
+
+    def test_retry_requeues_with_free_lease(self):
+        with override_settings(MEDIA_ROOT=self.media, NARXLASH_TASKS="worker"):
+            self.client.post(reverse("panel:narx_upload"), {"file": self._xlsx(), "kind": "excel"})
+            it = Intake.objects.get()
+            Intake.objects.filter(pk=it.pk).update(status="failed", worker="old")
+            self.client.post(reverse("panel:narx_intake_retry", args=[it.pk]))
+            it.refresh_from_db()
+            self.assertEqual((it.status, it.worker, it.progress["stage"]), ("reading", "", "Қайта бошланди"))
+            self.assertEqual(I.claim_next("w1"), it.pk)
 
     def test_zip_and_many_files(self):
         """Архив (ичида бир нечта Excel) ва бир нечта файл бирданига — битта текширув, ҳар файл алоҳида."""

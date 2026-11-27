@@ -16,4 +16,5 @@ chmod -R o+rX "$ROOT/static"
 sudo -u narxlash "$ROOT/app/deploy/manage.sh" check --deploy || echo "!!! check --deploy muammo topdi — yuqoriga qarang"
 systemctl restart narxlash-web
 systemctl restart narxlash-worker   # boshlangan ish tugatilib, keyin qayta yonadi
+systemctl try-restart 'narxlash-office@*' || true   # doimiy LibreOffice yoqilgan bo'lsa — yangi skript bilan
 systemctl --no-pager --lines=0 status narxlash-web narxlash-worker

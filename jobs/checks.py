@@ -12,6 +12,34 @@ def _mail_configured():
         return bool(getattr(settings, "NARXLASH_EMAIL_ON", False))
 
 
+def _office_warnings() -> list:
+    """Доимий LibreOffice (``NARXLASH_OFFICE``) ёзилган, лекин жавоб бермаяпти — сайт ишлайди (одатдаги усулда),
+    лекин секинроқ: огоҳлантириш."""
+    spec = getattr(settings, "NARXLASH_OFFICE", "")
+    if not spec:
+        return []
+    import xmlrpc.client
+    from core.convert import _TimeoutTransport, parse_office
+    try:
+        targets = parse_office(spec)
+    except ValueError as e:
+        return [Warning(str(e), hint="NARXLASH_OFFICE=127.0.0.1:2003,127.0.0.1:2004", id="narxlash.W008")]
+    out = []
+    for host, port in targets:
+        try:
+            xmlrpc.client.ServerProxy(f"http://{host}:{port}/RPC2", transport=_TimeoutTransport(3)).ping()
+        except Exception as e:  # noqa: BLE001
+            out.append(Warning(f"Doimiy LibreOffice {host}:{port} javob bermayapti ({e.__class__.__name__}) — "
+                               ".xls eski usulda (sekinroq) o'giriladi",
+                               hint=f"sudo systemctl status narxlash-office@{port}", id="narxlash.W008"))
+    slots = int(getattr(settings, "NARXLASH_LO_SLOTS", 2))
+    if len(targets) != slots:
+        out.append(Warning(f"NARXLASH_OFFICE da {len(targets)} ta nusxa, NARXLASH_LO_SLOTS={slots}: bir nusxaga bir "
+                           "vaqtda ikki fayl tushishi yoki nusxa bo'sh turishi mumkin",
+                           hint="nusxalar soni NARXLASH_LO_SLOTS ga teng bo'lsin", id="narxlash.W008"))
+    return out
+
+
 @register("narxlash", deploy=True)
 def production_infra(app_configs, **kwargs):
     out = []
@@ -37,6 +65,7 @@ def production_infra(app_configs, **kwargs):
         out.append(Warning(f"RAR arxivlar ochilmaydi: {reason} — ZIP ichidagi RAR'lar tashlab ketiladi",
                            hint="sudo add-apt-repository -y multiverse && sudo apt update && sudo apt install -y unrar",
                            id="narxlash.W007"))
+    out += _office_warnings()
     for name, url, default in (("NARXLASH_ADMIN_URL", settings.ADMIN_URL, "admin/"),
                                ("NARXLASH_PANEL_URL", settings.PANEL_URL, "panel/")):
         if url == default or len(url) < 16:

@@ -15,6 +15,14 @@ def _staff_2fa_off(request):
 
 
 @pytest.fixture(autouse=True)
+def _no_convert_cache(monkeypatch):
+    """Testлар ўгириш кешини (``NARXLASH_CONVERT_CACHE``) ишлатмайди — бир тестнинг ўгиргани бошқасига ўтмасин.
+    Кешнинг ўзи ``core/tests/test_convert.py`` да ``set_cache`` билан текширилади."""
+    from core import convert
+    monkeypatch.setattr(convert, "_CACHE_DIR", None)
+
+
+@pytest.fixture(autouse=True)
 def _recalc_inline(request, monkeypatch):
     """Testlarda smetani qayta hisoblash shu jarayonda, darhol (fondagi oqim test tranzaksiyasini ko'rmaydi).
     Navbatning o'zini tekshiradigan test ``@pytest.mark.recalc_queue`` bilan belgilanadi."""

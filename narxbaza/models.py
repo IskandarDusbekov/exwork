@@ -248,6 +248,9 @@ class Intake(models.Model):
     batch = models.ForeignKey(Batch, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     # орқа фонда ўқиш: {"stage", "done", "total", "file", "error", "bad": [[номи, сабаби]], "src": [...], "root"}
     progress = models.JSONField(default=dict, blank=True)
+    # «ўқилмоқда» навбати (``run_worker``): қайси ишчи олди ва охирги тириклик белгиси — ишчи ўчса, бошқаси олади
+    worker = models.CharField(max_length=100, blank=True)
+    heartbeat = models.DateTimeField(null=True, blank=True)
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 

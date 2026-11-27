@@ -322,6 +322,13 @@ NARXLASH_BACKUP_DIR = Path(os.environ.get("NARXLASH_BACKUP_DIR", (BASE_DIR / "ba
 NARXLASH_MAX_ARCHIVE = 700 * 1024 * 1024  # ZIP/RAR arxiv (ichida PDF, chizmalar ham bo'ladi)
 # .xls → .xlsx: сервер бўйича бир вақтда нечта LibreOffice (``jobs.lo_queue``); 2 ядро / 4 ГБ учун 2
 NARXLASH_LO_SLOTS = int(os.environ.get("NARXLASH_LO_SLOTS", "2"))
+# ўгирилган .xlsx кеши (мазмуни бўйича, ``core.convert.set_cache``): такрор .xls қайта ўгирилмайди.
+# media/ дан ташқарида — захира нусхага кирмайди; бўш қийматли муҳит ўзгарувчиси — кешсиз
+NARXLASH_CONVERT_CACHE = os.environ.get("NARXLASH_CONVERT_CACHE", str(BASE_DIR / "cache" / "xlsx"))
+NARXLASH_CONVERT_CACHE_MB = int(os.environ.get("NARXLASH_CONVERT_CACHE_MB", "2048"))
+# доимий LibreOffice (deploy/office, ``narxlash-office@<порт>``): «127.0.0.1:2003,127.0.0.1:2004» — нусхалар сони
+# NARXLASH_LO_SLOTS га тенг бўлсин (ҳар нусхага бир вақтда биттадан файл). Бўш — ҳар .xls учун алоҳида soffice
+NARXLASH_OFFICE = os.environ.get("NARXLASH_OFFICE", "")
 # Bitta foydalanuvchi serverni (disk, CPU) to'ldira olmasin. Xodimlar (is_staff) — cheklovsiz. 0 — cheklov yo'q.
 NARXLASH_UPLOADS_PER_HOUR = int(os.environ.get("NARXLASH_UPLOADS_PER_HOUR", "30"))
 NARXLASH_USER_QUOTA_MB = int(os.environ.get("NARXLASH_USER_QUOTA_MB", "5000"))

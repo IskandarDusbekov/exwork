@@ -85,6 +85,16 @@ class CollectTests(TestCase):
         self.assertEqual(rows[0]["n"], 2)
         self.assertEqual([r["sure"] for r in rows], [True, False, True])
 
+    def test_base_priced_rows_not_collected_back(self):
+        # базадан олинган нарх — базанинг ўзи: қайта йиғилмайди; смета­чи ўзгартирган бўлса — янги маълумот
+        job = make_job(self.user, [
+            row(11, "ЦЕМЕНТ", "Т", 750_000, status="BASE"),
+            row(12, "ВОДА", "М3", 760),
+            row(13, "ГРАВИЙ", "М3", 40_000, status="BASE", manual=True),
+            row(14, "ЩЕБЕНЬ", "М3", 90_000, status="MANUAL", orig_status="BASE"),
+        ])
+        self.assertEqual([r["name"] for r in services.rows_from_jobs([job])], ["ВОДА", "ГРАВИЙ", "ЩЕБЕНЬ"])
+
     def test_add_batch_creates_passport_and_stats(self):
         job = make_job(self.user, [row(11, "ВОДА", "М3", 760), row(12, "ЦЕМЕНТ", "Т", 1_200_000)], name="f1.xlsx")
         b = services.add_batch("smeta", job, services.rows_from_jobs([job]), region="buxoro", day=date(2026, 5, 3),

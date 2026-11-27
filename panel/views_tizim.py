@@ -306,6 +306,12 @@ def tasks_state() -> dict:
             key=f"project:{p.pk}", detail=folder_detail(p, part))
     for j in Job.objects.filter(recalc_pending()).select_related("owner"):
         add("Қайта ҳисоб", j.owner.email, j.local_name, j.recalc_worker, j.recalc_requested, ("jobs/recalc.py", "run"))
+    from narxbaza.models import Intake
+    for it in Intake.objects.filter(status=Intake.Status.READING).select_related("owner"):
+        pr = it.progress or {}
+        rows = [pr["done"], pr["total"]] if pr.get("total") else None
+        add("Нарх базасига ўқиш", it.owner.email if it.owner else "", it.title, it.worker, it.created,
+            ("narxbaza/intake.py", "read_upload"), pr.get("stage") or "навбатда", rows)
     for o in SiteObject.objects.filter(status=SiteObject.Status.PARSING).select_related("owner"):
         code = (("texnazor/services_acts.py", "prepare") if o.mode == SiteObject.Mode.ACTS
                 else ("texnazor/services.py", "import_ofyorta"))
