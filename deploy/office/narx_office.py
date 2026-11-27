@@ -18,7 +18,7 @@
 Тизим Python'и билан ишлайди (``python3-uno`` пакети — venv'да эмас)::
 
     /usr/bin/python3 narx_office.py --port 2003 --work /var/lib/narxlash-office/2003
-    /usr/bin/python3 narx_office.py --port 2003 --selftest файл.xls   # текшириш: ўгириб, натижа ҳажмини ёзади
+    /usr/bin/python3 narx_office.py --port 2003 --selftest файл.xls   # текшириш: ўгириб, натижани --work га ёзади
 """
 import argparse
 import logging
@@ -262,7 +262,7 @@ def main(argv=None):
             src = Path(a.selftest)
             t0 = time.monotonic()
             out = svc.convert(xmlrpc.client.Binary(src.read_bytes()), src.suffix)
-            dst = src.with_name(src.stem + ".selftest.xlsx")
+            dst = work / (src.stem + ".selftest.xlsx")  # манба папкасига ёзиш ҳуқуқи йўқ (бўлмаслиги керак)
             dst.write_bytes(out.data)
             print(f"OK: {dst} ({len(out.data)} байт, {time.monotonic() - t0:.2f} с)")
             return 0
