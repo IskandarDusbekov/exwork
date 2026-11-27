@@ -128,10 +128,65 @@ def _other_units(keys) -> dict:
     return out
 
 
+def ref_stats(item_ids, region="") -> dict:
+    """{item_id: (Stat, шу вилоятникими)} — солиштириш учун базадаги нарх: аввал навбат вилояти (``region``);
+    у ерда нархи йўқ ресурс — энг охирги йил, кўп нархли бошқа вилоят билан (``False`` — шуни кўрсатиш учун)."""
+    ids = list(item_ids)
+    out = {k: (s, True) for k, s in S.best_stat(ids, region=region).items()} if region else {}
+    rest = [i for i in ids if i not in out]
+    if rest:
+        out.update({k: (s, not region) for k, s in S.best_stat(rest).items()})
+    return out
+
+
+CMP_ALL = "all"
+
+
+def cmp_region(intake: Intake) -> str:
+    """Базадаги нархлар қайси вилоятники билан солиштирилади: ``progress["cmp"]`` — ``""`` (навбат вилояти),
+    ``"all"`` (умумий база — ҳамма вилоятлар, қайтаради ``""``) ёки вилоят коди."""
+    c = (intake.progress or {}).get("cmp", "")
+    if c == CMP_ALL:
+        return ""
+    return c or intake.region
+
+
+def _region_name(code) -> str:
+    from resbase.regions import REGION_LABELS
+    return REGION_LABELS.get(code, code)
+
+
+def _warns(price, key, it, ref, ps, units, region) -> list:
+    """Қатор огоҳлантиришлари: базадаги нархдан 3× фарқ (навбат вилояти билан), навбат ичида 3× фарқ,
+    шу ном бошқа бирликда."""
+    warn = []
+    st, own = ref.get(it.pk, (None, True)) if it is not None else (None, True)
+    base = (st.mid if st.mid is not None else st.low) if st else None
+    if base and base > 0:
+        x = price / base
+        if x >= FAR or x <= 1 / FAR:
+            times = f"{(x if x > 1 else 1 / x):.1f}".replace(".", ",")
+            what = f"{times}× {'қиммат' if x > 1 else 'арзон'} (базада {S.fmt(base)})"
+            if not region:
+                warn.append(f"базадаги нархдан {what}, {_region_name(st.region)}")
+            elif own:
+                warn.append(f"{_region_name(region)} нархидан {what}")
+            else:
+                warn.append(f"{_region_name(region)}да нархи йўқ — {_region_name(st.region)} нархидан {what}")
+    if ps and max(ps) / min(ps) >= FAR:
+        warn.append(f"шу навбатда бу ресурс {len(ps)} та қаторда, нархи 3× дан кўп фарқ: "
+                    f"{S.fmt(min(ps))} – {S.fmt(max(ps))}")
+    other = {k: u for k, u in units.get(key.rsplit("|", 1)[0], {}).items() if k != key}
+    if other and (it is None or it.key not in other):
+        warn.append("базада бу ном бошқа бирликда бор: " + ", ".join(sorted(set(other.values())))[:120])
+    return warn
+
+
 def _build(intake: Intake, rows: list) -> None:
     keys = {r["key"] for r in rows}
     items = _item_map(keys)
-    ref = S.best_stat([i.pk for i in items.values()])
+    region = cmp_region(intake)
+    ref = ref_stats([i.pk for i in items.values()], region)
     units = _other_units(keys)
     lm = _lm()
     by_key = {}
@@ -143,26 +198,74 @@ def _build(intake: Intake, rows: list) -> None:
         if r["key"] not in sug_cache:
             sug_cache[r["key"]] = suggest(r["name"], r["unit"], it, r.get("src"), lm)
         cat, why, sure = sug_cache[r["key"]]
-        warn = []
-        st = ref.get(it.pk) if it is not None else None
-        base = (st.mid if st.mid is not None else st.low) if st else None
-        if base and base > 0:
-            x = r["price"] / base
-            if x >= FAR or x <= 1 / FAR:
-                times = f"{(x if x > 1 else 1 / x):.1f}".replace(".", ",")
-                warn.append(f"базадаги нархдан {times}× {'қиммат' if x > 1 else 'арзон'} (базада {S.fmt(base)})")
-        ps = by_key[r["key"]]
-        if max(ps) / min(ps) >= FAR:
-            warn.append("шу навбатда нархи 3× дан кўп фарқ қилади")
-        other = {k: u for k, u in units.get(r["key"].rsplit("|", 1)[0], {}).items() if k != r["key"]}
-        if other and (it is None or it.key not in other):
-            warn.append("базада бу ном бошқа бирликда бор: " + ", ".join(sorted(set(other.values())))[:120])
+        warn = _warns(r["price"], r["key"], it, ref, by_key[r["key"]], units, region)
         objs.append(IntakeRow(intake=intake, fi=r.get("fi", 0), row=r["row"], sheet=r.get("sheet", "")[:100],
                               name=r["name"], unit=r["unit"], key=r["key"], price=r["price"], qty=r["qty"],
                               src_status=(r.get("status") or "")[:20], suggested=cat, reason=why[:300], sure=sure,
                               category=cat, item=it, warn="; ".join(warn)[:300],
                               known=bool(it is not None and it.verified and cat == it.category and not warn)))
     IntakeRow.objects.bulk_create(objs, batch_size=1000)
+
+
+@transaction.atomic
+def warns_stale(intake: Intake) -> bool:
+    """Огоҳлантиришлар ҳозирги солиштириш вилояти билан ҳисобланмаган (эски навбат ёки вилоят ўзгарган)."""
+    return intake.status == Intake.Status.OPEN and (intake.progress or {}).get("warn_region") != cmp_region(intake)
+
+
+def set_region(intake: Intake, region: str) -> int:
+    """Навбат вилоятини ўзгартиради ва базага ёзилмаган қаторлар огоҳлантиришини солиштириш вилояти
+    (``cmp_region``) нархлари билан қайта ҳисоблайди (``known`` ҳам). Ўзгарган қаторлар сонини қайтаради."""
+    from resbase.regions import REGION_LABELS
+    if region and region not in REGION_LABELS:
+        raise ValueError("Номаълум вилоят")
+    return _rewarn(intake, region=region)
+
+
+def set_cmp(intake: Intake, cmp: str) -> int:
+    """Солиштириш: ``""`` — навбат вилояти, ``"all"`` — умумий база, ёки вилоят коди. Огоҳлантиришлар қайта."""
+    from resbase.regions import REGION_LABELS
+    if cmp and cmp != CMP_ALL and cmp not in REGION_LABELS:
+        raise ValueError("Номаълум вилоят")
+    return _rewarn(intake, cmp=cmp)
+
+
+@transaction.atomic
+def _rewarn(intake: Intake, region=None, cmp=None) -> int:
+    intake = Intake.objects.select_for_update().get(pk=intake.pk)
+    if intake.status != Intake.Status.OPEN:
+        if region is not None:
+            raise ValueError("Навбат ёпилган")
+        intake.progress = {**(intake.progress or {}), "cmp": cmp}  # ёпилганда фақат кўриш учун
+        intake.save(update_fields=["progress", "updated"])
+        return 0
+    pr = dict(intake.progress or {})
+    if region is not None:
+        intake.region = region
+    if cmp is not None:
+        pr["cmp"] = cmp
+    intake.progress = pr
+    region = cmp_region(intake)
+    pr["warn_region"] = region
+    intake.save(update_fields=["region", "progress", "updated"])
+    rows = list(_live(intake).select_related("item"))
+    if not rows:
+        return 0
+    keys = {r.key for r in rows}
+    ref = ref_stats({r.item_id for r in rows if r.item_id}, region)
+    units = _other_units(keys)
+    by_key = {}
+    for r in rows:
+        by_key.setdefault(r.key, []).append(r.price)
+    changed = []
+    for r in rows:
+        warn = "; ".join(_warns(r.price, r.key, r.item, ref, by_key[r.key], units, region))[:300]
+        known = bool(r.item is not None and r.item.verified and r.category == r.item.category and not warn)
+        if warn != r.warn or known != r.known:
+            r.warn, r.known = warn, known
+            changed.append(r)
+    IntakeRow.objects.bulk_update(changed, ["warn", "known"], batch_size=1000)
+    return len(changed)
 
 
 def open_for_work(kind, work, user) -> Intake:
@@ -420,19 +523,19 @@ def compare(intake: Intake) -> dict:
     """Базага нисбатан, ҳар файл учун (рад этилмаган қаторлар, ресурс бўйича — ном + бирлик): ``{fi: {new, same,
     changed}}`` ва ``"all"`` — ҳамма файл бўйича. ``new`` — базада йўқ (янги ресурс); ``same`` — базада бор ва нархи
     базадагидек; ``changed`` — базада бор, лекин бошқа нархда (ёзилса базадаги нархи янгиланади). Солиштириш —
-    базадаги охирги йил нархи (ўрта, бўлмаса паст) билан, навбат очилгандагидек."""
+    солиштириш вилояти (``cmp_region``; у ерда йўқ бўлса — бошқа вилоят) охирги йил нархи (ўрта, бўлмаса паст) билан."""
     data = {}
     for fi, key, price in intake.rows.exclude(state=IntakeRow.State.SKIP).values_list("fi", "key", "price"):
         data.setdefault(fi, {}).setdefault(key, set()).add(price)
     keys = {k for d in data.values() for k in d}
     items = _item_map(keys)
-    ref = S.best_stat(list({it.pk for it in items.values()}))
+    ref = ref_stats(list({it.pk for it in items.values()}), cmp_region(intake))
 
     def kind(key, prices):
         it = items.get(key)
         if it is None:
             return "new"
-        st = ref.get(it.pk)
+        st = (ref.get(it.pk) or (None,))[0]
         base = (st.mid if st.mid is not None else st.low) if st else None
         if base is None:
             return "changed"
@@ -460,15 +563,14 @@ def row_json(r: IntakeRow) -> dict:
             "item_cat": r.item.category if r.item_id else None}
 
 
-def base_prices(item_ids) -> dict:
-    """Текширувда кўрсатиш учун: ``{item_id: {low, mid, high, n, region, year, single}}`` — базадаги энг охирги
-    йил (кўп нархли вилояти) нархлари (``best_stat``)."""
-    from resbase.regions import REGION_LABELS
+def base_prices(item_ids, region="") -> dict:
+    """Текширувда кўрсатиш учун: ``{item_id: {low, mid, high, n, region, year, single, own}}`` — навбат вилояти
+    (``region``) нархлари; у ерда йўқ бўлса — бошқа вилоятники (``own=False``, ``ref_stats``)."""
     out = {}
-    for iid, st in S.best_stat(list(item_ids)).items():
+    for iid, (st, own) in ref_stats(item_ids, region).items():
         out[iid] = {"low": S.fmt(st.low), "mid": S.fmt(st.mid) if st.mid is not None else "", "high": S.fmt(st.high),
                     "ref": float(st.mid if st.mid is not None else st.low), "n": st.n, "year": st.year,
-                    "region": REGION_LABELS.get(st.region, st.region), "single": st.low == st.high}
+                    "region": _region_name(st.region), "single": st.low == st.high, "own": own}
     return out
 
 

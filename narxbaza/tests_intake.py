@@ -92,6 +92,59 @@ class IntakeFlowTests(TestCase):
         self.client.post(reverse("panel:narx_intake_known", args=[it2.pk]))
         self.assertEqual(list(it2.rows.filter(state="ok").values_list("row", flat=True)), [5])
 
+    def test_price_warning_uses_intake_region(self):
+        intake = self._open()
+        self._decide(intake, list(intake.rows.values_list("pk", flat=True)), state="ok", cat="K")
+        self._commit(intake)  # базада — Бухоро нархлари
+        job2 = make_job(self.smetachi, [row(6, "ГРАВИЙ", "М3", 900_000)], name="b.xlsx")
+        it2 = I.open_for_work("smeta", job2, self.admin)
+        url = reverse("panel:narx_intake_region", args=[it2.pk])
+        r = self.client.post(url, {"region": "fargona", "at": "f0"})
+        self.assertEqual(r["Location"], reverse("panel:narx_intake", args=[it2.pk]) + "#f0")
+        w = it2.rows.get().warn
+        self.assertIn("Фарғона вилоятида нархи йўқ — Бухоро вилояти нархидан", w)
+        gravel = Item.objects.get(name="ГРАВИЙ")
+        self.assertFalse(I.base_prices([gravel.pk], "fargona")[gravel.pk]["own"])
+        self.client.post(url, {"region": "buxoro"})
+        it2.refresh_from_db()
+        self.assertEqual(it2.region, "buxoro")
+        self.assertTrue(it2.rows.get().warn.startswith("Бухоро вилояти нархидан"))
+        self.assertTrue(I.base_prices([gravel.pk], "buxoro")[gravel.pk]["own"])
+        self.assertContains(self.client.get(reverse("panel:narx_intake", args=[it2.pk])), url)
+        it2.rows.update(warn="")  # эски навбат: огоҳлантириш бошқа вилоят билан ҳисобланган
+        it2.progress = {}
+        it2.save(update_fields=["progress"])
+        self.client.get(reverse("panel:narx_intake", args=[it2.pk]))
+        self.assertTrue(it2.rows.get().warn.startswith("Бухоро вилояти нархидан"))
+
+    def test_compare_against_chosen_region_or_whole_base(self):
+        intake = self._open()
+        self._decide(intake, list(intake.rows.values_list("pk", flat=True)), state="ok", cat="K")
+        self._commit(intake)  # базада — Бухоро нархлари
+        job2 = make_job(self.smetachi, [row(6, "ГРАВИЙ", "М3", 900_000)], name="b.xlsx")
+        it2 = I.open_for_work("smeta", job2, self.admin)
+        self.client.post(reverse("panel:narx_intake_region", args=[it2.pk]), {"region": "fargona"})
+        url = reverse("panel:narx_intake_cmp", args=[it2.pk])
+        r = self.client.post(url, {"cmp": "all", "at": "f0"})
+        self.assertEqual(r["Location"], reverse("panel:narx_intake", args=[it2.pk]) + "#f0")
+        it2.refresh_from_db()
+        self.assertEqual((it2.region, I.cmp_region(it2)), ("fargona", ""))  # навбат вилояти ўзгармайди
+        self.assertTrue(it2.rows.get().warn.startswith("базадаги нархдан"))
+        self.client.post(url, {"cmp": "buxoro"})
+        it2.refresh_from_db()
+        self.assertTrue(it2.rows.get().warn.startswith("Бухоро вилояти нархидан"))
+        self.assertFalse(I.warns_stale(it2))
+        page = self.client.get(reverse("panel:narx_intake", args=[it2.pk]))
+        self.assertContains(page, url)
+        self.assertContains(page, 'value="buxoro" selected')
+        self.client.post(url, {"cmp": ""})  # яна навбат вилояти
+        it2.refresh_from_db()
+        self.assertEqual(I.cmp_region(it2), "fargona")
+        self.assertIn("Фарғона вилоятида нархи йўқ", it2.rows.get().warn)
+        self.client.post(url, {"cmp": "zzz"})
+        it2.refresh_from_db()
+        self.assertEqual(I.cmp_region(it2), "fargona")
+
     def test_cancel_and_staff_has_no_access(self):
         intake = self._open()
         self.client.post(reverse("panel:narx_intake_cancel", args=[intake.pk]))

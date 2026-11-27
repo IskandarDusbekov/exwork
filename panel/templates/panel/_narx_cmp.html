@@ -1,0 +1,6 @@
+{% comment %} Текширувда солиштириш: навбат вилояти / умумий база / бошқа вилоят (``narx_intake_cmp``). {% endcomment %}
+<select data-cmp class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900" title="Пастдаги «Базада» ва огоҳлантиришлар шу бўйича. Вилоятда нархи йўқ ресурс — бошқа вилоят билан.">
+  <option value="" {% if not cmp %}selected{% endif %}>Навбат вилояти{% if it.region %} ({{ it.get_region_display }}){% else %} (танланмаган){% endif %}</option>
+  <option value="all" {% if cmp == "all" %}selected{% endif %}>Умумий база — ҳамма вилоятлар</option>
+  <optgroup label="Бошқа вилоят">{% for k, label in regions %}<option value="{{ k }}" {% if cmp == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>
+</select>

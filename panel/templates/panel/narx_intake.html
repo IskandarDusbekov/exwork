@@ -53,6 +53,8 @@
     <div class="min-w-0 flex-1">
       <h2 class="break-words text-lg font-semibold">{{ it.title }}</h2>
       <p class="text-sm text-slate-600">{% if it.kind == "file" %}Юклади{% else %}Смета­чи{% endif %}: <b>{{ it.owner.get_full_name|default:"—" }}</b> · {{ files|length }} та файл · {{ c.total }} та ресурс қатори</p>
+      <label class="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">Базадаги нарх билан солиштириш:
+        {% include "panel/_narx_cmp.html" %}</label>
       {% if cmp_all and it.status == "open" %}<div class="mt-2 flex flex-wrap gap-2 text-xs">
         <span class="rounded-lg bg-sky-50 px-2.5 py-1 text-sky-800" title="Ном + бирлик бўйича базада йўқ ресурслар">Янги (базада йўқ): <b class="num">{{ cmp_all.new }}</b></span>
         <span class="rounded-lg bg-slate-100 px-2.5 py-1 text-slate-700" title="Базада бор, нархи базадагидек">Базада бор, нархи бир хил: <b class="num">{{ cmp_all.same }}</b></span>
@@ -121,7 +123,7 @@
 <form method="post" id="ni-commit-form" action="{% url 'panel:narx_intake_commit' it.pk %}" class="sticky bottom-0 z-10 mt-4 rounded-xl border border-slate-300 bg-white p-4 shadow-lg">{% csrf_token %}
   <h3 class="font-semibold">Белгиланган файлларни базага ёзиш</h3>
   <div class="mt-3 flex flex-wrap items-end gap-2">
-    <label class="text-xs text-slate-500">Вилоят{% if it.region_hint %} <span class="text-slate-400">(«{{ it.region_hint|truncatechars:24 }}»)</span>{% endif %}
+    <label class="text-xs text-slate-500" title="Базадаги нархлар шу вилоятники билан солиштирилади">Вилоят{% if it.region_hint %} <span class="text-slate-400">(«{{ it.region_hint|truncatechars:24 }}»)</span>{% endif %}
       <select name="region" required class="mt-0.5 block rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900"><option value=""></option>
         {% for k, label in regions %}<option value="{{ k }}" {% if it.region == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
     <label class="text-xs text-slate-500">Сана (нархлар шу кунники)
@@ -145,7 +147,8 @@
     <b id="ni-fname" class="min-w-0 max-w-[40vw] truncate text-sm text-slate-900"></b>
     <span id="ni-fleft" class="text-xs"></span>
     {% if it.status == "open" %}<button type="button" id="ni-fokall" class="hidden rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700">✓ Қолганини тасдиқлаш</button><button type="button" id="ni-fcommit" class="hidden rounded-lg bg-slate-900 px-3 py-1 text-xs font-semibold text-white hover:bg-slate-700">Шу файлни базага ёзиш →</button>{% endif %}
-    <span class="ml-auto inline-flex items-center overflow-hidden rounded-lg border border-slate-300 bg-white text-sm" title="Жадвал ўлчами (+ / − тугмалари)">
+    <label class="ml-auto inline-flex items-center gap-1 text-xs text-slate-500">Солиштириш {% include "panel/_narx_cmp.html" %}</label>
+    <span class="inline-flex items-center overflow-hidden rounded-lg border border-slate-300 bg-white text-sm" title="Жадвал ўлчами (+ / − тугмалари)">
       <button type="button" data-zoom="-1" class="px-2.5 py-1 hover:bg-slate-100" aria-label="Кичрайтириш">−</button>
       <button type="button" data-zoom="0" id="ni-zoom" class="num min-w-[4.5rem] border-x border-slate-300 px-2 py-1 text-xs hover:bg-slate-100" title="Экран кенглигига мослаш">Мослаш</button>
       <button type="button" data-zoom="1" class="px-2.5 py-1 hover:bg-slate-100" aria-label="Катталаштириш">+</button></span>
@@ -178,6 +181,7 @@
   const FDONE = JSON.parse(document.getElementById("ni-fdone").textContent);
   const LABEL = Object.fromEntries(CATS.map(c => [c[0], c[1]])), GUT = Object.fromEntries(CATS.map(c => [c[0], c[2]])), ORDER = CATS.map(c => c[0]);
   const OPEN = "{{ it.status }}" === "open";
+  const REGION = "{{ cmp_label|escapejs }}", CMP_ALL = "{{ cmp|escapejs }}" === "all";
   const sheetUrl = fi => "{% url 'panel:narx_intake_sheet' it.pk 0 %}".replace(/0\/$/, fi + "/");
   const decideUrl = "{% url 'panel:narx_intake_decide' it.pk %}";
   const csrf = (document.querySelector("[name=csrfmiddlewaretoken]") || {}).value || "";
@@ -367,6 +371,9 @@
         : `<span class="ni-pv"><i>паст</i><b class="num">${esc(b.low)}</b></span>${b.mid ? `<span class="ni-pv mid"><i>ўрта</i><b class="num">${esc(b.mid)}</b></span>` : ""}<span class="ni-pv"><i>юқори</i><b class="num">${esc(b.high)}</b></span>`;
       baseHtml = `<div class="ni-box"><div class="ni-h">Базада <a class="font-normal text-sky-700 hover:underline" target="_blank" href="/panel/narx/i/${r.item}/">паспорт ↗</a>
           <span class="font-normal text-slate-500">${esc(b.region)}, ${b.year} · ${b.n} та нарх${r.item_verified ? " · <span class='text-emerald-700'>тасдиқланган</span>" : ""}</span></div>
+        ${CMP_ALL ? `<div class="mb-1 text-xs text-slate-500">Умумий база: энг охирги йил, энг кўп нархли вилоят.</div>`
+          : !REGION ? `<div class="mb-1 text-xs text-amber-700">Вилоят танланмаган — энг кўп нархли вилоят билан солиштирилди (пастда вилоятни танланг).</div>`
+          : !b.own ? `<div class="mb-1 text-xs text-amber-700">${esc(REGION)}да нархи йўқ — ${esc(b.region)} билан солиштирилди.</div>` : ""}
         <div class="flex flex-wrap items-center gap-1.5">${vals}</div><div class="mt-1 text-xs">${gapTxt}</div></div>`;
     } else if (r.item) {
       baseHtml = `<div class="ni-box"><div class="ni-h">Базада <a class="font-normal text-sky-700 hover:underline" target="_blank" href="/panel/narx/i/${r.item}/">паспорт ↗</a></div><div class="text-xs text-slate-600">Ресурс бор, лекин ҳисобдаги нархи йўқ — шу нарх биринчиси бўлади.</div></div>`;
@@ -505,6 +512,17 @@
     else if (/^(Digit|Numpad)[1-6]$/.test(e.code)) { e.preventDefault(); act({cat: ORDER[+e.code.slice(-1) - 1], state: "ok"}); }
   });
   listStats();
+  const post = (url, name, value) => {
+    const f = document.createElement("form");
+    f.method = "post"; f.action = url;
+    for (const [k, v] of [["csrfmiddlewaretoken", csrf], [name, value], ["at", location.hash.slice(1)]]) {
+      const i = document.createElement("input"); i.type = "hidden"; i.name = k; i.value = v; f.appendChild(i);
+    }
+    document.body.appendChild(f); f.submit();
+  };
+  const regionSel = document.querySelector("#ni-commit-form select[name=region]");
+  if (regionSel) regionSel.addEventListener("change", () => post("{% url 'panel:narx_intake_region' it.pk %}", "region", regionSel.value));
+  document.querySelectorAll("select[data-cmp]").forEach(s => s.addEventListener("change", () => post("{% url 'panel:narx_intake_cmp' it.pk %}", "cmp", s.value)));
   const m = /^#f(\d+)$/.exec(location.hash);
   if (m && +m[1] < FILES.length) open(+m[1]);
 })();

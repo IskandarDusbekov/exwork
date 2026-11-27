@@ -3,6 +3,7 @@
 ўзгартириш — ``is_superuser`` (журналга ёзилади)."""
 import json
 import os
+import re
 from pathlib import Path
 from datetime import date
 
@@ -960,6 +961,9 @@ def narx_intake(request, pk):
     if it.status in (it.Status.READING, it.Status.FAILED):
         return render(request, "panel/narx_intake_wait.html", _nctx(request, "uploads" if it.kind == "file" else "collect", it=it, pr=it.progress or {},
                                                                      stuck=I.stuck(it)))
+    if I.warns_stale(it):
+        I.set_region(it, it.region)
+        it.refresh_from_db()
     rows = I.rows_json(it)
     cmp = I.compare(it)
     bstats = dict(Batch.all_objects.filter(pk__in={f["batch"] for f in it.files or [] if f.get("batch")})
@@ -976,7 +980,8 @@ def narx_intake(request, pk):
         cmp_all=cmp["all"],
         file_names=[f["file"] + (f" — {f['sheet']}" if it.kind == "file" and f.get("sheet") else "") for f in files],
         file_done=[bool(f.get("done")) for f in files],
-        rows_script=_json_tag(rows, "ni-rows"), base_script=_json_tag(I.base_prices({r["item"] for r in rows if r["item"]}), "ni-base"),
+        cmp=(it.progress or {}).get("cmp", ""), cmp_label=REGION_LABELS.get(I.cmp_region(it), ""),
+        rows_script=_json_tag(rows, "ni-rows"), base_script=_json_tag(I.base_prices({r["item"] for r in rows if r["item"]}, I.cmp_region(it)), "ni-base"),
         cats_json=[[k, label, GUTTER[k]] for k, label in CATEGORIES]))
 
 
@@ -1057,6 +1062,32 @@ def narx_intake_known(request, pk):
     n = I.accept_known(it, request.user)
     messages.success(request, f"{n} та такрорий қатор тасдиқланди (сиз илгари тасдиқлаган ресурслар).")
     return redirect("panel:narx_intake", pk=pk)
+
+
+@require_POST
+@superuser_required
+def narx_intake_region(request, pk):
+    """Навбат вилояти: базадаги нархлар шу вилоятники билан солиштирилади (огоҳлантиришлар қайта ҳисобланади)."""
+    from narxbaza import intake as I
+    it = _intake_or_404(pk)
+    try:
+        I.set_region(it, request.POST.get("region", ""))
+    except ValueError as e:
+        messages.error(request, str(e))
+    return redirect(reverse("panel:narx_intake", args=[pk]) + (("#" + at) if re.fullmatch(r"f\d+", at := request.POST.get("at", "")) else ""))
+
+
+@require_POST
+@superuser_required
+def narx_intake_cmp(request, pk):
+    """Солиштириш: навбат вилояти / умумий база (ҳамма вилоятлар) / бошқа вилоят."""
+    from narxbaza import intake as I
+    it = _intake_or_404(pk)
+    try:
+        I.set_cmp(it, request.POST.get("cmp", ""))
+    except ValueError as e:
+        messages.error(request, str(e))
+    return redirect(reverse("panel:narx_intake", args=[pk]) + (("#" + at) if re.fullmatch(r"f\d+", at := request.POST.get("at", "")) else ""))
 
 
 @require_POST
